@@ -1,0 +1,11 @@
+# OS
+.DS_Store
+
+# Claude Code (개인 로컬 설정만 제외 — 공유 설정 .claude/settings.json 은 커밋)
+.claude/settings.local.json
+
+# Node (스캐폴딩 대비)
+node_modules/
+dist/
+out/
+*.log

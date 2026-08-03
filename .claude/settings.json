@@ -1,0 +1,29 @@
+{
+  "permissions": {
+    "deny": [
+      "Edit(./docs/origin/**)",
+      "Write(./docs/origin/**)",
+      "Edit(docs/origin/**)",
+      "Write(docs/origin/**)"
+    ]
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Write|Edit|NotebookEdit|Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/protect-origin.sh\"",
+            "statusMessage": "docs/origin 보호 규칙 확인"
+          },
+          {
+            "type": "command",
+            "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/protect-git-flow.sh\"",
+            "statusMessage": "브랜치 전략 규칙 확인"
+          }
+        ]
+      }
+    ]
+  }
+}
