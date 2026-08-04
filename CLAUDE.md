@@ -1,5 +1,13 @@
 # dongmodoro
 
+## 도메인 용어는 [CONTEXT.md](CONTEXT.md) 를 따른다
+
+- 문서·코드·UI 카피를 쓰기 전에 [CONTEXT.md](CONTEXT.md) 를 읽는다.
+  캐노니컬 용어만 쓰고 각 항목의 `_Avoid_` 표기는 쓰지 않는다.
+  (예: 정산 ○ / 리뷰 ✕, 뽀모 ○ / 뽀모도로 ✕, 할 일 ○ / 작업·태스크 ✕)
+- 용어를 새로 정하거나 기존 정의를 바꾸는 결정은 **같은 PR 에서 CONTEXT.md 를 갱신**한다.
+- `docs/origin/`·`docs/decision-log/` 의 과거 기록은 용어를 소급 수정하지 않는다.
+
 ## 기획 문서 작성 규칙
 
 기획·설계 작업의 **계획을 짤 때는 반드시 [docs/CLAUDE.md](docs/CLAUDE.md)를 먼저 읽고 그 규칙을 따른다.**
