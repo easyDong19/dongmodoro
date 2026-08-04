@@ -18,7 +18,10 @@
 | PK · 갱신 추적 | UUID v7 (TEXT) + mutable 테이블 `updated_at` (sessions 포함 — ADR-011 이 부분 정정) | [ADR-006](decisions/adr-006-schema-sync-insurance.md) |
 | 시간 포맷 | 4종 분류 (순간 UTC ISO / 달력 키 로컬 불변 / 길이 INTEGER / 런타임 epoch ms 비저장) + 시간 모듈 초크포인트 | [ADR-009](decisions/adr-009-time-format-convention.md) |
 | 주 정의 | 주 시작 월요일, 주 키 = 그 주 월요일 날짜 `'YYYY-MM-DD'`, 계획일 = `plan_lead_days` 모델 | [ADR-010](decisions/adr-010-week-definition.md) |
-| 스키마 (계획 단계 확정) | `weeks`·`task_pulls` 신설, 불변 달력 키, `completed_at` 통일, 제약·PRAGMA 세트, 시작 시 백업·버전 검사 | [ADR-011](decisions/adr-011-schema-final.md) |
+| 스키마 (계획 단계 확정) | `weeks`·`task_pulls` 신설, 불변 달력 키, `completed_at` 통일, 제약·PRAGMA 세트, 시작 시 백업·버전 검사 | [ADR-011](decisions/adr-011-schema-final.md) (ADR-012~014 이 부분 정정) |
+| 집계 술어 | 항목 소진은 `sessions.local_week = week_items.week` 조건으로 계산 → 게이지 = 항목 합 + 미분류가 정의상 성립. pull 주 제한 폐기 | [ADR-012](decisions/adr-012-aggregation-predicate.md) |
+| 베이스라인·예산 | 예산·capacity·길이를 `weeks` 행에 확정 저장(첫 세션 시에도 생성). 편집은 상시, 효력은 다음 주 경계부터 | [ADR-013](decisions/adr-013-baseline-budget-effect.md) |
+| 삭제·보관 | `week_items`·`tasks` 만 soft delete, sessions 불삭제, milestones 물리 삭제 + `ON DELETE SET NULL`. 보관은 집계 중립 | [ADR-014](decisions/adr-014-deletion-and-archive.md) |
 | IPC 계약 | 도메인 명령형 API + zod 런타임 검증 | [ADR-007](decisions/adr-007-ipc-contract.md) |
 | 코드 구조 | main 3층 + renderer FSD-lite | [ADR-008](decisions/adr-008-code-structure.md) |
 | 패키징·배포 | electron-builder → GitHub Releases 수동 다운로드 | [ADR-004](decisions/adr-004-packaging-deploy.md) |
