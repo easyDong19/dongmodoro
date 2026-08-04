@@ -3,9 +3,18 @@
 #
 #   DENY : main 에서 commit/merge/cherry-pick/tag, main 으로 push,
 #          main·release 로 force push, 스쿼시 외 gh pr merge,
-#          release 브랜치에 feat 커밋
+#          release 브랜치에 feat 커밋, main 에서 --ff-only 없는 pull
 #   ASK  : release/* 에서 commit·push (버그픽스만 허용 — 사람이 판단),
 #          태그 push (= 배포 트리거)
+#
+# 브랜치 판정 (2026-08-04 패치, docs/decision-log/2026-08-04-hook-patch.md):
+#   1) 명령이 실행되는 cwd 의 저장소에서 읽는다 — git worktree 를 지원한다.
+#      (이전에는 CLAUDE_PROJECT_DIR 고정이라 워크트리의 feature 브랜치를
+#       main 으로 오판해 병렬 에이전트의 커밋을 전부 차단했다)
+#   2) 명령 안의 checkout/switch 는 마지막 전환 대상으로 판정한다 (feature 포함).
+#   3) git -C <dir> 의 대상 저장소 브랜치도 판정 후보다 — 다른 체크아웃을 겨냥한
+#      우회를 막는다.
+#   4) /usr/bin/git 등 절대경로 호출도 git 으로 인식한다.
 #
 # stdin: Claude Code hook input JSON
 set -uo pipefail
@@ -18,7 +27,8 @@ tool_name="$(printf '%s' "$payload" | jq -r '.tool_name // ""' 2>/dev/null)"
 
 cmd="$(printf '%s' "$payload" | jq -r '.tool_input.command // ""' 2>/dev/null)"
 [[ -z "$cmd" ]] && exit 0
-printf '%s' "$cmd" | grep -qE '(^|[|&;([:space:]])(git|gh)([[:space:]]|$)' || exit 0
+# 절대경로(/usr/bin/git)·상대경로 호출 포함
+printf '%s' "$cmd" | grep -qE '(^|[|&;([:space:]])([^[:space:]|&;()]*/)?(git|gh)([[:space:]]|$)' || exit 0
 
 decide() { # $1=deny|ask $2=reason
   jq -n --arg d "$1" --arg r "$2" '{hookSpecificOutput:{hookEventName:"PreToolUse",permissionDecision:$d,permissionDecisionReason:$r}}'
@@ -28,22 +38,40 @@ decide() { # $1=deny|ask $2=reason
 # 부트스트랩 예외: 커밋이 하나도 없으면 최초 커밋은 main 에 허용
 git -C "$PROJECT_DIR" rev-parse HEAD >/dev/null 2>&1 || exit 0
 
-branch="$(git -C "$PROJECT_DIR" branch --show-current 2>/dev/null)"
+# --- 브랜치 판정 기준 저장소: 명령이 실행되는 cwd (워크트리 지원) ------------
+cwd="$(printf '%s' "$payload" | jq -r '.cwd // ""' 2>/dev/null)"
+repo_dir="$PROJECT_DIR"
+[[ -n "$cwd" && -d "$cwd" ]] && repo_dir="$cwd"
+branch="$(git -C "$repo_dir" branch --show-current 2>/dev/null)"
+# cwd 가 git 저장소가 아니면 프로젝트 루트로 폴백
+[[ -z "$branch" ]] && ! git -C "$repo_dir" rev-parse --git-dir >/dev/null 2>&1 \
+  && branch="$(git -C "$PROJECT_DIR" branch --show-current 2>/dev/null)"
 
-# 커맨드 안에서 main/release 로 checkout|switch 하면 그 브랜치 기준으로 판정
-if printf '%s' "$cmd" | grep -qE 'git[[:space:]]+(checkout|switch)[[:space:]]+([^-][^[:space:]]*[[:space:]]+)?main([[:space:]]|$|;|&)'; then
-  branch="main"
-elif printf '%s' "$cmd" | grep -qE 'git[[:space:]]+(checkout|switch)[[:space:]]+([^-][^[:space:]]*[[:space:]]+)?release/'; then
-  branch="release/x"
-fi
+# --- 명령 안의 checkout/switch: 마지막 전환 대상 기준으로 판정 ---------------
+target="$(printf '%s' "$cmd" \
+  | grep -oE 'git[[:space:]]+(checkout|switch)([[:space:]]+-[^[:space:]]+)*[[:space:]]+[^-][^[:space:]]*' \
+  | tail -1 | awk '{print $NF}')"
+[[ -n "$target" ]] && branch="$target"
 
 on_main=0; on_release=0
 [[ "$branch" == "main" ]] && on_main=1
 [[ "$branch" == release/* ]] && on_release=1
 
+# --- git -C <dir>: 대상 저장소의 브랜치도 판정 후보 (우회 차단) ---------------
+while IFS= read -r d; do
+  [[ -z "$d" ]] && continue
+  d="${d%\"}"; d="${d#\"}"; d="${d%\'}"; d="${d#\'}"
+  [[ "$d" != /* ]] && d="$repo_dir/$d"
+  cb="$(git -C "$d" branch --show-current 2>/dev/null)"
+  [[ "$cb" == "main" ]] && on_main=1
+  [[ "$cb" == release/* ]] && on_release=1
+done < <(printf '%s' "$cmd" \
+  | grep -oE '(^|[|&;([:space:]])([^[:space:]|&;()]*/)?git[[:space:]]+-C[[:space:]]+[^[:space:]]+' \
+  | sed -E 's/.*-C[[:space:]]+//')
+
 has() { printf '%s' "$cmd" | grep -qE "$1"; }
 
-GIT='git([[:space:]]+-[^[:space:]]+)*[[:space:]]+'
+GIT='([^[:space:]|&;()]*/)?git([[:space:]]+-[^[:space:]]+([[:space:]]+[^-[:space:]][^[:space:]]*)?)*[[:space:]]+'
 
 # ---------------------------------------------------------------- push
 if has "${GIT}push"; then
@@ -66,6 +94,12 @@ if has "${GIT}push"; then
   if has "([[:space:]:])release/[^[:space:]]*" || [[ $on_release -eq 1 ]]; then
     decide ask "release 브랜치 push. 버그픽스 백포트인지 확인 필요 (새 기능 금지)."
   fi
+fi
+
+# ---------------------------------------------------------------- pull (main 보호)
+# pull 은 fetch+merge 다. main 에서 --ff-only 없는 pull 은 머지 커밋을 만들 수 있다.
+if [[ $on_main -eq 1 ]] && has "${GIT}pull([[:space:]]|$)" && ! has '[[:space:]]--ff-only([[:space:]]|$)'; then
+  decide deny "main 에서는 git pull --ff-only 만 허용한다 (머지 커밋 방지)."
 fi
 
 # ---------------------------------------------------------------- 히스토리 변경
