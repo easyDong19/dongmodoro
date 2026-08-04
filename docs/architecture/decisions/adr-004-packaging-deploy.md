@@ -1,0 +1,31 @@
+# ADR-004: 패키징·배포 — pnpm + electron-builder + GitHub Releases
+
+- 상태: accepted (2026-08-03) — 단, macOS 코드 서명 여부는 미결정 (M4 에서 결정)
+
+## Context
+
+v1 은 1인용 로컬 앱이고 자동 업데이트가 필수는 아니다. 레포의 브랜치 전략
+(CONTRIBUTING.md)이 "태그 push = 배포 트리거"를 이미 규정하고 있어, 배포 파이프라인이
+이 규칙과 맞물려야 한다.
+
+## Decision
+
+1. **패키지 매니저는 pnpm.**
+2. **패키징은 electron-builder**, 산출물은 **GitHub Releases 에 업로드, 수동 다운로드**로 시작한다.
+3. 배포 흐름: release 브랜치에서 태그 push → GitHub Actions → electron-builder
+   빌드 → GitHub Releases 업로드. CONTRIBUTING.md 의 릴리즈 규칙과 정확히 일치한다.
+4. macOS 코드 서명·공증은 v1 에서 결정 유보 — 패키징 단계(M4)에서
+   미서명 배포 vs Apple Developer 계정(+notarization) 중 선택한다.
+
+## Consequences
+
+- (+) electron-builder 의 `publish: github` 설정으로 릴리즈 업로드까지 자동화 가능.
+- (+) 이후 electron-updater 로 자동 업데이트를 붙일 때 GitHub Releases 가 그대로
+  업데이트 서버 역할을 한다 — 확장 경로가 깔끔.
+- (−) **pnpm 10+ 은 의존성의 postinstall 빌드 스크립트를 기본 차단한다.**
+  better-sqlite3·electron 이 정확히 그것을 필요로 하므로 `package.json` 에
+  `pnpm.onlyBuiltDependencies: ["better-sqlite3", "electron", "esbuild"]` 지정이 필수.
+  누락 시 "설치는 됐는데 바이너리가 없음" 류의 오류가 난다.
+- (−) 미서명 macOS 앱은 Gatekeeper 경고를 받는다. 본인 사용은 우회 가능하지만
+  "상용처럼"이 목표라면 서명·공증 경험도 가치가 있다 — M4 에서 재논의.
+- 태그 push 는 배포 트리거이므로 사용자 확인 없이 push 하지 않는다 (CONTRIBUTING.md).

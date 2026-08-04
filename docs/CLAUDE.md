@@ -9,6 +9,7 @@ docs/
 ├── CLAUDE.md        # 이 문서. 문서 작성 규칙
 ├── origin/          # 원천 데이터 (READ-ONLY) — 절대 수정 금지
 ├── design-system/   # 횡단 관심사: 디자인 토큰·시각 철칙 (기능 폴더와 동급)
+├── architecture/    # 횡단 관심사: 기술 스택·프로세스 구조·기술 결정(ADR) (기능 폴더와 동급)
 └── features/        # 생성된 기능별 기획 문서 묶음
 ```
 
@@ -18,6 +19,14 @@ docs/
 - 모든 ux-spec 과 구현 코드는 **토큰 이름으로만** 시각 값을 기술한다. raw hex/px 직접 기입 금지.
 - 토큰 추가·변경은 ADR 로 근거를 남긴 뒤에만 한다.
 - 시각 판단(색 의미, 실패 프레임, 모션)은 [design-system/principles.md](design-system/principles.md) 를 따르고, 기능 문서와 충돌 시 principles.md 가 이긴다.
+
+## `docs/architecture/` — 기술 스택과 프로세스 구조 (횡단 문서)
+
+- [architecture/overview.md](architecture/overview.md) 가 확정 스택·프로세스 아키텍처·미결정 사항의 **유일한 출처**다.
+- 특정 기능에 속하지 않는 기술 결정(스택 선택, 프로세스 경계, 배포 방식)은 기능 폴더가 아니라 여기에 기록한다.
+- 기술 선택의 결정 근거는 [architecture/decisions/](architecture/decisions/) 아래 ADR(`adr-NNN-<slug>.md`)로 남긴다. context / decision / consequences 섹션 필수.
+- 기능별 technical-spec 은 architecture 문서와 **충돌할 수 없다.** 충돌이 필요하면 먼저 ADR 로 architecture 를 갱신한다.
+- 결정이 뒤집히면 기존 ADR 을 수정하지 말고 superseded 표기 후 새 ADR 을 추가한다.
 
 ## ⛔ `docs/origin/` — 원천 데이터 (읽기 전용)
 
