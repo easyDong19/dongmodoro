@@ -1,0 +1,7 @@
+id: feature-app-shell
+status: draft
+owner: TBD
+entrypoint: overview.md
+docs:
+  - prd.md
+  - ux-spec.md
