@@ -9,6 +9,7 @@ docs/
 ├── CLAUDE.md        # 이 문서. 문서 작성 규칙
 ├── origin/          # 원천 데이터 (READ-ONLY) — 절대 수정 금지
 ├── design-system/   # 횡단 관심사: 디자인 토큰·시각 철칙 (기능 폴더와 동급)
+│   └── wireframes/  # 토큰을 적용한 화면 시안 (구속력 없는 시각 참조)
 ├── architecture/    # 횡단 관심사: 기술 스택·프로세스 구조·기술 결정(ADR) (기능 폴더와 동급)
 ├── features/        # 생성된 기능별 기획 문서 묶음
 └── plans/           # 구현 계획서 (마일스톤·작업 단위, YYYY-MM-DD-<slug>.md)
@@ -28,6 +29,16 @@ docs/
 - 모든 ux-spec 과 구현 코드는 **토큰 이름으로만** 시각 값을 기술한다. raw hex/px 직접 기입 금지.
 - 토큰 추가·변경은 ADR 로 근거를 남긴 뒤에만 한다.
 - 시각 판단(색 의미, 실패 프레임, 모션)은 [design-system/principles.md](design-system/principles.md) 를 따르고, 기능 문서와 충돌 시 principles.md 가 이긴다.
+
+### `design-system/wireframes/` — 화면 시안 (구속력 없음)
+
+- 토큰만 사용해 그린 **살아있는 시각 참조**다. 파일명에 날짜를 붙이지 않고, 디자인이
+  바뀌면 같은 파일을 갱신한다 (시점 기록은 `docs/decision-log/` 의 몫이다).
+- **명세가 아니다.** 와이어프레임이 기능 문서와 어긋나면 **ux-spec·prd 가 이긴다.**
+  와이어프레임에서 발견한 결정 사항은 그림에 남기지 말고 해당 문서·ADR 에 반영한다.
+- 여기에 raw hex·px 색값을 새로 만들지 않는다. 토큰에 없는 값이 필요하면 ADR 선행
+  ([tokens.md §7](design-system/tokens.md)) — 와이어프레임이 토큰 공백을 발견하는
+  자리이긴 하지만, 공백을 그림에서 임의로 메우지는 않는다.
 
 ## `docs/architecture/` — 기술 스택과 프로세스 구조 (횡단 문서)
 

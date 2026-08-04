@@ -1,0 +1,1627 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>dongmodoro — v1 와이어프레임</title>
+<style>
+/* ─────────────────────────────────────────────────────────────
+   토큰: docs/design-system/tokens.md §5 기준 CSS 블록 그대로 이식
+   (값 변형·추가 금지. 이 블록 밖에서 raw hex/색 사용 금지)
+   ───────────────────────────────────────────────────────────── */
+:root {
+  --bg-deep: #0c1a16;
+  --glow-teal: rgba(45, 138, 120, 0.55);
+  --glow-amber: rgba(224, 158, 84, 0.4);
+  --glow-moss: rgba(96, 140, 74, 0.35);
+
+  --glass: rgba(255, 255, 255, 0.055);
+  --glass-strong: rgba(255, 255, 255, 0.09);
+  --glass-border: rgba(255, 255, 255, 0.14);
+  --glass-border-soft: rgba(255, 255, 255, 0.08);
+
+  --ink: #eef4ef;
+  --ink-dim: rgba(238, 244, 239, 0.55);
+  --ink-faint: rgba(238, 244, 239, 0.32);
+
+  --teal: #6fd4b8;
+  --amber: #f0b671;
+  --danger: #e8907e;
+
+  --font-sans: 'Pretendard Variable', Pretendard, -apple-system,
+    'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif;
+  --font-mono: 'Azeret Mono', ui-monospace, monospace;
+
+  --text-2xs: 9px;
+  --text-xs: 10px;
+  --text-sm: 11px;
+  --text-md: 12px;
+  --text-lg: 14px;
+  --text-xl: 17px;
+  --text-display: 56px;
+
+  --weight-regular: 400;
+  --weight-semibold: 600;
+  --weight-bold: 700;
+
+  --tracking-normal: 0;
+  --tracking-wide: 0.05em;
+  --tracking-wider: 0.14em;
+
+  --radius-sm: 9px;
+  --radius-md: 13px;
+  --radius-lg: 20px;
+
+  /* surface — 유리 표면 (ADR-002) */
+  --glass-backdrop: blur(24px) saturate(140%);
+  --glass-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  --glass-shadow: 0 12px 32px rgba(0, 0, 0, 0.25);
+  --control-backdrop: blur(8px);
+  --control-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.15);
+  --control-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  background: var(--bg-deep);
+  color: var(--ink);
+  font-family: var(--font-sans);
+  font-size: var(--text-md);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  min-height: 100vh;
+  padding: 24px 20px 80px;
+}
+/* 배경 광원 — 정적 렌더 (principles §4: 장식성 무한 애니메이션 금지) */
+body::before {
+  content: '';
+  position: fixed; inset: 0; z-index: -1; pointer-events: none;
+  background:
+    radial-gradient(60% 50% at 15% 10%, var(--glow-teal), transparent 70%),
+    radial-gradient(50% 40% at 85% 15%, var(--glow-amber), transparent 70%),
+    radial-gradient(60% 50% at 50% 100%, var(--glow-moss), transparent 70%);
+  opacity: .5;
+}
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+
+/* ── 문서 셸(와이어프레임 뷰어 자체의 크롬) ── */
+.doc { max-width: 1420px; margin: 0 auto; }
+.doc-head { margin-bottom: 18px; }
+.doc-head h1 { font-size: var(--text-xl); font-weight: var(--weight-semibold); }
+.doc-head p { color: var(--ink-dim); font-size: var(--text-sm); margin-top: 4px; }
+.doc-nav { display: flex; flex-wrap: wrap; gap: 6px; margin: 16px 0 8px; }
+.doc-nav button {
+  font: inherit; font-size: var(--text-sm); color: var(--ink-dim);
+  background: var(--glass); border: 1px solid var(--glass-border-soft);
+  border-radius: var(--radius-md); padding: 6px 12px; cursor: pointer;
+}
+.doc-nav button[aria-selected="true"] { background: var(--glass-strong); color: var(--ink); border-color: var(--glass-border); }
+.view { display: none; }
+.view.on { display: block; }
+.note {
+  border-left: 2px solid var(--glass-border); padding: 2px 0 2px 10px;
+  color: var(--ink-dim); font-size: var(--text-sm); margin: 14px 0 12px;
+}
+.note b { color: var(--ink); font-weight: var(--weight-semibold); }
+.frame-label { font-size: var(--text-2xs); letter-spacing: var(--tracking-wider); color: var(--ink-faint); text-transform: uppercase; margin: 20px 0 6px; }
+
+/* ── 앱 창 프레임 ──
+   창 배경 = --bg-deep + 라디얼 광원 3종 + 정적 렌더 (app-shell ux-spec §1).
+   창 자체의 그림자는 토큰이 아니다 — 실제 앱에서는 OS 가 그린다 (ADR-002 §1) */
+.win {
+  border: 1px solid var(--glass-border); border-radius: var(--radius-lg);
+  background: var(--bg-deep); overflow: hidden; position: relative; isolation: isolate;
+}
+.win::before {
+  content: ''; position: absolute; inset: 0; z-index: -1; pointer-events: none;
+  background:
+    radial-gradient(60% 50% at 15% 10%, var(--glow-teal), transparent 70%),
+    radial-gradient(50% 40% at 85% 15%, var(--glow-amber), transparent 70%),
+    radial-gradient(60% 50% at 50% 100%, var(--glow-moss), transparent 70%);
+  opacity: .55;
+}
+.win.wide { width: 1280px; height: 800px; }
+.win.medium { width: 980px; height: 720px; }
+.win.narrow { width: 420px; height: 680px; }
+.win-scroll { max-width: 100%; overflow-x: auto; padding-bottom: 8px; }
+
+/* 타이틀바 (§1.1 macOS 슬롯 순서) */
+.titlebar {
+  height: 38px; display: flex; align-items: center; gap: 10px; padding: 0 14px;
+  border-bottom: 1px solid var(--glass-border-soft); font-size: var(--text-sm);
+}
+.traffic { display: flex; gap: 6px; }
+.traffic i { width: 9px; height: 9px; border-radius: 50%; background: var(--glass-strong); display: block; }
+.app-name { color: var(--ink-dim); }
+.titlebar .spacer { flex: 1; }
+.date-label { color: var(--ink-dim); font-size: var(--text-sm); }
+.month-toggle {
+  display: inline-flex; align-items: center; gap: 5px; font: inherit; font-size: var(--text-2xs);
+  letter-spacing: var(--tracking-wide); color: var(--ink-dim); cursor: pointer;
+  background: var(--glass); border: 1px solid var(--glass-border-soft);
+  border-radius: var(--radius-sm); padding: 3px 8px;
+}
+
+/* 컬럼 레이아웃 */
+.cols { display: grid; gap: 12px; padding: 12px; height: calc(100% - 38px); }
+.cols.w3 { grid-template-columns: 300px 1fr 340px; }
+.cols.w2 { grid-template-columns: 1fr 340px; }
+.col { display: flex; flex-direction: column; gap: 12px; min-height: 0; }
+
+/* 유리 카드 — Surface 토큰 (tokens.md §5 / ADR-002) */
+.card {
+  background: var(--glass); border: 1px solid var(--glass-border);
+  border-radius: var(--radius-lg); padding: 14px;
+  backdrop-filter: var(--glass-backdrop);
+  box-shadow: var(--glass-highlight), var(--glass-shadow);
+  display: flex; flex-direction: column; min-height: 0;
+}
+.card.grow { flex: 1; }
+.card-head { display: flex; align-items: baseline; gap: 8px; flex-shrink: 0; margin-bottom: 10px; }
+.eyebrow { font-size: var(--text-2xs); letter-spacing: var(--tracking-wider); color: var(--ink-faint); }
+.card-title { font-size: var(--text-lg); font-weight: var(--weight-semibold); }
+.card-meta { margin-left: auto; font-size: var(--text-xs); color: var(--ink-dim); }
+.scrollarea { flex: 1; min-height: 0; overflow-y: auto; }
+.mono { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+.dim { color: var(--ink-dim); }
+.faint { color: var(--ink-faint); }
+.teal { color: var(--teal); }
+.amber { color: var(--amber); }
+.xs { font-size: var(--text-xs); }
+.xxs { font-size: var(--text-2xs); }
+.sm { font-size: var(--text-sm); }
+.hr { height: 1px; background: var(--glass-border-soft); margin: 10px 0; flex-shrink: 0; }
+
+/* 버튼 */
+/* 컨트롤 — control 레벨 Surface 토큰 */
+.btn {
+  font: inherit; font-size: var(--text-sm); letter-spacing: var(--tracking-wide);
+  border-radius: var(--radius-md); padding: 7px 14px; cursor: pointer;
+  background: transparent; border: 1px solid var(--glass-border-soft); color: var(--ink-dim);
+  backdrop-filter: var(--control-backdrop);
+  display: inline-flex; align-items: center; gap: 6px;
+}
+.btn.primary {
+  background: var(--glass-strong); border-color: var(--glass-border); color: var(--ink);
+  font-weight: var(--weight-semibold);
+  box-shadow: var(--control-highlight), var(--control-shadow);
+}
+.btn.small { font-size: var(--text-2xs); padding: 4px 9px; border-radius: var(--radius-sm); }
+.btn[disabled] { color: var(--ink-faint); cursor: default; }
+.btn.destructive:hover { color: var(--danger); border-color: var(--danger); }
+.chip {
+  font: inherit; font-size: var(--text-2xs); letter-spacing: var(--tracking-wide);
+  background: var(--glass); border: 1px solid var(--glass-border-soft); color: var(--ink-dim);
+  border-radius: var(--radius-sm); padding: 4px 8px; cursor: pointer;
+}
+.chip.on { background: var(--glass-strong); border-color: var(--glass-border); color: var(--teal); backdrop-filter: var(--control-backdrop); box-shadow: var(--control-highlight); }
+.badge {
+  font-size: var(--text-2xs); border-radius: var(--radius-sm); padding: 2px 6px;
+  border: 1px solid var(--glass-border-soft); color: var(--ink-dim);
+  display: inline-flex; align-items: center; gap: 3px;
+}
+.badge.carry { color: var(--amber); border-color: var(--glass-border-soft); }
+.badge.over { color: var(--amber); border-color: var(--glass-border-soft); }
+.seg { display: inline-flex; background: var(--glass); border: 1px solid var(--glass-border-soft); border-radius: var(--radius-md); padding: 2px; backdrop-filter: var(--control-backdrop); }
+.seg button {
+  font: inherit; font-size: var(--text-sm); color: var(--ink-dim); background: transparent;
+  border: 0; border-radius: var(--radius-sm); padding: 5px 12px; cursor: pointer;
+}
+.seg button[aria-pressed="true"] { background: var(--glass-strong); color: var(--teal); }
+.seg button[aria-pressed="true"].warm { color: var(--amber); }
+.seg button[aria-pressed="true"].drop { color: var(--danger); }
+.input {
+  background: var(--glass); border: 1px solid var(--glass-border-soft); color: var(--ink);
+  border-radius: var(--radius-md); padding: 8px 10px; font: inherit; font-size: var(--text-sm); width: 100%;
+}
+.input::placeholder { color: var(--ink-faint); }
+.stepper { display: inline-flex; align-items: center; gap: 6px; }
+.stepper button { font: inherit; width: 22px; height: 22px; border-radius: var(--radius-sm); background: var(--glass); border: 1px solid var(--glass-border-soft); color: var(--ink-dim); cursor: pointer; }
+.icon { width: 13px; height: 13px; flex-shrink: 0; }
+.icon.lg { width: 15px; height: 15px; }
+
+/* 뽀모 도트 — 토큰 기반 커스텀 컴포넌트 (이모지 금지, principles §6) */
+.dots { display: inline-flex; gap: 3px; align-items: center; }
+.dot { width: 7px; height: 7px; border-radius: 50%; border: 1px solid var(--ink-faint); }
+.dot.fill { background: var(--teal); border-color: var(--teal); }
+.dot.extra { background: var(--amber); border-color: var(--amber); box-shadow: 0 0 5px var(--glow-amber); }
+
+/* 요일 핍 — 월요일 시작 (ADR-010) */
+.pips { display: inline-flex; gap: 4px; align-items: center; }
+.pip { width: 5px; height: 5px; border-radius: 50%; background: var(--ink-faint); }
+.pip.past { background: var(--teal); opacity: .38; }
+.pip.today { background: var(--amber); box-shadow: 0 0 6px var(--glow-amber); }
+.pip.next { background: var(--teal); }
+
+/* 주간 항목 행 */
+.item { border: 1px solid transparent; border-radius: var(--radius-md); padding: 8px 9px; }
+.item + .item { margin-top: 2px; }
+.item.today-assigned { border-color: var(--glass-border); background: var(--glass); }
+.item-top { display: flex; align-items: center; gap: 7px; }
+.item-title { font-size: var(--text-sm); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.item-title.done { text-decoration: line-through; color: var(--ink-dim); }
+.item-sub { display: flex; align-items: center; gap: 8px; margin: 5px 0 0 20px; font-size: var(--text-xs); color: var(--ink-dim); }
+.item.other { border: 1px dashed var(--glass-border-soft); }
+.caret { background: transparent; border: 0; color: var(--ink-dim); cursor: pointer; display: flex; padding: 0; }
+
+/* 게이지 */
+.gauge { flex-shrink: 0; padding-top: 10px; border-top: 1px solid var(--glass-border-soft); }
+.bar { height: 5px; border-radius: var(--radius-sm); background: var(--glass-strong); overflow: hidden; margin: 6px 0; }
+.bar > span { display: block; height: 100%; background: var(--teal); border-radius: var(--radius-sm); }
+.bar > span.over { background: var(--amber); box-shadow: 0 0 8px var(--glow-amber); }
+
+/* 타이머 */
+.timer { align-items: center; justify-content: center; gap: 14px; text-align: center; }
+.mode-tabs { display: inline-flex; gap: 4px; }
+.mode-tabs button {
+  font: inherit; font-size: var(--text-sm); color: var(--ink-dim); cursor: pointer;
+  background: transparent; border: 1px solid transparent; border-radius: var(--radius-md); padding: 5px 14px;
+}
+.mode-tabs button[aria-selected="true"] { background: var(--glass-strong); border-color: var(--glass-border); color: var(--ink); }
+.ring { position: relative; width: 236px; height: 236px; }
+.ring svg { transform: rotate(-90deg); }
+.ring-center { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; }
+.clock { font-family: var(--font-mono); font-variant-numeric: tabular-nums; font-size: var(--text-display); font-weight: var(--weight-bold); letter-spacing: -0.02em; line-height: 1; }
+.session-label { font-size: var(--text-sm); color: var(--ink-dim); }
+.target { font-size: var(--text-sm); }
+.adjust { display: inline-flex; gap: 4px; align-items: center; }
+.adjust .sep { color: var(--ink-faint); font-size: var(--text-xs); padding: 0 2px; }
+.actions { display: inline-flex; gap: 8px; align-items: center; }
+.capture { width: 100%; border-top: 1px solid var(--glass-border-soft); padding-top: 10px; display: flex; gap: 8px; align-items: center; }
+
+/* 캘린더 */
+.cal-head { display: flex; align-items: center; gap: 6px; margin-bottom: 8px; }
+.cal-nav { background: transparent; border: 0; color: var(--ink-dim); cursor: pointer; display: flex; padding: 2px; }
+.dow { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; margin-bottom: 3px; }
+.dow span { text-align: center; font-size: var(--text-2xs); color: var(--ink-faint); letter-spacing: var(--tracking-wide); }
+.grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; }
+.cell {
+  aspect-ratio: 1 / .82; border-radius: var(--radius-md); border: 1px solid transparent;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
+  font-size: var(--text-xs); color: var(--ink-dim); cursor: pointer;
+}
+.cell.out { color: var(--ink-faint); cursor: default; }
+.cell.today { color: var(--amber); font-weight: var(--weight-semibold); }   /* 숫자 채널 */
+.cell.sel { background: var(--glass-strong); border-color: var(--glass-border); }  /* 배경 채널 */
+.cell .cdot { width: 4px; height: 4px; border-radius: 50%; background: var(--teal); }  /* 점 채널 */
+.cell .cdot.dense { width: 6px; height: 6px; background: var(--amber); }
+.cell .cdot.none { background: transparent; }
+.date-panel { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--glass-border-soft); }
+.rec { display: flex; align-items: center; gap: 7px; font-size: var(--text-sm); padding: 3px 0; }
+.rec .src { margin-left: auto; font-size: var(--text-2xs); color: var(--ink-faint); }
+
+/* 오늘 목록 */
+.today-item { display: flex; align-items: flex-start; gap: 8px; padding: 8px 4px; border-bottom: 1px solid var(--glass-border-soft); }
+.check { width: 15px; height: 15px; border-radius: 4px; border: 1px solid var(--ink-faint); flex-shrink: 0; margin-top: 1px; display: flex; align-items: center; justify-content: center; cursor: pointer; }
+.check.on { border-color: var(--teal); color: var(--teal); }
+.remove { margin-left: auto; background: transparent; border: 0; color: var(--ink-faint); cursor: pointer; display: flex; padding: 2px; }
+.remove:hover { color: var(--danger); }
+.hint { font-size: var(--text-xs); color: var(--ink-dim); background: var(--glass); border: 1px solid var(--glass-border-soft); border-radius: var(--radius-md); padding: 7px 9px; }
+
+/* 빈 상태 */
+.empty { padding: 18px 6px; text-align: center; }
+.empty p { font-size: var(--text-sm); color: var(--ink-dim); margin-bottom: 10px; }
+
+/* 배너·패널 */
+.banner {
+  display: flex; align-items: center; gap: 8px; flex-shrink: 0;
+  background: var(--glass); border: 1px solid var(--glass-border-soft);
+  border-radius: var(--radius-md); padding: 8px 10px; margin-bottom: 10px;
+  color: var(--amber); font-size: var(--text-sm);
+}
+.banner .btn { margin-left: auto; }
+.section-title { font-size: var(--text-sm); font-weight: var(--weight-semibold); margin: 12px 0 6px; display: flex; align-items: center; gap: 6px; }
+.step { border-top: 1px solid var(--glass-border-soft); padding-top: 10px; margin-top: 10px; }
+.step-no { font-size: var(--text-2xs); letter-spacing: var(--tracking-wider); color: var(--ink-faint); }
+.load { display: grid; grid-template-columns: repeat(7, 1fr); gap: 5px; align-items: end; height: 62px; margin-top: 8px; position: relative; }
+.load .colbar { display: flex; flex-direction: column; align-items: center; gap: 3px; height: 100%; justify-content: flex-end; }
+.load .colbar > b { font-size: var(--text-2xs); color: var(--ink-dim); font-weight: var(--weight-regular); }
+.load .colbar > i { width: 100%; background: var(--teal); border-radius: 3px 3px 0 0; opacity: .8; }
+.load .colbar.over > i { background: var(--amber); box-shadow: 0 0 8px var(--glow-amber); }
+.load .colbar.over > b { color: var(--amber); }
+.load .colbar > u { font-size: var(--text-2xs); color: var(--ink-faint); text-decoration: none; }
+.baseline { position: absolute; left: 0; right: 0; border-top: 1px dashed var(--glass-border); }
+.draft { display: flex; align-items: center; gap: 7px; font-size: var(--text-sm); padding: 6px 0; border-bottom: 1px solid var(--glass-border-soft); }
+.draft.dropping { color: var(--ink-dim); text-decoration: line-through; }
+.drawer { background: var(--glass); border: 1px solid var(--glass-border-soft); border-radius: var(--radius-md); padding: 10px; margin: 4px 0 6px; }
+.task-row { display: flex; align-items: center; gap: 8px; font-size: var(--text-sm); padding: 5px 0; }
+
+/* 오버레이·다이얼로그 */
+.overlay-wrap { position: absolute; inset: 38px 0 0 0; pointer-events: none; }
+/* 오버레이·다이얼로그는 전용 레벨을 갖지 않는다 — 표면 레벨 + --glass-strong (ADR-002 §1) */
+.overlay {
+  position: absolute; top: 12px; bottom: 12px; left: 12px; width: 300px;
+  background: var(--glass-strong); border: 1px solid var(--glass-border);
+  border-radius: var(--radius-lg); padding: 14px; display: flex; flex-direction: column; gap: 12px;
+  backdrop-filter: var(--glass-backdrop);
+  box-shadow: var(--glass-highlight), var(--glass-shadow);
+}
+.overlay .close { position: absolute; top: 10px; right: 10px; background: transparent; border: 0; color: var(--ink-dim); cursor: pointer; }
+.dialog {
+  width: 320px; background: var(--glass-strong); border: 1px solid var(--glass-border);
+  border-radius: var(--radius-lg); padding: 16px;
+  backdrop-filter: var(--glass-backdrop);
+  box-shadow: var(--glass-highlight), var(--glass-shadow);
+}
+.dialog h4 { font-size: var(--text-lg); font-weight: var(--weight-semibold); margin-bottom: 6px; }
+.dialog p { font-size: var(--text-sm); color: var(--ink-dim); margin-bottom: 14px; }
+.dialog .row { display: flex; gap: 8px; justify-content: flex-end; }
+.modal-center { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; }
+
+/* 내로우 */
+.mini-timer { display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-bottom: 1px solid var(--glass-border-soft); position: relative; }
+.mini-timer .progress { position: absolute; left: 0; bottom: -1px; height: 2px; background: var(--teal); }
+.tabs { display: flex; border-bottom: 1px solid var(--glass-border-soft); }
+.tabs button { flex: 1; font: inherit; font-size: var(--text-sm); color: var(--ink-dim); background: transparent; border: 0; padding: 9px 0; cursor: pointer; }
+.tabs button[aria-selected="true"] { background: var(--glass-strong); color: var(--ink); }
+.narrow-body { padding: 12px; display: flex; flex-direction: column; gap: 12px; height: calc(100% - 38px - 55px - 37px); }
+.rowset { display: flex; gap: 20px; flex-wrap: wrap; }
+
+/* 플로우 다이어그램 */
+.flow { display: flex; flex-direction: column; gap: 10px; }
+.flow-row { display: flex; align-items: stretch; gap: 8px; flex-wrap: wrap; }
+.node {
+  background: var(--glass); border: 1px solid var(--glass-border-soft);
+  border-radius: var(--radius-md); padding: 10px 12px; min-width: 148px;
+}
+.node.accent { border-color: var(--glass-border); background: var(--glass-strong); }
+.node h5 { font-size: var(--text-sm); font-weight: var(--weight-semibold); }
+.node p { font-size: var(--text-xs); color: var(--ink-dim); margin-top: 3px; }
+.arrow { display: flex; align-items: center; color: var(--ink-faint); font-size: var(--text-lg); }
+.lane { border: 1px dashed var(--glass-border-soft); border-radius: var(--radius-lg); padding: 12px; }
+.lane > .lane-name { font-size: var(--text-2xs); letter-spacing: var(--tracking-wider); color: var(--ink-faint); margin-bottom: 8px; }
+
+/* 상태 갤러리 */
+.gal { display: grid; grid-template-columns: repeat(auto-fill, minmax(330px, 1fr)); gap: 12px; align-items: start; }
+.gal .card { padding: 12px; }
+.gal h6 { font-size: var(--text-2xs); letter-spacing: var(--tracking-wider); color: var(--ink-faint); margin-bottom: 8px; }
+</style>
+</head>
+<body>
+
+<!-- lucide 아이콘 심볼 (스트로크 = currentColor, 이모지 미사용) -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <symbol id="i-chevron-right" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></symbol>
+    <symbol id="i-chevron-down" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></symbol>
+    <symbol id="i-chevron-left" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></symbol>
+    <symbol id="i-play" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="6 3 20 12 6 21 6 3"/></symbol>
+    <symbol id="i-pause" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="14" y="4" width="4" height="16" rx="1"/><rect x="6" y="4" width="4" height="16" rx="1"/></symbol>
+    <symbol id="i-flame" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/></symbol>
+    <symbol id="i-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></symbol>
+    <symbol id="i-x" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12"/></symbol>
+    <symbol id="i-panel-left" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M9 3v18"/></symbol>
+    <symbol id="i-calendar-clock" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 7.5V6a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h3.5"/><path d="M16 2v4M8 2v4M3 10h5"/><circle cx="16" cy="16" r="6"/><path d="M16 14v2l1 1"/></symbol>
+    <symbol id="i-archive-x" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="5" x="2" y="3" rx="1"/><path d="M4 8v11a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8"/><path d="m9.5 13 5 5m0-5-5 5"/></symbol>
+    <symbol id="i-plus" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M12 5v14"/></symbol>
+  </defs>
+</svg>
+
+<div class="doc">
+  <div class="doc-head">
+    <h1>dongmodoro — v1 와이어프레임</h1>
+    <p>docs/features 8종 · docs/design-system 토큰 기준. 색·폰트·radius·유리 표면은 tokens.md 토큰만, 아이콘은 lucide 컴포넌트만(이모지 0), 요일은 전부 월요일 시작.</p>
+    <p><b>이 문서는 명세가 아니다</b> — 기능 문서와 어긋나면 ux-spec·prd 가 이긴다. 디자인이 바뀌면 이 파일을 갱신한다(날짜 스냅샷을 새로 만들지 않는다).</p>
+  </div>
+
+  <nav class="doc-nav" role="tablist" aria-label="와이어프레임 뷰">
+    <button role="tab" data-v="flow" aria-selected="true">0 · 전체 플로우</button>
+    <button role="tab" data-v="wide" aria-selected="false">1 · 와이드 3컬럼</button>
+    <button role="tab" data-v="cold" aria-selected="false">2 · 콜드 스타트</button>
+    <button role="tab" data-v="week" aria-selected="false">3 · WEEK 카드 3모드</button>
+    <button role="tab" data-v="medium" aria-selected="false">4 · 미디엄(MONTH 오버레이)</button>
+    <button role="tab" data-v="narrow" aria-selected="false">5 · 내로우(탭)</button>
+    <button role="tab" data-v="onboard" aria-selected="false">6 · 온보딩·다이얼로그</button>
+    <button role="tab" data-v="states" aria-selected="false">7 · 상태·문구 갤러리</button>
+  </nav>
+
+<!-- ══════════════════════════ 0. 플로우 ══════════════════════════ -->
+<section class="view on" id="v-flow">
+  <div class="note"><b>레이어 3층</b> — 월(MONTH)은 결과물, 주(WEEK)는 얼마만큼, 오늘(TODAY)은 지금 뭐부터. 숫자가 처음 나오는 층은 주(週)다. 아래→위 단방향 파생이라 소진량은 어디에도 저장되지 않는다.</div>
+
+  <div class="flow">
+    <div class="lane">
+      <div class="lane-name">계획 — 위에서 아래로</div>
+      <div class="flow-row">
+        <div class="node"><h5>월 마일스톤</h5><p>결과물 2~3개. 수치 입력 필드 없음</p></div>
+        <div class="arrow">→</div>
+        <div class="node"><h5>주간 플래너</h5><p>ⓞ 대상 주 → ① 예산 → ② 항목+est → ③ 요일 → ④ 경고</p></div>
+        <div class="arrow">→</div>
+        <div class="node"><h5>이번 주 할당</h5><p>항목 목록 + 예산 게이지</p></div>
+        <div class="arrow">→</div>
+        <div class="node"><h5>항목 드로어</h5><p>task 쪼개기 → <span class="teal">오늘로 가져오기</span></p></div>
+        <div class="arrow">→</div>
+        <div class="node accent"><h5>오늘 할 일</h5><p>pull 로만 채운다(3개 이하 권장). 사본 아님 — pull 행 한 줄</p></div>
+      </div>
+    </div>
+
+    <div class="lane">
+      <div class="lane-name">코어 루프 — 계획이 0개여도 이것만으로 성립한다</div>
+      <div class="flow-row">
+        <div class="node accent"><h5>타이머</h5><p>집중 25 → 짧은 휴식 5 → (4회차) 긴 휴식 15. 자동 전환은 하지만 <b>자동 시작은 안 한다</b></p></div>
+        <div class="arrow">→</div>
+        <div class="node"><h5>세션 기록</h5><p>1뽀모 = focus 1회 완료(길이 무관). local_date·local_week 를 1회 계산해 불변 저장</p></div>
+        <div class="arrow">→</div>
+        <div class="node"><h5>사후 캡처 바</h5><p>자유 집중일 때만 — "이 N분, 뭐 했는지 한 줄 남길래요?"</p></div>
+        <div class="arrow">→</div>
+        <div class="node"><h5>캘린더 점 · 공부한 날</h5><p>기록 있음(D) 술어 한 곳에서만 판정</p></div>
+      </div>
+    </div>
+
+    <div class="lane">
+      <div class="lane-name">주 경계 — 정산</div>
+      <div class="flow-row">
+        <div class="node"><h5>정산 배너</h5><p>주간 카드 상단, 앰버. 무시해도 카드가 정상 동작</p></div>
+        <div class="arrow">→</div>
+        <div class="node"><h5>정산 패널</h5><p>1 요약 → 2 끝낸 것들 → 3 남은 것들 3택 → 4 안내 → 5 확정</p></div>
+        <div class="arrow">→</div>
+        <div class="node"><h5>3택</h5><p><span class="teal">다음 주로</span>(기본) / <span class="amber">줄여서</span> / 보내주기</p></div>
+        <div class="arrow">→</div>
+        <div class="node"><h5>확정</h5><p>이월 항목이 다음 주로. 클릭 1회로 끝나도 합리적 결과</p></div>
+        <div class="arrow">→</div>
+        <div class="node"><h5>다음 주 플래너</h5><p>자동으로 열지 않는다 — 정산과 플래닝은 분리</p></div>
+      </div>
+    </div>
+
+    <div class="lane">
+      <div class="lane-name">창·앱 생명주기</div>
+      <div class="flow-row">
+        <div class="node"><h5>창 닫기 (×·⌘W)</h5><p>종료가 아니다. 앱·타이머 계속, 확인창 없음</p></div>
+        <div class="arrow">→</div>
+        <div class="node"><h5>트레이 상주</h5><p>창 열기 / 종료. 창은 항상 0개 또는 1개</p></div>
+        <div class="arrow">→</div>
+        <div class="node"><h5>복귀 4경로</h5><p>트레이 · OS 알림 · Dock 클릭 · 재실행 시도 → 전부 같은 동작</p></div>
+        <div class="arrow">→</div>
+        <div class="node"><h5>종료 요청</h5><p>⌘Q · 앱 메뉴 · 트레이 종료 · OS 주도. focus 진행 중이면 확인 1회</p></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="note">설계상 <b>막는 화면이 없다</b>: 과적이어도 확정은 항상 성공, 정산 패널·드로어·MONTH 오버레이 전부 모달 아님, 계획 0개도 정상 상태. 초과는 <span class="amber">앰버 + 불꽃</span>으로 긍정 처리하고 <span style="color:var(--danger)">--danger</span> 는 "없애는 행위"에만 쓴다.</div>
+</section>
+
+<!-- ══════════════════════════ 1. 와이드 ══════════════════════════ -->
+<section class="view" id="v-wide">
+  <div class="note">폭 ≥ <b>--bp-wide(1200px)</b> — 좌 MONTH(마일스톤+캘린더) · 중앙 타이머 · 우 WEEK+TODAY. 창 전체는 스크롤되지 않고 카드마다 독립 스크롤 영역을 갖는다.</div>
+  <div class="win-scroll">
+  <div class="win wide">
+    <div class="titlebar">
+      <span class="traffic"><i></i><i></i><i></i></span>
+      <span class="app-name">dongmodoro</span>
+      <span class="spacer"></span>
+      <span class="date-label">2026년 8월 4일</span>
+    </div>
+
+    <div class="cols w3">
+      <!-- ── MONTH ── -->
+      <div class="col">
+        <div class="card">
+          <div class="card-head">
+            <span class="eyebrow">MONTH</span>
+            <span class="card-title">8월 결과물</span>
+            <span class="card-meta">2~3개 권장</span>
+          </div>
+          <div class="item">
+            <div class="item-top">
+              <span class="check on"><svg class="icon"><use href="#i-check"/></svg></span>
+              <span class="badge">M1</span>
+              <span class="item-title done">포트폴리오 v2 배포</span>
+            </div>
+            <div class="item-sub"><span class="xs faint">이번 주 3/8</span></div>
+          </div>
+          <div class="item">
+            <div class="item-top">
+              <span class="check"></span>
+              <span class="badge">M2</span>
+              <span class="item-title">알고리즘 60제 완주</span>
+            </div>
+            <div class="item-sub"><span class="xs faint">이번 주 4/6</span></div>
+          </div>
+          <div class="hr"></div>
+          <button class="btn small"><svg class="icon"><use href="#i-plus"/></svg> 결과물 추가</button>
+        </div>
+
+        <div class="card grow">
+          <div class="cal-head">
+            <button class="cal-nav" aria-label="이전 달"><svg class="icon lg"><use href="#i-chevron-left"/></svg></button>
+            <span class="card-title">2026년 8월</span>
+            <button class="cal-nav" aria-label="다음 달"><svg class="icon lg"><use href="#i-chevron-right"/></svg></button>
+          </div>
+          <div class="dow"><span>월</span><span>화</span><span>수</span><span>목</span><span>금</span><span>토</span><span>일</span></div>
+          <div class="grid">
+            <div class="cell out"></div><div class="cell out"></div><div class="cell out"></div><div class="cell out"></div><div class="cell out"></div>
+            <div class="cell">1<i class="cdot"></i></div>
+            <div class="cell">2<i class="cdot none"></i></div>
+
+            <div class="cell">3<i class="cdot"></i></div>
+            <div class="cell today sel">4<i class="cdot dense"></i></div>
+            <div class="cell">5<i class="cdot none"></i></div>
+            <div class="cell">6<i class="cdot none"></i></div>
+            <div class="cell">7<i class="cdot none"></i></div>
+            <div class="cell">8<i class="cdot none"></i></div>
+            <div class="cell">9<i class="cdot none"></i></div>
+
+            <div class="cell">10<i class="cdot none"></i></div><div class="cell">11<i class="cdot none"></i></div><div class="cell">12<i class="cdot none"></i></div>
+            <div class="cell">13<i class="cdot none"></i></div><div class="cell">14<i class="cdot none"></i></div><div class="cell">15<i class="cdot none"></i></div><div class="cell">16<i class="cdot none"></i></div>
+
+            <div class="cell">17<i class="cdot none"></i></div><div class="cell">18<i class="cdot none"></i></div><div class="cell">19<i class="cdot none"></i></div>
+            <div class="cell">20<i class="cdot none"></i></div><div class="cell">21<i class="cdot none"></i></div><div class="cell">22<i class="cdot none"></i></div><div class="cell">23<i class="cdot none"></i></div>
+
+            <div class="cell">24<i class="cdot none"></i></div><div class="cell">25<i class="cdot none"></i></div><div class="cell">26<i class="cdot none"></i></div>
+            <div class="cell">27<i class="cdot none"></i></div><div class="cell">28<i class="cdot none"></i></div><div class="cell">29<i class="cdot none"></i></div><div class="cell">30<i class="cdot none"></i></div>
+
+            <div class="cell">31<i class="cdot none"></i></div>
+            <div class="cell out">1</div><div class="cell out">2</div><div class="cell out">3</div><div class="cell out">4</div><div class="cell out">5</div><div class="cell out">6</div>
+          </div>
+
+          <div class="date-panel">
+            <div class="sm" style="margin-bottom:6px">2026년 8월 4일 <span class="dim xs">· 집중 4회 · 할 일 2/3 완료</span></div>
+            <div class="rec"><span class="check on"><svg class="icon"><use href="#i-check"/></svg></span> 레이아웃 정리 <span class="src">가져옴 · 집중 2</span></div>
+            <div class="rec"><span class="check on"><svg class="icon"><use href="#i-check"/></svg></span> DP 5문제 <span class="src">가져옴 · 집중 1</span></div>
+            <div class="rec"><span class="check"></span> 라우팅 정리 <span class="src">세션으로 생김</span></div>
+            <div class="xxs faint" style="margin-top:6px">읽기 전용 — 여기서 완료 토글·삭제·재-pull 을 하지 않는다</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── 타이머 ── -->
+      <div class="col">
+        <div class="card grow timer">
+          <div class="mode-tabs" role="tablist">
+            <button role="tab" aria-selected="true">집중</button>
+            <button role="tab" aria-selected="false">짧은 휴식</button>
+            <button role="tab" aria-selected="false">긴 휴식</button>
+          </div>
+
+          <div class="ring">
+            <svg width="236" height="236" viewBox="0 0 236 236">
+              <defs>
+                <linearGradient id="ringgrad" x1="0" y1="0" x2="1" y2="1">
+                  <stop offset="0%" stop-color="var(--teal)"/>
+                  <stop offset="100%" stop-color="var(--amber)"/>
+                </linearGradient>
+              </defs>
+              <circle cx="118" cy="118" r="106" fill="none" stroke="var(--glass-strong)" stroke-width="7"/>
+              <circle cx="118" cy="118" r="106" fill="none" stroke="url(#ringgrad)" stroke-width="7"
+                      stroke-linecap="round" stroke-dasharray="666" stroke-dashoffset="220"/>
+            </svg>
+            <div class="ring-center">
+              <div class="clock">12:34</div>
+              <div class="session-label">3번째 집중</div>
+              <div class="target">레이아웃 정리</div>
+            </div>
+          </div>
+
+          <div class="adjust">
+            <button class="chip">−10</button><button class="chip">−5</button><button class="chip">−1</button>
+            <span class="sep">|</span>
+            <button class="chip">+1</button><button class="chip">+5</button><button class="chip">+10</button>
+          </div>
+
+          <div class="actions">
+            <button class="btn">초기화</button>
+            <button class="btn primary"><svg class="icon"><use href="#i-pause"/></svg> 일시정지</button>
+            <button class="btn">완료 처리</button>
+          </div>
+
+          <div class="sm dim">이번 주 4일 공부 중</div>
+        </div>
+      </div>
+
+      <!-- ── WEEK + TODAY ── -->
+      <div class="col">
+        <div class="card grow">
+          <div class="card-head">
+            <span class="eyebrow">WEEK</span>
+            <span class="card-title">이번 주 할당</span>
+            <span class="card-meta">8/3 – 8/9</span>
+          </div>
+
+          <div class="scrollarea">
+            <div class="item today-assigned">
+              <div class="item-top">
+                <button class="caret"><svg class="icon"><use href="#i-chevron-right"/></svg></button>
+                <span class="item-title">포트폴리오 리팩터</span>
+                <span class="badge">M1</span>
+                <button class="btn small" style="margin-left:auto">+ 오늘로</button>
+              </div>
+              <div class="item-sub">
+                <span class="dots"><i class="dot fill"></i><i class="dot fill"></i><i class="dot fill"></i><i class="dot fill"></i><i class="dot fill"></i><i class="dot fill"></i><i class="dot"></i><i class="dot"></i></span>
+                <span class="mono xs">6/8</span>
+                <span>· task 2/4</span>
+                <span class="pips"><i class="pip past"></i><i class="pip today"></i><i class="pip"></i><i class="pip next"></i><i class="pip"></i><i class="pip"></i><i class="pip"></i></span>
+              </div>
+            </div>
+
+            <div class="item">
+              <div class="item-top">
+                <button class="caret"><svg class="icon"><use href="#i-chevron-right"/></svg></button>
+                <span class="item-title">알고리즘 60제</span>
+                <span class="badge">M2</span>
+                <span class="badge carry">3주째</span>
+                <button class="btn small" style="margin-left:auto">+ 오늘로</button>
+              </div>
+              <div class="item-sub">
+                <span class="dots"><i class="dot fill"></i><i class="dot fill"></i><i class="dot fill"></i><i class="dot fill"></i><i class="dot"></i><i class="dot"></i></span>
+                <span class="mono xs">4/6</span>
+                <span>· task 1/3</span>
+                <span class="pips"><i class="pip"></i><i class="pip"></i><i class="pip next"></i><i class="pip"></i><i class="pip next"></i><i class="pip"></i><i class="pip"></i></span>
+              </div>
+            </div>
+
+            <div class="item">
+              <div class="item-top">
+                <button class="caret"><svg class="icon"><use href="#i-chevron-right"/></svg></button>
+                <span class="item-title">블로그 글 2편</span>
+                <button class="btn small" style="margin-left:auto">+ 오늘로</button>
+              </div>
+              <div class="item-sub">
+                <span class="dots"><i class="dot"></i><i class="dot"></i></span>
+                <span class="mono xs">0/2</span>
+                <span class="pips"><i class="pip"></i><i class="pip"></i><i class="pip"></i><i class="pip"></i><i class="pip"></i><i class="pip next"></i><i class="pip"></i></span>
+              </div>
+            </div>
+
+            <div class="item">
+              <div class="item-top">
+                <button class="caret"><svg class="icon"><use href="#i-chevron-right"/></svg></button>
+                <span class="item-title done">발표 자료</span>
+                <span class="badge over"><svg class="icon"><use href="#i-flame"/></svg> +2</span>
+                <span class="badge" style="margin-left:auto">완료됨</span>
+              </div>
+              <div class="item-sub">
+                <span class="dots"><i class="dot fill"></i><i class="dot fill"></i><i class="dot fill"></i><i class="dot extra"></i><i class="dot extra"></i></span>
+                <span class="mono xs">5/3</span>
+                <span>· task 3/3</span>
+              </div>
+            </div>
+
+            <div class="item other">
+              <div class="item-top">
+                <button class="caret"><svg class="icon"><use href="#i-chevron-right"/></svg></button>
+                <span class="item-title dim">기타 — 계획에 없던 집중</span>
+              </div>
+              <div class="item-sub">
+                <span class="dots"><i class="dot fill"></i><i class="dot fill"></i><i class="dot fill"></i></span>
+                <span class="mono xs">3</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="gauge">
+            <div class="sm"><span class="mono">18 / 24</span></div>
+            <div class="bar"><span style="width:75%"></span></div>
+            <div class="xs dim">예산은 추정치예요 — 넘어가도 괜찮아요</div>
+          </div>
+        </div>
+
+        <div class="card grow">
+          <div class="card-head">
+            <span class="eyebrow">TODAY</span>
+            <span class="card-title">오늘 할 일</span>
+            <span class="card-meta">3개 이하 권장</span>
+          </div>
+          <div class="scrollarea">
+            <div class="today-item">
+              <span class="check"></span>
+              <span>
+                <span class="sm">라우팅 정리</span>
+                <span class="xs dim" style="display:block">포트폴리오 리팩터 ·
+                  <span class="dots"><i class="dot fill"></i><i class="dot"></i><i class="dot"></i></span>
+                  <span class="mono xs">1/3</span>
+                </span>
+              </span>
+              <button class="remove" aria-label="목록에서 빼기"><svg class="icon"><use href="#i-x"/></svg></button>
+            </div>
+            <div class="today-item">
+              <span class="check"></span>
+              <span>
+                <span class="sm">DP 5문제</span>
+                <span class="xs dim" style="display:block">알고리즘 60제 ·
+                  <span class="dots"><i class="dot fill"></i><i class="dot"></i></span>
+                  <span class="mono xs">1/2</span>
+                </span>
+              </span>
+              <button class="remove" aria-label="목록에서 빼기"><svg class="icon"><use href="#i-x"/></svg></button>
+            </div>
+            <div class="today-item">
+              <span class="check on"><svg class="icon"><use href="#i-check"/></svg></span>
+              <span>
+                <span class="sm" style="text-decoration:line-through;color:var(--ink-dim)">레이아웃 정리</span>
+                <span class="xs dim" style="display:block">포트폴리오 리팩터 ·
+                  <span class="dots"><i class="dot fill"></i><i class="dot fill"></i></span>
+                  <span class="mono xs">2/2</span>
+                </span>
+              </span>
+              <button class="remove" aria-label="목록에서 빼기"><svg class="icon"><use href="#i-x"/></svg></button>
+            </div>
+          </div>
+          <div class="hr"></div>
+          <input class="input" placeholder="오늘 할 일 직접 적기">
+        </div>
+      </div>
+    </div>
+  </div>
+  </div>
+  <div class="note">읽는 순서가 곧 사용 순서다 — <b>왼쪽(왜)</b> → <b>가운데(지금)</b> → <b>오른쪽(무엇을 얼마나)</b>. 완료 항목은 목록에서 사라지지 않고 취소선으로 남으며(발표 자료), 초과분 <span class="amber">+2</span> 도 완료 후에도 계속 표시된다(사실이므로 숨기지 않는다).</div>
+</section>
+
+<!-- ══════════════════════════ 2. 콜드 스타트 ══════════════════════════ -->
+<section class="view" id="v-cold">
+  <div class="note">첫 실행(계획 0 · 세션 0)에도 <b>레이아웃이 완전히 동일하다.</b> 전용 온보딩 화면으로 갈아치우지 않고, 카드마다 역할 카피 1개 + CTA 1개를 렌더한다. 타이머만 이미 완전히 동작한다.</div>
+  <div class="win-scroll">
+  <div class="win wide">
+    <div class="titlebar">
+      <span class="traffic"><i></i><i></i><i></i></span>
+      <span class="app-name">dongmodoro</span><span class="spacer"></span>
+      <span class="date-label">2026년 8월 4일</span>
+    </div>
+    <div class="cols w3">
+      <div class="col">
+        <div class="card">
+          <div class="card-head"><span class="eyebrow">MONTH</span><span class="card-title">8월 결과물</span></div>
+          <div class="empty">
+            <p>이번 달이 끝나면 뭐가 달라져 있을까요?</p>
+            <button class="btn small"><svg class="icon"><use href="#i-plus"/></svg> 결과물 추가</button>
+          </div>
+        </div>
+        <div class="card grow">
+          <div class="cal-head">
+            <button class="cal-nav"><svg class="icon lg"><use href="#i-chevron-left"/></svg></button>
+            <span class="card-title">2026년 8월</span>
+            <button class="cal-nav"><svg class="icon lg"><use href="#i-chevron-right"/></svg></button>
+          </div>
+          <div class="dow"><span>월</span><span>화</span><span>수</span><span>목</span><span>금</span><span>토</span><span>일</span></div>
+          <div class="grid">
+            <div class="cell out"></div><div class="cell out"></div><div class="cell out"></div><div class="cell out"></div><div class="cell out"></div>
+            <div class="cell">1</div><div class="cell">2</div>
+            <div class="cell">3</div><div class="cell today sel">4</div><div class="cell">5</div><div class="cell">6</div><div class="cell">7</div><div class="cell">8</div><div class="cell">9</div>
+            <div class="cell">10</div><div class="cell">11</div><div class="cell">12</div><div class="cell">13</div><div class="cell">14</div><div class="cell">15</div><div class="cell">16</div>
+            <div class="cell">17</div><div class="cell">18</div><div class="cell">19</div><div class="cell">20</div><div class="cell">21</div><div class="cell">22</div><div class="cell">23</div>
+            <div class="cell">24</div><div class="cell">25</div><div class="cell">26</div><div class="cell">27</div><div class="cell">28</div><div class="cell">29</div><div class="cell">30</div>
+            <div class="cell">31</div><div class="cell out">1</div><div class="cell out">2</div><div class="cell out">3</div><div class="cell out">4</div><div class="cell out">5</div><div class="cell out">6</div>
+          </div>
+          <div class="date-panel">
+            <div class="sm" style="margin-bottom:4px">2026년 8월 4일</div>
+            <div class="sm dim">이날은 기록이 없어요</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="col">
+        <div class="card grow timer">
+          <div class="mode-tabs" role="tablist">
+            <button role="tab" aria-selected="true">집중</button>
+            <button role="tab" aria-selected="false">짧은 휴식</button>
+            <button role="tab" aria-selected="false">긴 휴식</button>
+          </div>
+          <div class="ring">
+            <svg width="236" height="236" viewBox="0 0 236 236">
+              <circle cx="118" cy="118" r="106" fill="none" stroke="var(--glass-strong)" stroke-width="7"/>
+            </svg>
+            <div class="ring-center">
+              <div class="clock">25:00</div>
+              <div class="session-label">1번째 집중</div>
+              <div class="target dim">자유 집중</div>
+            </div>
+          </div>
+          <div class="adjust">
+            <button class="chip">−10</button><button class="chip">−5</button><button class="chip">−1</button>
+            <span class="sep">|</span>
+            <button class="chip">+1</button><button class="chip">+5</button><button class="chip">+10</button>
+          </div>
+          <div class="actions">
+            <button class="btn" disabled>초기화</button>
+            <button class="btn primary"><svg class="icon"><use href="#i-play"/></svg> 시작</button>
+          </div>
+          <div class="sm dim">오늘부터 기록이 쌓여요</div>
+        </div>
+      </div>
+
+      <div class="col">
+        <div class="card grow">
+          <div class="card-head"><span class="eyebrow">WEEK</span><span class="card-title">이번 주 할당</span><span class="card-meta">8/3 – 8/9</span></div>
+          <div class="empty">
+            <p>이번 주 할당을 잡으면 뽀모 예산이 여기 보여요</p>
+            <button class="btn small">+ 이번 주 할당 잡기</button>
+          </div>
+          <div class="gauge">
+            <div class="sm"><span class="mono">0 / 미설정</span></div>
+            <div class="xs dim">예산을 정하면 예산 대비 소진이 보여요</div>
+          </div>
+        </div>
+        <div class="card grow">
+          <div class="card-head"><span class="eyebrow">TODAY</span><span class="card-title">오늘 할 일</span></div>
+          <div class="empty">
+            <p>계획이 없어도 타이머는 돌아가요.</p>
+          </div>
+          <div class="hr"></div>
+          <input class="input" placeholder="오늘 할 일 직접 적기">
+        </div>
+      </div>
+    </div>
+  </div>
+  </div>
+  <div class="note">빈 상태에 <b>경고색·경고 아이콘·"데이터 없음"·"설정이 필요합니다" 를 쓰지 않는다.</b> 계획 0개는 오류가 아니라 "아직 안 정했음"이다. 예산 게이지 문구가 "주간 계획을 잡으면"이 아니라 <b>"예산을 정하면"</b> 인 것도 규칙(계획을 잡고 예산만 비운 경우도 같은 상태라서).</div>
+</section>
+
+<!-- ══════════════════════════ 3. WEEK 3모드 ══════════════════════════ -->
+<section class="view" id="v-week">
+  <div class="note">WEEK 카드는 같은 자리에서 배타적인 3개 모드를 렌더한다 — <b>일반 뷰 / 플래너 / 정산 패널.</b> 별도 모달·드로어·탭을 만들지 않는다. 아래는 폭 340px 그대로의 카드 4종.</div>
+
+  <div class="rowset">
+    <!-- 일반 뷰 + 드로어 -->
+    <div>
+      <div class="frame-label">일반 뷰 · 드로어 펼침 (모달 아님)</div>
+      <div class="card" style="width:360px">
+        <div class="card-head"><span class="eyebrow">WEEK</span><span class="card-title">이번 주 할당</span><span class="card-meta">8/3 – 8/9</span></div>
+        <div class="item today-assigned">
+          <div class="item-top">
+            <button class="caret"><svg class="icon"><use href="#i-chevron-down"/></svg></button>
+            <span class="item-title">포트폴리오 리팩터</span>
+            <span class="badge">M1</span>
+          </div>
+          <div class="item-sub">
+            <span class="dots"><i class="dot fill"></i><i class="dot fill"></i><i class="dot fill"></i><i class="dot fill"></i><i class="dot fill"></i><i class="dot fill"></i><i class="dot"></i><i class="dot"></i></span>
+            <span class="mono xs">6/8</span><span>· task 2/4</span>
+            <span class="pips"><i class="pip past"></i><i class="pip today"></i><i class="pip"></i><i class="pip next"></i><i class="pip"></i><i class="pip"></i><i class="pip"></i></span>
+          </div>
+        </div>
+
+        <div class="drawer">
+          <div class="xs dim" style="margin-bottom:4px">이 할당의 task — 오늘 할 것을 고르세요</div>
+          <div class="task-row">
+            <span class="check on"><svg class="icon"><use href="#i-check"/></svg></span>
+            <span>라우팅 정리</span>
+            <span class="dots" style="margin-left:auto"><i class="dot fill"></i><i class="dot"></i><i class="dot"></i></span>
+            <span class="mono xs">1/3</span>
+          </div>
+          <div class="task-row">
+            <span class="check"></span>
+            <span>토큰 CSS 이관</span>
+            <span class="dots" style="margin-left:auto"><i class="dot"></i><i class="dot"></i></span>
+            <span class="mono xs">0/2</span>
+          </div>
+          <div class="task-row faint">
+            <span class="check"></span>
+            <span>레이아웃 정리</span>
+            <span class="xxs" style="margin-left:auto">오늘 목록에</span>
+          </div>
+          <div class="task-row dim">
+            <span class="check on"><svg class="icon"><use href="#i-check"/></svg></span>
+            <span style="text-decoration:line-through">스켈레톤 정리</span>
+            <span class="xxs" style="margin-left:auto">완료</span>
+          </div>
+          <div class="hr"></div>
+          <div class="xs dim" style="margin-bottom:5px">또는 새 task 추가</div>
+          <div style="display:flex;gap:6px;align-items:center">
+            <input class="input" placeholder="제목" style="flex:1">
+            <span class="stepper"><button>−</button><span class="mono xs">1</span><button>+</button></span>
+          </div>
+          <div class="hr"></div>
+          <div style="display:flex;gap:6px;align-items:center">
+            <button class="btn small">완료로 표시</button>
+            <button class="btn small destructive">보내주기</button>
+            <span style="margin-left:auto;display:flex;gap:6px">
+              <button class="btn small">닫기</button>
+              <button class="btn small primary">오늘로 가져오기</button>
+            </span>
+          </div>
+        </div>
+
+        <div class="item">
+          <div class="item-top">
+            <button class="caret"><svg class="icon"><use href="#i-chevron-right"/></svg></button>
+            <span class="item-title">알고리즘 60제</span>
+            <span class="badge">M2</span><span class="badge carry">3주째</span>
+          </div>
+          <div class="item-sub">
+            <span class="dots"><i class="dot fill"></i><i class="dot fill"></i><i class="dot fill"></i><i class="dot fill"></i><i class="dot"></i><i class="dot"></i></span>
+            <span class="mono xs">4/6</span>
+          </div>
+        </div>
+
+        <div class="gauge">
+          <div class="sm"><span class="mono">18 / 24</span></div>
+          <div class="bar"><span style="width:75%"></span></div>
+          <div class="xs dim">예산은 추정치예요 — 넘어가도 괜찮아요</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 플래너 -->
+    <div>
+      <div class="frame-label">플래너 모드 · 5단계 한 화면 (마법사 아님)</div>
+      <div class="card" style="width:380px">
+        <div class="card-head"><span class="eyebrow">WEEK</span><span class="card-title">이번 주 계획</span><span class="card-meta">8/3 – 8/9</span></div>
+
+        <div>
+          <div class="step-no">ⓞ 편집 대상 주</div>
+          <div class="seg" style="margin-top:5px">
+            <button aria-pressed="true">이번 주</button>
+            <button aria-pressed="false">다음 주</button>
+          </div>
+          <div class="xs dim" style="margin-top:4px">8/3 – 8/9</div>
+        </div>
+
+        <div class="step">
+          <div class="step-no">① 이번 주 예산 (추정치)</div>
+          <div style="display:flex;gap:8px;align-items:center;margin-top:5px">
+            <input class="input mono" value="24" style="width:70px">
+            <span class="xs dim">요일별 가용 합 22</span>
+          </div>
+        </div>
+
+        <div class="step">
+          <div class="step-no">② 항목 추가</div>
+          <div style="display:flex;gap:6px;align-items:center;margin-top:5px">
+            <input class="input" placeholder="제목" style="flex:1">
+            <span class="stepper"><button>−</button><span class="mono xs">3</span><button>+</button></span>
+          </div>
+          <div style="display:flex;gap:5px;margin-top:6px;flex-wrap:wrap">
+            <button class="chip on">M1</button><button class="chip">M2</button><button class="chip">마일스톤 없음</button>
+            <button class="btn small primary" style="margin-left:auto">항목 추가</button>
+          </div>
+          <div style="margin-top:8px">
+            <div class="draft"><span class="badge">M1</span> 포트폴리오 리팩터 <span class="xs dim">월수금</span> <span class="xs dim">(뽀모 8)</span>
+              <button class="remove" style="margin-left:auto"><svg class="icon"><use href="#i-x"/></svg></button></div>
+            <div class="draft"><span class="badge">M2</span> 알고리즘 60제 <span class="xs dim">수금</span> <span class="xs dim">(뽀모 6)</span>
+              <button class="remove" style="margin-left:auto"><svg class="icon"><use href="#i-x"/></svg></button></div>
+            <div class="draft">블로그 글 2편 <span class="xs faint">미배치</span> <span class="xs dim">(뽀모 2)</span>
+              <button class="remove" style="margin-left:auto"><svg class="icon"><use href="#i-x"/></svg></button></div>
+            <div class="draft dropping">발표 자료 <span class="xs dim">(뽀모 3)</span>
+              <span class="xxs" style="margin-left:auto;text-decoration:none">보내줄 예정 · <span class="teal">되돌리기</span></span></div>
+          </div>
+        </div>
+
+        <div class="step">
+          <div class="step-no">③ 언제 (선택)</div>
+          <div style="display:flex;gap:4px;margin-top:5px">
+            <button class="chip on">월</button><button class="chip">화</button><button class="chip on">수</button>
+            <button class="chip">목</button><button class="chip on">금</button><button class="chip">토</button><button class="chip">일</button>
+          </div>
+        </div>
+
+        <div class="step">
+          <div class="step-no">④ 경고 확인</div>
+          <div class="sm" style="margin-top:6px">계획 합계 <span class="mono amber">26</span> / 예산 <span class="mono">24</span></div>
+          <div class="bar"><span class="over" style="width:100%"></span></div>
+          <div class="xs dim">+2 과적이에요. est 를 줄일까요, 항목을 덜어낼까요?</div>
+
+          <div class="sm" style="margin-top:10px;display:flex;align-items:baseline">
+            요일별 부하 <span class="xs amber" style="margin-left:auto">화·목 넘침</span>
+          </div>
+          <div class="load">
+            <div class="baseline" style="bottom:38px"></div>
+            <div class="colbar"><b>3</b><i style="height:42%"></i><u>월</u></div>
+            <div class="colbar over"><b>5</b><i style="height:72%"></i><u>화</u></div>
+            <div class="colbar"><b>4</b><i style="height:56%"></i><u>수</u></div>
+            <div class="colbar over"><b>6</b><i style="height:86%"></i><u>목</u></div>
+            <div class="colbar"><b>4</b><i style="height:56%"></i><u>금</u></div>
+            <div class="colbar"><b>2</b><i style="height:28%"></i><u>토</u></div>
+            <div class="colbar"><b>0</b><i style="height:2%"></i><u>일</u></div>
+          </div>
+        </div>
+
+        <div class="hr"></div>
+        <div style="display:flex;gap:8px;justify-content:flex-end">
+          <button class="btn">취소</button>
+          <button class="btn primary">이번 주 시작</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 정산 -->
+    <div>
+      <div class="frame-label">정산 패널 · 5섹션 (WEEK 자리 인라인 점유)</div>
+      <div class="card" style="width:380px">
+        <div class="card-head"><span class="eyebrow">WEEK</span><span class="card-title">주간 정산</span><span class="card-meta">W32</span></div>
+
+        <div class="section-title">1 · 요약</div>
+        <div class="sm">이번 주 마감 — 4일 공부, 뽀모 <span class="mono">18</span> 소진 <span class="dim">(예산 24)</span></div>
+        <div class="dots" style="margin-top:6px">
+          <i class="dot fill"></i><i class="dot fill"></i><i class="dot fill"></i><i class="dot fill"></i><i class="dot fill"></i>
+          <i class="dot fill"></i><i class="dot fill"></i><i class="dot fill"></i><i class="dot fill"></i><i class="dot fill"></i>
+          <i class="dot fill"></i><i class="dot fill"></i><i class="dot fill"></i><i class="dot fill"></i><i class="dot fill"></i>
+          <i class="dot fill"></i><i class="dot fill"></i><i class="dot fill"></i><i class="dot"></i><i class="dot"></i>
+        </div>
+
+        <div class="section-title">2 · 끝낸 것들 <svg class="icon teal"><use href="#i-chevron-down"/></svg></div>
+        <div class="task-row"><span class="teal" style="display:flex"><svg class="icon"><use href="#i-check"/></svg></span> 발표 자료 <span class="xs dim" style="margin-left:auto">뽀모 5</span></div>
+
+        <div class="section-title">3 · 남은 것들</div>
+        <div class="xxs dim" style="margin:-2px 0 6px">3주 이상 넘어온 항목 1건</div>
+
+        <div class="item" style="border-color:var(--glass-border-soft)">
+          <div class="item-top">
+            <span class="item-title">알고리즘 60제</span>
+            <span class="badge">3주째</span>
+          </div>
+          <div class="item-sub" style="margin-left:0">
+            <span class="dots"><i class="dot"></i><i class="dot"></i></span><span>뽀모 2 남음</span>
+          </div>
+          <div class="seg" style="margin-top:7px">
+            <button aria-pressed="true">다음 주로</button>
+            <button aria-pressed="false" class="warm">줄여서</button>
+            <button aria-pressed="false" class="drop">보내주기</button>
+          </div>
+        </div>
+
+        <div class="item" style="border-color:var(--glass-border-soft)">
+          <div class="item-top"><span class="item-title">포트폴리오 리팩터</span></div>
+          <div class="item-sub" style="margin-left:0">
+            <span class="dots"><i class="dot"></i><i class="dot"></i></span><span>뽀모 2 남음</span>
+          </div>
+          <div class="seg" style="margin-top:7px">
+            <button aria-pressed="false">다음 주로</button>
+            <button aria-pressed="true" class="warm">줄여서</button>
+            <button aria-pressed="false" class="drop">보내주기</button>
+          </div>
+          <div class="stepper" style="margin-top:7px"><button>−</button><span class="mono xs">1</span><button>+</button></div>
+        </div>
+
+        <div class="item faint" style="border-color:var(--glass-border-soft)">
+          <div class="item-top"><span class="item-title">블로그 글 2편</span></div>
+          <div class="item-sub" style="margin-left:0">
+            <span class="dots"><i class="dot"></i><i class="dot"></i></span><span>뽀모 2 남음</span>
+          </div>
+          <div class="seg" style="margin-top:7px">
+            <button aria-pressed="false">다음 주로</button>
+            <button aria-pressed="false" class="warm">줄여서</button>
+            <button aria-pressed="true" class="drop"><svg class="icon"><use href="#i-archive-x"/></svg> 보내주기</button>
+          </div>
+        </div>
+
+        <div class="section-title">4 · 안내</div>
+        <div class="xs dim">계획에 없던 집중 3은 기록으로만 남아요. 할당이 틀린 건 실패가 아니라 정보예요.</div>
+        <div class="hr"></div>
+        <div class="sm" style="display:flex;align-items:center;gap:8px">
+          뽀모 길이 — 집중 <span class="mono">25</span> · 짧은 휴식 <span class="mono">5</span> · 긴 휴식 <span class="mono">15</span>
+          <button class="btn small" style="margin-left:auto">조정</button>
+        </div>
+        <div class="xs dim" style="margin-top:4px">바꾼 길이는 다음 주부터 적용돼요 · 이번 주 기록은 그대로예요</div>
+
+        <div class="hr"></div>
+        <div class="xs dim">이월 3 · 다음 주 예산 20</div>
+        <button class="btn primary" style="margin-top:7px;justify-content:center">다음 주 시작 (이월 뽀모 3 포함)</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="note">플래너·정산에서는 <b>예산 게이지를 숨긴다</b>(플래너 안에 계획 합계 바가 따로 있고, 정산은 요약이 그 역할을 한다). 정산 3택의 기본값은 전부 <span class="teal">다음 주로</span> — 아무것도 건드리지 않고 확정 버튼만 눌러도 합리적 결과가 나온다. <span style="color:var(--danger)">--danger</span> 는 "보내주기" <b>선택 상태</b>에만 쓰고, 아이콘·문구가 의미를 함께 전달한다.</div>
+</section>
+
+<!-- ══════════════════════════ 4. 미디엄 ══════════════════════════ -->
+<section class="view" id="v-medium">
+  <div class="note">폭 <b>--bp-medium(800px)</b> 이상 <b>--bp-wide</b> 미만 — MONTH 컬럼이 접히고 타이틀바에 토글이 생긴다. 오버레이는 <b>비모달</b>: 스크림도 포커스 트랩도 없고, 열린 동안 타이머·WEEK·TODAY 를 그대로 조작할 수 있다. 닫힘은 토글 재클릭 / Esc / 우상단 X 세 가지뿐 — <b>밖 클릭으로 닫지 않는다</b>(타이머 버튼이 정의상 "밖"이라서).</div>
+  <div class="win-scroll">
+  <div class="win medium">
+    <div class="titlebar">
+      <span class="traffic"><i></i><i></i><i></i></span>
+      <span class="app-name">dongmodoro</span>
+      <span class="spacer"></span>
+      <button class="month-toggle"><svg class="icon"><use href="#i-panel-left"/></svg> MONTH</button>
+      <span class="date-label">2026년 8월 4일</span>
+    </div>
+
+    <div class="cols w2">
+      <div class="col">
+        <div class="card grow timer">
+          <div class="mode-tabs" role="tablist">
+            <button role="tab" aria-selected="true">집중</button>
+            <button role="tab" aria-selected="false">짧은 휴식</button>
+            <button role="tab" aria-selected="false">긴 휴식</button>
+          </div>
+          <div class="ring" style="width:200px;height:200px">
+            <svg width="200" height="200" viewBox="0 0 236 236" style="width:200px;height:200px">
+              <circle cx="118" cy="118" r="106" fill="none" stroke="var(--glass-strong)" stroke-width="7"/>
+              <circle cx="118" cy="118" r="106" fill="none" stroke="url(#ringgrad)" stroke-width="7" stroke-linecap="round" stroke-dasharray="666" stroke-dashoffset="220"/>
+            </svg>
+            <div class="ring-center">
+              <div class="clock" style="font-size:46px">12:34</div>
+              <div class="session-label">3번째 집중</div>
+              <div class="target">레이아웃 정리</div>
+            </div>
+          </div>
+          <div class="actions">
+            <button class="btn">초기화</button>
+            <button class="btn primary"><svg class="icon"><use href="#i-pause"/></svg> 일시정지</button>
+            <button class="btn">완료 처리</button>
+          </div>
+          <div class="capture">
+            <input class="input" placeholder="이 25분, 뭐 했는지 한 줄 남길래요?">
+            <button class="btn small primary">기록</button>
+            <button class="btn small">건너뛰기</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="col">
+        <div class="card grow">
+          <div class="card-head"><span class="eyebrow">WEEK</span><span class="card-title">이번 주 할당</span><span class="card-meta">8/3 – 8/9</span></div>
+          <div class="banner">
+            <svg class="icon lg"><use href="#i-calendar-clock"/></svg>
+            이번 주 마감이 기다려요 · 다음 주로 넘어갈 3건
+            <button class="btn small">정산 시작</button>
+          </div>
+          <div class="scrollarea">
+            <div class="item today-assigned">
+              <div class="item-top"><button class="caret"><svg class="icon"><use href="#i-chevron-right"/></svg></button>
+                <span class="item-title">포트폴리오 리팩터</span><span class="badge">M1</span>
+                <button class="btn small" style="margin-left:auto">+ 오늘로</button></div>
+              <div class="item-sub"><span class="dots"><i class="dot fill"></i><i class="dot fill"></i><i class="dot fill"></i><i class="dot fill"></i><i class="dot fill"></i><i class="dot fill"></i><i class="dot"></i><i class="dot"></i></span><span class="mono xs">6/8</span></div>
+            </div>
+            <div class="item">
+              <div class="item-top"><button class="caret"><svg class="icon"><use href="#i-chevron-right"/></svg></button>
+                <span class="item-title">알고리즘 60제</span><span class="badge carry">3주째</span>
+                <button class="btn small" style="margin-left:auto">+ 오늘로</button></div>
+              <div class="item-sub"><span class="dots"><i class="dot fill"></i><i class="dot fill"></i><i class="dot fill"></i><i class="dot fill"></i><i class="dot"></i><i class="dot"></i></span><span class="mono xs">4/6</span></div>
+            </div>
+          </div>
+          <div class="gauge">
+            <div class="sm"><span class="mono">18 / 24</span></div>
+            <div class="bar"><span style="width:75%"></span></div>
+          </div>
+        </div>
+
+        <div class="card grow">
+          <div class="card-head"><span class="eyebrow">TODAY</span><span class="card-title">오늘 할 일</span></div>
+          <div class="today-item"><span class="check"></span><span class="sm">라우팅 정리</span>
+            <button class="remove"><svg class="icon"><use href="#i-x"/></svg></button></div>
+          <div class="today-item"><span class="check"></span><span class="sm">DP 5문제</span>
+            <button class="remove"><svg class="icon"><use href="#i-x"/></svg></button></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- MONTH 오버레이 (좌측 슬라이드-인, 비모달) -->
+    <div class="overlay-wrap">
+      <div class="overlay" style="pointer-events:auto">
+        <button class="close" aria-label="닫기"><svg class="icon lg"><use href="#i-x"/></svg></button>
+        <div>
+          <div class="card-head"><span class="eyebrow">MONTH</span><span class="card-title">8월 결과물</span></div>
+          <div class="item">
+            <div class="item-top"><span class="check on"><svg class="icon"><use href="#i-check"/></svg></span><span class="badge">M1</span><span class="item-title done">포트폴리오 v2 배포</span></div>
+            <div class="item-sub"><span class="xs faint">이번 주 3/8</span></div>
+          </div>
+          <div class="item">
+            <div class="item-top"><span class="check"></span><span class="badge">M2</span><span class="item-title">알고리즘 60제 완주</span></div>
+            <div class="item-sub"><span class="xs faint">이번 주 4/6</span></div>
+          </div>
+        </div>
+        <div class="hr"></div>
+        <div>
+          <div class="cal-head">
+            <button class="cal-nav"><svg class="icon lg"><use href="#i-chevron-left"/></svg></button>
+            <span class="card-title">2026년 8월</span>
+            <button class="cal-nav"><svg class="icon lg"><use href="#i-chevron-right"/></svg></button>
+          </div>
+          <div class="dow"><span>월</span><span>화</span><span>수</span><span>목</span><span>금</span><span>토</span><span>일</span></div>
+          <div class="grid">
+            <div class="cell out"></div><div class="cell out"></div><div class="cell out"></div><div class="cell out"></div><div class="cell out"></div>
+            <div class="cell">1<i class="cdot"></i></div><div class="cell">2</div>
+            <div class="cell">3<i class="cdot"></i></div><div class="cell today sel">4<i class="cdot dense"></i></div><div class="cell">5</div><div class="cell">6</div><div class="cell">7</div><div class="cell">8</div><div class="cell">9</div>
+            <div class="cell">10</div><div class="cell">11</div><div class="cell">12</div><div class="cell">13</div><div class="cell">14</div><div class="cell">15</div><div class="cell">16</div>
+            <div class="cell">17</div><div class="cell">18</div><div class="cell">19</div><div class="cell">20</div><div class="cell">21</div><div class="cell">22</div><div class="cell">23</div>
+            <div class="cell">24</div><div class="cell">25</div><div class="cell">26</div><div class="cell">27</div><div class="cell">28</div><div class="cell">29</div><div class="cell">30</div>
+            <div class="cell">31</div><div class="cell out">1</div><div class="cell out">2</div><div class="cell out">3</div><div class="cell out">4</div><div class="cell out">5</div><div class="cell out">6</div>
+          </div>
+          <div class="date-panel">
+            <div class="sm">2026년 8월 4일 <span class="dim xs">· 집중 4회 · 할 일 2/3 완료</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  </div>
+  <div class="note">가시성은 구간을 넘어 이어진다 — 와이드에서 MONTH 를 보고 있었으면 미디엄으로 좁혀도 <b>오버레이가 열린 상태로 진입</b>한다("미디엄 진입 시 항상 접힘"은 성립하지 않는다). 위 화면은 사후 캡처 바(자유 집중 완료 직후)와 정산 배너가 함께 떠 있는 상태다 — 둘 다 다른 조작을 막지 않는다.</div>
+</section>
+
+<!-- ══════════════════════════ 5. 내로우 ══════════════════════════ -->
+<section class="view" id="v-narrow">
+  <div class="note">폭 &lt; <b>--bp-medium</b> — 1컬럼. 타이머 <b>축약형이 상단 고정</b>(탭을 옮겨도 유지)이고 그 아래가 탭 3개다. 축약형은 한 줄: 모드 텍스트(표시 전용) · MM:SS · 시작/일시정지. <b>링·모드 전환·조절 칩·완료 처리는 없다</b> — 그 조작은 `오늘` 탭의 전체 타이머 카드에서 한다. 탭 수는 3개로 닫는다(설정 등 새 화면은 오버레이로).</div>
+  <div class="rowset">
+    <!-- 오늘 탭 -->
+    <div>
+      <div class="frame-label">오늘 탭 (콜드 스타트 기본 선택)</div>
+      <div class="win narrow">
+        <div class="titlebar">
+          <span class="traffic"><i></i><i></i><i></i></span>
+          <span class="app-name">dongmodoro</span><span class="spacer"></span>
+          <span class="date-label">8월 4일</span>
+        </div>
+        <div class="mini-timer">
+          <span class="sm dim">집중</span>
+          <span class="mono" style="font-size:var(--text-xl);font-weight:var(--weight-semibold);margin-left:auto">12:34</span>
+          <button class="btn small primary" style="margin-left:auto"><svg class="icon"><use href="#i-pause"/></svg></button>
+          <span class="progress" style="width:67%"></span>
+        </div>
+        <div class="tabs" role="tablist">
+          <button role="tab" aria-selected="true">오늘</button>
+          <button role="tab" aria-selected="false">주간</button>
+          <button role="tab" aria-selected="false">월간</button>
+        </div>
+        <div class="narrow-body">
+          <div class="card timer" style="padding:12px">
+            <div class="mode-tabs">
+              <button aria-selected="true">집중</button><button aria-selected="false">짧은 휴식</button><button aria-selected="false">긴 휴식</button>
+            </div>
+            <div class="ring" style="width:150px;height:150px">
+              <svg viewBox="0 0 236 236" style="width:150px;height:150px">
+                <circle cx="118" cy="118" r="106" fill="none" stroke="var(--glass-strong)" stroke-width="9"/>
+                <circle cx="118" cy="118" r="106" fill="none" stroke="url(#ringgrad)" stroke-width="9" stroke-linecap="round" stroke-dasharray="666" stroke-dashoffset="220"/>
+              </svg>
+              <div class="ring-center">
+                <div class="clock" style="font-size:32px">12:34</div>
+                <div class="xs dim">3번째 집중</div>
+              </div>
+            </div>
+            <div class="adjust">
+              <button class="chip">−5</button><button class="chip">−1</button><span class="sep">|</span><button class="chip">+1</button><button class="chip">+5</button>
+            </div>
+            <div class="actions"><button class="btn small">초기화</button><button class="btn small">완료 처리</button></div>
+            <div class="xs dim">이번 주 4일 공부 중</div>
+          </div>
+          <div class="card" style="padding:12px">
+            <div class="card-head"><span class="eyebrow">TODAY</span><span class="card-title">오늘 할 일</span></div>
+            <div class="today-item"><span class="check"></span><span class="sm">라우팅 정리</span><button class="remove"><svg class="icon"><use href="#i-x"/></svg></button></div>
+            <div class="today-item"><span class="check"></span><span class="sm">DP 5문제</span><button class="remove"><svg class="icon"><use href="#i-x"/></svg></button></div>
+            <div class="hr"></div>
+            <div class="hint">자정이 지나면 남은 조각은 주간 카드로 돌아가요</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 주간 탭 -->
+    <div>
+      <div class="frame-label">주간 탭</div>
+      <div class="win narrow">
+        <div class="titlebar">
+          <span class="traffic"><i></i><i></i><i></i></span>
+          <span class="app-name">dongmodoro</span><span class="spacer"></span>
+          <span class="date-label">8월 4일</span>
+        </div>
+        <div class="mini-timer">
+          <span class="sm dim">짧은 휴식</span>
+          <span class="mono" style="font-size:var(--text-xl);font-weight:var(--weight-semibold);margin-left:auto">05:00</span>
+          <button class="btn small primary" style="margin-left:auto"><svg class="icon"><use href="#i-play"/></svg></button>
+          <span class="progress" style="width:0%"></span>
+        </div>
+        <div class="tabs" role="tablist">
+          <button role="tab" aria-selected="false">오늘</button>
+          <button role="tab" aria-selected="true">주간</button>
+          <button role="tab" aria-selected="false">월간</button>
+        </div>
+        <div class="narrow-body">
+          <div class="card grow" style="padding:12px">
+            <div class="card-head"><span class="eyebrow">WEEK</span><span class="card-title">이번 주 할당</span><span class="card-meta">8/3 – 8/9</span></div>
+            <div class="banner"><svg class="icon lg"><use href="#i-calendar-clock"/></svg> 넘어갈 3건 <button class="btn small">정산 시작</button></div>
+            <div class="scrollarea">
+              <div class="item today-assigned">
+                <div class="item-top"><button class="caret"><svg class="icon"><use href="#i-chevron-right"/></svg></button><span class="item-title">포트폴리오 리팩터</span>
+                  <button class="btn small" style="margin-left:auto">+ 오늘로</button></div>
+                <div class="item-sub"><span class="dots"><i class="dot fill"></i><i class="dot fill"></i><i class="dot fill"></i><i class="dot fill"></i><i class="dot fill"></i><i class="dot fill"></i><i class="dot"></i><i class="dot"></i></span><span class="mono xs">6/8</span>
+                  <span class="pips"><i class="pip past"></i><i class="pip today"></i><i class="pip"></i><i class="pip next"></i><i class="pip"></i><i class="pip"></i><i class="pip"></i></span></div>
+              </div>
+              <div class="item">
+                <div class="item-top"><button class="caret"><svg class="icon"><use href="#i-chevron-right"/></svg></button><span class="item-title">알고리즘 60제</span><span class="badge carry">3주째</span></div>
+                <div class="item-sub"><span class="dots"><i class="dot fill"></i><i class="dot fill"></i><i class="dot fill"></i><i class="dot fill"></i><i class="dot"></i><i class="dot"></i></span><span class="mono xs">4/6</span></div>
+              </div>
+              <div class="item other">
+                <div class="item-top"><button class="caret"><svg class="icon"><use href="#i-chevron-right"/></svg></button><span class="item-title dim">기타 — 계획에 없던 집중</span></div>
+                <div class="item-sub"><span class="dots"><i class="dot fill"></i><i class="dot fill"></i><i class="dot fill"></i></span><span class="mono xs">3</span></div>
+              </div>
+            </div>
+            <div class="gauge">
+              <div class="sm"><span class="mono">18 / 24</span></div>
+              <div class="bar"><span style="width:75%"></span></div>
+              <div class="xs dim">예산은 추정치예요 — 넘어가도 괜찮아요</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 월간 탭 -->
+    <div>
+      <div class="frame-label">월간 탭</div>
+      <div class="win narrow">
+        <div class="titlebar">
+          <span class="traffic"><i></i><i></i><i></i></span>
+          <span class="app-name">dongmodoro</span><span class="spacer"></span>
+          <span class="date-label">8월 4일</span>
+        </div>
+        <div class="mini-timer">
+          <span class="sm dim">집중</span>
+          <span class="mono" style="font-size:var(--text-xl);font-weight:var(--weight-semibold);margin-left:auto">25:00</span>
+          <button class="btn small primary" style="margin-left:auto"><svg class="icon"><use href="#i-play"/></svg></button>
+          <span class="progress" style="width:0%"></span>
+        </div>
+        <div class="tabs" role="tablist">
+          <button role="tab" aria-selected="false">오늘</button>
+          <button role="tab" aria-selected="false">주간</button>
+          <button role="tab" aria-selected="true">월간</button>
+        </div>
+        <div class="narrow-body">
+          <div class="card" style="padding:12px">
+            <div class="card-head"><span class="eyebrow">MONTH</span><span class="card-title">8월 결과물</span></div>
+            <div class="item"><div class="item-top"><span class="check on"><svg class="icon"><use href="#i-check"/></svg></span><span class="badge">M1</span><span class="item-title done">포트폴리오 v2 배포</span></div>
+              <div class="item-sub"><span class="xs faint">이번 주 3/8</span></div></div>
+            <div class="item"><div class="item-top"><span class="check"></span><span class="badge">M2</span><span class="item-title">알고리즘 60제 완주</span></div>
+              <div class="item-sub"><span class="xs faint">이번 주 4/6</span></div></div>
+          </div>
+          <div class="card grow" style="padding:12px">
+            <div class="cal-head">
+              <button class="cal-nav"><svg class="icon lg"><use href="#i-chevron-left"/></svg></button>
+              <span class="card-title">2026년 8월</span>
+              <button class="cal-nav"><svg class="icon lg"><use href="#i-chevron-right"/></svg></button>
+            </div>
+            <div class="dow"><span>월</span><span>화</span><span>수</span><span>목</span><span>금</span><span>토</span><span>일</span></div>
+            <div class="grid">
+              <div class="cell out"></div><div class="cell out"></div><div class="cell out"></div><div class="cell out"></div><div class="cell out"></div>
+              <div class="cell">1<i class="cdot"></i></div><div class="cell">2</div>
+              <div class="cell">3<i class="cdot"></i></div><div class="cell today sel">4<i class="cdot dense"></i></div><div class="cell">5</div><div class="cell">6</div><div class="cell">7</div><div class="cell">8</div><div class="cell">9</div>
+              <div class="cell">10</div><div class="cell">11</div><div class="cell">12</div><div class="cell">13</div><div class="cell">14</div><div class="cell">15</div><div class="cell">16</div>
+              <div class="cell">17</div><div class="cell">18</div><div class="cell">19</div><div class="cell">20</div><div class="cell">21</div><div class="cell">22</div><div class="cell">23</div>
+              <div class="cell">24</div><div class="cell">25</div><div class="cell">26</div><div class="cell">27</div><div class="cell">28</div><div class="cell">29</div><div class="cell">30</div>
+              <div class="cell">31</div><div class="cell out">1</div><div class="cell out">2</div><div class="cell out">3</div><div class="cell out">4</div><div class="cell out">5</div><div class="cell out">6</div>
+            </div>
+            <div class="date-panel">
+              <div class="sm">2026년 8월 4일 <span class="dim xs">· 집중 4회 · 할 일 2/3 완료</span></div>
+              <div class="rec"><span class="check on"><svg class="icon"><use href="#i-check"/></svg></span> 레이아웃 정리 <span class="src">가져옴 · 집중 2</span></div>
+              <div class="rec"><span class="check"></span> 라우팅 정리 <span class="src">세션으로 생김</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="note">축약형 좌측 모드 텍스트에는 <b>버튼·탭의 시각 어포던스를 일절 주지 않는다</b>(보더·배경·hover·포인터 없음) — 표시 전용인데 눌러보게 되는 죽은 어포던스를 피하기 위한 규칙. 진행은 축약형 하단 2px 인디케이터로만 암시하고 초과 강조는 없다.</div>
+</section>
+
+<!-- ══════════════════════════ 6. 온보딩·다이얼로그 ══════════════════════════ -->
+<section class="view" id="v-onboard">
+  <div class="note">첫 실행 온보딩은 <b>1회 오버레이</b>이고, 셸은 자리만 정하고 항목·기본값·검증은 pomo-baseline 이 소유한다. <b>건너뛸 수 있고</b>, 건너뛰면 타이머는 즉시 사용 가능하다(설정 강요 화면이 아니다). 두 번째 실행부터 자동으로 뜨지 않는다 — 다시 여는 경로는 주간 정산의 편집 진입점.</div>
+
+  <div class="rowset">
+    <div>
+      <div class="frame-label">첫 실행 온보딩 오버레이</div>
+      <div class="card" style="width:420px">
+        <div class="card-head"><span class="card-title">기준을 정해볼까요</span><span class="card-meta">건너뛸 수 있어요</span></div>
+
+        <div class="xxs faint" style="letter-spacing:var(--tracking-wider)">뽀모 길이 (분)</div>
+        <div style="display:flex;gap:14px;margin:7px 0 14px">
+          <span><span class="xs dim" style="display:block">집중</span><input class="input mono" value="25" style="width:64px"></span>
+          <span><span class="xs dim" style="display:block">짧은 휴식</span><input class="input mono" value="5" style="width:64px"></span>
+          <span><span class="xs dim" style="display:block">긴 휴식</span><input class="input mono" value="15" style="width:64px"></span>
+        </div>
+
+        <div class="xxs faint" style="letter-spacing:var(--tracking-wider)">요일별 가용 뽀모 (개수)</div>
+        <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:5px;margin-top:7px">
+          <span class="xs dim" style="text-align:center">월</span><span class="xs dim" style="text-align:center">화</span><span class="xs dim" style="text-align:center">수</span>
+          <span class="xs dim" style="text-align:center">목</span><span class="xs dim" style="text-align:center">금</span><span class="xs dim" style="text-align:center">토</span><span class="xs dim" style="text-align:center">일</span>
+          <input class="input mono" value="4" style="text-align:center;padding:6px 0">
+          <input class="input mono" value="2" style="text-align:center;padding:6px 0">
+          <input class="input mono" value="4" style="text-align:center;padding:6px 0">
+          <input class="input mono" value="2" style="text-align:center;padding:6px 0">
+          <input class="input mono" value="4" style="text-align:center;padding:6px 0">
+          <input class="input mono" value="0" style="text-align:center;padding:6px 0">
+          <input class="input mono" value="8" style="text-align:center;padding:6px 0">
+        </div>
+        <div class="xs dim" style="margin-top:7px">합 24 — 예산 입력의 기본값으로 쓰여요</div>
+
+        <div class="hr"></div>
+        <div style="display:flex;gap:8px;justify-content:flex-end">
+          <button class="btn">건너뛰기</button>
+          <button class="btn primary">시작하기</button>
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <div class="frame-label">뽀모 길이 조정 — 확정 전 시간 비교 (ADR-013 §4)</div>
+      <div class="card" style="width:360px">
+        <div class="card-head"><span class="card-title">뽀모 길이</span></div>
+        <div style="display:flex;gap:14px;margin-bottom:12px">
+          <span><span class="xs dim" style="display:block">집중</span><input class="input mono" value="50" style="width:64px"></span>
+          <span><span class="xs dim" style="display:block">짧은 휴식</span><input class="input mono" value="5" style="width:64px"></span>
+          <span><span class="xs dim" style="display:block">긴 휴식</span><input class="input mono" value="15" style="width:64px"></span>
+        </div>
+        <div class="sm">주 <span class="mono">24</span>개 · 지금 <span class="mono">10시간</span> → 바꾸면 <span class="mono">20시간</span></div>
+        <div class="xs dim" style="margin-top:5px">바꾼 길이는 다음 주부터 적용돼요 · 이번 주 기록은 그대로예요</div>
+        <div class="hr"></div>
+        <div style="display:flex;gap:8px;justify-content:flex-end">
+          <button class="btn">취소</button>
+          <button class="btn primary">저장</button>
+        </div>
+      </div>
+
+      <div class="frame-label">종료 확인 — focus 가 running/paused 일 때만 1회</div>
+      <div class="dialog">
+        <h4>지금 종료할까요?</h4>
+        <p>종료하면 진행 중인 이 세션은 기록되지 않아요.</p>
+        <div class="row">
+          <button class="btn primary">계속 집중</button>
+          <button class="btn">종료</button>
+        </div>
+      </div>
+      <div class="xs dim" style="margin-top:6px;max-width:320px">기본 포커스는 <b>계속 집중</b>. 종료 버튼에 <span style="color:var(--danger)">--danger</span> 를 쓰지 않는다 — 세션 하나가 안 남을 뿐 데이터를 없애는 게 아니다.</div>
+
+      <div class="frame-label">마일스톤 삭제 확인 — 물리 삭제라 되돌릴 수 없다</div>
+      <div class="dialog">
+        <h4>이 결과물을 삭제할까요?</h4>
+        <p>제목이 사라지고 연결이 끊겨요. 되돌릴 수 없어요. 연결됐던 주간 항목은 "기타"로 남고 지금까지 한 집중 기록은 그대로예요.</p>
+        <div class="row">
+          <button class="btn">취소</button>
+          <button class="btn destructive">삭제</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════════════ 7. 상태 갤러리 ══════════════════════════ -->
+<section class="view" id="v-states">
+  <div class="note">문구·상태만 모아 본 것. 전부 <b>사실만 말하고 판단하지 않는다</b> — "미달성/밀린/숙제/지연", 경고 아이콘, 칭찬·훈계 문구를 쓰지 않는다.</div>
+
+  <div class="gal">
+    <div class="card"><h6>정산 배너 4종</h6>
+      <div class="banner" style="margin-bottom:6px"><svg class="icon lg"><use href="#i-calendar-clock"/></svg> 이번 주 마감이 기다려요 · 다음 주로 넘어갈 3건 <button class="btn small">정산 시작</button></div>
+      <div class="banner" style="margin-bottom:6px"><svg class="icon lg"><use href="#i-calendar-clock"/></svg> 지난 주(W31) 정산이 기다려요 · 다음 주로 넘어갈 5건 <button class="btn small">정산 시작</button></div>
+      <div class="banner" style="margin-bottom:6px"><svg class="icon lg"><use href="#i-calendar-clock"/></svg> W29–W31 정산이 기다려요 · 다음 주로 넘어갈 8건 <button class="btn small">정산 시작</button></div>
+      <div class="banner"><svg class="icon lg"><use href="#i-calendar-clock"/></svg> 이번 주 마감하고 다음 주를 시작할까요 <button class="btn small">정산 시작</button></div>
+      <div class="xxs faint" style="margin-top:6px">W31 같은 주 번호는 렌더 전용 라벨이고 저장값이 아니다. 배너를 닫아도 다음 실행에 판정으로 다시 나타난다.</div>
+    </div>
+
+    <div class="card"><h6>정산 요약 4종</h6>
+      <div class="sm">이번 주 마감 — 4일 공부, 뽀모 <span class="mono">18</span> 소진 <span class="dim">(예산 24)</span></div><div class="hr"></div>
+      <div class="sm">지난 주(W31) — 3일 공부, 뽀모 <span class="mono">11</span> 소진 <span class="dim">(예산 24)</span></div><div class="hr"></div>
+      <div class="sm">W29–W31 — 뽀모 <span class="mono">26</span> 소진</div>
+      <div class="xs dim" style="margin-top:3px">W29 · 2일 공부, 뽀모 6<br>W31 · 4일 공부, 뽀모 20</div><div class="hr"></div>
+      <div class="sm">2주 쉬었어요 · 마지막으로 공부한 주(W29) 뽀모 <span class="mono">20</span> 소진</div>
+      <div class="xxs faint" style="margin-top:6px">완전히 빈 주는 행을 만들지 않고 "N주 쉬었어요" 문장으로만 센다. 달성률 %는 크게 띄우지 않는다.</div>
+    </div>
+
+    <div class="card"><h6>예산 게이지 3상태</h6>
+      <div class="sm"><span class="mono">18 / 24</span></div>
+      <div class="bar"><span style="width:75%"></span></div>
+      <div class="xs dim">예산은 추정치예요 — 넘어가도 괜찮아요</div>
+      <div class="hr"></div>
+      <div class="sm"><span class="mono">27 / 24</span> <span class="badge over"><svg class="icon"><use href="#i-flame"/></svg> +3</span></div>
+      <div class="bar"><span class="over" style="width:100%"></span></div>
+      <div class="xs dim">예산은 추정치예요 — 넘어가도 괜찮아요</div>
+      <div class="hr"></div>
+      <div class="sm"><span class="mono">6 / 미설정</span></div>
+      <div class="xs dim" style="margin-top:5px">예산을 정하면 예산 대비 소진이 보여요</div>
+      <div class="xxs faint" style="margin-top:6px">초과 상태도 문구가 같다. 빨간색·경고 아이콘 금지 — 초과는 실패가 아니다.</div>
+    </div>
+
+    <div class="card"><h6>오늘 목록 빈 상태 2종 + 자정 힌트 2종</h6>
+      <div class="empty" style="padding:10px 0"><p>위 주간 할당에서 +오늘로 를 눌러 오늘 몫을 골라오세요 (3개 이하 권장)</p></div>
+      <div class="hr"></div>
+      <div class="empty" style="padding:10px 0"><p>계획이 없어도 타이머는 돌아가요.</p></div>
+      <div class="hr"></div>
+      <div class="hint" style="margin-bottom:6px">자정이 지나면 남은 조각은 주간 카드로 돌아가요</div>
+      <div class="hint">새 날이 시작됐어요 — 어제 조각은 주간 카드에서 다시 가져올 수 있어요</div>
+      <div class="xxs faint" style="margin-top:6px">H1 = 23:00~24:00 & 미완료 1개 이상 / H2 = 00:00~06:00 & 오늘 pull 행 0건. 매 분 재평가하고 조건이 거짓이 되면 사라진다(닫기 버튼 없음). 자정 직후 빈 목록에는 빈 상태 카피와 H2 가 함께 뜬다.</div>
+    </div>
+
+    <div class="card"><h6>주간 카드 빈 상태 4종</h6>
+      <div class="empty" style="padding:8px 0"><p>마일스톤을 이번 주 몫으로 쪼개볼까요?</p><button class="btn small">+ 이번 주 할당 잡기</button></div>
+      <div class="hr"></div>
+      <div class="empty" style="padding:8px 0"><p>이번 주 할당을 잡으면 뽀모 예산이 여기 보여요</p><button class="btn small">+ 다음 주 할당 잡기</button></div>
+      <div class="hr"></div>
+      <div class="item other" style="margin-bottom:6px">
+        <div class="item-top"><span class="item-title dim">기타 — 계획에 없던 집중</span></div>
+        <div class="item-sub" style="margin-left:0"><span class="dots"><i class="dot fill"></i><i class="dot fill"></i></span><span class="mono xs">2</span></div>
+      </div>
+      <div class="sm dim">계획이 없어도 기록은 남아요</div>
+      <div class="hr"></div>
+      <div class="empty" style="padding:8px 0"><p>이번 주 할당을 다 끝냈어요</p><button class="btn small">수정</button></div>
+      <div class="xxs faint" style="margin-top:6px">일요일에는 CTA 가 "+ 다음 주 할당 잡기" 로 렌더된다 — 라벨과 실제 편집 대상이 어긋나는 상태가 없다.</div>
+    </div>
+
+    <div class="card"><h6>마일스톤 카드 표시 모드</h6>
+      <div class="sm">이번 달 · 편집</div>
+      <div class="item"><div class="item-top"><span class="check"></span><span class="badge">M1</span><span class="item-title">포트폴리오 v2 배포</span></div>
+        <div class="item-sub"><span class="xs faint">이번 주 3/8</span></div></div>
+      <div class="hr"></div>
+      <div class="sm">진행 중인 주가 이번 달에 안 속한 동안</div>
+      <div class="xs dim">이번 주(8/31~9/6)는 8월에 속한 주예요</div>
+      <div class="hr"></div>
+      <div class="sm">지난달 · 읽기 전용</div>
+      <div class="item dim"><div class="item-top"><span class="badge">1/3 달성 · 보관 2건</span></div></div>
+      <div class="hr"></div>
+      <div class="sm">다음 달 · 선행 편집</div>
+      <div class="empty" style="padding:8px 0"><p>아직 계획 전</p><button class="btn small">9월 계획 잡기</button></div>
+      <div class="hr"></div>
+      <div class="sm">먼 미래 달</div>
+      <div class="xs dim">10월은 9월 1일부터 계획할 수 있어요</div>
+      <div class="hr"></div>
+      <div class="sm">지난달 · 계획 없음</div>
+      <div class="xs dim">이 달은 계획 없이 지나갔어요</div>
+      <div class="xxs faint" style="margin-top:6px">보관·해제로 배지의 N·M 은 변하지 않는다(달성률 조작 경로 0). M=0 이면 배지를 렌더하지 않는다 — "0/0 달성"을 만들지 않는다.</div>
+    </div>
+
+    <div class="card"><h6>날짜 패널 · 캘린더 셀 채널</h6>
+      <div class="sm">2026년 8월 4일 <span class="dim xs">· 집중 4회 · 할 일 2/3 완료</span></div>
+      <div class="rec"><span class="check on"><svg class="icon"><use href="#i-check"/></svg></span> 레이아웃 정리 <span class="src">가져옴 · 집중 2</span></div>
+      <div class="rec"><span class="check"></span> 라우팅 정리 <span class="src">세션으로 생김</span></div>
+      <div class="rec"><span class="check"></span> 토큰 이관 <span class="src">가져옴</span></div>
+      <div class="hr"></div>
+      <div class="sm dim">이날은 기록이 없어요</div>
+      <div class="hr"></div>
+      <div class="dow" style="grid-template-columns:repeat(4,1fr)"><span>기본</span><span>오늘</span><span>선택</span><span>3채널</span></div>
+      <div class="grid" style="grid-template-columns:repeat(4,1fr)">
+        <div class="cell">12<i class="cdot"></i></div>
+        <div class="cell today">13<i class="cdot"></i></div>
+        <div class="cell sel">14<i class="cdot dense"></i></div>
+        <div class="cell today sel">15<i class="cdot dense"></i></div>
+      </div>
+      <div class="xxs faint" style="margin-top:6px">오늘 = 숫자 색만, 선택 = 배경·보더만, 기록 = 점만. 한 채널을 두 상태가 함께 쓰지 않으므로 셋이 겹친 셀에서도 세 정보가 다 읽힌다.</div>
+    </div>
+
+    <div class="card"><h6>정산 예외 화면</h6>
+      <div class="sm dim">지금 정산할 주가 없어요</div><div class="hr"></div>
+      <div class="sm dim">넘어갈 항목이 없어요 — 이번 주를 마감할까요</div><div class="hr"></div>
+      <div class="sm dim">날짜가 바뀌어서 정산 범위를 다시 불러왔어요</div><div class="hr"></div>
+      <div class="sm dim">저장하지 못했어요 — 다시 시도해 주세요</div><div class="hr"></div>
+      <div class="sm">확정 후 토스트</div>
+      <div class="xs dim">다음 주로 3건 넘어갔어요<br>그 사이 추가된 2건도 함께 넘어갔어요</div>
+      <div class="xxs faint" style="margin-top:6px">패널을 열어둔 사이 목록이 변해도 <b>확정은 실패하지 않는다</b> — 사라진 항목의 예외는 무시하고 새 항목은 이월한 뒤 토스트 한 줄로만 알린다.</div>
+    </div>
+
+    <div class="card"><h6>세션 라벨 · 알림 문구</h6>
+      <div class="sm">3번째 집중</div>
+      <div class="sm">짧게 쉬어가요</div>
+      <div class="sm">네 번째 집중 완료 — 길게 쉴 차례예요</div>
+      <div class="sm">쉬는 중</div>
+      <div class="hr"></div>
+      <div class="sm dim">OS 알림 — 집중 완료 — 쉬어가요</div>
+      <div class="sm dim">OS 알림 — 휴식 끝 — 준비되면 시작하세요</div>
+      <div class="hr"></div>
+      <div class="capture" style="border:0;padding:0">
+        <input class="input" placeholder="이 25분, 뭐 했는지 한 줄 남길래요?">
+        <button class="btn small primary">기록</button>
+        <button class="btn small">건너뛰기</button>
+      </div>
+      <div class="xxs faint" style="margin-top:6px">캡처 바는 <b>사용자 행동으로만 닫힌다</b>(기록 / 건너뛰기 / Esc). 다음 세션이 시작돼도 대기 상태가 취소되지 않는다. 세션 기록 자체는 이미 저장돼 있고 캡처는 이름 붙이기일 뿐이다.</div>
+    </div>
+
+    <div class="card"><h6>트레이 메뉴 (창 밖 상주)</h6>
+      <div class="sm" style="padding:5px 0">창 열기</div>
+      <div class="hr"></div>
+      <div class="sm" style="padding:5px 0">종료</div>
+      <div class="xxs faint" style="margin-top:6px">라벨은 항상 "창 열기" 고정이고 <b>비활성화하지 않는다</b> — 비활성 항목은 "앱이 응답하지 않는다"로 오독된다. 구분선 위가 미래에 트레이 타이머 조작이 들어올 자리. 창 닫기=숨김과 트레이 상주는 분리 배포할 수 없다.</div>
+    </div>
+
+    <div class="card"><h6>남은 TBD (구현 전 결정 필요)</h6>
+      <div class="sm dim" style="line-height:1.8">
+        · <s>유리 표면의 blur 반경·inset 하이라이트</s> — <b>닫혔다.</b> tokens.md §5 Surface 토큰 6종 (ADR-002)<br>
+        · 최소 창 크기 확정값 (목표 ~420×640, 실측 후 tokens.md 에 기록)<br>
+        · 단축키 표(구간·탭 전환), 스크린리더 라이브 영역 문구<br>
+        · 주 번호 라벨(W32)을 WEEK 헤더에 병기할지<br>
+        · 트레이 아이콘 형태·남은 시간 표시 방식 (M4)<br>
+        · Query invalidation 키 계층 (구현 착수 시)
+      </div>
+    </div>
+  </div>
+</section>
+
+</div>
+
+<script>
+  const nav = document.querySelector('.doc-nav');
+  const views = document.querySelectorAll('.view');
+  nav.addEventListener('click', (e) => {
+    const b = e.target.closest('button[data-v]');
+    if (!b) return;
+    nav.querySelectorAll('button').forEach(x => x.setAttribute('aria-selected', String(x === b)));
+    views.forEach(v => v.classList.toggle('on', v.id === 'v-' + b.dataset.v));
+    window.scrollTo({ top: 0 });
+  });
+</script>
+</body>
+</html>

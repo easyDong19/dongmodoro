@@ -245,15 +245,19 @@
 
 ### 시각 규칙·접근성
 
-- **R36.** 색·폰트·radius·브레이크포인트는 [tokens.md](../../design-system/tokens.md)
+- **R36.** 색·폰트·radius·브레이크포인트·유리 표면은 [tokens.md](../../design-system/tokens.md)
   의 토큰 이름으로만 기술·구현한다. raw hex/px 직접 기입 금지.
 - **R37.** 렌더되는 UI(탭 라벨·트레이 메뉴·버튼·빈 상태 카피)에 이모지를 쓰지 않는다.
   아이콘은 lucide-react 컴포넌트, 도메인 심볼(뽀모 도트)은 토큰 기반 커스텀 SVG/CSS
   ([principles §6](../../design-system/principles.md)).
-- **R38.** 유리 표면의 **backdrop blur 반경과 inset 하이라이트는 현재 토큰이 없다.**
-  토큰 추가는 ADR 선행이므로([tokens.md §6](../../design-system/tokens.md)) 구현에서
-  raw 값을 먼저 쓰지 않는다. → **TBD: `--glass-blur` 류 토큰 추가 ADR 필요** (셸이
-  유리 표면의 최대 소비자이므로 이 ADR 을 셸 구현 전에 낸다).
+- **R38.** 유리 표면의 backdrop·inset 하이라이트·드롭 섀도는
+  [tokens.md §5](../../design-system/tokens.md) 의 Surface 토큰 6종으로만 기술·구현한다
+  (`--glass-backdrop` · `--glass-highlight` · `--glass-shadow` / 컨트롤용 `--control-*`).
+  셸이 이 표면의 최대 소비자이므로 셸 구현 전에 토큰을 확정했다 —
+  근거는 [ADR-002 (design-system)](../../design-system/decisions/adr-002-glass-surface-tokens.md).
+  **창 자체의 그림자는 토큰이 아니다** (프레임리스 창이라도 OS 가 그린다).
+  레벨 추가·값 변경은 ADR 선행이며([tokens.md §7](../../design-system/tokens.md)) 구현에서
+  raw 값을 먼저 쓰지 않는다.
 - **R39.** 접근성 최소선: 내로우 탭은 `tablist`/`tab`/`tabpanel` role 과 좌우 화살표
   이동을 갖는다. **MONTH 오버레이는 비모달이므로 포커스 트랩을 걸지 않는다**(R10) —
   `Tab` 으로 오버레이 밖으로 나갈 수 있어야 한다. 구간 전환으로 포커스된 요소가 사라진

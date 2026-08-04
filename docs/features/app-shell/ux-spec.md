@@ -17,9 +17,12 @@
 카드 내부 구성은 각 기능(timer, today-tasks, week-plan, milestones, calendar-records,
 weekly-review)이 소유한다. 셸은 **자리와 접힘**만 정의한다.
 
-> TBD: 유리 표면의 **backdrop blur 반경**과 **inset 하이라이트**는 현재 토큰에 없다.
-> 토큰 추가는 ADR 선행이므로(tokens.md §6) 이 문서·구현 어디에도 raw 값을 쓰지 않는다.
-> → **`--glass-blur` 류 토큰 추가 ADR 이 셸 구현 전에 필요하다** (PRD R38).
+유리 표면의 backdrop·inset 하이라이트·드롭 섀도는
+[tokens.md §5](../../design-system/tokens.md) 의 Surface 토큰으로 기술한다 — 카드·오버레이·
+다이얼로그는 `--glass-backdrop` · `--glass-highlight` · `--glass-shadow`, 버튼·칩은
+`--control-*` 3종이다 ([ADR-002](../../design-system/decisions/adr-002-glass-surface-tokens.md)
+가 PRD R38 의 TBD 를 닫았다). 오버레이는 전용 레벨 없이 표면 레벨을 쓰고 차이는
+배경 토큰(`--glass-strong`)으로만 준다. **창 그림자는 토큰이 아니다 — OS 가 그린다.**
 
 ### 1.1 타이틀바 슬롯 (플랫폼 조건)
 
@@ -393,8 +396,7 @@ focus 실행 중 종료 요청 시 확인 1회를 거친다. 경계는 다음과
   컴포넌트. **이모지 금지** (principles §6).
 - `--danger` 는 셸 어디에도 쓰지 않는다 — 창 닫기·종료는 데이터를 없애는 행위가
   아니다 (principles §2, timer ux-spec §7 과 동일 판단).
-- 색·폰트·radius·브레이크포인트는 토큰 이름으로만 (principles §5). 토큰이 없는 값
-  (유리 blur·inset 하이라이트)은 ADR 전까지 쓰지 않는다 (§1 TBD).
+- 색·폰트·radius·브레이크포인트·유리 표면은 토큰 이름으로만 (principles §5, §1).
 
 ### 8.1 접근성 최소선
 
