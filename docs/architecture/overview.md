@@ -23,7 +23,8 @@
 | 베이스라인·예산 | 예산·capacity·길이를 `weeks` 행에 확정 저장(첫 세션 시에도 생성). 편집은 상시, 효력은 다음 주 경계부터 | [ADR-013](decisions/adr-013-baseline-budget-effect.md) |
 | 삭제·보관 | `week_items`·`tasks` 만 soft delete, sessions 불삭제, milestones 물리 삭제 + `ON DELETE SET NULL`. 보관은 집계 중립 | [ADR-014](decisions/adr-014-deletion-and-archive.md) |
 | IPC 계약 | 도메인 명령형 API + zod 런타임 검증 | [ADR-007](decisions/adr-007-ipc-contract.md) |
-| 코드 구조 | main 3층 + renderer FSD-lite | [ADR-008](decisions/adr-008-code-structure.md) |
+| 코드 구조 | main 3층 + renderer FSD-lite | [ADR-008](decisions/adr-008-code-structure.md) (DB 접근은 ADR-015 가 정정) |
+| DB 접근 구조 | 서비스 → 리포지토리 포트(DIP), Drizzle 구현체는 `db/repositories/` 격리, 트랜잭션은 Unit of Work | [ADR-015](decisions/adr-015-repository-ports.md) |
 | 패키징·배포 | electron-builder → GitHub Releases 수동 다운로드 | [ADR-004](decisions/adr-004-packaging-deploy.md) |
 | 테스트 | Vitest + Testing Library, Playwright 는 핵심 경로만 | — (PRD §5 그대로) |
 
@@ -106,10 +107,11 @@ src/
 나중:   renderer → IPC → main → SQLite (로컬 우선) ↕ 동기화 엔진 ↔ 원격 서버
 ```
 
-지금 사둔 보험은 스키마 두 가지뿐이다 (UUID v7, `updated_at` —
-[ADR-006](decisions/adr-006-schema-sync-insurance.md)).
-동기화 엔진 선택, 서버 스키마, 리포지토리 추상화 계층은 **지금 만들지 않는다** —
-IPC 경계가 이미 그 추상화다.
+지금 사둔 보험은 스키마 두 가지(UUID v7, `updated_at` —
+[ADR-006](decisions/adr-006-schema-sync-insurance.md))와 main 내부의 리포지토리
+포트([ADR-015](decisions/adr-015-repository-ports.md) — 서비스가 저장소 구현을 모른다)다.
+동기화 엔진 선택과 서버 스키마는 **지금 만들지 않는다.** IPC 경계는 renderer 를 위한
+유스케이스 파사드로서의 심(seam)이고, main 내부의 심은 리포지토리 포트가 담당한다.
 
 ## 미결정 사항
 

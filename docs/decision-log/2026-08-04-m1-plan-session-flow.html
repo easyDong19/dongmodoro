@@ -1,0 +1,276 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>의사결정 플로우 — 2026-08-04 M1 스캐폴딩 계획 세션</title>
+<style>
+  :root {
+    --bg: #ffffff; --surface: #f7f8f8; --line: #d8dcda; --line-strong: #9aa3a0;
+    --text: #14201c; --muted: #6b7873;
+    --teal: #0f8a6d; --teal-soft: rgba(15,138,109,0.10);
+    --amber: #a76a12; --amber-soft: rgba(167,106,18,0.12);
+    --violet: #7c4fc4; --violet-soft: rgba(124,79,196,0.10);
+    --danger: #b3543f;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0c1a16; --surface: rgba(255,255,255,0.045); --line: rgba(255,255,255,0.14);
+      --line-strong: rgba(255,255,255,0.4); --text: #e8f0ec; --muted: #8fa39b;
+      --teal: #6fd4b8; --teal-soft: rgba(111,212,184,0.12);
+      --amber: #f0b671; --amber-soft: rgba(240,182,113,0.14);
+      --violet: #b795e8; --violet-soft: rgba(183,149,232,0.12);
+      --danger: #e8907e;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { background: var(--bg); color: var(--text); margin: 0;
+         padding: 32px 20px 64px;
+         font-family: ui-sans-serif, -apple-system, "Segoe UI", Roboto, sans-serif;
+         line-height: 1.6; }
+  .wrap { max-width: 800px; margin: 0 auto; }
+  h1 { font-size: 22px; margin: 0 0 6px; letter-spacing: -0.01em; }
+  .sub { color: var(--muted); font-size: 13px; margin: 0 0 8px; }
+  .sub a { color: var(--teal); }
+  .intro { font-size: 14px; background: var(--surface); border: 1px solid var(--line);
+           border-radius: 12px; padding: 14px 18px; margin: 18px 0 0; }
+  .intro b { color: var(--teal); }
+
+  .legend { display: flex; gap: 14px; flex-wrap: wrap; font-size: 12px; color: var(--muted);
+            margin: 14px 0 0; padding: 12px 0; border-bottom: 1px solid var(--line); }
+  .chip { display: inline-block; padding: 1px 8px; border-radius: 999px; font-size: 11px;
+          font-weight: 600; letter-spacing: 0.02em; vertical-align: 1px; }
+  .chip.rev { background: var(--amber-soft); color: var(--amber); }
+  .chip.exp { background: var(--violet-soft); color: var(--violet); }
+  .chip.sys { background: var(--teal-soft); color: var(--teal); }
+
+  .phase { margin-top: 40px; }
+  .phase-title { font-size: 12px; font-weight: 700; letter-spacing: 0.1em;
+                 color: var(--muted); text-transform: uppercase; margin: 0 0 4px 46px; }
+  .phase-desc { font-size: 13px; color: var(--muted); margin: 0 0 8px 46px; }
+
+  .node { display: flex; gap: 16px; }
+  .rail { width: 30px; flex-shrink: 0; display: flex; flex-direction: column; align-items: center; }
+  .dot { width: 12px; height: 12px; border-radius: 50%; background: var(--teal);
+         border: 2px solid var(--bg); box-shadow: 0 0 0 1.5px var(--teal); margin-top: 22px;
+         flex-shrink: 0; }
+  .dot.sys { background: var(--bg); box-shadow: 0 0 0 1.5px var(--line-strong); }
+  .dot.rev { background: var(--amber); box-shadow: 0 0 0 1.5px var(--amber); }
+  .rail .cont { width: 2px; flex: 1; background: var(--line); margin-top: 4px; }
+  .node:last-child .rail .cont { background: linear-gradient(var(--line), transparent); }
+
+  .card { flex: 1; background: var(--surface); border: 1px solid var(--line);
+          border-radius: 12px; padding: 16px 20px; margin: 8px 0; min-width: 0; }
+  .card.sys { background: transparent; border-style: dashed; }
+  .qid { font: 700 11px ui-monospace, Menlo, monospace; color: var(--muted);
+         letter-spacing: 0.06em; }
+  .qtitle { font-size: 15px; font-weight: 650; margin: 2px 0 10px; }
+
+  .sec-label { display: block; font-size: 11px; font-weight: 700; letter-spacing: 0.08em;
+               color: var(--muted); text-transform: uppercase; margin: 12px 0 3px; }
+  .problem { font-size: 13.5px; margin: 0; }
+  .problem em { font-style: normal; color: var(--danger); }
+
+  ul.options { list-style: none; padding: 0; margin: 4px 0 0; }
+  ul.options li { font-size: 13px; padding: 7px 10px 7px 30px; position: relative;
+                  border-radius: 8px; margin: 3px 0; color: var(--muted); }
+  ul.options li::before { content: "○"; position: absolute; left: 10px; color: var(--line-strong); }
+  ul.options li.chosen { background: var(--teal-soft); color: var(--text); }
+  ul.options li.chosen::before { content: "●"; color: var(--teal); }
+  ul.options li b { font-weight: 650; }
+  ul.options li .tr { color: var(--muted); }
+
+  .decision { font-size: 13.5px; margin: 4px 0 0; }
+  .decision b { color: var(--teal); }
+  .why { font-size: 13px; margin: 4px 0 0; padding: 8px 12px; border-left: 3px solid var(--amber);
+         background: var(--amber-soft); border-radius: 0 8px 8px 0; }
+  .why q { font-style: normal; }
+  .dep { font-size: 12.5px; color: var(--muted); margin-top: 12px; padding-top: 10px;
+         border-top: 1px dashed var(--line); }
+  .dep code, .problem code, .decision code {
+    font-family: ui-monospace, Menlo, monospace; font-size: 12px;
+    background: none; color: var(--teal); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>의사결정 플로우</h1>
+  <p class="sub">2026-08-04 M1 스캐폴딩 계획 세션 · 시간순 · 결정 원문 기록: <a href="./2026-08-04-m1-plan-session.md">2026-08-04-m1-plan-session.md</a></p>
+
+  <div class="intro">
+    <b>이 문서가 다루는 것:</b> 기획 문서가 전부 확정된 뒤(같은 날 오전 세션),
+    첫 구현 마일스톤 <b>M1 스캐폴딩</b>(창·DB·IPC 왕복까지의 워킹 스켈레톤)의 계획을
+    세우면서 내린 결정들이다. 계획서를 어디에 두고 어디까지 담을지에서 시작해,
+    IPC 계약 보강을 거쳐, <b>main 프로세스의 DB 접근 구조(DIP 도입)</b> 논쟁으로 끝났다.
+    각 카드는 <b>문제 → 고민한 선택지 → 결정 → 이유</b> 순서로 읽으면 된다.
+    ● 표시가 최종 선택이다.
+  </div>
+
+  <div class="legend">
+    <span><span class="chip rev">반전</span> AI 추천을 기각했거나 선택을 번복한 지점</span>
+    <span><span class="chip exp">재설명</span> 결정 전에 상세 설명·분석을 요구한 지점</span>
+    <span><span class="chip sys">검증</span> 조사·외부 자료 대조로 사실을 확인한 지점</span>
+    <span>점선 카드 = 질문이 아닌 이벤트</span>
+  </div>
+
+  <!-- ══════════ 1. 상태 확인 ══════════ -->
+  <div class="phase">
+    <p class="phase-title">1 · 상태 확인</p>
+    <p class="phase-desc">"어디까지 했더라"에서 시작했다. 기억과 저장소의 사실이 달랐다.</p>
+
+    <div class="node">
+      <div class="rail"><div class="dot sys"></div><div class="cont"></div></div>
+      <div class="card sys">
+        <span class="qid">START</span>
+        <p class="qtitle">"스캐폴딩하다 멈춘 것 같은데" — 사실 확인 <span class="chip sys">검증</span></p>
+        <p class="problem">git 브랜치·워크트리·스태시·reflog·스크래치 디렉토리·과거 세션
+          기록을 전수 확인한 결과, <em>스캐폴딩은 시작된 적이 없었다.</em> 저장소에는
+          문서만 있고 앱 코드는 0줄. 비슷해 보인 유일한 흔적(미커밋
+          <code>.claude/skills/electron/</code>)은 앱 코드가 아니라 참고 지식 스킬
+          문서였다. 결론: 잃어버린 작업 없음, 처음부터 시작하면 됨.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════ 2. 계획의 골격 ══════════ -->
+  <div class="phase">
+    <p class="phase-title">2 · 계획의 골격 — 어디에, 어디까지</p>
+    <p class="phase-desc">코드를 만들기 전에 계획서의 위치와 범위부터 확정했다.</p>
+
+    <div class="node">
+      <div class="rail"><div class="dot"></div><div class="cont"></div></div>
+      <div class="card">
+        <span class="qid">Q1</span>
+        <p class="qtitle">구현 계획서를 어디에 기록하나</p>
+        <span class="sec-label">문제</span>
+        <p class="problem">docs/ 구조 규칙에는 origin·design-system·architecture·features
+          4종만 있고 "구현 계획서"(작업 지시서)는 어디에도 속하지 않는 새 문서 종류였다.
+          이력 밖(.claude/ 나 PR 본문)에 두면 <em>"왜 이 순서로 만들었지"를 나중에 추적할
+          수 없다.</em></p>
+        <span class="sec-label">고민한 선택지</span>
+        <ul class="options">
+          <li class="chosen"><b>docs/plans/ 신설</b> (AI 추천) — git 이력에 남고 M2·M3 계획도 같은 자리에. 규칙 3줄 추가 필요</li>
+          <li>docs/superpowers/plans/ — 스킬 기본 경로. <span class="tr">규칙 추가는 없지만 폴더명이 문서 구조와 이질적</span></li>
+          <li>저장소 밖 — <span class="tr">docs/ 불변이지만 계획이 이력에서 사라짐</span></li>
+        </ul>
+        <span class="sec-label">결정</span>
+        <p class="decision"><b>docs/plans/ 신설.</b> 규칙도 함께: 계획은 결정을 만들지 않고 ADR 을 참조만 하며, 끝난 계획은 이력으로 보존한다.</p>
+        <p class="dep">→ 이후 모든 구현 계획서의 자리가 됨. 첫 입주자: <code>2026-08-04-m1-scaffolding.md</code></p>
+      </div>
+    </div>
+
+    <div class="node">
+      <div class="rail"><div class="dot"></div><div class="cont"></div></div>
+      <div class="card">
+        <span class="qid">Q2</span>
+        <p class="qtitle">첫 계획은 어디까지 담나</p>
+        <span class="sec-label">고민한 선택지</span>
+        <ul class="options">
+          <li class="chosen"><b>스캐폴딩만</b> (AI 추천) — 창·DB·IPC·UI 세팅까지. 기능은 다음 계획으로</li>
+          <li>M1 전체 — <span class="tr">계획서가 커지고, 미결 2건(타이머 상태 구독·Query 키 계층)을 먼저 결정해야 함</span></li>
+        </ul>
+        <span class="sec-label">결정</span>
+        <p class="decision"><b>스캐폴딩만.</b> 미결 2건은 타이머 착수 직전 별도 ADR 로 미룬다.</p>
+        <p class="dep">→ 태스크 7개짜리 계획서 초안 작성·커밋. <code>Q5</code> 반영 후 8개가 된다</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════ 3. IPC 경계 ══════════ -->
+  <div class="phase">
+    <p class="phase-title">3 · IPC 경계 — 표준과 대조하다</p>
+    <p class="phase-desc">계획서의 IPC 패턴을 외부 기준과 대조해 갭을 찾고, 라이브러리 도입까지 검토했다.</p>
+
+    <div class="node">
+      <div class="rail"><div class="dot"></div><div class="cont"></div></div>
+      <div class="card">
+        <span class="qid">Q3</span>
+        <p class="qtitle">IPC 계약에 보강할 것이 있나 <span class="chip sys">검증</span></p>
+        <span class="sec-label">문제</span>
+        <p class="problem">계획서 Task 3 의 첫 유스케이스는 입력이 없어 응답 검증만
+          보여줬다. 이대로 패턴이 복제되면 <em>입력 검증이 빠진 핸들러가 생긴다.</em>
+          로컬 electron 스킬 + Electron 공식 보안 가이드와 대조하니 기존 방향(zod 단일
+          정의·화이트리스트·도메인 명령형)은 표준 이상이었지만 갭이 2건 있었다.</p>
+        <span class="sec-label">결정</span>
+        <p class="decision"><b>보강 2건 채택</b> — ① 채널마다 요청/응답 zod 스키마 쌍
+          ② 발신자 검증(<code>senderFrame</code> 가드, 공식 가이드 요구사항).
+          둘을 강제하는 <code>handleIpc</code> 헬퍼가 유일한 등록 경로.</p>
+        <p class="why"><q>ㅇㅇ 보강해야할듯</q> — 작업 위치는 "판단만" 요청 → 계획서가 main 미반영이므로 같은 브랜치에 커밋 추가로 확정.</p>
+        <p class="dep">새 ADR 불필요 (ADR-007 "경계에서 검증"의 구체화) → 계획서 Task 3 수정</p>
+      </div>
+    </div>
+
+    <div class="node">
+      <div class="rail"><div class="dot"></div><div class="cont"></div></div>
+      <div class="card">
+        <span class="qid">Q4</span>
+        <p class="qtitle">electron-trpc 를 도입하나 <span class="chip exp">재설명</span></p>
+        <span class="sec-label">문제</span>
+        <p class="problem">수동 3파일 패턴(채널·스키마·preload 매핑)의 보일러플레이트
+          대신 tRPC 기반 라이브러리를 쓰는 선택지가 있었다. 학습 곡선·트레이드오프·
+          <em>"나중에 갈아타고 싶으면 지금 구조로 되나"</em>까지 분석을 요구했다.</p>
+        <span class="sec-label">고민한 선택지</span>
+        <ul class="options">
+          <li class="chosen"><b>수동 3파일 패턴 유지</b> (AI 추천) — IPC 표면이 작고(유스케이스 20~30개), 계약 설계 자체가 학습 목표(ADR-007)</li>
+          <li>electron-trpc — 라우터·자동 타입·Query 통합. <span class="tr">의존성 + 추상화 한 겹 + 푸시를 subscription 으로 전환 + ADR-007 supersede 필요</span></li>
+        </ul>
+        <span class="sec-label">결정</span>
+        <p class="decision"><b>도입하지 않는다.</b> 전환 대비 확인: 핸들러가 얇고 zod 가 공용이라
+          갈아탈 때 교체 범위가 가장자리 3곳(핸들러 등록·preload·api 파사드)에 갇힌다.
+          조건 하나 — renderer 는 <code>shared/api.ts</code> 파사드로만 IPC 접근.</p>
+        <p class="dep">→ 이 논의 말미의 "서비스가 인터페이스에 의존하나?" 질문이 <code>Q5</code> 로 이어짐</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════ 4. DB 접근 구조 ══════════ -->
+  <div class="phase">
+    <p class="phase-title">4 · DB 접근 구조 — DIP 논쟁</p>
+    <p class="phase-desc">이 세션의 가장 큰 결정. AI 권고가 두 번 기각되고 문서 서술 오류가 정정됐다.</p>
+
+    <div class="node">
+      <div class="rail"><div class="dot rev"></div><div class="cont"></div></div>
+      <div class="card">
+        <span class="qid">Q5</span>
+        <p class="qtitle">main 서비스는 DB 에 직접 의존해도 되나 <span class="chip rev">반전</span> <span class="chip exp">재설명</span></p>
+        <span class="sec-label">문제</span>
+        <p class="problem">overview.md 는 "IPC 경계가 이미 그 추상화다"라며 리포지토리
+          계층을 안 만들기로 했었다. 그러나 <em>IPC 경계는 renderer 를 위한 유스케이스
+          파사드일 뿐, main 내부에서는 서비스가 Drizzle 에 직접 의존한다</em> — 사용자
+          지적("엄밀히 따지고보면 아니지 않나")으로 서술의 부정확함이 확인됐다.
+          A/B 구조 비교 도식을 요청해 보고 결정했다.</p>
+        <span class="sec-label">고민한 선택지</span>
+        <ul class="options">
+          <li>A. 직접 호출 유지 (AI 추천, 2회) — 테스트는 실제 인메모리 SQLite, 로직 격리는 순수 함수. <span class="tr">구현체 1개인 인터페이스는 의식(ceremony)이라는 근거</span></li>
+          <li class="chosen"><b>B. 리포지토리 포트 (DIP)</b> — 서비스는 포트에만 의존, Drizzle 구현체 격리, 테스트 더블 교체 가능. 대신 파일 증가 + Unit of Work 설계 필요</li>
+        </ul>
+        <span class="sec-label">결정</span>
+        <p class="decision"><b>B. 리포지토리 포트 도입.</b> ("B안으로 가자")</p>
+        <p class="why"><q>그니깐 인터페이스화해서 DIP를 구현해놓는게 맞는거 같다.
+          테스트를할때 무조건적으로 하나의 DB로 하지 않을꺼고, 직접 테스트 DB도 띄워서
+          할수도 있기떄문이지 추상화를 지금 해놔야 나중에 기획변경이나 스택 변경에
+          유리할꺼같아 이거는 비용을 지불할만한 단계인거같아</q></p>
+        <p class="dep">→ <code>ADR-015</code> 신설: 포트는 서비스가 정의(범용 CRUD 금지) /
+          Drizzle import 는 <code>db/</code> 하위만 / UoW 는 동기 트랜잭션(async 콜백 금지) /
+          구현체 공유 계약 테스트. ← <code>Q4</code> 의 파사드 조건과 합쳐져 main·renderer
+          양쪽 심(seam)이 완성됨</p>
+      </div>
+    </div>
+
+    <div class="node">
+      <div class="rail"><div class="dot sys"></div><div class="cont"></div></div>
+      <div class="card sys">
+        <span class="qid">END</span>
+        <p class="qtitle">종결 — 문서 반영</p>
+        <p class="problem">ADR-015 작성, overview.md 확장성 절·스택 표 갱신, ADR-008
+          부분 정정 표기, 계획서에 Task 5(포트·UoW·페이크·계약 테스트 패턴 고정) 신설로
+          태스크 8개 확정. 전부 <code>feature/m1-scaffolding-plan</code> 브랜치에 커밋 후
+          PR 1개로 머지. 다음 단계: 계획 실행 (<code>feature/m1-scaffolding</code> 브랜치,
+          Task 1 부터).</p>
+      </div>
+    </div>
+  </div>
+
+</div>
+</body>
+</html>
