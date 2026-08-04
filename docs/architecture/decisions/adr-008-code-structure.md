@@ -1,6 +1,8 @@
 # ADR-008: 코드 구조 — main 3층 + renderer FSD-lite
 
-- 상태: accepted (2026-08-03)
+- 상태: accepted (2026-08-03) · **부분 정정됨 (2026-08-04)** — 서비스가 DB 를 직접
+  읽고 쓴다는 서술은 [ADR-015](adr-015-repository-ports.md)(리포지토리 포트 + Unit of
+  Work)가 정정한다. 3층 책임 구조·FSD-lite·순수 도메인 함수 원칙은 유효하다.
 
 ## Context
 

@@ -4,7 +4,7 @@
 
 **Goal:** 앱 코드가 0줄인 저장소에 "창이 뜨고, DB 가 열리고, IPC 왕복 1회가 화면에 렌더되는" 워킹 스켈레톤을 세운다. 기능(타이머 등)은 만들지 않는다.
 
-**Architecture:** Electron main = 작은 백엔드(3층: 핸들러→서비스→순수 함수), renderer = FSD-lite, 둘 사이는 zod 검증 IPC 만. DB 는 better-sqlite3 + Drizzle, 마이그레이션은 앱 시작 시 적용. ([architecture/overview.md](../architecture/overview.md))
+**Architecture:** Electron main = 작은 백엔드(3층: 핸들러→서비스→순수 함수), renderer = FSD-lite, 둘 사이는 zod 검증 IPC 만. 서비스는 리포지토리 포트에만 의존하고 Drizzle 구현체는 `db/repositories/` 에 격리한다(DIP — ADR-015). DB 는 better-sqlite3 + Drizzle, 마이그레이션은 앱 시작 시 적용. ([architecture/overview.md](../architecture/overview.md))
 
 **Tech Stack:** Electron + electron-vite + React + TypeScript, pnpm, better-sqlite3 + drizzle-orm + drizzle-kit, zod, TanStack Query, Tailwind CSS + shadcn/ui, Vitest + Testing Library.
 
@@ -14,6 +14,8 @@
 
 - 패키지 매니저는 **pnpm** 만 쓴다 (ADR-004).
 - BrowserWindow 는 항상 `contextIsolation: true`, `nodeIntegration: false`, `sandbox: true`. raw `ipcRenderer` 를 renderer 에 노출하지 않는다 (ADR-007).
+- IPC 채널마다 **요청·응답 zod 스키마 쌍**을 정의하고, 핸들러는 진입 시 입력을 parse 하며 **발신자 검증**(`senderFrame` 가드)을 통과해야 한다 (ADR-007 구체화 + Electron 공식 보안 가이드). 등록은 반드시 Task 3 의 `handleIpc` 헬퍼로만 한다.
+- **Drizzle·better-sqlite3 import 는 `src/main/db/` 하위에서만** 허용된다. 서비스는 리포지토리 포트에만 의존하고, 트랜잭션은 Unit of Work `run()` 으로만 연다. UoW 의 `work` 콜백은 동기 함수다 — better-sqlite3 트랜잭션이 동기라 async 를 넘기면 커밋 후에 본문이 실행된다 (ADR-015).
 - `src/shared/` 는 **순수 TS 만** — Node/Electron/DOM API import 금지 (ADR-008).
 - 시간: `now()`/`dayKey()`/`weekKey()`/`monthKey()` 는 `src/shared/time/` 모듈만 소유. 그 모듈 밖에서 `new Date()` 직접 호출 금지 (ADR-009 §3). 저장 포맷은 순간=UTC ISO `'...Z'`, 달력 키=`'YYYY-MM-DD'`/`'YYYY-MM'`, 길이=INTEGER+`_sec`/`_min` 접미사, epoch ms 저장 금지 (ADR-009 §1).
 - 주 시작 = 월요일, 주 키 = 그 주 월요일 날짜 `'YYYY-MM-DD'`, 요일 배열 index 0 = 월요일 (ADR-010).
@@ -34,11 +36,17 @@ src/
 ├── main/
 │   ├── index.ts              # 앱 부트스트랩: DB 열기 → 마이그레이션 → 창 생성
 │   ├── window.ts             # BrowserWindow 생성 (보안 플래그)
-│   ├── db/
+│   ├── services/
+│   │   └── ports.ts          # 리포지토리 포트 + UnitOfWork 인터페이스 (ADR-015)
+│   ├── db/                   # Drizzle import 가 허용되는 유일한 하위 트리
 │   │   ├── schema.ts         # Drizzle 스키마 (ADR-011~014 전체)
 │   │   ├── open.ts           # 연결 + PRAGMA 세트
-│   │   └── migrate.ts        # 백업 → 버전 검사 → 마이그레이션 적용
+│   │   ├── migrate.ts        # 백업 → 버전 검사 → 마이그레이션 적용
+│   │   └── repositories/
+│   │       ├── drizzle.ts    # 포트의 Drizzle 구현체 + UoW
+│   │       └── memory.ts     # 인메모리 페이크 (테스트 더블)
 │   └── ipc/
+│       ├── handle.ts         # handleIpc 헬퍼: 발신자 검증 + 요청/응답 parse
 │       └── system.ts         # system.getAppInfo 핸들러 (첫 유스케이스)
 ├── preload/
 │   └── index.ts              # contextBridge 화이트리스트
@@ -265,11 +273,11 @@ export function monthKey(d: Date = new Date()): string {
 ### Task 3: IPC 계약 + preload 브리지 + 첫 유스케이스 왕복
 
 **Files:**
-- Create: `src/shared/ipc/channels.ts`, `src/shared/ipc/contracts.ts`, `src/shared/ipc/contracts.test.ts`, `src/main/ipc/system.ts`, `src/renderer/shared/api.ts`
+- Create: `src/shared/ipc/channels.ts`, `src/shared/ipc/contracts.ts`, `src/shared/ipc/contracts.test.ts`, `src/main/ipc/handle.ts`, `src/main/ipc/system.ts`, `src/renderer/shared/api.ts`
 - Modify: `src/preload/index.ts`, `src/main/index.ts`
 
 **Interfaces:**
-- Produces: renderer 전역 `window.api.system.getAppInfo(): Promise<{ appVersion: string; schemaVersion: number }>`. 이후 모든 도메인 API 는 이 파일 3개(channels → contracts → preload 매핑) 패턴을 복제한다 (ADR-007).
+- Produces: renderer 전역 `window.api.system.getAppInfo(): Promise<{ appVersion: string; schemaVersion: number }>`. `handleIpc(channel, contract, fn)` — 발신자 검증·입력 parse·출력 parse 를 강제하는 유일한 핸들러 등록 경로. 이후 모든 도메인 API 는 이 패턴(channels → contracts {req,res} 쌍 → handleIpc → preload 매핑)을 복제한다 (ADR-007).
 
 - [ ] **Step 1: zod 설치** — `pnpm add zod`
 
@@ -279,15 +287,18 @@ export function monthKey(d: Date = new Date()): string {
 
 ```ts
 import { describe, it, expect } from 'vitest'
-import { appInfoSchema } from './contracts'
+import { contracts } from './contracts'
 
 describe('system.getAppInfo contract', () => {
-  it('accepts a valid payload', () => {
-    expect(appInfoSchema.parse({ appVersion: '0.1.0', schemaVersion: 1 }))
+  it('res accepts a valid payload', () => {
+    expect(contracts.system.getAppInfo.res.parse({ appVersion: '0.1.0', schemaVersion: 1 }))
       .toEqual({ appVersion: '0.1.0', schemaVersion: 1 })
   })
-  it('rejects missing fields', () => {
-    expect(() => appInfoSchema.parse({ appVersion: '0.1.0' })).toThrow()
+  it('res rejects missing fields', () => {
+    expect(() => contracts.system.getAppInfo.res.parse({ appVersion: '0.1.0' })).toThrow()
+  })
+  it('req rejects unexpected arguments', () => {
+    expect(() => contracts.system.getAppInfo.req.parse(['rogue'])).toThrow()
   })
 })
 ```
@@ -304,32 +315,67 @@ export const CHANNELS = {
 } as const
 ```
 
-`src/shared/ipc/contracts.ts`:
+`src/shared/ipc/contracts.ts` — 채널마다 요청(`req`)·응답(`res`) 스키마 쌍이 규칙이다:
 
 ```ts
 import { z } from 'zod'
 
-export const appInfoSchema = z.object({
-  appVersion: z.string(),
-  schemaVersion: z.number().int()
-})
-export type AppInfo = z.infer<typeof appInfoSchema>
+export const contracts = {
+  system: {
+    getAppInfo: {
+      req: z.tuple([]),                       // 인자 없음 — 여분 인자는 거부된다
+      res: z.object({
+        appVersion: z.string(),
+        schemaVersion: z.number().int()
+      })
+    }
+  }
+} as const
+
+export type AppInfo = z.infer<typeof contracts.system.getAppInfo.res>
+```
+
+`src/main/ipc/handle.ts` — 발신자 검증 + 양방향 parse 를 강제하는 유일한 등록 경로:
+
+```ts
+import { ipcMain, type IpcMainInvokeEvent } from 'electron'
+import type { z } from 'zod'
+
+// Electron 보안 가이드: 모든 IPC 메시지의 발신자를 검증한다.
+// 허용 발신자 = 우리 앱 번들(file://) 또는 dev 서버(ELECTRON_RENDERER_URL)뿐.
+export function assertTrustedSender(event: IpcMainInvokeEvent): void {
+  const url = event.senderFrame?.url ?? ''
+  const devUrl = process.env.ELECTRON_RENDERER_URL
+  const trusted = url.startsWith('file://') || (devUrl != null && url.startsWith(devUrl))
+  if (!trusted) throw new Error(`Untrusted IPC sender: ${url}`)
+}
+
+export function handleIpc<Req extends z.ZodTypeAny, Res extends z.ZodTypeAny>(
+  channel: string,
+  contract: { req: Req; res: Res },
+  fn: (...args: z.infer<Req>) => z.infer<Res> | Promise<z.infer<Res>>
+): void {
+  ipcMain.handle(channel, async (event, ...args) => {
+    assertTrustedSender(event)
+    const input = contract.req.parse(args)
+    return contract.res.parse(await fn(...input))
+  })
+}
 ```
 
 `src/main/ipc/system.ts`:
 
 ```ts
-import { ipcMain, app } from 'electron'
+import { app } from 'electron'
 import { CHANNELS } from '@shared/ipc/channels'
-import { appInfoSchema, type AppInfo } from '@shared/ipc/contracts'
+import { contracts } from '@shared/ipc/contracts'
+import { handleIpc } from './handle'
 
 export function registerSystemHandlers(getSchemaVersion: () => number): void {
-  ipcMain.handle(CHANNELS.system.getAppInfo, (): AppInfo => {
-    return appInfoSchema.parse({
-      appVersion: app.getVersion(),
-      schemaVersion: getSchemaVersion()
-    })
-  })
+  handleIpc(CHANNELS.system.getAppInfo, contracts.system.getAppInfo, () => ({
+    appVersion: app.getVersion(),
+    schemaVersion: getSchemaVersion()
+  }))
 }
 ```
 
@@ -659,7 +705,150 @@ export function migrateDb(
 
 ---
 
-### Task 5: TanStack Query 배선 — IPC 를 queryFn 으로
+### Task 5: 리포지토리 포트 패턴 고정 (ADR-015)
+
+포트·UoW·Drizzle 구현체·페이크·계약 테스트를 최소 1세트 만들어 이후 모든 기능이 복제할 패턴을 코드로 고정한다. 대상은 스캐폴딩에 실재하는 가장 단순한 테이블인 `settings`.
+
+**Files:**
+- Create: `src/main/services/ports.ts`, `src/main/db/repositories/drizzle.ts`, `src/main/db/repositories/memory.ts`, `src/main/db/repositories/settings.contract.test.ts`
+
+**Interfaces:**
+- Consumes: Task 4 의 `openDb`/`migrateDb`(계약 테스트에서 인메모리 실 DB 준비), `schema.ts` 의 `settings` 테이블.
+- Produces: `SettingsRepository { get(key: string): string | null; set(key: string, value: string): void }` / `Repositories { settings: SettingsRepository }` / `UnitOfWork { run<T>(work: (repos: Repositories) => T): T }` / `makeDrizzleUow(db): UnitOfWork` / `makeMemoryUow(): UnitOfWork`. 이후 기능은 포트 메서드를 여기에 추가하는 방식으로 확장한다.
+
+- [ ] **Step 1: 실패하는 계약 테스트 작성**
+
+`src/main/db/repositories/settings.contract.test.ts` — 같은 스위트를 두 구현체가 통과해야 한다:
+
+```ts
+import { describe, it, expect } from 'vitest'
+import Database from 'better-sqlite3'
+import { drizzle } from 'drizzle-orm/better-sqlite3'
+import { migrate } from 'drizzle-orm/better-sqlite3/migrator'
+import type { UnitOfWork } from '../../services/ports'
+import { makeDrizzleUow } from './drizzle'
+import { makeMemoryUow } from './memory'
+
+function drizzleUowOnMemoryDb(): UnitOfWork {
+  const sqlite = new Database(':memory:')
+  sqlite.pragma('foreign_keys = ON')
+  const db = drizzle(sqlite)
+  migrate(db, { migrationsFolder: 'drizzle' })
+  return makeDrizzleUow(db)
+}
+
+function contractSuite(name: string, make: () => UnitOfWork): void {
+  describe(`SettingsRepository contract — ${name}`, () => {
+    it('returns null for a missing key', () => {
+      const uow = make()
+      expect(uow.run((r) => r.settings.get('nope'))).toBeNull()
+    })
+    it('set then get round-trips, set overwrites', () => {
+      const uow = make()
+      uow.run((r) => r.settings.set('focus_min', '25'))
+      uow.run((r) => r.settings.set('focus_min', '50'))
+      expect(uow.run((r) => r.settings.get('focus_min'))).toBe('50')
+    })
+    it('rolls back every write when work throws', () => {
+      const uow = make()
+      expect(() =>
+        uow.run((r) => {
+          r.settings.set('k', 'v')
+          throw new Error('boom')
+        })
+      ).toThrow('boom')
+      expect(uow.run((r) => r.settings.get('k'))).toBeNull()
+    })
+  })
+}
+
+contractSuite('drizzle', drizzleUowOnMemoryDb)
+contractSuite('memory', makeMemoryUow)
+```
+
+- [ ] **Step 2: 실행해 실패 확인** — `pnpm test` → FAIL (ports/구현체 없음)
+
+- [ ] **Step 3: 구현**
+
+`src/main/services/ports.ts` (DB 라이브러리 import 없음 — 순수 인터페이스):
+
+```ts
+export interface SettingsRepository {
+  get(key: string): string | null
+  set(key: string, value: string): void
+}
+
+export interface Repositories {
+  settings: SettingsRepository
+}
+
+// work 는 동기 함수만 허용 — better-sqlite3 트랜잭션이 동기다 (ADR-015 §3)
+export interface UnitOfWork {
+  run<T>(work: (repos: Repositories) => T): T
+}
+```
+
+`src/main/db/repositories/drizzle.ts`:
+
+```ts
+import { eq } from 'drizzle-orm'
+import type { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3'
+import { settings } from '../schema'
+import type { Repositories, UnitOfWork } from '../../services/ports'
+
+type Tx = Parameters<Parameters<BetterSQLite3Database['transaction']>[0]>[0]
+
+function makeRepos(tx: Tx): Repositories {
+  return {
+    settings: {
+      get: (key) =>
+        tx.select().from(settings).where(eq(settings.key, key)).get()?.value ?? null,
+      set: (key, value) => {
+        tx.insert(settings).values({ key, value })
+          .onConflictDoUpdate({ target: settings.key, set: { value } }).run()
+      }
+    }
+  }
+}
+
+export function makeDrizzleUow(db: BetterSQLite3Database): UnitOfWork {
+  return {
+    run: (work) => db.transaction((tx) => work(makeRepos(tx)))
+  }
+}
+```
+
+`src/main/db/repositories/memory.ts` — 롤백 의미론까지 재현하는 페이크:
+
+```ts
+import type { Repositories, UnitOfWork } from '../../services/ports'
+
+export function makeMemoryUow(): UnitOfWork {
+  const store = new Map<string, string>()
+  return {
+    run<T>(work: (repos: Repositories) => T): T {
+      const staged = new Map(store)               // 트랜잭션 = 사본 위 작업
+      const result = work({
+        settings: {
+          get: (key) => staged.get(key) ?? null,
+          set: (key, value) => void staged.set(key, value)
+        }
+      })
+      store.clear()                                // 예외 없이 끝났을 때만 커밋
+      staged.forEach((v, k) => store.set(k, v))
+      return result
+    }
+  }
+}
+```
+
+- [ ] **Step 4: 통과 확인** — `pnpm test` → 계약 스위트 2회(drizzle·memory) 전부 PASS
+
+- [ ] **Step 5: 커밋** — `feat: add repository ports with unit of work and contract tests`
+
+---
+
+### Task 6: TanStack Query 배선 — IPC 를 queryFn 으로
 
 **Files:**
 - Create: `src/renderer/shared/query.ts`
@@ -699,7 +888,7 @@ export function App() {
 
 ---
 
-### Task 6: Tailwind + shadcn/ui + 디자인 토큰
+### Task 7: Tailwind + shadcn/ui + 디자인 토큰
 
 **Files:**
 - Create: `src/renderer/shared/styles/tokens.css`, `src/renderer/shared/styles/global.css`, `components.json`(shadcn), `src/renderer/shared/ui/`(shadcn 산출)
@@ -729,7 +918,7 @@ pnpm add -D lucide-react class-variance-authority clsx tailwind-merge
 
 ---
 
-### Task 7: 마무리 검증 + 개발 문서
+### Task 8: 마무리 검증 + 개발 문서
 
 **Files:**
 - Create: `README.md`
@@ -753,6 +942,7 @@ Expected: 세 명령 모두 exit 0. 추가로 `pnpm dev` 로 창·DB·IPC·토�
 
 ## Self-Review 결과
 
-- **범위 확인**: 워킹 스켈레톤 정의(창·DB·IPC 왕복·토큰 적용·테스트 기반) 전부에 태스크가 있다. 기능 코드·미결 2건은 의도적으로 제외 (Global Constraints 에 명시).
-- **자리표시자 검사**: 실행 시점에만 알 수 있는 값 2건은 검증 단계로 전환해 두었다 — ① drizzle 생성 SQL 의 자기참조 FK 유무(Task 4 Step 3 에 확인·수동 보정 절차) ② 빌드 산출물 기준 마이그레이션 폴더 경로(Task 4 코드 주석 + Step 7 dev 실행으로 검증).
-- **타입 일관성**: `openDb`/`migrateDb`/`registerSystemHandlers(getSchemaVersion)`/`AppInfo` 시그니처가 태스크 3·4·5 에서 동일하게 사용됨을 확인.
+- **범위 확인**: 워킹 스켈레톤 정의(창·DB·IPC 왕복·포트 패턴·토큰 적용·테스트 기반) 전부에 태스크가 있다. 기능 코드·미결 2건(타이머 상태 구독, Query 키 계층)은 의도적으로 제외 (Global Constraints 에 명시).
+- **자리표시자 검사**: 실행 시점에만 알 수 있는 값 2건은 검증 단계로 전환해 두었다 — ① drizzle 생성 SQL 의 자기참조 FK 유무(Task 4 Step 3 에 확인·수동 보정 절차) ② 빌드 산출물 기준 마이그레이션 폴더 경로(Task 4 코드 주석 + Task 8 dev 실행으로 검증).
+- **타입 일관성**: `openDb`/`migrateDb`/`registerSystemHandlers(getSchemaVersion)`/`contracts.system.getAppInfo`/`handleIpc`/`UnitOfWork`·`Repositories`·`SettingsRepository` 시그니처가 태스크 3·4·5·6 에서 동일하게 사용됨을 확인.
+- **결정 반영 확인 (2026-08-04 보강)**: IPC 요청/응답 스키마 쌍 + 발신자 검증은 Task 3 `handleIpc` 로, 리포지토리 포트 + UoW(ADR-015)는 Task 5 로 반영됐다. Drizzle import 격리 규칙은 Global Constraints 에 있다.
