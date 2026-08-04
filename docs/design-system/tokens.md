@@ -4,6 +4,9 @@
 > 이 문서가 **토큰의 유일한 출처(single source of truth)** 다.
 > 모든 기획 문서(ux-spec 등)와 구현 코드는 여기 정의된 **토큰 이름으로만** 색·폰트·radius를 기술한다. raw 값(`#6fd4b8` 등) 직접 사용 금지.
 
+> 이 토큰을 적용한 화면 참조: [wireframes/v1-wireframe.html](./wireframes/v1-wireframe.html)
+> (구속력 없는 시각 참조 — 기능 문서와 충돌하면 ux-spec·prd 가 이긴다)
+
 프레임워크 비종속: 토큰의 기술 형식은 **CSS Custom Property** 하나로 통일한다.
 React/Vue/vanilla 어디서든 `var(--token)` 으로 소비하며, JS에서 필요하면 `getComputedStyle` 로 읽는다. 별도 JS 상수 사본을 만들지 않는다.
 
@@ -124,7 +127,39 @@ React/Vue/vanilla 어디서든 `var(--token)` 으로 소비하며, JS에서 필�
 
 ---
 
-## 5. 기준 CSS (구현 시 이 블록을 그대로 이식)
+## 5. Surface (유리 표면)
+
+> 근거: [decisions/adr-002-glass-surface-tokens.md](./decisions/adr-002-glass-surface-tokens.md)
+> 값의 출처는 시안 v7 실측(`.card` · `.btn-primary`)이다.
+
+유리 표면을 유리로 보이게 하는 값 3종(backdrop·inset 하이라이트·드롭 섀도)이며,
+레벨은 **표면(surface)** 과 **컨트롤(control)** 2개다. 레벨 추가는 ADR 사안이다.
+
+| 토큰 | 값 | 적용 대상 |
+|---|---|---|
+| `--glass-backdrop` | `blur(24px) saturate(140%)` | 유리 카드, MONTH 오버레이, 다이얼로그 |
+| `--glass-highlight` | `inset 0 1px 0 rgba(255, 255, 255, 0.08)` | 위와 동일 |
+| `--glass-shadow` | `0 12px 32px rgba(0, 0, 0, 0.25)` | 위와 동일 |
+| `--control-backdrop` | `blur(8px)` | 버튼, 칩, 세그먼트 토글, 스테퍼 |
+| `--control-highlight` | `inset 0 1px 0 rgba(255, 255, 255, 0.15)` | 위와 동일 |
+| `--control-shadow` | `0 8px 24px rgba(0, 0, 0, 0.3)` | 위와 동일 |
+
+- **backdrop 은 blur 반경이 아니라 filter 값 전체다** — 소비는
+  `backdrop-filter: var(--glass-backdrop)` 한 줄이며, 소비처가 `saturate` 를 따로
+  붙이거나 빼지 않는다 (ADR-002 §2).
+- 하이라이트와 그림자를 함께 쓸 때는 나열한다:
+  `box-shadow: var(--glass-highlight), var(--glass-shadow)`.
+- 오버레이는 전용 레벨을 갖지 않는다 — 표면 레벨을 그대로 쓰고 차이는 배경 토큰으로만
+  준다 (`--glass` → `--glass-strong`).
+- **창 자체의 그림자는 토큰이 아니다.** 시안 `.window` 의 blur·그림자는 브라우저에서
+  데스크톱 창을 흉내낸 값이고, 실제 앱에서는 OS 가 그린다 (ADR-002 §1).
+- 그림자·하이라이트의 raw rgba 는 §6 기준 CSS 블록 안에만 존재한다. 검정 기반 그림자와
+  흰색 기반 하이라이트는 색 토큰(`--ink` 등)으로 표현할 수 없어, 브레이크포인트에 이어
+  **색 토큰 체계 밖에 있는 두 번째 예외**다 (ADR-002 Consequences).
+
+---
+
+## 6. 기준 CSS (구현 시 이 블록을 그대로 이식)
 
 ```css
 :root {
@@ -175,13 +210,22 @@ React/Vue/vanilla 어디서든 `var(--token)` 으로 소비하며, JS에서 필�
   --radius-sm: 9px;
   --radius-md: 13px;
   --radius-lg: 20px;
+
+  /* surface — 유리 표면 (ADR-002) */
+  --glass-backdrop: blur(24px) saturate(140%);
+  --glass-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  --glass-shadow: 0 12px 32px rgba(0, 0, 0, 0.25);
+  --control-backdrop: blur(8px);
+  --control-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.15);
+  --control-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
 }
 ```
 
 ---
 
-## 6. 변경 규칙
+## 7. 변경 규칙
 
 - 토큰 **추가·변경·삭제는 ADR** (`docs/features/<관련 기능>/decisions/` 또는 전역 결정이면 이 폴더의 `decisions/`)로 근거를 남긴 뒤에만 한다.
 - 시안 v7과 값이 달라지는 결정은 이 문서에 `> 원천과의 차이:` 블록으로 명시한다 (§2.1 폰트 교체가 선례).
-- spacing·shadow·모션 시간 등은 아직 토큰화하지 않았다. 필요해지면 시안 실측 → ADR → 이 문서에 추가 순서를 따른다. **문서 없는 토큰을 코드에 먼저 만들지 않는다.**
+- **spacing·모션 시간은 아직 토큰화하지 않았다.** 필요해지면 시안 실측 → ADR → 이 문서에 추가 순서를 따른다. **문서 없는 토큰을 코드에 먼저 만들지 않는다.**
+  (유리 표면의 blur·하이라이트·shadow 는 §5 로 토큰화됐다 — [ADR-002](./decisions/adr-002-glass-surface-tokens.md) 가 이 순서를 따른 선례다.)
