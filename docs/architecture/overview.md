@@ -15,7 +15,10 @@
 | 스타일링 | Tailwind CSS + shadcn/ui (뼈대만, 스킨 전면 교체) | [ADR-003](decisions/adr-003-ui-tailwind-shadcn.md) |
 | 상태관리 | TanStack Query 단독 (+ React 로컬 state). **전역 상태 라이브러리 없음** | [ADR-005](decisions/adr-005-timer-architecture.md) |
 | 타이머 | main 소유 + 상태 전이 push + renderer wall-clock 산술 | [ADR-005](decisions/adr-005-timer-architecture.md) |
-| PK · 갱신 추적 | UUID v7 (TEXT) + mutable 테이블 `updated_at` | [ADR-006](decisions/adr-006-schema-sync-insurance.md) |
+| PK · 갱신 추적 | UUID v7 (TEXT) + mutable 테이블 `updated_at` (sessions 포함 — ADR-011 이 부분 정정) | [ADR-006](decisions/adr-006-schema-sync-insurance.md) |
+| 시간 포맷 | 4종 분류 (순간 UTC ISO / 달력 키 로컬 불변 / 길이 INTEGER / 런타임 epoch ms 비저장) + 시간 모듈 초크포인트 | [ADR-009](decisions/adr-009-time-format-convention.md) |
+| 주 정의 | 주 시작 월요일, 주 키 = 그 주 월요일 날짜 `'YYYY-MM-DD'`, 계획일 = `plan_lead_days` 모델 | [ADR-010](decisions/adr-010-week-definition.md) |
+| 스키마 (계획 단계 확정) | `weeks`·`task_pulls` 신설, 불변 달력 키, `completed_at` 통일, 제약·PRAGMA 세트, 시작 시 백업·버전 검사 | [ADR-011](decisions/adr-011-schema-final.md) |
 | IPC 계약 | 도메인 명령형 API + zod 런타임 검증 | [ADR-007](decisions/adr-007-ipc-contract.md) |
 | 코드 구조 | main 3층 + renderer FSD-lite | [ADR-008](decisions/adr-008-code-structure.md) |
 | 패키징·배포 | electron-builder → GitHub Releases 수동 다운로드 | [ADR-004](decisions/adr-004-packaging-deploy.md) |

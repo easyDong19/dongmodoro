@@ -1,6 +1,9 @@
 # ADR-006: 스키마 확장 보험 — UUID v7 PK + updated_at
 
-- 상태: accepted (2026-08-03)
+- 상태: accepted (2026-08-03) · **부분 정정됨 (2026-08-04)** — Decision 2 의
+  "sessions 는 `updated_at` 제외"는 [ADR-011](adr-011-schema-final.md) §3 이 뒤집었다
+  (사후 캡처가 sessions 를 UPDATE 하므로 append-only 전제가 성립하지 않음).
+  나머지 결정(UUID v7 PK 등)은 유효하다.
 
 ## Context
 
