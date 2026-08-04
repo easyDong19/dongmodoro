@@ -30,7 +30,7 @@
 | 사후 캡처 바의 문구·닫힘 조건 | timer | app-shell(배치) |
 | 종료 확인 다이얼로그의 문구·조건 | timer | app-shell(경로 열거) |
 | 종료 요청 경로·창 수명주기·복귀 경로 | app-shell | timer |
-| 구간별 레이아웃·리뷰 패널 배치·콜드 스타트 조합 | app-shell | week-plan, weekly-review |
+| 구간별 레이아웃·정산 패널 배치·콜드 스타트 조합 | app-shell | week-plan, weekly-review |
 | 각 카드의 빈 상태 카피 | 해당 기능 | app-shell(존재만 검증) |
 | 오늘 목록의 pull 이력·자정 힌트 | today-tasks | calendar-records |
 | 주간 항목·플래너·과적 경고·요일 배치 | week-plan | weekly-review |

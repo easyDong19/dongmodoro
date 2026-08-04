@@ -72,17 +72,17 @@ PRIMARY KEY (task_id, pull_date)
 - `is_system` INTEGER — 주차별 시스템 "기타" 행 (Q7). 부모 없는 task(오늘 목록 직접
   추가, 사후 캡처 소급 생성)를 여기 붙여 `tasks.week_item_id` NOT NULL 을 유지한다.
   규칙: `est_pomos = 0`(과적 경고·요일 부하 미산입) / 플래너에서 편집·삭제 불가 /
-  리뷰 이월 3택 제외 / 실제 필요할 때만 생성 (lazy). 주간 카드에서는 미분류 집중과
+  정산 이월 3택 제외 / 실제 필요할 때만 생성 (lazy). 주간 카드에서는 미분류 집중과
   합쳐 "기타 — 계획에 없던 집중" 한 행으로 표시한다 (Q11).
 
 ### 5. 완료 표현 통일 — `done` 삭제, `completed_at` (S3)
 
 - `milestones.done`·`tasks.done` boolean 을 `completed_at` TEXT NULL(순간)로 교체.
   boolean 은 완료 시각을 잃어 "8/5에 끝낸 task 가 8/1 날짜 패널에서 완료로 보이는"
-  버그를 만들고, 리뷰의 "끝낸 것들"을 주 단위로 거를 수 없다.
+  버그를 만들고, 정산의 "끝낸 것들"을 주 단위로 거를 수 없다.
 - `week_items.status` enum('active'|'done'|'dropped')도 같은 패턴으로 대체한다:
   `completed_at` TEXT NULL + `dropped_at` TEXT NULL, 둘 다 NULL = active.
-  세 테이블의 완료 표현이 `completed_at` 하나로 통일되고, 폐기 시각도 리뷰 이력에
+  세 테이블의 완료 표현이 `completed_at` 하나로 통일되고, 폐기 시각도 정산 이력에
   남는다. (S3 의 "세 테이블 표현 통일"을 스키마로 구체화한 것)
 
 ### 6. 제약은 초기 마이그레이션에 전부 (B6)
@@ -106,7 +106,7 @@ CHECK 예: 주 키 월요일(§1), `kind IN ('focus','short','long')`, 달력 �
 
 ## Consequences
 
-- (+) 화면 간 숫자 불일치(게이지 vs 항목 행, 리뷰 "남은 몫")가 구조적으로 불가능해진다.
+- (+) 화면 간 숫자 불일치(게이지 vs 항목 행, 정산 "남은 몫")가 구조적으로 불가능해진다.
 - (+) 타임존 이동·건너뛴 주·재-pull 에도 과거 기록이 불변이다.
 - (+) 잘못된 값(월요일 아닌 주 키, 미지의 kind)은 저장 자체가 실패한다 — 버그가
   조용히 데이터를 오염시키는 대신 시끄럽게 죽는다.

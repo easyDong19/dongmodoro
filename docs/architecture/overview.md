@@ -116,4 +116,4 @@ IPC 경계가 이미 그 추상화다.
 | 항목 | 선택지 | 결정 시점 |
 |---|---|---|
 | macOS 코드 서명·공증 | 미서명 배포 vs Apple Developer 계정 + notarization | 패키징 단계 (M4) |
-| Query invalidation 키 계층 | 세션 완료·리뷰 확정이 무효화할 key 범위 설계 | 구현 착수 시 (M1) |
+| Query invalidation 키 계층 | 세션 완료·정산 확정이 무효화할 key 범위 설계 | 구현 착수 시 (M1) |
