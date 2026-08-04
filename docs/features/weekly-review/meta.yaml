@@ -1,0 +1,8 @@
+id: feature-weekly-review
+status: draft
+owner: TBD
+entrypoint: overview.md
+docs:
+  - prd.md
+  - ux-spec.md
+  - technical-spec.md
