@@ -1,6 +1,6 @@
 # ADR-007: IPC 계약 — 도메인 명령형 API + zod 런타임 검증
 
-- 상태: accepted (2026-08-03) · **예시 갱신 필요 표기 (2026-08-04)** — 본문의 리뷰 확정
+- 상태: accepted (2026-08-03) · **예시 갱신 필요 표기 (2026-08-04)** — 본문의 정산 확정
   트랜잭션 예시가 폐지된 스키마를 참조한다: `week_settlements` 는 [ADR-011](adr-011-schema-final.md) §1
   에서 `weeks` 로 흡수됐고, `status` enum 은 §5 에서 `completed_at`/`dropped_at` 으로 교체됐다.
   계약의 형태(도메인 명령형 + zod + 유스케이스 = 트랜잭션 1개)에 대한 결정 자체는 유효하다.
@@ -33,7 +33,7 @@ renderer 는 IPC 로만 데이터에 접근한다 ([ADR-001](adr-001-db-better-s
   보안·설계 의미가 사라진다.
 - "renderer 는 데이터가 SQLite 에서 오는지 모른다"는 확장성(→ 서버 백엔드 추가)
   논거가 성립하지 않는다. SQL 이 renderer 에 박히면 그게 곧 결합이다.
-- **트랜잭션 경계는 유스케이스 단위다.** 예: 리뷰 확정은 "이월 week_items 생성 +
+- **트랜잭션 경계는 유스케이스 단위다.** 예: 정산 확정은 "이월 week_items 생성 +
   status 갱신 + week_settlements 기록 + last_settled_week 갱신"이 하나의 원자적
   작업이다. renderer 가 쿼리 4번을 쏘는 구조면 중간 실패 시 반쯤 정산된 상태가 남는다.
 
