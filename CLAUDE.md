@@ -14,12 +14,22 @@
 
 특히 **Phase 0에서 기능 목록·폴더명·문서 세트에 대한 사용자 승인을 받기 전에는 어떤 파일도 생성하지 않는다.**
 
-## `docs/origin/` 은 읽기 전용이다
+## `docs/origin/` 은 읽기 전용이다 — 단, 절대 기준이 아니라 초안이다
 
-`docs/origin/` 안의 파일은 원천 데이터다. **읽기만 가능하고 수정·생성·삭제·이동은 금지**한다.
+`docs/origin/` 안의 파일(PRD·시안)은 **초안·개념 스케치**다. 이력 보존을 위해
+**읽기만 가능하고 수정·생성·삭제·이동은 금지**하지만, 내용이 확정 명세는 아니다.
+설계 결정이 origin 의 내용과 어긋나도 된다 — **확정 기준은 `docs/features/` ·
+`docs/architecture/` 의 기획·설계 문서**이며, origin 과 충돌하면 그쪽이 이긴다.
 셸을 통한 우회 수정도 금지다. 상세 규칙은 [docs/CLAUDE.md](docs/CLAUDE.md#-docsorigin--원천-데이터-읽기-전용) 참조.
 
 이 규칙은 [.claude/settings.json](.claude/settings.json) 의 `permissions.deny` 와 `PreToolUse` 훅으로 도구 레벨에서 강제된다.
+
+## UI 에 이모지 금지 — 아이콘 컴포넌트만
+
+렌더되는 UI(라벨·배지·버튼·카피)에 이모지를 쓰지 않는다. 아이콘은 **lucide-react
+컴포넌트**, lucide 에 없는 도메인 심볼(뽀모 도트 등)은 토큰 기반 커스텀 SVG/CSS 로 만든다.
+상세 규칙: [docs/design-system/principles.md §6](docs/design-system/principles.md).
+초안 문서 속 🍅 등은 문서용 속기일 뿐 구현 지시가 아니다.
 
 ## 커밋 메시지는 무조건 영어로 작성한다
 

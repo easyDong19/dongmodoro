@@ -1,0 +1,238 @@
+<style>
+  :root {
+    --bg: #ffffff; --surface: #f7f8f8; --line: #d8dcda; --line-strong: #9aa3a0;
+    --text: #14201c; --muted: #6b7873;
+    --teal: #0f8a6d; --teal-soft: rgba(15,138,109,0.12);
+    --amber: #a76a12; --amber-soft: rgba(167,106,18,0.14);
+    --dim: rgba(20,32,28,0.05);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0c1a16; --surface: rgba(255,255,255,0.045); --line: rgba(255,255,255,0.14);
+      --line-strong: rgba(255,255,255,0.42); --text: #e8f0ec; --muted: #8fa39b;
+      --teal: #6fd4b8; --teal-soft: rgba(111,212,184,0.14);
+      --amber: #f0b671; --amber-soft: rgba(240,182,113,0.16);
+      --dim: rgba(255,255,255,0.03);
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #0c1a16; --surface: rgba(255,255,255,0.045); --line: rgba(255,255,255,0.14);
+    --line-strong: rgba(255,255,255,0.42); --text: #e8f0ec; --muted: #8fa39b;
+    --teal: #6fd4b8; --teal-soft: rgba(111,212,184,0.14);
+    --amber: #f0b671; --amber-soft: rgba(240,182,113,0.16);
+    --dim: rgba(255,255,255,0.03);
+  }
+  :root[data-theme="light"] {
+    --bg: #ffffff; --surface: #f7f8f8; --line: #d8dcda; --line-strong: #9aa3a0;
+    --text: #14201c; --muted: #6b7873;
+    --teal: #0f8a6d; --teal-soft: rgba(15,138,109,0.12);
+    --amber: #a76a12; --amber-soft: rgba(167,106,18,0.14);
+    --dim: rgba(20,32,28,0.05);
+  }
+
+  body { background: var(--bg); color: var(--text); margin: 0; padding: 28px 24px 48px;
+         font-family: ui-sans-serif, -apple-system, "Segoe UI", Roboto, sans-serif;
+         line-height: 1.6; }
+  .wrap { max-width: 880px; margin: 0 auto; }
+  h1 { font-size: 21px; margin: 0 0 6px; letter-spacing: -0.01em; }
+  h2 { font-size: 16px; margin: 40px 0 10px; padding-top: 22px; border-top: 1px solid var(--line); }
+  h2:first-of-type { border-top: none; padding-top: 0; margin-top: 26px; }
+  p, li { font-size: 14px; }
+  .sub { color: var(--muted); font-size: 13px; margin: 0; }
+  .muted { color: var(--muted); }
+  code, .mono { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 13px; }
+  code { background: var(--dim); padding: 1px 5px; border-radius: 4px; }
+
+  .formula { background: var(--surface); border: 1px solid var(--line); border-radius: 10px;
+             padding: 16px 20px; font-family: ui-monospace, Menlo, monospace; font-size: 13.5px;
+             line-height: 2; overflow-x: auto; white-space: pre; }
+  .formula b { color: var(--teal); font-weight: 600; }
+  .formula em { color: var(--amber); font-style: normal; }
+
+  table { border-collapse: collapse; width: 100%; font-size: 13px; }
+  th, td { border: 1px solid var(--line); padding: 7px 10px; text-align: left; }
+  th { background: var(--surface); font-weight: 600; }
+  td.ok { color: var(--teal); }
+  td.act { color: var(--amber); font-weight: 600; }
+  .tbl-scroll { overflow-x: auto; }
+
+  .scroller { overflow-x: auto; background: var(--surface); border: 1px solid var(--line);
+              border-radius: 10px; padding: 12px 8px; margin: 14px 0; }
+  svg { display: block; min-width: 760px; width: 100%; height: auto; }
+  .lbl  { font: 12px ui-sans-serif, sans-serif; fill: var(--text); }
+  .lblm { font: 11.5px ui-sans-serif, sans-serif; fill: var(--muted); }
+  .lbls { font: 600 11px ui-sans-serif, sans-serif; fill: var(--muted); letter-spacing: 0.08em; }
+  .mono-l { font: 12px ui-monospace, Menlo, monospace; fill: var(--text); }
+  .wk   { fill: var(--dim); stroke: var(--line); }
+  .wk-settled { fill: var(--teal-soft); stroke: var(--teal); stroke-dasharray: none; }
+  .wk-review  { fill: var(--amber-soft); stroke: var(--amber); }
+  .wk-plan    { fill: none; stroke: var(--teal); stroke-dasharray: 5 4; stroke-width: 1.5; }
+  .now  { stroke: var(--amber); stroke-width: 2; }
+  .arrow { stroke: var(--line-strong); stroke-width: 1.4; fill: none; }
+
+  .note { border-left: 3px solid var(--amber); padding: 2px 0 2px 14px; margin: 14px 0;
+          font-size: 13.5px; }
+  .note.teal { border-color: var(--teal); }
+  ul { padding-left: 20px; margin: 8px 0; }
+  .sr-only { position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0,0,0,0); }
+</style>
+
+<div class="wrap">
+  <h2 class="sr-only">주간 정산·계획 플로우 — plan_lead_days 모델의 판정식과 시나리오별 타임라인</h2>
+  <h1>주간 정산·계획 플로우 (plan_lead_days 모델)</h1>
+  <p class="sub">주 시작 = 월요일 (ISO) · 계획일 기본 = 일요일 · 저장값은 워터마크 하나</p>
+
+  <h2>1. 개념 — 주는 월요일에 시작하고, 계획은 그 전날 한다</h2>
+  <p>
+    주(week)는 <b>월요일 00:00 ~ 일요일 24:00</b>이다.
+    계획(플래너)은 다음 주가 시작되기 전, 기본값으로 <b>일요일</b>에 한다.
+    이 "며칠 앞서 계획하는가"를 값 하나로 뺀 것이 <code>plan_lead_days</code>다.
+  </p>
+
+  <div class="scroller">
+  <svg viewBox="0 0 800 150" xmlns="http://www.w3.org/2000/svg" role="img">
+    <title>한 주의 구조</title>
+    <desc>월요일부터 일요일까지의 주, 일요일에 리뷰와 다음 주 계획이 열린다</desc>
+    <text class="lbls" x="40" y="28">이번 주 (W36)</text>
+    <text class="lbls" x="660" y="28">다음 주 (W37)</text>
+    <!-- days -->
+    <rect class="wk" x="40"  y="40" width="80" height="44" rx="6"/>
+    <rect class="wk" x="126" y="40" width="80" height="44" rx="6"/>
+    <rect class="wk" x="212" y="40" width="80" height="44" rx="6"/>
+    <rect class="wk" x="298" y="40" width="80" height="44" rx="6"/>
+    <rect class="wk" x="384" y="40" width="80" height="44" rx="6"/>
+    <rect class="wk" x="470" y="40" width="80" height="44" rx="6"/>
+    <rect class="wk-review" x="556" y="40" width="80" height="44" rx="6"/>
+    <rect class="wk-plan" x="660" y="40" width="100" height="44" rx="6"/>
+    <text class="lbl" x="80"  y="67" text-anchor="middle">월</text>
+    <text class="lbl" x="166" y="67" text-anchor="middle">화</text>
+    <text class="lbl" x="252" y="67" text-anchor="middle">수</text>
+    <text class="lbl" x="338" y="67" text-anchor="middle">목</text>
+    <text class="lbl" x="424" y="67" text-anchor="middle">금</text>
+    <text class="lbl" x="510" y="67" text-anchor="middle">토</text>
+    <text class="lbl" x="596" y="67" text-anchor="middle">일</text>
+    <text class="lblm" x="710" y="67" text-anchor="middle">월…</text>
+    <path class="arrow" d="M 596 96 L 596 116 L 700 116" marker-end="url(#a1)"/>
+    <defs><marker id="a1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="var(--line-strong)"/></marker></defs>
+    <text class="lblm" x="596" y="140">일요일: 이번 주(W36) 리뷰 + 다음 주(W37) 계획 — lead 1일</text>
+  </svg>
+  </div>
+
+  <ul>
+    <li><code>plan_lead_days = 1</code> (기본) — 일요일에 다음 주를 계획</li>
+    <li><code>plan_lead_days = 0</code> — 월요일 아침에 그 주를 계획</li>
+    <li><code>plan_lead_days = 2</code> — 토요일에 다음 주를 계획</li>
+  </ul>
+  <p class="muted">v1에서는 설정 화면에 노출하지 않는다. 값만 한 곳에 두고 판정 로직이 읽는다.</p>
+
+  <h2>2. 판정식 — 저장값은 워터마크 하나, 나머지는 전부 파생</h2>
+  <div class="formula">저장값     <b>last_settled_week</b>          "여기까지 정산 끝" 워터마크
+                                     (첫 실행 시: 계획 대상 주 − 1 로 초기화)
+
+계획 대상 주   = week_of( 오늘 + <em>plan_lead_days</em> )
+정산 대상 범위 = <b>last_settled_week</b> + 1  …  계획 대상 주 − 1
+정산 대기      = 범위가 비어 있지 않다        → 배너 표시
+리뷰 확정 시   = <b>last_settled_week</b> ← 계획 대상 주 − 1   (범위의 끝)</div>
+  <p>
+    조건 분기가 없다. 정시에 오든 몇 주를 비우고 오든 <b>같은 식 하나</b>를 지나며,
+    범위에 담긴 미완료 항목 전체가 리뷰 화면 <b>1개</b>에 병합된다.
+  </p>
+
+  <h2>3. 시나리오 A — 정시 (일요일에 리뷰)</h2>
+  <div class="scroller">
+  <svg viewBox="0 0 800 210" xmlns="http://www.w3.org/2000/svg" role="img">
+    <title>정시 시나리오</title>
+    <desc>W36 일요일에 리뷰가 뜨고 확정하면 워터마크가 W36이 된다</desc>
+    <text class="lbls" x="40" y="24">W36 일요일 저녁, 앱을 연다  ·  last_settled = W35</text>
+    <rect class="wk-settled" x="40" y="38" width="150" height="40" rx="6"/>
+    <rect class="wk-review"  x="200" y="38" width="150" height="40" rx="6"/>
+    <rect class="wk-plan"    x="360" y="38" width="150" height="40" rx="6"/>
+    <text class="lbl" x="115" y="62" text-anchor="middle">… W35 정산됨</text>
+    <text class="lbl" x="275" y="62" text-anchor="middle">W36 ← 오늘</text>
+    <text class="lbl" x="435" y="62" text-anchor="middle">W37</text>
+    <line class="now" x1="330" y1="34" x2="330" y2="82"/>
+
+    <text class="mono-l" x="40" y="112">계획 대상 주 = week_of(일 + 1일) = W37</text>
+    <text class="mono-l" x="40" y="134">정산 범위    = W36 … W36  →  {W36}  →  배너 ON</text>
+    <text class="lblm"  x="40" y="160">→ W36 리뷰(이월/줄여서/보내주기) 확정 → last_settled ← W36 → 이어서 W37 플래너</text>
+    <text class="lblm"  x="40" y="182">→ 확정 직후 다시 판정: 범위 = W37…W36 = 빈 범위 → 조용 ✓</text>
+  </svg>
+  </div>
+
+  <h2>4. 시나리오 B — 지각 (3주 공백 후 화요일에 켠다)</h2>
+  <div class="scroller">
+  <svg viewBox="0 0 800 230" xmlns="http://www.w3.org/2000/svg" role="img">
+    <title>지각 시나리오</title>
+    <desc>W33부터 W35까지 비우고 W36 화요일에 켜면 세 주가 하나의 리뷰로 병합된다</desc>
+    <text class="lbls" x="40" y="24">W36 화요일, 3주 만에 켠다  ·  last_settled = W32</text>
+    <rect class="wk-settled" x="40"  y="38" width="120" height="40" rx="6"/>
+    <rect class="wk-review"  x="170" y="38" width="120" height="40" rx="6"/>
+    <rect class="wk-review"  x="300" y="38" width="120" height="40" rx="6"/>
+    <rect class="wk-review"  x="430" y="38" width="120" height="40" rx="6"/>
+    <rect class="wk"         x="560" y="38" width="120" height="40" rx="6"/>
+    <text class="lbl" x="100" y="62" text-anchor="middle">… W32</text>
+    <text class="lbl" x="230" y="62" text-anchor="middle">W33</text>
+    <text class="lbl" x="360" y="62" text-anchor="middle">W34</text>
+    <text class="lbl" x="490" y="62" text-anchor="middle">W35</text>
+    <text class="lbl" x="620" y="62" text-anchor="middle">W36 ← 오늘</text>
+    <line class="now" x1="600" y1="34" x2="600" y2="82"/>
+    <text class="lblm" x="170" y="100">└──────── 정산 범위 (한 화면에 병합) ────────┘</text>
+
+    <text class="mono-l" x="40" y="132">계획 대상 주 = week_of(화 + 1일) = W36 (그대로)</text>
+    <text class="mono-l" x="40" y="154">정산 범위    = W33 … W35  →  배너 ON (리뷰는 1개)</text>
+    <text class="lblm"  x="40" y="180">→ 미완료 항목 전체가 이월 pre-selected. [다음 주 시작] 한 번으로 끝.</text>
+    <text class="lblm"  x="40" y="202">→ 확정 → last_settled ← W35 → 범위 빈 범위 → 조용. 항목 없던 빈 주는 애초에 리뷰에 안 나옴 ✓</text>
+  </svg>
+  </div>
+
+  <h2>5. 시나리오 표 — 한눈에</h2>
+  <div class="tbl-scroll">
+  <table>
+    <tr><th>상황</th><th>오늘</th><th>last_settled</th><th>계획 대상 주</th><th>정산 범위</th><th>결과</th></tr>
+    <tr><td>평일, 정상 사용</td><td>W36 수</td><td>W35</td><td>W36</td><td class="ok">빈 범위</td><td class="ok">조용</td></tr>
+    <tr><td><b>정시 리뷰</b></td><td>W36 일</td><td>W35</td><td>W37</td><td class="act">{W36}</td><td class="act">리뷰 + W37 플래너</td></tr>
+    <tr><td>확정 직후</td><td>W36 일</td><td>W36</td><td>W37</td><td class="ok">빈 범위</td><td class="ok">조용</td></tr>
+    <tr><td><b>지각 (3주 공백)</b></td><td>W36 화</td><td>W32</td><td>W36</td><td class="act">{W33·34·35}</td><td class="act">병합 리뷰 1회</td></tr>
+    <tr><td>지각 확정 후</td><td>W36 화</td><td>W35</td><td>W36</td><td class="ok">빈 범위</td><td class="ok">조용</td></tr>
+    <tr><td>그 주 일요일 도달</td><td>W36 일</td><td>W35</td><td>W37</td><td class="act">{W36}</td><td class="act">다시 정시 경로</td></tr>
+    <tr><td>첫 실행</td><td>W36 화</td><td>W35로 초기화</td><td>W36</td><td class="ok">빈 범위</td><td class="ok">조용 — 숙제 없음</td></tr>
+  </table>
+  </div>
+
+  <h2>6. 확장 — lead 값을 바꾸면</h2>
+  <p>
+    <code>plan_lead_days</code>를 0으로 바꾸면 "월요일 아침에 지난 주 리뷰 + 이번 주 계획"이 된다.
+    판정식·리뷰 화면·플래너 코드는 <b>한 줄도 안 바뀐다</b> — 계획 대상 주의 계산만 달라진다.
+  </p>
+  <div class="tbl-scroll">
+  <table>
+    <tr><th>lead</th><th>계획하는 날</th><th>리뷰 대상</th><th>비고</th></tr>
+    <tr><td class="mono">1 (기본)</td><td>일요일</td><td>끝나가는 이번 주</td><td>일요일 저녁 루틴</td></tr>
+    <tr><td class="mono">0</td><td>월요일</td><td>지난 주</td><td>월요일 아침 루틴</td></tr>
+    <tr><td class="mono">2</td><td>토요일</td><td>이번 주 (토·일 남음)</td><td>미리 마감 성격 강해짐</td></tr>
+  </table>
+  </div>
+
+  <h2>7. 알려진 부작용 — 일요일 밤 세션</h2>
+  <div class="note">
+    일요일 저녁에 리뷰를 확정하면 <code>last_settled = W36</code>인데, W36은 아직 그날 하루가 남아 있다.
+    <b>리뷰 후 그날 밤에 돌린 🍅는 이미 정산된 주에 들어간다.</b>
+    리뷰 요약에는 안 잡히지만 캘린더 점·항목 소진에는 정상 반영된다.
+  </div>
+  <p>
+    이것은 버그가 아니라 "정산 = 추정 마감"이라는 성질이다 (원칙 3: 예산은 추정치).
+    막으려면 정산 후 그날 세션을 차단해야 하는데, 그건 원칙 1(계획이 없어도 타이머는 돈다)을
+    어기므로 <b>막지 않는다</b>. 리뷰 요약 문구를 "지난주"가 아니라 <b>"이번 주 (마감)"</b>으로
+    쓰는 것으로 기대를 맞춘다.
+  </p>
+
+  <div class="note teal">
+    <b>이 플로우가 보장하는 것</b>
+    <ul>
+      <li>정산 화면은 언제나 최대 1개 — "밀린 숙제"라는 상태가 구조적으로 없다</li>
+      <li>정시·지각·첫 실행이 같은 식 하나를 지난다 — 특수 분기 0</li>
+      <li>배너를 무시해도 모든 기능이 동작하고, 미완료 항목은 사라지지 않고 다음 리뷰 범위에 남는다</li>
+      <li>계획일 변경(일→월 등)은 값 하나로 격리 — 판정식 불변</li>
+    </ul>
+  </div>
+</div>

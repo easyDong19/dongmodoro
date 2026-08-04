@@ -1,0 +1,647 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>의사결정 플로우 — 2026-08-04 기획 검증 세션</title>
+<style>
+  :root {
+    --bg: #ffffff; --surface: #f7f8f8; --line: #d8dcda; --line-strong: #9aa3a0;
+    --text: #14201c; --muted: #6b7873;
+    --teal: #0f8a6d; --teal-soft: rgba(15,138,109,0.10);
+    --amber: #a76a12; --amber-soft: rgba(167,106,18,0.12);
+    --violet: #7c4fc4; --violet-soft: rgba(124,79,196,0.10);
+    --danger: #b3543f;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0c1a16; --surface: rgba(255,255,255,0.045); --line: rgba(255,255,255,0.14);
+      --line-strong: rgba(255,255,255,0.4); --text: #e8f0ec; --muted: #8fa39b;
+      --teal: #6fd4b8; --teal-soft: rgba(111,212,184,0.12);
+      --amber: #f0b671; --amber-soft: rgba(240,182,113,0.14);
+      --violet: #b795e8; --violet-soft: rgba(183,149,232,0.12);
+      --danger: #e8907e;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { background: var(--bg); color: var(--text); margin: 0;
+         padding: 32px 20px 64px;
+         font-family: ui-sans-serif, -apple-system, "Segoe UI", Roboto, sans-serif;
+         line-height: 1.6; }
+  .wrap { max-width: 800px; margin: 0 auto; }
+  h1 { font-size: 22px; margin: 0 0 6px; letter-spacing: -0.01em; }
+  .sub { color: var(--muted); font-size: 13px; margin: 0 0 8px; }
+  .sub a { color: var(--teal); }
+  .intro { font-size: 14px; background: var(--surface); border: 1px solid var(--line);
+           border-radius: 12px; padding: 14px 18px; margin: 18px 0 0; }
+  .intro b { color: var(--teal); }
+
+  .legend { display: flex; gap: 14px; flex-wrap: wrap; font-size: 12px; color: var(--muted);
+            margin: 14px 0 0; padding: 12px 0; border-bottom: 1px solid var(--line); }
+  .chip { display: inline-block; padding: 1px 8px; border-radius: 999px; font-size: 11px;
+          font-weight: 600; letter-spacing: 0.02em; vertical-align: 1px; }
+  .chip.rev { background: var(--amber-soft); color: var(--amber); }
+  .chip.exp { background: var(--violet-soft); color: var(--violet); }
+  .chip.sys { background: var(--teal-soft); color: var(--teal); }
+
+  .phase { margin-top: 40px; }
+  .phase-title { font-size: 12px; font-weight: 700; letter-spacing: 0.1em;
+                 color: var(--muted); text-transform: uppercase; margin: 0 0 4px 46px; }
+  .phase-desc { font-size: 13px; color: var(--muted); margin: 0 0 8px 46px; }
+
+  .node { display: flex; gap: 16px; }
+  .rail { width: 30px; flex-shrink: 0; display: flex; flex-direction: column; align-items: center; }
+  .dot { width: 12px; height: 12px; border-radius: 50%; background: var(--teal);
+         border: 2px solid var(--bg); box-shadow: 0 0 0 1.5px var(--teal); margin-top: 22px;
+         flex-shrink: 0; }
+  .dot.sys { background: var(--bg); box-shadow: 0 0 0 1.5px var(--line-strong); }
+  .dot.rev { background: var(--amber); box-shadow: 0 0 0 1.5px var(--amber); }
+  .rail .cont { width: 2px; flex: 1; background: var(--line); margin-top: 4px; }
+  .node:last-child .rail .cont { background: linear-gradient(var(--line), transparent); }
+
+  .card { flex: 1; background: var(--surface); border: 1px solid var(--line);
+          border-radius: 12px; padding: 16px 20px; margin: 8px 0; min-width: 0; }
+  .card.sys { background: transparent; border-style: dashed; }
+  .qid { font: 700 11px ui-monospace, Menlo, monospace; color: var(--muted);
+         letter-spacing: 0.06em; }
+  .qtitle { font-size: 15px; font-weight: 650; margin: 2px 0 10px; }
+
+  .sec-label { display: block; font-size: 11px; font-weight: 700; letter-spacing: 0.08em;
+               color: var(--muted); text-transform: uppercase; margin: 12px 0 3px; }
+  .problem { font-size: 13.5px; margin: 0; }
+  .problem em { font-style: normal; color: var(--danger); }
+
+  ul.options { list-style: none; padding: 0; margin: 4px 0 0; }
+  ul.options li { font-size: 13px; padding: 7px 10px 7px 30px; position: relative;
+                  border-radius: 8px; margin: 3px 0; color: var(--muted); }
+  ul.options li::before { content: "○"; position: absolute; left: 10px; color: var(--line-strong); }
+  ul.options li.chosen { background: var(--teal-soft); color: var(--text); }
+  ul.options li.chosen::before { content: "●"; color: var(--teal); }
+  ul.options li b { font-weight: 650; }
+  ul.options li .tr { color: var(--muted); }
+
+  .decision { font-size: 13.5px; margin: 4px 0 0; }
+  .decision b { color: var(--teal); }
+  .why { font-size: 13px; margin: 4px 0 0; padding: 8px 12px; border-left: 3px solid var(--amber);
+         background: var(--amber-soft); border-radius: 0 8px 8px 0; }
+  .why q { font-style: normal; }
+  .dep { font-size: 12.5px; color: var(--muted); margin-top: 12px; padding-top: 10px;
+         border-top: 1px dashed var(--line); }
+  .dep code, .problem code, .decision code {
+    font-family: ui-monospace, Menlo, monospace; font-size: 12px;
+    background: none; color: var(--teal); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>의사결정 플로우</h1>
+  <p class="sub">2026-08-04 기획 검증 세션 · 시간순 · 결정 원문 기록: <a href="./2026-08-04-planning-session.md">2026-08-04-planning-session.md</a></p>
+
+  <div class="intro">
+    <b>이 문서가 다루는 것:</b> dongmodoro(1인용 뽀모도로 + 월/주/일 계획 Electron 앱)의
+    기능 문서(Phase 0)를 쓰기 전에, 초안 PRD와 목업 시안을 검증하면서 발견한 문제들과
+    그때 내린 결정들이다. 각 카드는 <b>문제(무엇이 비어 있거나 모순이었나) → 고민(어떤
+    선택지와 트레이드오프가 있었나) → 결정(무엇을 골랐고 왜)</b> 순서로 읽으면 된다.
+    ● 표시가 최종 선택이다.
+  </div>
+
+  <div class="legend">
+    <span><span class="chip rev">반전</span> AI 추천을 기각했거나 선택을 번복한 지점</span>
+    <span><span class="chip exp">재설명</span> 결정 전에 상세 설명·분석을 요구한 지점</span>
+    <span><span class="chip sys">검증</span> 코드 실행·서브에이전트로 사실을 확인한 지점</span>
+    <span>점선 카드 = 질문이 아닌 이벤트</span>
+  </div>
+
+  <!-- ══════════ 검증 시작 ══════════ -->
+  <div class="phase">
+    <p class="phase-title">1 · 검증 시작 — 시간과 타이머</p>
+    <p class="phase-desc">모든 집계가 "하루"와 "주"의 정의 위에 서므로, 가장 상류인 시간 정의부터 확정했다.</p>
+
+    <div class="node">
+      <div class="rail"><div class="dot sys"></div><div class="cont"></div></div>
+      <div class="card sys">
+        <span class="qid">START</span>
+        <p class="qtitle">초안 PRD · 시안 v7 · ADR 8건 전수 대조</p>
+        <p class="problem">초안 PRD(§3 기능 명세)와 시안의 실제 JS 동작을 비교해
+          프로세스 모순·미정의 8건(P1~P8)과 셸 미명세 2건(P9~P10)을 찾았다.
+          예: 시안에만 있는 "완료 처리" 버튼, 리뷰 트리거의 값 정의 누락,
+          task 부모 FK 모순, 하루 경계 미정의.</p>
+      </div>
+    </div>
+
+    <div class="node">
+      <div class="rail"><div class="dot"></div><div class="cont"></div></div>
+      <div class="card">
+        <span class="qid">Q1</span>
+        <p class="qtitle">하루는 몇 시에 바뀌나 <span class="chip rev">반전</span></p>
+        <span class="sec-label">문제</span>
+        <p class="problem">세션의 날짜 귀속, 캘린더 점, 스트릭, 오늘 목록의 만료가 전부
+          "하루"의 정의 하나에서 파생되는데 초안에 정의가 없다. 이직 준비용이라 새벽
+          작업이 잦은데, 자정 기준이면 <em>새벽 1시 세션이 "다음 날"로 기록되고 방금
+          보던 오늘 목록이 비어버리는</em> 상황이 매일 생길 수 있다.</p>
+        <span class="sec-label">고민한 선택지</span>
+        <ul class="options">
+          <li class="chosen"><b>자정 고정</b> — 가장 단순하고 예측 가능. 대신 새벽 작업 어긋남을 감수</li>
+          <li>새벽 4시 오프셋 (AI 추천) — 새벽 작업이 전날에 자연 귀속. <span class="tr">대신 "하루"의 정의가 비직관적이 됨</span></li>
+          <li>오프셋 + 설정 노출 — <span class="tr">1인용 앱에 과한 설정 (YAGNI)</span></li>
+        </ul>
+        <span class="sec-label">결정</span>
+        <p class="decision"><b>자정 고정.</b> 단, 조건을 하나 걸었다 — 경계가 언제인지 사용자가 뷰에서 알 수 있어야 한다.</p>
+        <p class="why"><q>하루가 바뀌는 시간은 자정이며, 그 기준에 대해서는 뷰에서 언급이 되어야 바뀌는 시간이 뭔지 알 수 있을 것 같다.</q></p>
+        <p class="dep">→ "뷰에서 언급" 조건은 <code>Q18</code>에서 구체화된다</p>
+      </div>
+    </div>
+
+    <div class="node">
+      <div class="rail"><div class="dot"></div><div class="cont"></div></div>
+      <div class="card">
+        <span class="qid">Q2</span>
+        <p class="qtitle">자정을 걸친 세션은 어느 날짜인가</p>
+        <span class="sec-label">문제</span>
+        <p class="problem">자정이 경계가 된 순간 바로 생기는 후속 문제. 23:50에 시작해
+          00:15에 끝난 25분 집중은 "어제" 것인가 "오늘" 것인가? 세션에는 시작·종료
+          시각이 둘 다 저장되므로 어느 쪽으로도 집계할 수 있다.</p>
+        <span class="sec-label">고민한 선택지</span>
+        <ul class="options">
+          <li class="chosen"><b>시작 시각(started_at) 기준</b> — 세션은 어제의 오늘 목록에서 고른 task로 어제 시작했다. 귀속이 계획과 일치</li>
+          <li>종료 시각 기준 — "끝낸 날에 찍힌다"가 직관적이지만 <span class="tr">집중 대상 task와 날짜가 갈라짐</span></li>
+          <li>더 오래 걸친 쪽 — <span class="tr">정확해 보이지만 사용자에게 결과를 설명할 수 없음</span></li>
+        </ul>
+        <span class="sec-label">결정</span>
+        <p class="decision"><b>started_at 기준.</b> 캘린더 점·스트릭·날짜 패널이 전부 컬럼 하나에서 파생된다.</p>
+        <p class="dep">부수효과: 자정 직후 새 세션은 오늘 목록이 빈 "자유 집중"이 된다 → <code>Q18</code>의 힌트가 완화 장치</p>
+      </div>
+    </div>
+
+    <div class="node">
+      <div class="rail"><div class="dot"></div><div class="cont"></div></div>
+      <div class="card">
+        <span class="qid">Q3</span>
+        <p class="qtitle">집중이 끝나면 휴식으로 자동 전환하나</p>
+        <span class="sec-label">문제</span>
+        <p class="problem">시안에는 뽀모도로의 핵심인 <em>집중→휴식 사이클이 아예 없다</em> —
+          모드 탭을 손으로 눌러 바꾸는 게 전부고, "긴 휴식 15분"은 그냥 수동 선택지다.
+          초안 PRD도 모드 3종만 나열하고 전환 규칙을 안 쓴다.</p>
+        <span class="sec-label">고민한 선택지</span>
+        <ul class="options">
+          <li>시안 그대로 (사이클 없음) — <span class="tr">휴식 유도가 0이라 "그냥 타이머"가 됨</span></li>
+          <li class="chosen"><b>모드만 자동 제안, 시작은 수동</b> — 집중 완료 시 휴식 모드로 바뀌어 있고(4회차마다 긴 휴식), 시작 버튼은 사용자가 누름</li>
+          <li>휴식 자동 시작 — 표준에 충실하지만 <span class="tr">자유 집중 후 뜨는 "한 줄 캡처" 입력 바와 충돌 (쓰는 동안 휴식이 흘러감)</span></li>
+        </ul>
+        <span class="sec-label">결정</span>
+        <p class="decision"><b>모드 자동 제안 + 시작 수동.</b> "안내하되 강제하지 않는다" 원칙과 정합.</p>
+        <p class="why"><q>뽀모도로 앱이니 휴식이라는 개념이 필요함.</q></p>
+        <p class="dep">긴 휴식 카운터의 파생식은 이후 ERD 평가에서 교정됨: "그날 집중 수 mod 4"(자정에서 끊김) → <b>"마지막 긴 휴식 이후의 집중 수"</b></p>
+      </div>
+    </div>
+
+    <div class="node">
+      <div class="rail"><div class="dot"></div><div class="cont"></div></div>
+      <div class="card">
+        <span class="qid">Q4</span>
+        <p class="qtitle">"완료 처리" 버튼 — 조기 종료를 1뽀모로 쳐주나</p>
+        <span class="sec-label">문제</span>
+        <p class="problem">시안에는 남은 시간과 무관하게 세션을 즉시 완료시키는 버튼이
+          있는데 PRD에는 없다. <em>시작 1분 만에 눌러도 온전한 1뽀모</em>가 기록되므로
+          예산 게이지의 신뢰도를 흔들 수 있는 유일한 구멍이었다.</p>
+        <span class="sec-label">고민한 선택지</span>
+        <ul class="options">
+          <li>버튼 제거 — 숫자는 가장 정직해지지만 <span class="tr">"22분에 일이 끝났는데 3분을 멍하니 기다림"이 매일 생김</span></li>
+          <li class="chosen"><b>유지 + 온전한 1뽀모</b> — "1뽀모 = 집중 세션 1회 완료, 길이 무관" 원칙과 정합. 실제 경과는 duration_sec에 남음</li>
+          <li>유지 + 경과 하한 (절반 미달 시 무효) — <span class="tr">"길이 무관" 원칙과 충돌, 설명해야 할 규칙만 늘어남</span></li>
+        </ul>
+        <span class="sec-label">결정</span>
+        <p class="decision"><b>유지 + 온전한 1뽀모.</b> 1인용 도구라 스스로를 속일 인센티브가 없다.</p>
+        <p class="why"><q>오조작하는 경우가 많이 없기 때문에 아쉽게 된 거고, 오조작이 너무 많아진다면 나중에 완료한 태스크를 롤백할 수 있는 패치를 넣으면 된다.</q></p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════ 정산 ══════════ -->
+  <div class="phase">
+    <p class="phase-title">2 · 주간 정산의 뼈대</p>
+    <p class="phase-desc">"언제 리뷰를 물어볼 것인가"와 "무엇을 리뷰에 담을 것인가"는 다른 질문이다 — 초안은 이 둘을 섞어서 구멍이 났다.</p>
+
+    <div class="node">
+      <div class="rail"><div class="dot"></div><div class="cont"></div></div>
+      <div class="card">
+        <span class="qid">Q5</span>
+        <p class="qtitle">정산이 필요한지 어떻게 판정하나 <span class="chip exp">재설명</span></p>
+        <span class="sec-label">문제</span>
+        <p class="problem">초안은 저장값 하나(<code>last_settled_week</code> 워터마크)로
+          판정하는 좋은 뼈대를 갖고 있었지만, <em>확정할 때 무슨 값을 넣는지와 첫 실행
+          초기값이 없었다.</em> "방금 정산한 주"를 넣으면 몇 주 쉬었다 온 경우 배너가
+          무한 반복되고, 초기값이 없으면 설치 3초 만에 빈 정산 배너가 뜬다.
+          (처음 지적했던 "판정식 off-by-one"은 AI의 오판으로 정정 — 식 자체는 정상이었다.)</p>
+        <span class="sec-label">고민한 선택지</span>
+        <ul class="options">
+          <li>워터마크 단독 — 저장값 1개, "밀린 정산"이란 상태가 구조적으로 불가능</li>
+          <li>정산 레코드 테이블 조회 — 정확한 이력이 남지만 <span class="tr">초안이 금지한 "알림 큐"에 가까워지고 빈 주 판정을 SQL로 재구현해야 함</span></li>
+          <li class="chosen"><b>하이브리드</b> — 판정은 워터마크 단독, 스냅샷 테이블은 이력 보존 전용으로 역할 분리</li>
+        </ul>
+        <span class="sec-label">결정</span>
+        <p class="decision"><b>하이브리드.</b> 워터마크에는 정산한 주가 아니라 항상 "직전 주까지 잠갔다"는 표시선을 기록하고, 초기값도 같은 규칙으로.</p>
+        <p class="why">처음 보는 사람 기준의 전체 설명(소박한 방법이 왜 막혔는지부터)을 요구한 뒤 트레이드오프를 보고 결정 — <q>3번으로 가자.</q></p>
+      </div>
+    </div>
+
+    <div class="node">
+      <div class="rail"><div class="dot"></div><div class="cont"></div></div>
+      <div class="card">
+        <span class="qid">Q6</span>
+        <p class="qtitle">리뷰에는 어느 주를 담나</p>
+        <span class="sec-label">문제</span>
+        <p class="problem">초안 규칙("마지막으로 활동이 있던 주만 정산")에는 구멍이 있다:
+          배너를 무시하고 다음 주에 새 계획을 잡아 활동하면, 그 이전 주의 미완료
+          항목은 리뷰에 안 나오고 어느 화면에서도 다시 보이지 않는다 —
+          <em>사실상 조용한 폐기</em>. "자동 폐기하지 않는다"는 원칙 위반.</p>
+        <span class="sec-label">고민한 선택지</span>
+        <ul class="options">
+          <li>초안 유지 (마지막 활동 주만) — <span class="tr">위의 조용한 폐기 구멍</span></li>
+          <li class="chosen"><b>워터마크 이후 전 구간 병합</b> — 미정산 구간의 미완료 항목 전체를 리뷰 화면 1개에</li>
+          <li>배너를 모달로 강제 — <span class="tr">"리뷰는 강제하지 않는다" 원칙 정면 위반</span></li>
+        </ul>
+        <span class="sec-label">결정</span>
+        <p class="decision"><b>전 구간 병합.</b> 몇 주를 비웠든 화면은 1개, 항목 수만 늘어난다. 전부 "이월"이 기본 선택이라 한 번의 클릭으로 끝난다.</p>
+        <p class="dep">→ 초안의 "빈 주 자동 통과" 특례가 불필요해짐 (빈 주는 미완료 항목이 없어 자연히 안 나옴)</p>
+      </div>
+    </div>
+
+    <div class="node">
+      <div class="rail"><div class="dot"></div><div class="cont"></div></div>
+      <div class="card">
+        <span class="qid">Q7</span>
+        <p class="qtitle">계획에 없던 할 일은 어디에 저장하나 <span class="chip exp">재설명</span></p>
+        <span class="sec-label">문제</span>
+        <p class="problem">초안 문서 세 곳이 서로 모순: 스키마는 "모든 task는 주간 항목의
+          자식(부모 필수)"인데, 기능 명세는 "오늘 목록 직접 입력"과 "사후 캡처로 소급
+          생성"이라는 <em>부모 없는 task를 두 종류</em> 만들라고 한다.</p>
+        <span class="sec-label">고민한 선택지</span>
+        <ul class="options">
+          <li>부모 칸을 비울 수 있게 (nullable) — 스키마가 정직하지만 <span class="tr">"미분류"의 정의가 둘로 갈라지고 모든 집계 쿼리에 NULL 분기가 산재 → 화면마다 숫자가 어긋날 씨앗</span></li>
+          <li class="chosen"><b>주차별 시스템 "기타" 항목</b> — 부모 없는 task를 전부 여기 붙임. 집계 트리가 균일해지고 예외 규칙 4개가 한곳에 모임</li>
+        </ul>
+        <span class="sec-label">결정</span>
+        <p class="decision"><b>시스템 "기타" 항목.</b> 규칙: est 0(계획 경고에 미산입) · 플래너에서 편집 불가 · 리뷰 이월 대상 제외 · 실제 필요할 때만 생성.</p>
+        <p class="why">테이블·외래 키가 뭔지부터 밑에서부터 쌓아 재설명을 요구한 뒤 — <q>B로 가는 게 맞는 것 같다, 예외를 컨트롤하는 것도 괜찮고.</q></p>
+        <p class="dep">→ 사용자 관점: "주간에 안 속한 일간 할 일"은 자유롭게 존재. 데이터 관점: 고아 task는 존재 불가 (조용히 기타에 배선) / 시스템 행 표시 문제는 <code>Q11</code>로</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════ ERD 독립 평가 ══════════ -->
+  <div class="phase">
+    <p class="phase-title">3 · 스키마 독립 검증 (사용자 요청)</p>
+
+    <div class="node">
+      <div class="rail"><div class="dot sys"></div><div class="cont"></div></div>
+      <div class="card sys">
+        <span class="qid">ERD</span>
+        <p class="qtitle">계획 스키마 시각화 + 컨텍스트 오염 없는 서브에이전트 평가 <span class="chip sys">검증</span></p>
+        <span class="sec-label">배경</span>
+        <p class="problem">Q7까지의 결정을 반영한 스키마 초안을 ERD로 그려 확인하고,
+          같은 초안을 대화 맥락이 없는 별도 에이전트에게 적대적으로 평가시켰다.</p>
+        <span class="sec-label">발견 (블로커 6)</span>
+        <ul class="options">
+          <li>B1 — 주간 게이지(날짜 기준)와 항목 소진(관계 기준)이 다른 정의라 같은 화면에서 어긋날 수 있음 → <code>Q10</code></li>
+          <li>B2 — "ISO week + 일요일 시작"은 존재하지 않는 조합 → <code>Q8</code></li>
+          <li>B3 — pull 날짜가 덮어써져 과거 날짜 패널의 이력이 소실 → 수용: pull을 행으로 승격(task_pulls)</li>
+          <li>B4 — 진행 중인 주의 예산 오버라이드를 저장할 곳이 없음 → 수용: weeks 테이블 신설</li>
+          <li>B5 — 시각 컬럼의 타임존·포맷 미정의 (타임존 이동 시 과거 집계가 통째로 이동) → 수용: local_date/local_week 불변 저장</li>
+          <li>B6 — NOT NULL·CHECK·FK 부재 (SQLite는 나중에 추가하려면 테이블 재작성) → 수용: 초기 마이그레이션에 전부</li>
+        </ul>
+        <p class="dep">주요 지적 중 수용: 세션 updated_at(캡처가 UPDATE하므로) · done→completed_at · 긴 휴식 파생식 / 위임: S2→<code>Q12</code>, S9→<code>Q13</code> / 보류(YAGNI): days JSON 정규화, 인덱스 선반영</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════ 주(week) 체계 ══════════ -->
+  <div class="phase">
+    <p class="phase-title">4 · 주(Week) 체계 — 가장 길었던 갈래</p>
+    <p class="phase-desc">"주를 어떻게 표현하나"가 사실은 세 개의 독립된 결정(시작 요일 / 계획일 / 키 표현)임이 드러나며 두 차례 되돌아갔다.</p>
+
+    <div class="node">
+      <div class="rail"><div class="dot rev"></div><div class="cont"></div></div>
+      <div class="card">
+        <span class="qid">Q8</span>
+        <p class="qtitle">주 키 포맷 — 1차 시도와 재분해 <span class="chip exp">재설명</span> <span class="chip sys">검증</span></p>
+        <span class="sec-label">문제</span>
+        <p class="problem">초안의 <code>'YYYY-Wnn'</code>은 "ISO week"를 자칭하면서 주 시작을
+          일요일로 두는데, <em>ISO 주는 정의상 월요일 시작이라 이 조합은 존재하지 않는다.</em>
+          그대로 구현하면 매주 일요일 하루가 지난주 번호로 기록된다. 코드 실행으로 검증:
+          2026-08-02(일)은 ISO로는 지난주(W31)이고, 2026년은 53주 연도라
+          "W52 다음은 W01"이라는 흔한 가정도 올해 연말에 깨진다.</p>
+        <span class="sec-label">경과</span>
+        <p class="decision">일요일 날짜를 키로 쓰는 안을 잠정 추천 → 사용자가 "키는 다른 사람이 읽어도
+          아는 절대 기준이어야 한다"며 ISO 표기 선호 + 사이드이펙트 분석 요구 →
+          <b>결정을 두 축으로 재분해</b>: ① 주 시작 요일 × ② 키 표현. (ISO 표기는 월요일
+          시작 위에서만 성립하므로 ①이 선행 결정)</p>
+      </div>
+    </div>
+
+    <div class="node">
+      <div class="rail"><div class="dot"></div><div class="cont"></div></div>
+      <div class="card">
+        <span class="qid">Q8-1</span>
+        <p class="qtitle">축 ① — 주는 무슨 요일에 시작하나</p>
+        <span class="sec-label">문제</span>
+        <p class="problem">시작 요일은 UI(요일 칩·캘린더 열 순서), 요일별 가용량 배열의
+          인덱스, 그리고 <em>리뷰·계획을 하는 날이 주의 처음인지 끝인지</em>를 전부 결정한다.
+          시안은 일요일 시작으로 만들어져 있었다.</p>
+        <span class="sec-label">고민한 선택지</span>
+        <ul class="options">
+          <li>일요일 시작 (시안 유지) — UI 변경 없음. <span class="tr">대신 일요일 아침이면 이미 새 주가 시작된 상태에서 지난주를 정산 (리뷰 중에 새 주가 하루 소모됨)</span></li>
+          <li class="chosen"><b>월요일 시작 (ISO)</b> — 표준 정합 + 일요일이 주의 마지막 날이 되어 "일요일 저녁에 돌아보고 다음 주를 짠다"는 순서가 자연스러움. 대가: 요일 UI·가용량 배열 전부 재정의</li>
+        </ul>
+        <span class="sec-label">결정</span>
+        <p class="decision"><b>월요일 시작.</b></p>
+        <p class="why"><q>주 시작 월요일로 두는 게 일반적으로 맞는 것 같음, 일반적으로 그게 통용되어 있으니까.</q> + 일요일 계획은 규칙으로 하되 나중에 바꿀 수 있게.</p>
+      </div>
+    </div>
+
+    <div class="node">
+      <div class="rail"><div class="dot"></div><div class="cont"></div></div>
+      <div class="card">
+        <span class="qid">Q8-1a</span>
+        <p class="qtitle">계획일이 주 경계와 분리됐다 — plan_lead_days 모델</p>
+        <span class="sec-label">문제</span>
+        <p class="problem">주는 월요일에 시작하는데 계획은 그 전날(일요일)에 한다 —
+          "새 주 진입 = 리뷰 시점"이라는 기존 가정이 깨졌다. 정시(일요일)와 지각(놓치고
+          평일에 켬)이라는 두 경로를 조건 분기 없이 다뤄야 했다.</p>
+        <span class="sec-label">고민한 것</span>
+        <p class="problem">"며칠 앞서 계획하나"를 값 하나(<code>plan_lead_days</code>, 기본 1=일요일)로
+          빼면 판정식이 한 줄로 통일된다: 계획 대상 주 = week_of(오늘+lead), 정산 범위 =
+          워터마크+1 … 계획 대상 주−1. 정시·지각·첫 실행 7개 시나리오를 표로 검증했다.</p>
+        <span class="sec-label">결정</span>
+        <p class="decision"><b>승인.</b> v1에서는 설정 UI 없이 값만 격리. 알려진 부작용(일요일 밤 리뷰 확정 후의 세션은 정산된 주에 들어감)도 시나리오 확인 후 수용 — 막으면 "타이머는 항상 돈다" 원칙을 어긴다.</p>
+        <p class="why">플로우 시각화(HTML) 검토 후 — <q>ㅇㅇ 이렇게 가자.</q></p>
+        <p class="dep">← <code>Q5</code> 정밀화: 워터마크 = "현재 주 − 1"이 아니라 "계획 대상 주 − 1"</p>
+      </div>
+    </div>
+
+    <div class="node">
+      <div class="rail"><div class="dot rev"></div><div class="cont"></div></div>
+      <div class="card">
+        <span class="qid">Q9</span>
+        <p class="qtitle">축 ② — 주 키를 어떤 문자열로 저장하나 <span class="chip rev">반전</span> <span class="chip exp">재설명</span></p>
+        <span class="sec-label">문제</span>
+        <p class="problem">키는 세 곳(주간 항목·주 테이블·워터마크)에 박히고 출하 후 변경은
+          크로스테이블 마이그레이션이다. 사용자 기준: <em>"다른 사람이 읽어도 아는 절대
+          기준"</em>이어야 한다.</p>
+        <span class="sec-label">고민한 선택지</span>
+        <ul class="options">
+          <li>ISO 문자열 <code>'2026-W32'</code> — 주차가 직독. <span class="tr">그러나 문자열로 "+1주" 계산 불가(53주 연도), 연말·연 경계 산술이 전부 앱 코드로</span></li>
+          <li class="chosen"><b>그 주 월요일 날짜 <code>'2026-08-03'</code></b> — 달력만 알면 직독되는 절대 기준. SQL로 주 산술 가능. DB가 월요일 아닌 값을 거부(CHECK 검증 실증)</li>
+          <li>병기 (ISO 키 + 시작일 컬럼) — 둘 다 갖지만 <span class="tr">같은 사실의 두 표현이 어긋날 수 있고 DB가 짝을 검증 못 함</span></li>
+        </ul>
+        <span class="sec-label">경과와 결정</span>
+        <p class="decision">처음 ISO 문자열 선택(사유 중 "산술 편함"은 사실과 반대라 정정)
+          → <q>그러면 E가 맞지 않을까? 그 전에 실무에서 타임포맷을 어떻게 관리하는지
+          비교 분석해달라</q> → 순간(UTC)과 달력 값(로컬 불변)을 구분하는 실무 관행 검토
+          → <b>월요일 날짜 키 확정.</b> 화면의 "W32" 라벨은 렌더 시점 계산 전용
+          (월요일 시작이라 진짜 ISO와 항상 일치).</p>
+        <p class="dep">→ 파생: <b>시간 포맷 4종 규약</b> 채택 (순간=UTC ISO / 달력 키=로컬 불변 / 길이=초 / 런타임=epoch ms 비저장) + 시간 모듈 초크포인트 1개. ADR 예정 / → <code>Q12</code>의 SQL 산술이 이 결정 위에서 성립</p>
+      </div>
+    </div>
+
+    <div class="node">
+      <div class="rail"><div class="dot sys"></div><div class="cont"></div></div>
+      <div class="card sys">
+        <span class="qid">RULE</span>
+        <p class="qtitle">origin 문서의 지위 격하 (사용자 지시)</p>
+        <p class="problem">Q9 답변 중 사용자가 명확히 함: docs/origin/의 PRD·시안은
+          <b>초안·개념 스케치일 뿐 절대 문서가 아니다.</b> 읽기 전용(보존)은 유지하되
+          내용 구속력은 없음. 확정 기준은 features/architecture 문서.</p>
+        <p class="why"><q>origin에 있는 PRD는 절대 문서가 아니야, 초안 같은 거라서 수정하지 말라고 한 거지, 꼭 그거대로 안 따라가도 돼.</q></p>
+        <p class="dep">→ CLAUDE.md · docs/CLAUDE.md · 프로젝트 메모리에 반영 완료</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════ 집계·계층 ══════════ -->
+  <div class="phase">
+    <p class="phase-title">5 · 집계·계층 마무리</p>
+
+    <div class="node">
+      <div class="rail"><div class="dot"></div><div class="cont"></div></div>
+      <div class="card">
+        <span class="qid">Q10</span>
+        <p class="qtitle">뽀모는 "한 날짜"에 속하나 "한 항목"에 속하나 (ERD B1)</p>
+        <span class="sec-label">문제</span>
+        <p class="problem">주간 게이지는 날짜 기준, 항목 행은 부모-자식 기준으로 세면
+          <em>"총합에는 있는데 어느 행에도 없는 뽀모"</em>가 생길 수 있다. 구조를 따라가 보니
+          어긋남이 생기는 유일한 경로는 "일요일 밤, 리뷰 확정 직후 다음 주 항목을
+          미리 당겨 시작"뿐이었다.</p>
+        <span class="sec-label">고민한 선택지</span>
+        <ul class="options">
+          <li class="chosen"><b>구멍을 구조로 막기</b> — pull은 "오늘이 속한 주"의 항목에서만. 두 기준이 증명 가능하게 항상 일치</li>
+          <li>허용 + 날짜 필터 단일화 + "다른 주 항목 집중" 버킷 행 — <span class="tr">연 몇 회 없을 케이스를 위해 상시 UI 행과 전 쿼리 필터를 삼</span></li>
+          <li>허용 + 관계 기준 단일화 — <span class="tr">게이지와 캘린더 점이 서로 다른 얘기를 하게 됨</span></li>
+        </ul>
+        <span class="sec-label">결정</span>
+        <p class="decision"><b>pull = 오늘이 속한 주의 항목만.</b> 대가("내일 계획을 오늘 밤 미리 시작" 불가)는 수용 — 계획은 내일 것이다.</p>
+      </div>
+    </div>
+
+    <div class="node">
+      <div class="rail"><div class="dot"></div><div class="cont"></div></div>
+      <div class="card">
+        <span class="qid">Q11</span>
+        <p class="qtitle">"기타"와 "미분류 집중"을 한 행으로 합치나 <span class="chip exp">재설명</span></p>
+        <span class="sec-label">문제</span>
+        <p class="problem">계획 밖 집중이 두 형태로 존재한다 — 이름이 있는 것(직접 추가·캡처
+          task)과 이름조차 없는 것(캡처 건너뛴 세션). 초안은 이 둘의 취급을 세 군데서
+          다르게 말했다.</p>
+        <span class="sec-label">고민한 선택지</span>
+        <ul class="options">
+          <li class="chosen"><b>한 행 통합</b> ("기타 — 계획에 없던 집중") — 사용자에게 개념이 하나. 이름 유무는 펼쳤을 때 구분</li>
+          <li>두 행 분리 — 행 레벨 정보는 정확하지만 <span class="tr">"기타랑 미분류가 뭐가 달라?"를 설명해야 하고, 그 구분이 주간 의사결정을 바꾸는 경우가 없음</span></li>
+        </ul>
+        <span class="sec-label">결정</span>
+        <p class="decision"><b>한 행 통합.</b></p>
+        <p class="why">결정 전 확인 질문 — <q>주간 계획에 속해 있지 않은 일간 계획도 가능한가?</q> → 가능(UX로는 자유, 데이터로는 기타에 자동 배선) 확인 후 <q>A로 가자.</q></p>
+      </div>
+    </div>
+
+    <div class="node">
+      <div class="rail"><div class="dot"></div><div class="cont"></div></div>
+      <div class="card">
+        <span class="qid">Q12</span>
+        <p class="qtitle">이월 배지 "N주째"를 어떻게 세나 (ERD S2)</p>
+        <span class="sec-label">문제</span>
+        <p class="problem">요구값은 "달력상 몇 주째 미결인가"인데, 이월 사슬의 링크 수는
+          <em>다른 숫자</em>다 (3주 쉬고 한 번 이월하면 사슬은 1, 달력은 5주째). 게다가
+          사슬을 재귀로 타는 방식은 사이클 버그 한 번으로 무한 루프가 될 수 있다.</p>
+        <span class="sec-label">고민한 선택지</span>
+        <ul class="options">
+          <li class="chosen"><b>origin_week 박제</b> — 사슬의 뿌리 주를 이월 시 복사. 배지 = (현재 주 − origin_week)/7 + 1. SQL 한 줄, 재귀 없음, 공백 주 자동 포함</li>
+          <li>carry_count 저장 (확정 시 주차 차이 가산) — <span class="tr">동작은 같지만 "언제부터"가 사라지고 가산 로직이 리뷰 코드에 삼</span></li>
+          <li>재귀 CTE 파생 — <span class="tr">순회해도 요구값과 다른 숫자라 보정 필요 + 사이클 안전장치 별도</span></li>
+        </ul>
+        <span class="sec-label">결정</span>
+        <p class="decision"><b>origin_week 박제.</b> 집계가 아니라 그 행의 계보 사실이므로 "파생값 저장 금지" 원칙과 무관.</p>
+        <p class="dep">← 날짜 키(<code>Q9-E</code>)가 전제 — ISO 문자열 키였다면 이 산술이 불가능했다</p>
+      </div>
+    </div>
+
+    <div class="node">
+      <div class="rail"><div class="dot"></div><div class="cont"></div></div>
+      <div class="card">
+        <span class="qid">Q13</span>
+        <p class="qtitle">항목 est와 task est는 무슨 관계인가 (ERD S9)</p>
+        <span class="sec-label">문제</span>
+        <p class="problem">예상치가 두 층(주간 항목 / task)에 있는데 관계 정의가 없어서,
+          리뷰의 "남은 몫 = est − spent"가 어느 est인지 미정이었다. 합으로 묶는 안은
+          애초에 불가능 — task는 첫 pull 때 생기므로 계획 시점엔 0개다.</p>
+        <span class="sec-label">고민한 선택지</span>
+        <ul class="options">
+          <li class="chosen"><b>독립 유지</b> — 항목 est = "이번 주 얼마나"(계획·경고·리뷰용), task est = "이 조각이 몇 개짜리"(오늘 목록 표시용). 어긋나도 신호 없음 ("예산은 추정치" 원칙)</li>
+          <li>어긋남을 사실로 표시 (드로어에 "조각 합 8 / 항목 6") — <span class="tr">정보는 늘지만 상시 숫자 한 줄 추가 → 구현 시 재판단으로 보류</span></li>
+        </ul>
+        <span class="sec-label">결정</span>
+        <p class="decision"><b>독립 유지.</b> "남은 몫"은 항목 est 기준.</p>
+        <p class="dep">+ 이 답변에서 추가 지시: <b>UI 이모지 금지</b> — <q>이모지로 표현하면 AI가 만든 티가 팍팍 나거든</q> → 아이콘은 lucide-react, 도메인 심볼(뽀모 도트)은 토큰 기반 커스텀 컴포넌트. principles.md §6 + CLAUDE.md 반영</p>
+      </div>
+    </div>
+
+    <div class="node">
+      <div class="rail"><div class="dot"></div><div class="cont"></div></div>
+      <div class="card">
+        <span class="qid">Q14</span>
+        <p class="qtitle">주간 항목의 "완료"는 누가 확정하나</p>
+        <span class="sec-label">문제</span>
+        <p class="problem">"시간을 다 쓴 것(소진 ≥ est)"과 "일이 끝난 것"은 다르다.
+          자식 task를 다 체크했다고 항목이 끝난 것도 아니다 — task 목록은 계획서가
+          아니라 누적 기록이라, 내일 조각을 더 만들 수도 있다.</p>
+        <span class="sec-label">고민한 선택지</span>
+        <ul class="options">
+          <li class="chosen"><b>자동 제안 + 수동 확정</b> — 자식 전부 완료 시 조용한 제안, 확정 클릭은 사용자</li>
+          <li>항상 수동만 — <span class="tr">"다 끝냈는데 열려 있는" 항목이 리뷰에 미완료로 올라오는 잔소리 비용</span></li>
+          <li>자동 완료 — <span class="tr">내일 조각을 더 만들 생각인데 시스템이 멋대로 닫음. "판단은 사용자에게" 위반</span></li>
+        </ul>
+        <span class="sec-label">결정</span>
+        <p class="decision"><b>자동 제안 + 수동 확정.</b> 완료된 항목의 드로어는 열람 가능·pull만 차단, 해제 시 재개.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════ UX·셸 ══════════ -->
+  <div class="phase">
+    <p class="phase-title">6 · UX·셸</p>
+
+    <div class="node">
+      <div class="rail"><div class="dot"></div><div class="cont"></div></div>
+      <div class="card">
+        <span class="qid">Q15</span>
+        <p class="qtitle">지난달 마일스톤 카드에는 어떤 숫자를 보여주나</p>
+        <span class="sec-label">문제</span>
+        <p class="problem">캘린더로 지난달에 넘어가면 마일스톤 카드가 읽기 전용으로
+          전환되는데, 평소 붙어 있는 "이번 주 소진" 롤업이 그 맥락에선 무의미하고
+          월 누적 집계는 v1 범위 밖이다.</p>
+        <span class="sec-label">고민한 선택지</span>
+        <ul class="options">
+          <li class="chosen"><b>"N/M 달성" 배지만</b> — 보여줄 정직한 숫자가 그것뿐이므로 그것만</li>
+          <li>월 누적 소진 표시 — <span class="tr">v1.1 기능을 지난달 전용으로 앞당기는 스코프 증가</span></li>
+          <li>이번 주 롤업 유지 — <span class="tr">거의 항상 0이고, 0이 아니면 더 혼란</span></li>
+        </ul>
+        <span class="sec-label">결정</span>
+        <p class="decision"><b>배지만.</b> 없는 숫자를 지어내지 않는다.</p>
+      </div>
+    </div>
+
+    <div class="node">
+      <div class="rail"><div class="dot"></div><div class="cont"></div></div>
+      <div class="card">
+        <span class="qid">Q16</span>
+        <p class="qtitle">창을 닫으면 타이머는 어떻게 되나</p>
+        <span class="sec-label">문제</span>
+        <p class="problem">타이머를 main 프로세스가 소유하기로 한 아키텍처(ADR-005) 덕에
+          "창이 없어도 타이머가 완주하는" 능력은 이미 사둔 상태 — 쓸지 말지만 정하면
+          됐다. 안 쓰면 집중 중 창을 닫는 순간 세션이 유실된다.</p>
+        <span class="sec-label">고민한 선택지</span>
+        <ul class="options">
+          <li class="chosen"><b>닫기 = 창만 닫힘, 타이머 상주</b> (macOS 관례) — 세션이 끝나면 창 없이도 알림·기록. ⌘Q가 진짜 종료</li>
+          <li>닫기 = 종료 — <span class="tr">타이머 앱 최악의 사고 지점 + 사둔 구조를 버리는 셈</span></li>
+        </ul>
+        <span class="sec-label">결정</span>
+        <p class="decision"><b>상주.</b> 소결정: 집중 실행 중 ⌘Q는 확인 1회("이 세션은 기록되지 않아요") / 크래시 복원은 v1 범위 밖.</p>
+      </div>
+    </div>
+
+    <div class="node">
+      <div class="rail"><div class="dot rev"></div><div class="cont"></div></div>
+      <div class="card">
+        <span class="qid">Q17</span>
+        <p class="qtitle">좁은 창에 대응하나 <span class="chip rev">반전</span></p>
+        <span class="sec-label">문제</span>
+        <p class="problem">3컬럼 고정 레이아웃이라 창을 좁히면 거동이 미정의였다.
+          AI는 "1인용 데스크톱 도구, 반응형은 YAGNI"로 최소 크기 고정을 추천했다.</p>
+        <span class="sec-label">고민한 선택지</span>
+        <ul class="options">
+          <li>최소 창 크기 고정, 반응형 없음 (AI 추천) — <span class="tr">노트북 화면 절반에 붙여 쓰는 시나리오를 포기</span></li>
+          <li class="chosen"><b>반응형 레이아웃 채택</b> — 레이아웃 결정은 나중에 바꾸기 비싸므로 지금 계획</li>
+        </ul>
+        <span class="sec-label">결정</span>
+        <p class="decision"><b>반응형 채택 — AI 추천 기각.</b></p>
+        <p class="why"><q>지금 단계에서 레이아웃 결정을 해야 편할 듯. 반응형 레이아웃에 대한 계획도 세워야겠지.</q></p>
+      </div>
+    </div>
+
+    <div class="node">
+      <div class="rail"><div class="dot"></div><div class="cont"></div></div>
+      <div class="card">
+        <span class="qid">Q17-1</span>
+        <p class="qtitle">반응형 3단계 계획</p>
+        <span class="sec-label">설계</span>
+        <p class="problem">접힘 우선순위는 원칙 1("타이머가 코어 루프, 계획은 레이어")에서
+          도출 — 좁아질수록 계획 레이어부터 접히고 타이머·오늘 목록이 끝까지 남는다.</p>
+        <ul class="options">
+          <li class="chosen">와이드 (≥~1200px) — 시안 3컬럼 그대로</li>
+          <li class="chosen">미디엄 (~800–1199px) — MONTH 컬럼(마일스톤·캘린더) 접힘, 토글 시 오버레이. WEEK/TODAY 유지</li>
+          <li class="chosen">내로우 (&lt;~800px) — 1컬럼: 타이머 상단 고정(축약형) + "오늘|주간|월간" 탭</li>
+        </ul>
+        <span class="sec-label">결정</span>
+        <p class="decision"><b>승인.</b> 최소 창은 내로우가 성립하는 크기(~420×640, 실측)로 하한. 브레이크포인트 수치는 디자인 토큰 + ADR.</p>
+      </div>
+    </div>
+
+    <div class="node">
+      <div class="rail"><div class="dot"></div><div class="cont"></div></div>
+      <div class="card">
+        <span class="qid">Q18</span>
+        <p class="qtitle">자정 기준을 뷰 어디서 알려주나</p>
+        <span class="sec-label">문제</span>
+        <p class="problem"><code>Q1</code>에서 걸어둔 조건("경계가 뷰에서 드러나야 한다")의 이행.
+          상시로 보여줄지, 문제가 되는 순간에만 보여줄지.</p>
+        <span class="sec-label">고민한 선택지</span>
+        <ul class="options">
+          <li class="chosen"><b>맥락 힌트 2개만</b> — ① 자정 임박+미완료 있음: "자정이 지나면 남은 조각은 주간 카드로 돌아가요" ② 자정 직후 빈 오늘 목록: "새 날이 시작됐어요 — 어제 조각은 주간 카드에서 다시 가져올 수 있어요"</li>
+          <li>상시 라벨 — <span class="tr">한 번 배우면 끝인 정보가 매일 보는 화면에 상주 (3일이면 배경 소음)</span></li>
+          <li>둘 다 — <span class="tr">과잉</span></li>
+        </ul>
+        <span class="sec-label">결정</span>
+        <p class="decision"><b>맥락 힌트 2개만.</b> "안내하되 강제하지 않는다"와 같은 결.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════ 종결 ══════════ -->
+  <div class="phase">
+    <p class="phase-title">7 · 종결</p>
+    <div class="node">
+      <div class="rail"><div class="dot sys"></div><div class="cont"></div></div>
+      <div class="card sys">
+        <span class="qid">END</span>
+        <p class="qtitle">결정 원장 17건 + ERD 수용 8건 + Phase 0 기능 목록</p>
+        <p class="problem">기능 8개: timer · today-tasks · week-plan · milestones ·
+          calendar-records · weekly-review · pomo-baseline · app-shell.
+          아키텍처 작업 4건: ADR-009 시간 포맷 규약 · ADR-010 주 정의와 plan_lead_days ·
+          ADR-011 스키마 확정(weeks·task_pulls·불변 달력 키·제약, ADR-006 정정 포함) ·
+          브레이크포인트 토큰 ADR.</p>
+        <p class="dep">다음 단계: 기능 목록 승인(Phase 0) → 기능별 문서 생성(Phase 1~2) → 인덱스·검증(Phase 3)</p>
+      </div>
+    </div>
+  </div>
+</div>
+</body>
+</html>
