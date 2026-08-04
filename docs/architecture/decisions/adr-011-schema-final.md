@@ -1,6 +1,10 @@
 # ADR-011: 계획 단계 스키마 확정 — weeks·task_pulls 신설, 불변 달력 키, 제약·PRAGMA
 
-- 상태: accepted (2026-08-04)
+- 상태: accepted (2026-08-04) · **부분 정정됨 (2026-08-04, 문서 리뷰 결과)**
+  - §2 의 "pull 은 오늘이 속한 주의 항목으로 제한한다" → [ADR-012](adr-012-aggregation-predicate.md) 가 폐기 (집계 술어로 대체)
+  - §1 의 `budget INTEGER NULL`(기본값 파생)과 행 생성 시점 → [ADR-013](adr-013-baseline-budget-effect.md) 이 정정 (확정 저장 + 첫 세션 시 생성)
+  - 정의하지 않았던 삭제·보관 표현 → [ADR-014](adr-014-deletion-and-archive.md) 가 보완
+  - 그 외(`weeks`·`task_pulls` 신설, 불변 달력 키, `completed_at` 통일, 제약·PRAGMA, 백업·버전 검사)는 유효하다.
 - 결정 근거 원장: [2026-08-04 기획 검증 세션](../../decision-log/2026-08-04-planning-session.md) §C (Q7·Q10~Q14 + ERD 평가 수용분)
 - 평가 대상 스냅샷: [2026-08-04-schema-draft-snapshot.md](../../decision-log/2026-08-04-schema-draft-snapshot.md) — 이 ADR 이전의 초안. 충돌 시 이 ADR 이 이긴다.
 
