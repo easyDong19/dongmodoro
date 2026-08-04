@@ -1,6 +1,10 @@
 # ADR-007: IPC 계약 — 도메인 명령형 API + zod 런타임 검증
 
-- 상태: accepted (2026-08-03)
+- 상태: accepted (2026-08-03) · **예시 갱신 필요 표기 (2026-08-04)** — 본문의 리뷰 확정
+  트랜잭션 예시가 폐지된 스키마를 참조한다: `week_settlements` 는 [ADR-011](adr-011-schema-final.md) §1
+  에서 `weeks` 로 흡수됐고, `status` enum 은 §5 에서 `completed_at`/`dropped_at` 으로 교체됐다.
+  계약의 형태(도메인 명령형 + zod + 유스케이스 = 트랜잭션 1개)에 대한 결정 자체는 유효하다.
+  최신 트랜잭션 정의는 `docs/features/weekly-review/technical-spec.md` 를 따른다.
 
 ## Context
 
