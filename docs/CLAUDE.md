@@ -25,9 +25,10 @@ docs/
 
 ## `docs/design-system/` — 디자인 토큰과 시각 철칙 (횡단 문서)
 
-- [design-system/tokens.md](design-system/tokens.md) 가 색·폰트·radius 토큰의 **유일한 출처**다.
+- [design-system/tokens.md](design-system/tokens.md) 가 색·폰트·radius·브레이크포인트·유리 표면·모션·레이어·인터랙션 토큰의 **유일한 출처**다. (spacing 만 아직 미토큰화 — M1 Task 7 에서 결정)
 - 모든 ux-spec 과 구현 코드는 **토큰 이름으로만** 시각 값을 기술한다. raw hex/px 직접 기입 금지.
 - 토큰 추가·변경은 ADR 로 근거를 남긴 뒤에만 한다.
+- **접근성 기준선은 판정 가능한 수치다** — 텍스트 대비 4.5:1(판정 배경은 최악 조건), 비텍스트 3:1, 포커스 링 필수, 조작 타깃 24px. [principles.md §7](design-system/principles.md) 참조.
 - 시각 판단(색 의미, 실패 프레임, 모션)은 [design-system/principles.md](design-system/principles.md) 를 따르고, 기능 문서와 충돌 시 principles.md 가 이긴다.
 
 ### `design-system/wireframes/` — 화면 시안 (구속력 없음)
@@ -37,7 +38,7 @@ docs/
 - **명세가 아니다.** 와이어프레임이 기능 문서와 어긋나면 **ux-spec·prd 가 이긴다.**
   와이어프레임에서 발견한 결정 사항은 그림에 남기지 말고 해당 문서·ADR 에 반영한다.
 - 여기에 raw hex·px 색값을 새로 만들지 않는다. 토큰에 없는 값이 필요하면 ADR 선행
-  ([tokens.md §7](design-system/tokens.md)) — 와이어프레임이 토큰 공백을 발견하는
+  ([tokens.md §10](design-system/tokens.md)) — 와이어프레임이 토큰 공백을 발견하는
   자리이긴 하지만, 공백을 그림에서 임의로 메우지는 않는다.
 
 ## `docs/architecture/` — 기술 스택과 프로세스 구조 (횡단 문서)
@@ -46,7 +47,8 @@ docs/
 - 특정 기능에 속하지 않는 기술 결정(스택 선택, 프로세스 경계, 배포 방식)은 기능 폴더가 아니라 여기에 기록한다.
 - 기술 선택의 결정 근거는 [architecture/decisions/](architecture/decisions/) 아래 ADR(`adr-NNN-<slug>.md`)로 남긴다. context / decision / consequences 섹션 필수.
 - 기능별 technical-spec 은 architecture 문서와 **충돌할 수 없다.** 충돌이 필요하면 먼저 ADR 로 architecture 를 갱신한다.
-- 결정이 뒤집히면 기존 ADR 을 수정하지 말고 superseded 표기 후 새 ADR 을 추가한다.
+- 결정이 뒤집히면 기존 ADR 을 수정하지 말고 superseded 표기 후 새 ADR 을 추가한다. 표기는 상태 줄에만 넣고 본문은 이력으로 그대로 둔다. ADR 의 일부만 뒤집힌 경우 **어느 절이 죽고 어느 절이 살아 있는지** 명시한다.
+- **ADR 번호가 두 폴더에서 중복된다** (`architecture/decisions/` 와 `design-system/decisions/` 가 각자 001 부터 센다). 문서에서 부를 때 `ADR-007` 은 **architecture** 를 뜻하고, design-system 것은 반드시 **`design-system ADR-007`** 처럼 폴더를 앞에 붙인다.
 
 ## ⛔ `docs/origin/` — 원천 데이터 (읽기 전용)
 
