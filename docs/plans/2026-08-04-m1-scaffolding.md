@@ -451,7 +451,8 @@ export const settings = sqliteTable('settings', {
   value: text('value').notNull() // JSON
 })
 // 사용 키: weekly_capacity [월..일](⑥), focus_min/short_break_min/long_break_min(25/5/15),
-//          last_settled_week(월요일 날짜, ⑥), plan_lead_days(기본 1, ⑥)
+//          last_settled_week(월요일 날짜, ⑥), plan_lead_days(기본 1, ⑥),
+//          theme('system'|'light'|'dark', 기본 'system' — design-system ADR-008)
 
 export const milestones = sqliteTable('milestones', {
   id: text('id').primaryKey(),                       // uuid v7 (ADR-006)
@@ -908,7 +909,14 @@ pnpm add -D lucide-react class-variance-authority clsx tailwind-merge
 
 - [ ] **Step 2: 토큰 이관**
 
-`tokens.css` 에 [design-system/tokens.md](../design-system/tokens.md) 의 전 토큰을 `:root { --bg-deep: #0c1a16; … }` 로 기계적으로 옮긴다 — **값 변형·추가 금지**, tokens.md 가 유일 출처. `global.css` 는 `@import 'tailwindcss'` + `@theme` 블록에서 Tailwind 색·폰트를 `var(--token)` 참조로 매핑 + `body { background: var(--bg-deep); color: var(--ink); font-family: var(--font-sans); }`.
+`tokens.css` 에 [design-system/tokens.md §9 기준 CSS 블록](../design-system/tokens.md) 을 **그대로** 옮긴다 — **값 변형·추가 금지**, tokens.md 가 유일 출처. 그 블록에 아래가 포함되며 **하나도 빠뜨리지 않는다**:
+
+- `html { font-size: 62.5% }` + `body { font-size: var(--text-md) }` — 폰트 크기가 rem 이므로 이 두 줄이 없으면 본문이 10px 로 렌더된다 (design-system ADR-007)
+- 다크(기본) + **라이트 테마 재정의** — `@media (prefers-color-scheme: light)` 와 `[data-theme='light']` 두 경로. 값 세트를 중복 정의하지 않는다 (design-system ADR-008)
+- `@media (prefers-reduced-motion: reduce)` 의 모션 토큰 `0ms` 재정의 (design-system ADR-005)
+- `@media (forced-colors: active)` 의 유리·광원 포기 (design-system ADR-006 §2)
+
+`global.css` 는 `@import 'tailwindcss'` + `@theme` 블록에서 Tailwind 색·폰트를 `var(--token)` 참조로 매핑 + `body { background: var(--bg-deep); color: var(--ink); font-family: var(--font-sans); }` + `:focus-visible` 포커스 링 (design-system ADR-004).
 
 - [ ] **Step 3: shadcn 초기화** — `pnpm dlx shadcn@latest init` (경로: `src/renderer/shared/ui`), `button` 하나만 추가해 파이프라인 검증. 스킨은 이 태스크에서 손대지 않는다(뼈대만 — ADR-003).
 
