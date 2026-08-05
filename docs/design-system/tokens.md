@@ -140,7 +140,7 @@ React/Vue/vanilla 어디서든 `var(--token)` 으로 소비하며, JS에서 필�
 `html { font-size: 62.5% }` 로 두어 **1rem = 10px** 이며, 값이 읽기 쉬운 것이 채택 이유다.
 퍼센트이므로 사용자 기본 글자 크기에 대한 비례성은 보존된다.
 
-| 토큰 | 값 | (= px) | 용도 | 사용 규칙 (ADR-009) |
+| 토큰 | 값 | (= px) | 용도 | 사용 규칙 (design-system ADR-009) |
 |---|---|---|---|---|
 | `--text-2xs` | `0.9rem` | 9px | eyebrow 라벨 | **라틴 대문자 전용** (+ `--tracking-wider`). 한글 소형 라벨은 xs. 1~3자 배지는 허용하되 자간 normal |
 | `--text-xs` | `1rem` | 10px | 조각·메타 **전용** — 비율(`6/8`), 날짜 범위, 카운트 | **완결 문장에 쓰지 않는다** — 읽어야 하는 안내는 sm |
@@ -150,10 +150,10 @@ React/Vue/vanilla 어디서든 `var(--token)` 으로 소비하며, JS에서 필�
 | `--text-xl` | `1.7rem` | 17px | 화면 단위 제목, 내로우 축약형 타이머 숫자(+600+mono) | 축약형 숫자는 이름 있는 셀렉터 하나로 |
 | `--text-display` | `5.6rem` | 56px | 타이머 디스플레이 전용 (`--font-mono`) | — |
 
-> **원천과의 차이 (2026-08-05, ADR-009):** `--text-sm` 11→**12px**, `--text-md`
+> **원천과의 차이 (2026-08-05, design-system ADR-009):** `--text-sm` 11→**12px**, `--text-md`
 > 12→**13px**. 시안에서 흡수한 9/10/11/12 는 +1px 사다리(배율 1.09~1.11)라 같은
 > 톤에서 구분되지 않았다 — 조작 대역의 핵심 간격을 10→12(**1.2 배율**)로 벌렸다.
-> 시안 흡수 대응은 [ADR-009](./decisions/adr-009-type-scale-respacing.md) Context 참조.
+> 시안 흡수 대응은 [design-system ADR-009](./decisions/adr-009-type-scale-respacing.md) Context 참조.
 
 - **`body` 에 `--text-md` 를 명시한다.** 루트가 62.5% 이므로 이것을 빠뜨리면 기본 본문이
   10px 로 렌더된다.
@@ -327,10 +327,10 @@ body { font-size: var(--text-md); }   /* 빠뜨리면 본문이 10px 로 렌더�
     'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif;
   --font-mono: 'Azeret Mono', ui-monospace, monospace;
 
-  --text-2xs: 0.9rem;    /* 9px  — 라틴 대문자 전용 (ADR-009) */
+  --text-2xs: 0.9rem;    /* 9px  — 라틴 대문자 전용 (design-system ADR-009) */
   --text-xs: 1rem;       /* 10px — 조각·메타 전용, 문장 금지 */
-  --text-sm: 1.2rem;     /* 12px — ADR-009: 11→12 */
-  --text-md: 1.3rem;     /* 13px — ADR-009: 12→13 */
+  --text-sm: 1.2rem;     /* 12px — design-system ADR-009: 11→12 */
+  --text-md: 1.3rem;     /* 13px — design-system ADR-009: 12→13 */
   --text-lg: 1.4rem;     /* 14px */
   --text-xl: 1.7rem;     /* 17px */
   --text-display: 5.6rem;/* 56px */
