@@ -12,10 +12,8 @@ allowBuilds:
   electron: true
   esbuild: true
 
-# pnpm 11 refuses versions published less than `minimumReleaseAge` minutes ago
-# (default 1440 = 24h) so that malicious releases are pulled before we install
-# them. electron 43.3.0 was published 2026-08-04 and pinned the next day, which
-# is inside that window — this entry is the resulting carve-out.
-# It is a no-op once the version ages past the window; delete it then.
-minimumReleaseAgeExclude:
-  - electron@43.3.0
+# Deliberately no `minimumReleaseAgeExclude` here. pnpm 11 refuses versions
+# published less than `minimumReleaseAge` minutes ago (default 1440 = 24h) so
+# that malicious releases get pulled before we install them. Adding an exclude
+# to grab a same-day release opts this project out of exactly that protection,
+# so we let versions age into the window instead.

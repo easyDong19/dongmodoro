@@ -128,7 +128,9 @@ pnpm add -D @types/react @types/react-dom
 
 > pnpm 11 은 게시된 지 `minimumReleaseAge`(기본 1440분 = 24시간) 이 안 지난 버전의 설치를
 > 거부한다 — 악성 릴리즈가 회수될 시간을 벌기 위함이다. 갓 나온 버전을 굳이 고정하면
-> `minimumReleaseAgeExclude` 예외가 생기며, 24시간이 지나면 그 항목은 무의미해지므로 지운다.
+> `minimumReleaseAgeExclude` 예외가 만들어지는데, **그 예외를 만들지 않는다.** 그 안전장치를
+> 끄는 것이 곧 검증 안 된 릴리즈를 받는 것이므로, 버전이 창을 통과할 때까지 기다린다.
+> (2026-08-05: electron 43.3.0 이 전날 릴리즈라 이 창에 걸려 43.2.0 으로 간다.)
 
 - [ ] **Step 2: 설정 파일 작성**
 
