@@ -1,4 +1,5 @@
 // @ts-check
+import { builtinModules } from 'node:module'
 import js from '@eslint/js'
 import tseslint from 'typescript-eslint'
 import prettier from 'eslint-config-prettier'
@@ -13,31 +14,49 @@ import prettier from 'eslint-config-prettier'
  */
 
 /** ADR-008: src/shared/ 는 순수 TS — Node·Electron 런타임에 의존하지 않는다. */
-const NODE_BUILTINS = [
-  'fs',
-  'fs/promises',
-  'path',
-  'os',
-  'child_process',
-  'crypto',
-  'http',
-  'https',
-  'net',
-  'stream',
-  'url',
-  'util',
-  'worker_threads',
-  'zlib',
-  'events'
-]
-const SHARED_FORBIDDEN_PATHS = [
-  'electron',
-  ...NODE_BUILTINS,
-  ...NODE_BUILTINS.map((m) => `node:${m}`)
-].map((name) => ({
+const SHARED_PURITY_MESSAGE =
+  'ADR-008: src/shared/ 는 순수 TS 여야 한다. Node·Electron API 가 필요하면 main 에 둔다.'
+// 손 열거는 누락을 낳는다 (node:buffer 가 새던 전례). 실행 중인 Node 가 아는
+// 내장 모듈 전체 + node:* 접두사 글롭으로 잡는다.
+const SHARED_FORBIDDEN_PATHS = ['electron', ...builtinModules].map((name) => ({
   name,
-  message: 'ADR-008: src/shared/ 는 순수 TS 여야 한다. Node·Electron API 가 필요하면 main 에 둔다.'
+  message: SHARED_PURITY_MESSAGE
 }))
+const NODE_PREFIX_PATTERN = { group: ['node:*'], message: SHARED_PURITY_MESSAGE }
+
+/**
+ * ADR-008: 프로세스 경계 — renderer↔main↔preload 는 서로 import 하지 않는다.
+ * 공유는 src/shared/ 를 통해서만 한다. 다른 프로세스 폴더로 가는 import 는
+ * 반드시 ../ 를 타므로 상대경로 정규식으로 잡는다 (@shared 별칭은 걸리지 않는다).
+ */
+const zonePattern = (dirs, message) => ({
+  regex: `^(\\.\\./)+(${dirs.join('|')})(/|$)`,
+  message
+})
+const RENDERER_ZONE = zonePattern(
+  ['main', 'preload'],
+  'ADR-008: renderer 는 main·preload 를 import 할 수 없다. 통신은 IPC(window.api)로만 한다.'
+)
+const SHARED_ZONE = zonePattern(
+  ['main', 'renderer', 'preload'],
+  'ADR-008: src/shared/ 는 프로세스 폴더를 import 할 수 없다 — 양쪽이 공유하는 순수 TS 다.'
+)
+const MAIN_ZONE = zonePattern(
+  ['renderer', 'preload'],
+  'ADR-008: main 은 renderer·preload 를 import 할 수 없다. 공유 코드는 src/shared/ 에 둔다.'
+)
+const PRELOAD_ZONE = zonePattern(
+  ['main', 'renderer'],
+  'ADR-007: preload 는 main·renderer 를 import 할 수 없다 — shared 의 계약만 전달한다.'
+)
+
+/** ADR-007: renderer 는 electron 을 직접 만질 수 없다 — preload 가 노출한 window.api 만 쓴다. */
+const RENDERER_FORBIDDEN_PATHS = [
+  {
+    name: 'electron',
+    message: 'ADR-007: renderer 는 electron 을 import 할 수 없다. window.api 를 쓴다.'
+  }
+]
 
 /** ADR-015 §2: DB 라이브러리는 src/main/db/ 하위에서만 import 한다. */
 const DB_IMPORT_PATTERN = {
@@ -89,22 +108,50 @@ export default tseslint.config(
   },
 
   // ── import 제약 ─────────────────────────────────────────────────────────
-  // (A) src/shared/ — 순수성(ADR-008) + DB 격리(ADR-015) 둘 다 적용
+  // 프로세스 폴더마다 전체 옵션을 한 번에 준다 (flat config 덮어쓰기 함정 — 상단 주석).
+  // (A) src/shared/ — 순수성(ADR-008) + DB 격리(ADR-015) + 프로세스 경계
   {
     files: ['src/shared/**/*.ts'],
     rules: {
       'no-restricted-imports': [
         'error',
-        { paths: SHARED_FORBIDDEN_PATHS, patterns: [DB_IMPORT_PATTERN] }
+        {
+          paths: SHARED_FORBIDDEN_PATHS,
+          patterns: [NODE_PREFIX_PATTERN, DB_IMPORT_PATTERN, SHARED_ZONE]
+        }
       ]
     }
   },
-  // (B) src/ 나머지 — DB 격리만. src/main/db/ 는 DB 라이브러리를 쓰는 유일한 곳이므로 제외
+  // (B) src/renderer/ — DB 격리 + 프로세스 경계 + electron 직접 import 금지
   {
-    files: ['src/**/*.ts', 'src/**/*.tsx'],
-    ignores: ['src/shared/**', 'src/main/db/**'],
+    files: ['src/renderer/**/*.ts', 'src/renderer/**/*.tsx'],
     rules: {
-      'no-restricted-imports': ['error', { patterns: [DB_IMPORT_PATTERN] }]
+      'no-restricted-imports': [
+        'error',
+        { paths: RENDERER_FORBIDDEN_PATHS, patterns: [DB_IMPORT_PATTERN, RENDERER_ZONE] }
+      ]
+    }
+  },
+  // (C) src/preload/ — DB 격리 + 프로세스 경계 (electron 은 preload 의 정당한 의존)
+  {
+    files: ['src/preload/**/*.ts'],
+    rules: {
+      'no-restricted-imports': ['error', { patterns: [DB_IMPORT_PATTERN, PRELOAD_ZONE] }]
+    }
+  },
+  // (D) src/main/ — DB 격리 + 프로세스 경계. src/main/db/ 는 DB 라이브러리를 쓰는 유일한 곳이므로 제외
+  {
+    files: ['src/main/**/*.ts'],
+    ignores: ['src/main/db/**'],
+    rules: {
+      'no-restricted-imports': ['error', { patterns: [DB_IMPORT_PATTERN, MAIN_ZONE] }]
+    }
+  },
+  // (E) src/main/db/ — DB 라이브러리는 허용, 프로세스 경계만 적용
+  {
+    files: ['src/main/db/**/*.ts'],
+    rules: {
+      'no-restricted-imports': ['error', { patterns: [MAIN_ZONE] }]
     }
   },
 
