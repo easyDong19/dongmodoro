@@ -37,8 +37,8 @@
   /* 폰트 크기만 rem — 루트 62.5% 이므로 1rem = 10px (ADR-007) */
   --text-2xs: 0.9rem;     /* 9px  */
   --text-xs: 1rem;        /* 10px */
-  --text-sm: 1.1rem;      /* 11px */
-  --text-md: 1.2rem;      /* 12px */
+  --text-sm: 1.2rem;      /* 12px — design-system ADR-009: 11→12 */
+  --text-md: 1.3rem;      /* 13px — design-system ADR-009: 12→13 */
   --text-lg: 1.4rem;      /* 14px */
   --text-xl: 1.7rem;      /* 17px */
   --text-display: 5.6rem; /* 56px */
@@ -176,7 +176,7 @@ body::before {
   color: var(--ink-dim); font-size: var(--text-sm); margin: 14px 0 12px;
 }
 .note b { color: var(--ink); font-weight: var(--weight-semibold); }
-.frame-label { font-size: var(--text-2xs); letter-spacing: var(--tracking-wider); color: var(--ink-dim); text-transform: uppercase; margin: 20px 0 6px; }
+.frame-label { font-size: var(--text-xs); letter-spacing: var(--tracking-normal); color: var(--ink-dim); margin: 20px 0 6px; }  /* 한글 라벨 — 2xs+wider 금지 (design-system ADR-009) */
 
 /* ── 앱 창 프레임 ──
    창 배경 = --bg-deep + 라디얼 광원 3종 + 정적 렌더 (app-shell ux-spec §1).
@@ -275,7 +275,7 @@ body::before {
 }
 .chip.on { background: var(--glass-strong); border-color: var(--glass-border); color: var(--teal); backdrop-filter: var(--control-backdrop); box-shadow: var(--control-highlight); }
 .badge {
-  font-size: var(--text-2xs); border-radius: var(--radius-sm); padding: 2px 6px;
+  font-size: var(--text-2xs); letter-spacing: var(--tracking-normal); border-radius: var(--radius-sm); padding: 2px 6px;  /* 1~3자 글랜스 토큰 — 자간 normal (design-system ADR-009) */
   border: 1px solid var(--glass-border-soft); color: var(--ink-dim);
   display: inline-flex; align-items: center; gap: 3px;
 }
@@ -331,7 +331,7 @@ body::before {
 .item-top { display: flex; align-items: center; gap: 7px; }
 .item-title { font-size: var(--text-sm); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .item-title.done { text-decoration: line-through; color: var(--ink-dim); }
-.item-sub { display: flex; align-items: center; gap: 8px; margin: 5px 0 0 20px; font-size: var(--text-xs); color: var(--ink-dim); }
+.item-sub { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 5px 0 0 20px; font-size: var(--text-xs); color: var(--ink-dim); }  /* 200% 확대에서 넘치지 않게 (design-system ADR-009 §3) */
 .item.other { border: 1px dashed var(--glass-border-soft); }
 .caret {
   background: transparent; border: 0; color: var(--ink-dim); cursor: pointer;
@@ -430,9 +430,9 @@ body::before {
   color: var(--amber); font-size: var(--text-sm);
 }
 .banner .btn { margin-left: auto; }
-.section-title { font-size: var(--text-sm); font-weight: var(--weight-semibold); margin: 12px 0 6px; display: flex; align-items: center; gap: 6px; }
+.section-title { font-size: var(--text-md); font-weight: var(--weight-semibold); margin: 12px 0 6px; display: flex; align-items: center; gap: 6px; }  /* 굵기 혼자 섹션을 가르지 않는다 (design-system ADR-009) */
 .step { border-top: 1px solid var(--glass-border-soft); padding-top: 10px; margin-top: 10px; }
-.step-no { font-size: var(--text-2xs); letter-spacing: var(--tracking-wider); color: var(--ink-dim); }
+.step-no { font-size: var(--text-xs); letter-spacing: var(--tracking-normal); color: var(--ink-dim); }  /* 한글 단계 라벨 (design-system ADR-009) */
 .load { display: grid; grid-template-columns: repeat(7, 1fr); gap: 5px; align-items: end; height: 62px; margin-top: 8px; position: relative; }
 .load .colbar { display: flex; flex-direction: column; align-items: center; gap: 3px; height: 100%; justify-content: flex-end; }
 .load .colbar > .load-n { font-size: var(--text-2xs); color: var(--ink-dim); }
@@ -470,6 +470,7 @@ body::before {
 
 /* 내로우 */
 .mini-timer { display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-bottom: 1px solid var(--glass-border-soft); position: relative; }
+.mini-clock { font-family: var(--font-mono); font-variant-numeric: tabular-nums; font-size: var(--text-xl); font-weight: var(--weight-semibold); margin-left: auto; }  /* 축약형 숫자 역할 (design-system ADR-009 §3) */
 .mini-timer .progress { position: absolute; left: 0; bottom: -1px; height: 2px; background: var(--teal); }
 .tabs { display: flex; border-bottom: 1px solid var(--glass-border-soft); }
 .tabs button { flex: 1; font: inherit; font-size: var(--text-sm); color: var(--ink-dim); background: transparent; border: 0; padding: 9px 0; cursor: pointer; }
@@ -489,12 +490,12 @@ body::before {
 .node p { font-size: var(--text-xs); color: var(--ink-dim); margin-top: 3px; }
 .arrow { display: flex; align-items: center; color: var(--ink-dim); font-size: var(--text-lg); }
 .lane { border: 1px dashed var(--glass-border-soft); border-radius: var(--radius-lg); padding: 12px; }
-.lane > .lane-name { font-size: var(--text-2xs); letter-spacing: var(--tracking-wider); color: var(--ink-dim); margin-bottom: 8px; }
+.lane > .lane-name { font-size: var(--text-xs); letter-spacing: var(--tracking-normal); color: var(--ink-dim); margin-bottom: 8px; }
 
 /* 상태 갤러리 */
 .gal { display: grid; grid-template-columns: repeat(auto-fill, minmax(330px, 1fr)); gap: 12px; align-items: start; }
 .gal .card { padding: 12px; }
-.gal h2 { font-size: var(--text-2xs); letter-spacing: var(--tracking-wider); color: var(--ink-dim); margin-bottom: 8px; }
+.gal h2 { font-size: var(--text-xs); letter-spacing: var(--tracking-normal); color: var(--ink-dim); margin-bottom: 8px; }
 </style>
 </head>
 <body>
@@ -818,7 +819,7 @@ body::before {
           <div class="gauge">
             <div class="sm"><span class="mono">18 / 24</span></div>
             <div class="bar"><span style="width:75%"></span></div>
-            <div class="xs dim">예산은 추정치예요 — 넘어가도 괜찮아요</div>
+            <div class="sm dim">예산은 추정치예요 — 넘어가도 괜찮아요</div>
           </div>
         </div>
 
@@ -955,7 +956,7 @@ body::before {
           </div>
           <div class="gauge">
             <div class="sm"><span class="mono">0 / 미설정</span></div>
-            <div class="xs dim">예산을 정하면 예산 대비 소진이 보여요</div>
+            <div class="sm dim">예산을 정하면 예산 대비 소진이 보여요</div>
           </div>
         </div>
         <div class="card grow">
@@ -998,7 +999,7 @@ body::before {
         </div>
 
         <div class="drawer">
-          <div class="xs dim" style="margin-bottom:4px">이 할당의 조각 — 오늘 할 것을 고르세요</div>
+          <div class="sm dim" style="margin-bottom:4px">이 할당의 조각 — 오늘 할 것을 고르세요</div>
           <div class="task-row">
             <button class="check" aria-pressed="true" aria-label="완료"><svg class="icon"><use href="#i-check"/></svg></button>
             <span>라우팅 정리</span>
@@ -1014,12 +1015,12 @@ body::before {
           <div class="task-row faint">
             <button class="check" aria-pressed="false" aria-label="완료"></button>
             <span>레이아웃 정리</span>
-            <span class="xxs" style="margin-left:auto">오늘 목록에</span>
+            <span class="xs" style="margin-left:auto">오늘 목록에</span>
           </div>
           <div class="task-row dim">
             <button class="check" aria-pressed="true" aria-label="완료"><svg class="icon"><use href="#i-check"/></svg></button>
             <span style="text-decoration:line-through">스켈레톤 정리</span>
-            <span class="xxs" style="margin-left:auto">완료</span>
+            <span class="xs" style="margin-left:auto">완료</span>
           </div>
           <div class="hr"></div>
           <div class="xs dim" style="margin-bottom:5px">또는 새 조각 추가</div>
@@ -1053,7 +1054,7 @@ body::before {
         <div class="gauge">
           <div class="sm"><span class="mono">18 / 24</span></div>
           <div class="bar"><span style="width:75%"></span></div>
-          <div class="xs dim">예산은 추정치예요 — 넘어가도 괜찮아요</div>
+          <div class="sm dim">예산은 추정치예요 — 넘어가도 괜찮아요</div>
         </div>
       </div>
     </div>
@@ -1099,7 +1100,7 @@ body::before {
             <div class="draft">블로그 글 2편 <span class="xs dim">미배치</span> <span class="xs dim">(뽀모 2)</span>
               <button class="remove" style="margin-left:auto" aria-label="목록에서 빼기"><svg class="icon"><use href="#i-x"/></svg></button></div>
             <div class="draft dropping">발표 자료 <span class="xs dim">(뽀모 3)</span>
-              <span class="xxs" style="margin-left:auto;text-decoration:none">보내줄 예정 · <span class="teal">되돌리기</span></span></div>
+              <span class="xs" style="margin-left:auto;text-decoration:none">보내줄 예정 · <span class="teal">되돌리기</span></span></div>
           </div>
         </div>
 
@@ -1115,7 +1116,7 @@ body::before {
           <div class="step-no">④ 경고 확인</div>
           <div class="sm" style="margin-top:6px">계획 합계 <span class="mono amber">26</span> / 예산 <span class="mono">24</span></div>
           <div class="bar"><span class="over" style="width:100%"></span></div>
-          <div class="xs dim">+2 과적이에요. 예상 뽀모를 줄일까요, 항목을 덜어낼까요?</div>
+          <div class="sm dim">+2 과적이에요. 예상 뽀모를 줄일까요, 항목을 덜어낼까요?</div>
 
           <div class="sm" style="margin-top:10px;display:flex;align-items:baseline">
             요일별 부하 <span class="xs amber" style="margin-left:auto">화·목 넘침</span>
@@ -1159,7 +1160,7 @@ body::before {
         <div class="task-row"><span class="teal" style="display:flex"><svg class="icon"><use href="#i-check"/></svg></span> 발표 자료 <span class="xs dim" style="margin-left:auto">뽀모 5</span></div>
 
         <div class="section-title">3 · 남은 것들</div>
-        <div class="xxs dim" style="margin:-2px 0 6px">3주 이상 넘어온 항목 1건</div>
+        <div class="xs dim" style="margin:-2px 0 6px">3주 이상 넘어온 항목 1건</div>
 
         <div class="item" style="border-color:var(--glass-border-soft)">
           <div class="item-top">
@@ -1202,13 +1203,13 @@ body::before {
         </div>
 
         <div class="section-title">4 · 안내</div>
-        <div class="xs dim">계획에 없던 집중 3은 기록으로만 남아요. 할당이 틀린 건 실패가 아니라 정보예요.</div>
+        <div class="sm dim">계획에 없던 집중 3은 기록으로만 남아요. 할당이 틀린 건 실패가 아니라 정보예요.</div>
         <div class="hr"></div>
         <div class="sm" style="display:flex;align-items:center;gap:8px">
           뽀모 길이 — 집중 <span class="mono">25</span> · 짧은 휴식 <span class="mono">5</span> · 긴 휴식 <span class="mono">15</span>
           <button class="btn small" style="margin-left:auto">조정</button>
         </div>
-        <div class="xs dim" style="margin-top:4px">바꾼 길이는 다음 주부터 적용돼요 · 이번 주 기록은 그대로예요</div>
+        <div class="sm dim" style="margin-top:4px">바꾼 길이는 다음 주부터 적용돼요 · 이번 주 기록은 그대로예요</div>
 
         <div class="hr"></div>
         <div class="xs dim">이월 3 · 다음 주 예산 20</div>
@@ -1361,7 +1362,7 @@ body::before {
         </div>
         <div class="mini-timer">
           <span class="sm dim">집중</span>
-          <span class="mono" style="font-size:var(--text-xl);font-weight:var(--weight-semibold);margin-left:auto">12:34</span>
+          <span class="mini-clock">12:34</span>
           <button class="btn small primary" style="margin-left:auto"><svg class="icon"><use href="#i-pause"/></svg></button>
           <span class="progress" style="width:67%"></span>
         </div>
@@ -1413,7 +1414,7 @@ body::before {
         </div>
         <div class="mini-timer">
           <span class="sm dim">짧은 휴식</span>
-          <span class="mono" style="font-size:var(--text-xl);font-weight:var(--weight-semibold);margin-left:auto">05:00</span>
+          <span class="mini-clock">05:00</span>
           <button class="btn small primary" style="margin-left:auto"><svg class="icon"><use href="#i-play"/></svg></button>
           <span class="progress" style="width:0%"></span>
         </div>
@@ -1445,7 +1446,7 @@ body::before {
             <div class="gauge">
               <div class="sm"><span class="mono">18 / 24</span></div>
               <div class="bar"><span style="width:75%"></span></div>
-              <div class="xs dim">예산은 추정치예요 — 넘어가도 괜찮아요</div>
+              <div class="sm dim">예산은 추정치예요 — 넘어가도 괜찮아요</div>
             </div>
           </div>
         </div>
@@ -1463,7 +1464,7 @@ body::before {
         </div>
         <div class="mini-timer">
           <span class="sm dim">집중</span>
-          <span class="mono" style="font-size:var(--text-xl);font-weight:var(--weight-semibold);margin-left:auto">25:00</span>
+          <span class="mini-clock">25:00</span>
           <button class="btn small primary" style="margin-left:auto"><svg class="icon"><use href="#i-play"/></svg></button>
           <span class="progress" style="width:0%"></span>
         </div>
@@ -1519,14 +1520,14 @@ body::before {
       <div class="card" style="width:420px">
         <div class="card-head"><span class="card-title">기준을 정해볼까요</span><span class="card-meta">건너뛸 수 있어요</span></div>
 
-        <div class="xxs dim" style="letter-spacing:var(--tracking-wider)">뽀모 길이 (분)</div>
+        <div class="xs dim">뽀모 길이 (분)</div>  <!-- 한글 그룹 라벨 — 2xs+wider 금지 (design-system ADR-009 §2) -->
         <div style="display:flex;gap:14px;margin:7px 0 14px">
           <span><span class="xs dim" style="display:block">집중</span><input class="input mono" value="25" style="width:64px" aria-label="값"></span>
           <span><span class="xs dim" style="display:block">짧은 휴식</span><input class="input mono" value="5" style="width:64px" aria-label="값"></span>
           <span><span class="xs dim" style="display:block">긴 휴식</span><input class="input mono" value="15" style="width:64px" aria-label="값"></span>
         </div>
 
-        <div class="xxs dim" style="letter-spacing:var(--tracking-wider)">요일별 가용 뽀모 (개수)</div>
+        <div class="xs dim">요일별 가용 뽀모 (개수)</div>
         <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:5px;margin-top:7px">
           <span class="xs dim" style="text-align:center">월</span><span class="xs dim" style="text-align:center">화</span><span class="xs dim" style="text-align:center">수</span>
           <span class="xs dim" style="text-align:center">목</span><span class="xs dim" style="text-align:center">금</span><span class="xs dim" style="text-align:center">토</span><span class="xs dim" style="text-align:center">일</span>
@@ -1538,7 +1539,7 @@ body::before {
           <input class="input mono" value="0" style="text-align:center;padding:6px 0" aria-label="값">
           <input class="input mono" value="8" style="text-align:center;padding:6px 0" aria-label="값">
         </div>
-        <div class="xs dim" style="margin-top:7px">합 24 — 예산 입력의 기본값으로 쓰여요</div>
+        <div class="sm dim" style="margin-top:7px">합 24 — 예산 입력의 기본값으로 쓰여요</div>
 
         <div class="hr"></div>
         <div style="display:flex;gap:8px;justify-content:flex-end">
@@ -1558,7 +1559,7 @@ body::before {
           <span><span class="xs dim" style="display:block">긴 휴식</span><input class="input mono" value="15" style="width:64px" aria-label="값"></span>
         </div>
         <div class="sm">주 <span class="mono">24</span>개 · 지금 <span class="mono">10시간</span> → 바꾸면 <span class="mono">20시간</span></div>
-        <div class="xs dim" style="margin-top:5px">바꾼 길이는 다음 주부터 적용돼요 · 이번 주 기록은 그대로예요</div>
+        <div class="sm dim" style="margin-top:5px">바꾼 길이는 다음 주부터 적용돼요 · 이번 주 기록은 그대로예요</div>
         <div class="hr"></div>
         <div style="display:flex;gap:8px;justify-content:flex-end">
           <button class="btn">취소</button>
@@ -1615,14 +1616,14 @@ body::before {
     <div class="card"><h2>예산 게이지 3상태</h2>
       <div class="sm"><span class="mono">18 / 24</span></div>
       <div class="bar"><span style="width:75%"></span></div>
-      <div class="xs dim">예산은 추정치예요 — 넘어가도 괜찮아요</div>
+      <div class="sm dim">예산은 추정치예요 — 넘어가도 괜찮아요</div>
       <div class="hr"></div>
       <div class="sm"><span class="mono">27 / 24</span> <span class="badge over"><svg class="icon"><use href="#i-flame"/></svg> +3</span></div>
       <div class="bar"><span class="over" style="width:100%"></span></div>
-      <div class="xs dim">예산은 추정치예요 — 넘어가도 괜찮아요</div>
+      <div class="sm dim">예산은 추정치예요 — 넘어가도 괜찮아요</div>
       <div class="hr"></div>
       <div class="sm"><span class="mono">6 / 미설정</span></div>
-      <div class="xs dim" style="margin-top:5px">예산을 정하면 예산 대비 소진이 보여요</div>
+      <div class="sm dim" style="margin-top:5px">예산을 정하면 예산 대비 소진이 보여요</div>
       <div class="xxs dim" style="margin-top:6px">초과 상태도 문구가 같다. 빨간색·경고 아이콘 금지 — 초과는 실패가 아니다.</div>
     </div>
 
@@ -1658,7 +1659,7 @@ body::before {
         <div class="item-sub"><span class="xs dim">이번 주 3/8</span></div></div>
       <div class="hr"></div>
       <div class="sm">진행 중인 주가 이번 달에 안 속한 동안</div>
-      <div class="xs dim">이번 주(8/31~9/6)는 8월에 속한 주예요</div>
+      <div class="sm dim">이번 주(8/31~9/6)는 8월에 속한 주예요</div>
       <div class="hr"></div>
       <div class="sm">지난달 · 읽기 전용</div>
       <div class="item dim"><div class="item-top"><span class="badge">1/3 달성 · 보관 2건</span></div></div>
@@ -1667,10 +1668,10 @@ body::before {
       <div class="empty" style="padding:8px 0"><p>아직 계획 전</p><button class="btn small">9월 계획 잡기</button></div>
       <div class="hr"></div>
       <div class="sm">먼 미래 달</div>
-      <div class="xs dim">10월은 9월 1일부터 계획할 수 있어요</div>
+      <div class="sm dim">10월은 9월 1일부터 계획할 수 있어요</div>
       <div class="hr"></div>
       <div class="sm">지난달 · 계획 없음</div>
-      <div class="xs dim">이 달은 계획 없이 지나갔어요</div>
+      <div class="sm dim">이 달은 계획 없이 지나갔어요</div>
       <div class="xxs dim" style="margin-top:6px">보관·해제로 배지의 N·M 은 변하지 않는다(달성률 조작 경로 0). M=0 이면 배지를 렌더하지 않는다 — "0/0 달성"을 만들지 않는다.</div>
     </div>
 
@@ -1699,7 +1700,7 @@ body::before {
       <div class="sm dim">날짜가 바뀌어서 정산 범위를 다시 불러왔어요</div><div class="hr"></div>
       <div class="sm dim">저장하지 못했어요 — 다시 시도해 주세요</div><div class="hr"></div>
       <div class="sm">확정 후 토스트</div>
-      <div class="xs dim">다음 주로 3건 넘어갔어요<br>그 사이 추가된 2건도 함께 넘어갔어요</div>
+      <div class="sm dim">다음 주로 3건 넘어갔어요<br>그 사이 추가된 2건도 함께 넘어갔어요</div>
       <div class="xxs dim" style="margin-top:6px">패널을 열어둔 사이 목록이 변해도 <b>확정은 실패하지 않는다</b> — 사라진 항목의 예외는 무시하고 새 항목은 이월한 뒤 토스트 한 줄로만 알린다.</div>
     </div>
 
