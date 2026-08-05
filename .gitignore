@@ -1,2 +1,6 @@
 # Obsidian vault settings (local editor state)
 .obsidian/
+
+# Impeccable critique snapshots (session archives). ignore.md carries decisions and is tracked.
+.impeccable/critique/*.md
+!.impeccable/critique/ignore.md
