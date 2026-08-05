@@ -47,7 +47,8 @@ docs/
 - 특정 기능에 속하지 않는 기술 결정(스택 선택, 프로세스 경계, 배포 방식)은 기능 폴더가 아니라 여기에 기록한다.
 - 기술 선택의 결정 근거는 [architecture/decisions/](architecture/decisions/) 아래 ADR(`adr-NNN-<slug>.md`)로 남긴다. context / decision / consequences 섹션 필수.
 - 기능별 technical-spec 은 architecture 문서와 **충돌할 수 없다.** 충돌이 필요하면 먼저 ADR 로 architecture 를 갱신한다.
-- 결정이 뒤집히면 기존 ADR 을 수정하지 말고 superseded 표기 후 새 ADR 을 추가한다.
+- 결정이 뒤집히면 기존 ADR 을 수정하지 말고 superseded 표기 후 새 ADR 을 추가한다. 표기는 상태 줄에만 넣고 본문은 이력으로 그대로 둔다. ADR 의 일부만 뒤집힌 경우 **어느 절이 죽고 어느 절이 살아 있는지** 명시한다.
+- **ADR 번호가 두 폴더에서 중복된다** (`architecture/decisions/` 와 `design-system/decisions/` 가 각자 001 부터 센다). 문서에서 부를 때 `ADR-007` 은 **architecture** 를 뜻하고, design-system 것은 반드시 **`design-system ADR-007`** 처럼 폴더를 앞에 붙인다.
 
 ## ⛔ `docs/origin/` — 원천 데이터 (읽기 전용)
 
