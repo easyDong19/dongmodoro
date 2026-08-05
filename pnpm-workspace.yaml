@@ -1,0 +1,21 @@
+# pnpm 10+ blocks dependency build scripts by default (postinstall is a common
+# supply-chain attack vector), and pnpm 11 no longer reads the "pnpm" field in
+# package.json — the allowlist lives here and is named `allowBuilds`.
+#
+# better-sqlite3 compiles a native addon at install time and genuinely needs this.
+# esbuild unpacks its platform binary. electron is listed for completeness only:
+# since v42 it ships no install script at all and fetches its runtime binary on
+# first launch of its bin, so the entry is a no-op today.
+# See docs/architecture/decisions/adr-004-packaging-deploy.md
+allowBuilds:
+  better-sqlite3: true
+  electron: true
+  esbuild: true
+
+# pnpm 11 refuses versions published less than `minimumReleaseAge` minutes ago
+# (default 1440 = 24h) so that malicious releases are pulled before we install
+# them. electron 43.3.0 was published 2026-08-04 and pinned the next day, which
+# is inside that window — this entry is the resulting carve-out.
+# It is a no-op once the version ages past the window; delete it then.
+minimumReleaseAgeExclude:
+  - electron@43.3.0

@@ -1,3 +1,10 @@
+# Dependencies and build output
+node_modules/
+out/
+dist/
+*.local
+.DS_Store
+
 # Obsidian vault settings (local editor state)
 .obsidian/
 

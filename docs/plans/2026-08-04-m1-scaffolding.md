@@ -79,18 +79,27 @@ tests → 각 모듈 옆 *.test.ts (Vitest)
 
 - [ ] **Step 1: 의존성 설치**
 
-```bash
-pnpm init
-pnpm add -D electron electron-vite vite @vitejs/plugin-react typescript @types/node
-pnpm add react react-dom
-pnpm add -D @types/react @types/react-dom
+**빌드 스크립트 차단 문제부터 처리한다.** pnpm 10+ 는 의존성의 빌드 스크립트를 기본
+차단하고(postinstall 이 공급망 공격의 주요 통로), 네이티브 모듈을 컴파일하는
+better-sqlite3 가 정확히 그것을 필요로 한다. 단, **ADR-004 가 적었던 `package.json` 의
+`pnpm.onlyBuiltDependencies` 는 pnpm 11 에서 읽히지 않는다** — 설정이 `pnpm-workspace.yaml`
+로, 키가 `allowBuilds` 맵으로 바뀌었다 (ADR-004 Consequences 에 현행화 반영됨).
+
+`pnpm-workspace.yaml`:
+
+```yaml
+allowBuilds:
+  better-sqlite3: true
+  electron: true
+  esbuild: true
 ```
 
-`package.json` 에 수동으로 추가:
+`package.json` (`pnpm` 필드는 넣지 않는다 — 무시된다):
 
 ```json
 {
   "name": "dongmodoro",
+  "version": "0.1.0",
   "private": true,
   "type": "module",
   "main": "out/main/index.js",
@@ -101,6 +110,25 @@ pnpm add -D @types/react @types/react-dom
   }
 }
 ```
+
+**electron 은 `allowBuilds` 에 넣어도 효과가 없다** — v42 부터 설치 스크립트를 아예 제공하지
+않고 첫 실행 때 런타임 바이너리(약 295MB)를 스스로 내려받는다. 그러므로 바이너리를 받기 위한
+`postinstall` 은 넣지 않는다. 받는 시점을 설치 시점으로 앞당기고 싶을 때만 `install-electron`
+bin 을 건다 — 테스트만 도는 CI 에서 불필요한 295MB 를 받게 되므로 기본값은 "넣지 않음"이다.
+
+그 다음 설치:
+
+```bash
+pnpm add -D electron electron-vite vite @vitejs/plugin-react typescript @types/node
+pnpm add react react-dom
+pnpm add -D @types/react @types/react-dom
+```
+
+설치 후 `pnpm exec electron --version` 이 버전을 출력하는지 확인한다 (여기서 바이너리를 받는다).
+
+> pnpm 11 은 게시된 지 `minimumReleaseAge`(기본 1440분 = 24시간) 이 안 지난 버전의 설치를
+> 거부한다 — 악성 릴리즈가 회수될 시간을 벌기 위함이다. 갓 나온 버전을 굳이 고정하면
+> `minimumReleaseAgeExclude` 예외가 생기며, 24시간이 지나면 그 항목은 무의미해지므로 지운다.
 
 - [ ] **Step 2: 설정 파일 작성**
 
@@ -115,7 +143,15 @@ export default defineConfig({
   main: {
     resolve: { alias: { '@shared': resolve('src/shared') } }
   },
-  preload: {},
+  preload: {
+    // "type": "module" 이면 기본 산출물이 index.mjs 인데, sandbox: true 인 preload 는
+    // ESM 을 로드하지 못한다 (ADR-007 이 sandbox 를 요구). CJS + .cjs 로 고정한다.
+    build: {
+      rollupOptions: {
+        output: { format: 'cjs', entryFileNames: '[name].cjs' }
+      }
+    }
+  },
   renderer: {
     resolve: {
       alias: {
@@ -128,7 +164,9 @@ export default defineConfig({
 })
 ```
 
-`tsconfig.node.json` (main·preload·shared 용), `tsconfig.web.json` (renderer·shared 용) — 둘 다 `"strict": true`, `"paths"` 에 위 alias 와 동일하게. `tsconfig.json` 은 두 파일을 `references` 로 묶는 솔루션 파일. `.gitignore` 에 `node_modules/`, `out/`, `dist/`, `*.local` 추가.
+`tsconfig.node.json` (main·preload·shared 용, `lib: ES2022` + `types: ['node']`), `tsconfig.web.json` (renderer·shared 용, `lib` 에 DOM + `jsx: react-jsx`) — 둘 다 `"strict": true`, `"paths"` 에 위 alias 와 동일하게. 두 파일을 나누는 이유는 renderer 에서 Node API 를 import 해도 타입 에러가 안 나는 상황을 막기 위함이다 (ADR-008 의 "shared 는 순수 TS" 규칙을 타입 검사로 강제). `tsconfig.json` 은 두 파일을 `references` 로 묶는 솔루션 파일. `.gitignore` 에 `node_modules/`, `out/`, `dist/`, `*.local` 추가.
+
+> TypeScript 7 에서 `baseUrl` 이 **제거**됐다. `paths` 값은 `["./src/shared/*"]` 처럼 `./` 로 시작하는 상대 경로로 쓴다.
 
 - [ ] **Step 3: 최소 코드 작성**
 
@@ -143,7 +181,7 @@ export function createWindow(): BrowserWindow {
     width: 1280,
     height: 800,
     webPreferences: {
-      preload: join(__dirname, '../preload/index.js'),
+      preload: join(__dirname, '../preload/index.cjs'), // CJS 강제 — 위 config 참조
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: true
@@ -173,11 +211,15 @@ app.on('window-all-closed', () => {
 })
 ```
 
-`src/preload/index.ts` 는 이 태스크에서는 빈 파일(주석만), `src/renderer/app/App.tsx` 는 `<h1>dongmodoro</h1>` 플레이스홀더, `src/renderer/main.tsx` 는 React 루트 마운트, `index.html` 은 vite 표준 골격 + `<div id="root">`.
+`src/preload/index.ts` 는 이 태스크에서는 빈 파일(주석만 — `export {}` 로 모듈화), `src/renderer/app/App.tsx` 는 `<h1>dongmodoro</h1>` 플레이스홀더, `src/renderer/main.tsx` 는 React 루트 마운트, `index.html` 은 vite 표준 골격 + `<div id="root">`.
+
+> `__dirname` 은 ESM 산출물에서도 쓸 수 있다 — electron-vite 가 CommonJS 심을 주입한다 (빌드 결과로 확인).
 
 - [ ] **Step 4: 검증**
 
-실행: `pnpm typecheck` → 에러 0. `pnpm dev` → 창이 뜨고 "dongmodoro" 텍스트 표시. `pnpm build` → `out/` 생성, 에러 0.
+실행: `pnpm typecheck` → 에러 0. `pnpm build` → `out/main/index.js`·`out/preload/index.cjs`·`out/renderer/` 생성, 에러 0. `pnpm dev` → 창이 뜨고 "dongmodoro" 텍스트 표시.
+
+육안 확인 대신 자동 검증을 쓸 수 있다: `--remote-debugging-port` 로 앱을 띄우고 CDP `Runtime.evaluate` 로 `document.querySelector('h1').textContent` 를 읽는다. 렌더는 비동기이므로 값이 나올 때까지 폴링해야 한다.
 
 - [ ] **Step 5: 커밋** — `feat: scaffold electron-vite app with react and strict typescript`
 
