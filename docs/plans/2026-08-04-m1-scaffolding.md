@@ -380,7 +380,35 @@ export function monthKey(d: Date = new Date()): string {
 **Interfaces:**
 - Produces: renderer 전역 `window.api.system.getAppInfo(): Promise<{ appVersion: string; schemaVersion: number }>`. `handleIpc(channel, contract, fn)` — 발신자 검증·입력 parse·출력 parse 를 강제하는 유일한 핸들러 등록 경로. 이후 모든 도메인 API 는 이 패턴(channels → contracts {req,res} 쌍 → handleIpc → preload 매핑)을 복제한다 (ADR-007).
 
-- [ ] **Step 1: zod 설치** — `pnpm add zod`
+> **착수 전 고칠 것 3가지** (2026-08-05 실행 중 확인):
+>
+> 1. **preload 빌드에 `@shared` 별칭이 없다.** `electron.vite.config.ts` 의 preload 블록에
+>    `resolve: { alias: { '@shared': ... } }` 를 추가한다. 없으면 타입 검사는 통과하는데
+>    빌드에서 모듈을 못 찾는다.
+> 2. **preload 의 `rollupOptions` 를 직접 지정하면 electron-vite 의 기본 `external` 이 사라진다.**
+>    `external: ['electron']` 을 명시하지 않으면 npm `electron` 패키지의 **바이너리 다운로더**가
+>    번들에 딸려 들어가고, 실행 시 `Error: module not found: child_process` 로 preload 가
+>    통째로 죽는다. preload 가 비어 있던 Task 1 에서는 드러나지 않는다.
+> 3. **renderer 가 preload 의 `typeof api` 를 import 하지 않는다.** 그러면 renderer 타입 검사가
+>    electron 을 import 하는 파일로 끌려 들어간다(tsconfig.web 은 Node·Electron 타입을 뺐다).
+>    대신 `src/shared/ipc/api.ts` 에서 **계약으로부터 `Api` 타입을 파생**하고 preload 가
+>    `const api: Api` 로 그 표면을 구현한다. 파생 타입은 조건이 어긋나면 조용히 `never` 가
+>    되므로, 계약 타입으로 대입해 보는 컴파일 시점 단언을 테스트에 남긴다.
+
+> **구현 후 격리 구조 심사에서 확인·수정한 것 2가지** (2026-08-05, 위반 파일 실측):
+>
+> 1. **프로세스 경계 zone 규칙이 lint 에 없었다.** renderer→main·renderer→electron·
+>    shared→main(상대경로) import 가 lint·typecheck 모두 통과했다 — shared 순수성 규칙은
+>    모듈 이름 기준이라 상대경로 한 다리를 건너면 전이적으로 뚫린다. `eslint.config.js` 를
+>    프로세스 폴더별 5개 그룹(shared/renderer/preload/main/main-db)으로 재편하고
+>    `^(\.\./)+(main|…)(/|$)` 정규식 패턴으로 경계를 강제했다 (근거: ADR-008 단방향
+>    의존, ADR-016 §1). 위반 9종 물어뜯기로 전부 잡히는 것을 확인.
+> 2. **Node 내장 모듈 손 열거(15개)가 불완전했다** — `node:buffer` 가 통과. 열거를
+>    `node:module` 의 `builtinModules` 실목록 + `node:*` 글롭으로 교체했다.
+
+- [ ] **Step 1: zod 설치** — `pnpm add zod` (실행 시점 zod 4 가 설치된다. 응답 스키마는
+      `z.object` 대신 **`z.strictObject`** 를 쓴다 — `z.object` 는 모르는 키를 조용히 버려서
+      계약이 어긋나도 알 수 없다.)
 
 - [ ] **Step 2: 실패하는 계약 테스트 작성**
 
@@ -508,7 +536,19 @@ export const api = window.api
 
 `src/main/index.ts` 의 `whenReady` 에서 `registerSystemHandlers(() => 0)` 호출 (schemaVersion 은 Task 4 에서 실값 연결).
 
-- [ ] **Step 5: 검증** — `pnpm test` PASS. `pnpm dev` 실행 후 DevTools 콘솔에서 `await window.api.system.getAppInfo()` → `{ appVersion, schemaVersion }` 반환 확인.
+- [ ] **Step 4.5: `handle.ts` 단위 테스트** — 보안 핵심인데 계약 테스트로는 안 덮인다.
+      `vi.mock('electron')` 으로 `ipcMain.handle` 이 받아간 콜백을 붙잡아 직접 호출한다:
+      신뢰 발신자 통과 / 외부 URL 거부 / dev 서버 URL 통과 / 요청 위반 거부 / 응답 위반 거부 /
+      **에러 메시지에 입력값이 실리지 않음**.
+
+- [ ] **Step 5: 검증** — `pnpm test` PASS. 실제 앱을 띄워 왕복 확인 (CDP `Runtime.evaluate` +
+      `awaitPromise: true` 로 자동화 가능). 확인할 것: `typeof window.api === 'object'`,
+      `getAppInfo()` 가 계약대로 응답, **`window.ipcRenderer`·`window.require` 가 undefined**
+      (raw 노출 없음 — ADR-007 §3).
+
+      > 여분 인자를 renderer 에서 보내는 시도는 main 까지 도달하지 않는다 — preload 의
+      > 시그니처가 인자를 받지 않아 거기서 잘린다. 이는 버그가 아니라 더 강한 보장이며,
+      > main 의 `req.parse` 는 preload 버그에 대한 2차 방어선으로 남는다.
 
 - [ ] **Step 6: 커밋** — `feat: add zod-validated ipc contract with system.getAppInfo`
 
@@ -947,6 +987,20 @@ export function makeMemoryUow(): UnitOfWork {
 - [ ] **Step 4: 통과 확인** — `pnpm test` → 계약 스위트 2회(drizzle·memory) 전부 PASS
 
 - [ ] **Step 5: 커밋** — `feat: add repository ports with unit of work and contract tests`
+
+> **Task 3 구조 심사에서 이연된 관찰 지점 3건** (2026-08-05 격리 리뷰, PLAUSIBLE 판정 —
+> 당시엔 실해 0 이라 미룸. 이 태스크에서 채널·핸들러가 늘어나면 실해가 생긴다):
+>
+> 1. **핸들러 등록 완결성 검사** — 채널 추가 시 4곳 중 3곳(channels·contracts·preload)은
+>    컴파일러가 누락을 잡지만 main 의 `handleIpc` 등록 누락만 런타임 에러다. 등록 함수가
+>    여럿 생기는 이 태스크에서 `CHANNELS` 를 순회하며 전부 등록됐는지 확인하는 스모크
+>    테스트 1개를 추가한다.
+> 2. **preload 채널 문자열 매칭** — `: Api` 는 함수 시그니처만 검사하고 invoke 에 넘긴
+>    채널 문자열이 그 계약의 채널인지는 못 잡는다. 채널이 5개쯤 되면 preload api 객체를
+>    계약 순회로 기계 생성하는 방안을 검토한다 (설계 변경이므로 ADR 선행).
+> 3. **핸들러 본문 관례** — `handleIpc` 의 `fn` 에 비즈니스 로직이 축적되는 것을 막는
+>    기계 장치는 없다 (ADR-008 이 의도한 관례 의존). 규칙 있는 유스케이스의 fn 본문은
+>    "서비스 호출 1줄"을 유지하는지 리뷰 관찰 지점으로 삼는다.
 
 ---
 
