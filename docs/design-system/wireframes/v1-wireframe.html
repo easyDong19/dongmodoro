@@ -558,7 +558,7 @@ body::before {
         <div class="arrow">→</div>
         <div class="node"><h2>항목 드로어</h2><p>조각 쪼개기 → <span class="teal">오늘로 가져오기</span></p></div>
         <div class="arrow">→</div>
-        <div class="node accent"><h2>오늘 할 일</h2><p>pull 로만 채운다(3개 이하 권장). 사본 아님 — pull 행 한 줄</p></div>
+        <div class="node accent"><h2>오늘 할 일</h2><p>pull 로만 채운다(3개 이하 권장). 행의 <span class="teal">재생</span>이 대상 설정+focus 시작을 한 클릭에 — 계획→실행의 이음새</p></div>
       </div>
     </div>
 
@@ -1701,6 +1701,27 @@ body::before {
       <div class="sm">확정 후 토스트</div>
       <div class="xs dim">다음 주로 3건 넘어갔어요<br>그 사이 추가된 2건도 함께 넘어갔어요</div>
       <div class="xxs dim" style="margin-top:6px">패널을 열어둔 사이 목록이 변해도 <b>확정은 실패하지 않는다</b> — 사라진 항목의 예외는 무시하고 새 항목은 이월한 뒤 토스트 한 줄로만 알린다.</div>
+    </div>
+
+    <div class="card"><h2>타이머↔할 일 핸드오프 (2026-08-05 shape)</h2>
+      <div class="xs dim" style="margin-bottom:6px">focus idle — 재생이 보인다</div>
+      <div class="today-item">
+        <button class="check" aria-pressed="false" aria-label="완료"></button>
+        <span class="sm">라우팅 정리</span>
+        <button class="btn small" style="margin-left:auto" aria-label="이 할 일로 집중 시작"><svg class="icon"><use href="#i-play"/></svg></button>
+        <button class="remove" aria-label="목록에서 빼기"><svg class="icon"><use href="#i-x"/></svg></button>
+      </div>
+      <div class="xxs dim">클릭 = 대상 설정 + focus 시작, 한 클릭. running/paused·완료 항목에는 렌더하지 않는다</div>
+      <div class="hr"></div>
+      <div class="xs dim" style="margin-bottom:4px">대상 지정된 idle — 타이머 대상 줄</div>
+      <div class="sm" style="display:flex;align-items:center;gap:6px">라우팅 정리
+        <button class="remove" style="margin-left:0" aria-label="대상 해제"><svg class="icon"><use href="#i-x"/></svg></button>
+      </div>
+      <div class="xxs dim">× = 자유 집중 복귀 (idle 에서만). 대상의 수명은 세션 하나 — 끝나면 자유 집중으로 돌아간다. 타이머의 시작은 항상 자유 집중이다 (시스템은 대상을 추측하지 않는다)</div>
+      <div class="hr"></div>
+      <div class="xs dim" style="margin-bottom:4px">+ 오늘로 = 원클릭 pull. 성공 토스트:</div>
+      <div class="hint">오늘로 가져왔어요 — 라우팅 정리</div>
+      <div class="xxs dim" style="margin-top:4px">유자격 조각 0개면 드로어 폴백(첫 조각 작성). 골라오기는 캐럿 경로</div>
     </div>
 
     <div class="card"><h2>세션 라벨 · 알림 문구</h2>
