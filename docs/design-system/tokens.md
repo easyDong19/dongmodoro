@@ -14,6 +14,15 @@ React/Vue/vanilla 어디서든 `var(--token)` 으로 소비하며, JS에서 필�
 
 ## 1. Color
 
+> **이 팔레트는 다크 전용이다.** 라이트 모드는 v1 에 없고 `prefers-color-scheme` 분기를
+> 만들지 않는다 — 누락이 아니라 결정이며 근거는
+> [ADR-006](./decisions/adr-006-theme-scope.md) 이다. 고대비 모드(`forced-colors: active`)
+> 에서는 이 팔레트를 포기하고 시스템 색을 따른다(같은 ADR §2).
+>
+> **대비 기준: 텍스트 4.5:1, 아이콘·보더·의미 있는 그래픽 3:1 (WCAG 2.1 AA).
+> 판정 배경은 최악 조건 — 광원 위 `--glass-strong` 이다.**
+> 근거와 실측값은 [ADR-003](./decisions/adr-003-contrast-baseline.md).
+
 ### 1.1 배경·광원
 
 | 토큰 | 값 | 용도 |
@@ -23,32 +32,61 @@ React/Vue/vanilla 어디서든 `var(--token)` 으로 소비하며, JS에서 필�
 | `--glow-amber` | `rgba(224, 158, 84, 0.4)` | 배경 라디얼 광원 (앰버) |
 | `--glow-moss` | `rgba(96, 140, 74, 0.35)` | 배경 라디얼 광원 (모스) |
 
+> **광원 실효 알파 상한 0.20** (ADR-003 §2). 실효 알파 = 토큰 자신의 알파 × 렌더 시
+> opacity 이며, `--glow-teal`(0.55)의 경우 opacity 0.36 이 상한이다. 이 상한이 카드 위
+> 텍스트의 대비를 결정하므로 임의로 올리지 않는다 — 배경이 밝아지면 `--ink-dim` 이 AA 를
+> 벗어난다. 고대비 모드에서는 광원과 별을 렌더하지 않는다.
+
 ### 1.2 유리 표면 (글래스모피즘)
 
 | 토큰 | 값 | 용도 |
 |---|---|---|
 | `--glass` | `rgba(255, 255, 255, 0.055)` | 기본 카드 표면 |
 | `--glass-strong` | `rgba(255, 255, 255, 0.09)` | 강조 표면 (hover, 활성 요소) |
-| `--glass-border` | `rgba(255, 255, 255, 0.14)` | 카드 1px 보더 |
-| `--glass-border-soft` | `rgba(255, 255, 255, 0.08)` | 내부 구분선, 약한 보더 |
+| `--glass-border` | `rgba(255, 255, 255, 0.14)` | **장식용** 보더 — 카드·오버레이 테두리 |
+| `--glass-border-soft` | `rgba(255, 255, 255, 0.08)` | **장식용** 보더 — 내부 구분선 |
+| `--control-border` | `rgba(238, 244, 239, 0.45)` | **컴포넌트 경계** — 체크박스·입력 필드·스테퍼 |
+
+> 보더가 두 종류인 이유 (ADR-003 §4): WCAG SC 1.4.11 의 3:1 요건은 **UI 컴포넌트의 경계**
+> 에 적용되고 장식적인 카드 테두리에는 적용되지 않는다. `--glass-border` 는 1.51:1 이라
+> 유리 인상을 위해 그대로 두고, 사용자가 경계를 판별해야 하는 곳만 `--control-border`
+> (3.50:1)로 분리했다. 유리 표면을 지키기 위해 `--glass-border` 를 38% 로 올리지 않았다.
 
 ### 1.3 텍스트 (ink)
 
-| 토큰 | 값 | 용도 |
-|---|---|---|
-| `--ink` | `#eef4ef` | 본문·제목 기본 텍스트 |
-| `--ink-dim` | `rgba(238, 244, 239, 0.55)` | 보조 텍스트 (설명, 메타) |
-| `--ink-faint` | `rgba(238, 244, 239, 0.32)` | 비활성·placeholder·eyebrow |
+| 토큰 | 값 | 대비 (최악 배경) | 용도 |
+|---|---|---|---|
+| `--ink` | `#eef4ef` | 8.31:1 | 본문·제목 기본 텍스트 |
+| `--ink-dim` | `rgba(238, 244, 239, 0.60)` | 4.61:1 | 보조 텍스트 (설명, 메타, eyebrow, placeholder) |
+| `--ink-faint` | `rgba(238, 244, 239, 0.32)` | 2.26:1 | **꺼져 있음 전용** — 아래 표의 용도만 |
+
+**`--ink-faint` 는 정보를 전달하는 텍스트에 쓸 수 없다** (ADR-003 §3). 2.26:1 은 AA 는
+물론 3:1 도 못 넘는다. WCAG SC 1.4.3 이 **비활성 UI 요소를 면제**하므로 그 범위에서만 쓴다.
+
+| 허용 (면제 대상) | 금지 → `--ink-dim` 사용 |
+|---|---|
+| 비활성 버튼·선택 불가 항목 | eyebrow (`MONTH`/`WEEK`/`TODAY`) |
+| 하한·상한에 닿은 스테퍼 버튼 | 출처 주 라벨 (`W33`) |
+| 그 달에 속하지 않는 캘린더 앞·뒤 빈 칸 | 입력 placeholder |
+| 미배정 요일 핍 ("부재"의 표현) | 그 밖의 모든 읽어야 하는 텍스트 |
+
+- 애매하면 `--ink-dim` 을 쓴다. 판단은 "사용자가 이걸 읽어야 하는가" 하나다.
+- `--ink-dim` 이 55% → 60% 로 오른 대가: 감쇠 표현(지난달 카드 등)이 약해진다. 색이 아닌
+  수단으로 보강한다 (ADR-003 Consequences).
 
 ### 1.4 액센트·시맨틱
 
-| 토큰 | 값 | 용도 |
-|---|---|---|
-| `--teal` | `#6fd4b8` | 주 액센트. 진행·집중·긍정 상태 |
-| `--amber` | `#f0b671` | 부 액센트. 예산 초과(`+N 🔥`)·휴식·온기 표현 |
-| `--danger` | `#e8907e` | **파괴적 행위 전용** (삭제 hover, drop 선택). 성과·미달 표현에 사용 금지 — [principles.md](./principles.md) §2 |
+| 토큰 | 값 | 대비 (최악 배경) | 용도 |
+|---|---|---|---|
+| `--teal` | `#6fd4b8` | 5.20:1 | 주 액센트. 진행·집중·긍정 상태. 텍스트 가능 |
+| `--amber` | `#f0b671` | 5.14:1 | 부 액센트. 예산 초과(`+N` 배지)·휴식·온기. 텍스트 가능 |
+| `--danger` | `#e8907e` | 3.85:1 | **파괴적 행위 전용** (삭제 hover, drop 선택). **텍스트 색으로 쓰지 않는다** |
 
-> 타이머 링 그라디언트는 `--teal` → `--amber` 조합으로만 만든다. 별도 그라디언트용 색을 추가하지 않는다.
+- **`--danger` 는 아이콘·보더·배경 강조에만 쓴다** (비텍스트 3:1 통과). 파괴적 액션의
+  라벨 글자는 `--ink` 다 — 의미는 아이콘과 문구가 이미 전달한다 (ADR-003 §5, principles §2).
+- `--danger` 를 성과·미달 표현에 쓰지 않는다 — [principles.md](./principles.md) §2.
+- 타이머 링 그라디언트는 `--teal` → `--amber` 조합으로만 만든다. 별도 그라디언트용 색을
+  추가하지 않는다.
 
 ---
 
@@ -159,7 +197,69 @@ React/Vue/vanilla 어디서든 `var(--token)` 으로 소비하며, JS에서 필�
 
 ---
 
-## 6. 기준 CSS (구현 시 이 블록을 그대로 이식)
+## 6. Motion (전이 시간·이징)
+
+> 근거: [decisions/adr-005-motion-and-layer.md](./decisions/adr-005-motion-and-layer.md)
+> 값의 출처는 시안 v7 의 `transition` 실측이다.
+
+| 토큰 | 값 | 용도 | 흡수한 시안 값 |
+|---|---|---|---|
+| `--motion-fast` | `150ms` | hover, 색·배경·보더 전이, 포커스 링 | `.15s`(15회), `.2s`(3회) |
+| `--motion-medium` | `300ms` | 오버레이 슬라이드, 드로어 펼침, 섹션 접힘 | `.3s` |
+| `--motion-slow` | `400ms` | 진행 바 width, 타이머 링 채움 | `.4s` |
+| `--ease-standard` | `ease` | 전부 | 시안이 실제로 쓴 값 |
+
+- 3단계 밖의 시간을 새로 만들지 않는다. `--ease-standard` 를 그럴싸한 `cubic-bezier` 로
+  바꾸지 않는다 — 더 나은 곡선이 필요하다는 근거가 아직 없다 (ADR-005 §1).
+- **`prefers-reduced-motion: reduce` 는 이 토큰들을 `0ms` 로 재정의해 처리한다.**
+  `* { transition: none !important }` 전역 킬은 폐기됐다 — 상태 변화 피드백까지 죽이기
+  때문이다 (ADR-005 §2, [principles.md §4](./principles.md)).
+- 장식성 무한 애니메이션 금지는 그대로다. 초과 글로우는 정적 처리다.
+
+---
+
+## 7. Layer (스태킹 순서)
+
+> 근거: [decisions/adr-005-motion-and-layer.md](./decisions/adr-005-motion-and-layer.md) §3
+> app-shell 명세에 실재하는 레이어만 정의한다. 미래를 위한 빈 칸을 만들지 않는다.
+
+| 토큰 | 값 | 대상 |
+|---|---|---|
+| `--layer-base` | `0` | 카드·컬럼. 정산 배너도 여기다 (카드 안 인라인이므로) |
+| `--layer-sticky` | `10` | 내로우 축약형 고정 바, 카드 하단 고정 게이지 |
+| `--layer-overlay` | `20` | MONTH 오버레이, 첫 실행 온보딩 오버레이 |
+| `--layer-dialog` | `30` | 종료 확인, 삭제 확인 |
+| `--layer-toast` | `40` | 정산 확정 결과 토스트 |
+
+- 배경 광원·별은 `z-index: -1` 로 두고, 창 요소에 `isolation: isolate` 를 걸어 그 음수
+  값이 창 배경 위에만 머무르게 한다.
+- 이 5단계 밖의 값을 코드에 직접 쓰지 않는다. 새 레이어는 ADR 로 추가한다.
+
+---
+
+## 8. Interaction (포커스·조작 타깃)
+
+> 근거: [decisions/adr-004-focus-and-target.md](./decisions/adr-004-focus-and-target.md)
+
+| 토큰 | 값 | 용도 |
+|---|---|---|
+| `--focus-ring-width` | `2px` | 포커스 링 두께 |
+| `--focus-ring-offset` | `2px` | 요소 보더와 겹치지 않게 띄우는 거리 |
+| `--focus-ring-color` | `#eef4ef` (`--ink` 와 같은 값) | 포커스 링 색. 9.61:1 |
+| `--target-min` | `24px` | 조작 가능한 요소의 히트 영역 최소 (WCAG 2.2 SC 2.5.8 AA) |
+
+- **포커스 링은 `--ink` 기반이다.** `--teal`·`--amber` 는 상태 → 색 매핑에 의미가 이미
+  배정돼 있어 포커스에 쓰면 "포커스된 것"과 "진행 중인 것"이 같은 색이 된다 (ADR-004 §1).
+- `:focus-visible` 에서만 링을 그린다 — 마우스 클릭에 링이 뜨지 않게 `:focus` 를 쓰지 않는다.
+- `outline: none` 을 대체 표시 없이 쓰지 않는다.
+- **히트 영역은 시각적 크기와 무관하게 `--target-min` 이상이다. 라벨·아이콘을 키워 이를
+  달성하지 않는다** — 투명 패딩 또는 `::after` 확장으로 넓힌다 (ADR-004 §2). 9px 라벨을
+  유지하면서 3컬럼 밀도를 지키기 위한 규칙이다.
+- 인접 컨트롤의 히트 영역이 겹치지 않는다. 겹치면 간격을 늘린다.
+
+---
+
+## 9. 기준 CSS (구현 시 이 블록을 그대로 이식)
 
 ```css
 :root {
@@ -172,13 +272,14 @@ React/Vue/vanilla 어디서든 `var(--token)` 으로 소비하며, JS에서 필�
   /* color — 유리 표면 */
   --glass: rgba(255, 255, 255, 0.055);
   --glass-strong: rgba(255, 255, 255, 0.09);
-  --glass-border: rgba(255, 255, 255, 0.14);
-  --glass-border-soft: rgba(255, 255, 255, 0.08);
+  --glass-border: rgba(255, 255, 255, 0.14);        /* 장식용 */
+  --glass-border-soft: rgba(255, 255, 255, 0.08);   /* 장식용 */
+  --control-border: rgba(238, 244, 239, 0.45);      /* 컴포넌트 경계 — 3:1 (ADR-003) */
 
   /* color — 텍스트 */
   --ink: #eef4ef;
-  --ink-dim: rgba(238, 244, 239, 0.55);
-  --ink-faint: rgba(238, 244, 239, 0.32);
+  --ink-dim: rgba(238, 244, 239, 0.60);   /* ADR-003: 0.55 → 0.60 */
+  --ink-faint: rgba(238, 244, 239, 0.32); /* 꺼져 있음 전용 — §1.3 허용 표 참조 */
 
   /* color — 액센트·시맨틱 */
   --teal: #6fd4b8;
@@ -218,14 +319,50 @@ React/Vue/vanilla 어디서든 `var(--token)` 으로 소비하며, JS에서 필�
   --control-backdrop: blur(8px);
   --control-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.15);
   --control-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+
+  /* motion (ADR-005) */
+  --motion-fast: 150ms;
+  --motion-medium: 300ms;
+  --motion-slow: 400ms;
+  --ease-standard: ease;
+
+  /* layer (ADR-005) */
+  --layer-base: 0;
+  --layer-sticky: 10;
+  --layer-overlay: 20;
+  --layer-dialog: 30;
+  --layer-toast: 40;
+
+  /* interaction (ADR-004) */
+  --focus-ring-width: 2px;
+  --focus-ring-offset: 2px;
+  --focus-ring-color: #eef4ef;
+  --target-min: 24px;
+}
+
+/* 움직임을 줄이되 상태 변화 피드백은 남긴다 (ADR-005 §2) */
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --motion-fast: 0ms;
+    --motion-medium: 0ms;
+    --motion-slow: 0ms;
+  }
 }
 ```
 
 ---
 
-## 7. 변경 규칙
+## 10. 변경 규칙
 
 - 토큰 **추가·변경·삭제는 ADR** (`docs/features/<관련 기능>/decisions/` 또는 전역 결정이면 이 폴더의 `decisions/`)로 근거를 남긴 뒤에만 한다.
 - 시안 v7과 값이 달라지는 결정은 이 문서에 `> 원천과의 차이:` 블록으로 명시한다 (§2.1 폰트 교체가 선례).
-- **spacing·모션 시간은 아직 토큰화하지 않았다.** 필요해지면 시안 실측 → ADR → 이 문서에 추가 순서를 따른다. **문서 없는 토큰을 코드에 먼저 만들지 않는다.**
-  (유리 표면의 blur·하이라이트·shadow 는 §5 로 토큰화됐다 — [ADR-002](./decisions/adr-002-glass-surface-tokens.md) 가 이 순서를 따른 선례다.)
+- **spacing 은 아직 토큰화하지 않았다.** 시안 실측값이 2·3·4·5·6·7·8·9·10·12·14·16·20px
+  로 거의 연속이라, 여기서 단계를 뽑으면 실측이 아니라 발명이 된다. **실제 레이아웃을 코드로
+  짤 때(M1 Task 7) 결정한다** — 그때 [ADR-004](./decisions/adr-004-focus-and-target.md) 의
+  `--target-min` 을 제약으로 함께 본다.
+- 토큰화가 끝난 범주: 색(§1) · 폰트(§2) · radius(§3) · 브레이크포인트(§4) · 유리 표면(§5) ·
+  모션(§6) · 레이어(§7) · 인터랙션(§8). **문서 없는 토큰을 코드에 먼저 만들지 않는다.**
+
+> **원천과의 차이 (2026-08-05, ADR-003):** `--ink-dim` 을 시안의 0.55 에서 **0.60** 으로
+> 올렸고, 배경 광원의 실효 알파에 **0.20 상한**을 걸었다. 시안 v7 은 대비 검증을 거치지
+> 않은 초안이며, 시안 값 그대로는 보조 텍스트가 WCAG AA(4.5:1)를 만족하지 못한다.
