@@ -26,8 +26,10 @@
 - 버전 플로어(실행 시점 최신 설치, 이 아래로는 금지): Node 22 LTS, Electron ≥ 35, electron-vite ≥ 3, React 19, drizzle-orm ≥ 0.36(sqlite `check()` 지원 필수), better-sqlite3 ≥ 11, zod ≥ 3.24, @tanstack/react-query ≥ 5, tailwindcss ≥ 4, vitest ≥ 2.
 - **TypeScript 는 예외적으로 6.x 라인에 고정한다** (`strict: true`). 최신인 7.x 는
   typescript-eslint 가 지원하지 않는다 — 근거는 [ADR-016](../architecture/decisions/adr-016-lint-and-git-hooks.md) §6.
-- **커밋은 husky 훅을 통과해야 한다** (Task 1.5 이후): ESLint 아키텍처 규칙 + Conventional
-  Commits + 한글 금지. 훅에 걸리면 우회(`--no-verify`)하지 말고 규칙에 맞게 고친다.
+- **커밋은 husky 훅을 통과해야 한다** (Task 1.5 이후): 서식은 Prettier 가 자동으로 고치고,
+  ESLint 아키텍처 규칙 · Conventional Commits · 한글 금지는 위반 시 커밋이 거부된다.
+  훅에 걸리면 우회(`--no-verify`)하지 말고 규칙에 맞게 고친다.
+- 시각 값·서식을 손으로 맞추려 애쓰지 않는다 — `pnpm format` 이 정한다 (ADR-017).
 
 **계획 밖 (이 계획에서 하지 않는 것):** 타이머·오늘 목록 등 기능 전부, Query invalidation 키 계층과 타이머 상태 구독 방식(타이머 착수 직전 별도 ADR — [overview.md 미결정 사항](../architecture/overview.md)), electron-builder 패키징(M4, ADR-004), Playwright.
 
@@ -256,7 +258,9 @@ app.on('window-all-closed', () => {
 
 - [ ] **Step 3: 규칙이 실제로 걸리는지 검증** — 규칙마다 위반 파일을 만들어 `pnpm lint` 로 확인하고 지운다. **이 단계를 건너뛰면 위 함정을 못 잡는다.**
 
-- [ ] **Step 4: husky 훅 3종** — `pre-commit`(lint-staged), `commit-msg`(commitlint + 한글 금지 커스텀 규칙), `pre-push`(main·release 차단).
+- [ ] **Step 3.5: Prettier** ([ADR-017](../architecture/decisions/adr-017-prettier.md), ADR-016 §2 대체) — `pnpm add -D prettier eslint-config-prettier`. `eslint-config-prettier` 는 flat config **마지막**에 둔다. `.prettierignore` 에 `*.md` 와 `docs/` 를 넣는다 — Prettier 는 표 셀을 글자 수로 패딩하는데 한글은 두 칸 폭이라 정렬이 오히려 깨지고, `docs/origin/` 은 읽기 전용이다.
+
+- [ ] **Step 4: husky 훅 3종** — `pre-commit`(lint-staged: prettier 로 고친 뒤 eslint 로 검사), `commit-msg`(commitlint + 한글 금지 커스텀 규칙), `pre-push`(main·release 차단).
 
 - [ ] **Step 5: 훅 검증** — 위반 코드·한글 메시지·형식 위반 커밋을 실제로 시도해 각각 차단되는지, 정상 커밋은 통과하는지 확인.
 

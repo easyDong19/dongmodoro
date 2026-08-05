@@ -1,6 +1,7 @@
 # ADR-016: 규칙 강제 — ESLint 아키텍처 규칙 + husky/commitlint
 
-- 상태: accepted (2026-08-05)
+- 상태: accepted (2026-08-05) — 단, **§2(포매터 미도입)는 [ADR-017](adr-017-prettier.md) 이 대체한다.**
+  나머지 절(§1·§3·§4·§5·§6)은 유효하다. 본문은 이력으로 그대로 둔다.
 - 관계: 어떤 결정도 뒤집지 않는다. [ADR-008](adr-008-code-structure.md) ·
   [ADR-009](adr-009-time-format-convention.md) · [ADR-015](adr-015-repository-ports.md) 이
   이미 정한 규칙의 **강제 수단**을 정한다. ADR-015 §2 가 "코드 리뷰 관찰 지점"이라 적은

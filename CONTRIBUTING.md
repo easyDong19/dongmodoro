@@ -86,18 +86,23 @@ husky 는 `prepare` 스크립트로 설치되므로 저장소를 클론해 `pnpm
 
 | 훅 | 하는 일 | 걸리면 |
 |---|---|---|
-| `pre-commit` | 스테이지된 `.ts`·`.tsx` 에 ESLint (lint-staged) | ADR 아키텍처 규칙 위반이 커밋 전에 차단된다 |
+| `pre-commit` | 스테이지된 파일을 Prettier 로 포맷한 뒤 `.ts`·`.tsx` 에 ESLint (lint-staged) | 서식은 **자동으로 고쳐지고**, ADR 아키텍처 규칙 위반은 커밋이 차단된다 |
 | `commit-msg` | commitlint — Conventional Commits + 한글 금지 | 형식·언어 위반 시 커밋 거부 |
 | `pre-push` | `main`·`release/*` 직접 push 차단 | 브랜치를 바꿔 PR 로 진행 |
 
-ESLint 가 검사하는 것은 코드 스타일이 아니라 **ADR 이 정한 아키텍처 규칙**이다
-(`src/shared/` 순수성, DB 라이브러리 격리, `new Date()` 초크포인트, UI 이모지 금지).
-근거와 설계는 [ADR-016](docs/architecture/decisions/adr-016-lint-and-git-hooks.md) 참조.
+역할이 나뉘어 있다. **서식은 Prettier 단독**이 정하고 커밋 시 자동으로 고쳐지므로 신경 쓸
+필요가 없다 ([ADR-017](docs/architecture/decisions/adr-017-prettier.md)). **ESLint 는 서식을
+보지 않고 ADR 이 정한 아키텍처 규칙만** 본다 — `src/shared/` 순수성, DB 라이브러리 격리,
+`new Date()` 초크포인트, UI 이모지 금지 ([ADR-016](docs/architecture/decisions/adr-016-lint-and-git-hooks.md)).
+그래서 ESLint 에 걸리면 자동으로 고쳐지지 않고 **사람이 판단해서 고쳐야 한다.**
+
+마크다운과 `docs/` 는 포매팅하지 않는다 — Prettier 가 표 셀을 글자 수로 패딩해서 한글 표가
+오히려 어긋난다. 문서 서식은 사람이 지킨다.
 
 수동 실행:
 
 ```bash
-pnpm lint
+pnpm lint && pnpm format:check
 ```
 
 > 로컬 훅은 `--no-verify` 로 우회된다. 실수 방지 장치이지 강제 수단이 아니다 —

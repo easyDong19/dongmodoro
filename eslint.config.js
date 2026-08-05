@@ -1,6 +1,7 @@
 // @ts-check
 import js from '@eslint/js'
 import tseslint from 'typescript-eslint'
+import prettier from 'eslint-config-prettier'
 
 /**
  * 이 설정의 주목적은 코드 스타일이 아니라 **ADR 이 정한 아키텍처 규칙의 강제**다 (ADR-016).
@@ -13,14 +14,30 @@ import tseslint from 'typescript-eslint'
 
 /** ADR-008: src/shared/ 는 순수 TS — Node·Electron 런타임에 의존하지 않는다. */
 const NODE_BUILTINS = [
-  'fs', 'fs/promises', 'path', 'os', 'child_process', 'crypto', 'http', 'https',
-  'net', 'stream', 'url', 'util', 'worker_threads', 'zlib', 'events'
+  'fs',
+  'fs/promises',
+  'path',
+  'os',
+  'child_process',
+  'crypto',
+  'http',
+  'https',
+  'net',
+  'stream',
+  'url',
+  'util',
+  'worker_threads',
+  'zlib',
+  'events'
 ]
-const SHARED_FORBIDDEN_PATHS = ['electron', ...NODE_BUILTINS, ...NODE_BUILTINS.map((m) => `node:${m}`)]
-  .map((name) => ({
-    name,
-    message: 'ADR-008: src/shared/ 는 순수 TS 여야 한다. Node·Electron API 가 필요하면 main 에 둔다.'
-  }))
+const SHARED_FORBIDDEN_PATHS = [
+  'electron',
+  ...NODE_BUILTINS,
+  ...NODE_BUILTINS.map((m) => `node:${m}`)
+].map((name) => ({
+  name,
+  message: 'ADR-008: src/shared/ 는 순수 TS 여야 한다. Node·Electron API 가 필요하면 main 에 둔다.'
+}))
 
 /** ADR-015 §2: DB 라이브러리는 src/main/db/ 하위에서만 import 한다. */
 const DB_IMPORT_PATTERN = {
@@ -103,5 +120,9 @@ export default tseslint.config(
     files: ['src/renderer/**/*.ts', 'src/renderer/**/*.tsx'],
     ignores: TESTS,
     rules: { 'no-restricted-syntax': ['error', ...TIME_SELECTORS, ...EMOJI_SELECTORS] }
-  }
+  },
+
+  // 서식은 Prettier 가 단독으로 정한다 — 충돌하는 ESLint 규칙을 끈다 (ADR-017).
+  // 반드시 마지막에 온다. 앞 블록의 서식 관련 규칙까지 덮어야 하기 때문이다.
+  prettier
 )
