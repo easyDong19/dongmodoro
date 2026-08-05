@@ -1,0 +1,13 @@
+# CONTRIBUTING.md: main·release/* 직접 push 금지. 반영은 PR + 스쿼시 머지만.
+# 이 훅은 실수 방지용이다 — --no-verify 로 우회되므로 진짜 강제는 GitHub ruleset 이다.
+branch=$(git branch --show-current)
+case "$branch" in
+  main)
+    echo "main 직접 push 금지 — feature/* 브랜치에서 PR 을 사용하세요 (CONTRIBUTING.md)"
+    exit 1
+    ;;
+  release/*)
+    echo "release 브랜치 push 는 배포와 직결됩니다. 의도한 것이 맞으면 --no-verify 로 진행하세요."
+    exit 1
+    ;;
+esac

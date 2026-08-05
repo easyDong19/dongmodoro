@@ -23,7 +23,11 @@
 - 연결마다 PRAGMA: `foreign_keys = ON`(better-sqlite3 기본 OFF), `journal_mode = WAL`, `synchronous = NORMAL`, `busy_timeout = 5000` (ADR-011 §7).
 - 렌더되는 UI 에 이모지 금지, 시각 값은 [design-system/tokens.md](../design-system/tokens.md) 의 토큰 이름으로만 (프로젝트 CLAUDE.md).
 - 커밋 메시지는 영어, Conventional Commits. 이 계획의 작업 브랜치는 `feature/m1-scaffolding` 하나이며 태스크마다 커밋한다.
-- 버전 플로어(실행 시점 최신 설치, 이 아래로는 금지): Node 22 LTS, Electron ≥ 35, electron-vite ≥ 3, React 19, TypeScript ≥ 5.6 (`strict: true`), drizzle-orm ≥ 0.36(sqlite `check()` 지원 필수), better-sqlite3 ≥ 11, zod ≥ 3.24, @tanstack/react-query ≥ 5, tailwindcss ≥ 4, vitest ≥ 2.
+- 버전 플로어(실행 시점 최신 설치, 이 아래로는 금지): Node 22 LTS, Electron ≥ 35, electron-vite ≥ 3, React 19, drizzle-orm ≥ 0.36(sqlite `check()` 지원 필수), better-sqlite3 ≥ 11, zod ≥ 3.24, @tanstack/react-query ≥ 5, tailwindcss ≥ 4, vitest ≥ 2.
+- **TypeScript 는 예외적으로 6.x 라인에 고정한다** (`strict: true`). 최신인 7.x 는
+  typescript-eslint 가 지원하지 않는다 — 근거는 [ADR-016](../architecture/decisions/adr-016-lint-and-git-hooks.md) §6.
+- **커밋은 husky 훅을 통과해야 한다** (Task 1.5 이후): ESLint 아키텍처 규칙 + Conventional
+  Commits + 한글 금지. 훅에 걸리면 우회(`--no-verify`)하지 말고 규칙에 맞게 고친다.
 
 **계획 밖 (이 계획에서 하지 않는 것):** 타이머·오늘 목록 등 기능 전부, Query invalidation 키 계층과 타이머 상태 구독 방식(타이머 착수 직전 별도 ADR — [overview.md 미결정 사항](../architecture/overview.md)), electron-builder 패키징(M4, ADR-004), Playwright.
 
@@ -224,6 +228,41 @@ app.on('window-all-closed', () => {
 육안 확인 대신 자동 검증을 쓸 수 있다: `--remote-debugging-port` 로 앱을 띄우고 CDP `Runtime.evaluate` 로 `document.querySelector('h1').textContent` 를 읽는다. 렌더는 비동기이므로 값이 나올 때까지 폴링해야 한다.
 
 - [ ] **Step 5: 커밋** — `feat: scaffold electron-vite app with react and strict typescript`
+
+---
+
+### Task 1.5: 규칙 강제 — ESLint 아키텍처 규칙 + husky/commitlint
+
+계획 수립 후 추가된 태스크다. 근거·설계는 [ADR-016](../architecture/decisions/adr-016-lint-and-git-hooks.md).
+**Task 2 앞에 두는 이유**: 코드가 134줄이라 소급 수정이 0 이고, `new Date()` 초크포인트
+규칙이 그 초크포인트를 만드는 Task 2 보다 먼저 존재해야 규칙과 구현이 같이 태어난다.
+
+**Files:**
+- Create: `eslint.config.js`, `commitlint.config.js`, `.husky/pre-commit`, `.husky/commit-msg`, `.husky/pre-push`
+- Modify: `package.json`(lint 스크립트·lint-staged·prepare), `CONTRIBUTING.md`, `docs/architecture/overview.md`
+
+**Interfaces:**
+- Produces: `pnpm lint`. 커밋 시 자동으로 도는 3개 훅.
+
+- [ ] **Step 1: 설치** — `pnpm add -D eslint @eslint/js typescript-eslint husky lint-staged @commitlint/cli @commitlint/config-conventional`
+
+  이때 **TypeScript 를 6.x 로 내린다** (`pnpm add -D typescript@6`) — typescript-eslint 가 TS 7 을 지원하지 않는다.
+
+- [ ] **Step 2: ESLint 규칙 작성** — ADR-008(shared 순수성) · ADR-015 §2(DB 격리) · ADR-009 §3(시간 초크포인트) · CLAUDE.md(이모지 금지).
+
+  > **함정**: flat config 는 같은 규칙 이름을 뒤 블록이 **통째로 덮어쓴다**(옵션 병합 아님).
+  > `no-restricted-imports` 를 shared 용·DB 용으로 각각 쓰면 shared 규칙이 조용히 사라진다.
+  > 파일 그룹을 겹치지 않게 나누고, 한 그룹에 필요한 옵션을 **한 블록에 모아서** 준다.
+
+- [ ] **Step 3: 규칙이 실제로 걸리는지 검증** — 규칙마다 위반 파일을 만들어 `pnpm lint` 로 확인하고 지운다. **이 단계를 건너뛰면 위 함정을 못 잡는다.**
+
+- [ ] **Step 4: husky 훅 3종** — `pre-commit`(lint-staged), `commit-msg`(commitlint + 한글 금지 커스텀 규칙), `pre-push`(main·release 차단).
+
+- [ ] **Step 5: 훅 검증** — 위반 코드·한글 메시지·형식 위반 커밋을 실제로 시도해 각각 차단되는지, 정상 커밋은 통과하는지 확인.
+
+- [ ] **Step 6: 문서 갱신** — CONTRIBUTING.md 강제화 계층 표(⏸ → ✅)와 스니펫, overview.md 확정 스택.
+
+- [ ] **Step 7: 커밋** — `feat: enforce architecture rules with eslint and git hooks`
 
 ---
 

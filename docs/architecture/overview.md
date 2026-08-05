@@ -27,6 +27,8 @@
 | DB 접근 구조 | 서비스 → 리포지토리 포트(DIP), Drizzle 구현체는 `db/repositories/` 격리, 트랜잭션은 Unit of Work | [ADR-015](decisions/adr-015-repository-ports.md) |
 | 패키징·배포 | electron-builder → GitHub Releases 수동 다운로드 | [ADR-004](decisions/adr-004-packaging-deploy.md) |
 | 테스트 | Vitest + Testing Library, Playwright 는 핵심 경로만 | — (PRD §5 그대로) |
+| 규칙 강제 | ESLint(flat config) 로 ADR-008·009·015 규칙 기계 검사 + husky/commitlint. 포매터는 도입하지 않음 | [ADR-016](decisions/adr-016-lint-and-git-hooks.md) |
+| TypeScript 버전 | 6.x 라인 고정. TS 7(네이티브 포트)은 typescript-eslint 미지원 | [ADR-016](decisions/adr-016-lint-and-git-hooks.md) |
 
 ## 프로세스 아키텍처
 

@@ -72,31 +72,36 @@
 | 층 | 대상 | 수단 | 상태 |
 |---|---|---|---|
 | Claude 하네스 | Claude 의 git/gh 명령 | [.claude/hooks/protect-git-flow.sh](.claude/hooks/protect-git-flow.sh) (PreToolUse) | ✅ 적용됨 |
-| 로컬 git | 사람이 치는 commit/push | husky + commitlint | ⏸ 프로젝트 스캐폴딩 후 설정 (아래 스니펫) |
+| 로컬 git | 사람이 치는 commit/push | husky + commitlint + ESLint | ✅ 적용됨 ([ADR-016](docs/architecture/decisions/adr-016-lint-and-git-hooks.md)) |
 | GitHub 서버 | 모든 클라이언트 (최종 방어선) | branch ruleset + squash-only | ⏸ 설정 명령은 아래 |
 
 - 하네스 훅 판정: main 에서의 커밋·머지·태그·push 는 **차단(deny)**, release 브랜치의 커밋·push 와 태그 push 는 **사용자 확인(ask)** — 백포트/배포는 정당한 플로우일 수 있어 사람이 판단한다.
 - 예외: 레포에 커밋이 하나도 없는 부트스트랩 시점에는 최초 커밋을 main 에 허용한다.
 - 로컬 훅은 `--no-verify` 로 우회 가능하므로 GitHub 서버 설정이 유일한 진짜 강제다.
 
-### husky + commitlint (스캐폴딩 후 실행)
+### 로컬 훅 구성 (설치 완료 — `pnpm install` 하면 자동 활성화)
+
+husky 는 `prepare` 스크립트로 설치되므로 저장소를 클론해 `pnpm install` 만 하면 훅이 걸린다.
+별도 명령이 필요 없다. 훅은 세 개다.
+
+| 훅 | 하는 일 | 걸리면 |
+|---|---|---|
+| `pre-commit` | 스테이지된 `.ts`·`.tsx` 에 ESLint (lint-staged) | ADR 아키텍처 규칙 위반이 커밋 전에 차단된다 |
+| `commit-msg` | commitlint — Conventional Commits + 한글 금지 | 형식·언어 위반 시 커밋 거부 |
+| `pre-push` | `main`·`release/*` 직접 push 차단 | 브랜치를 바꿔 PR 로 진행 |
+
+ESLint 가 검사하는 것은 코드 스타일이 아니라 **ADR 이 정한 아키텍처 규칙**이다
+(`src/shared/` 순수성, DB 라이브러리 격리, `new Date()` 초크포인트, UI 이모지 금지).
+근거와 설계는 [ADR-016](docs/architecture/decisions/adr-016-lint-and-git-hooks.md) 참조.
+
+수동 실행:
 
 ```bash
-npm i -D husky @commitlint/cli @commitlint/config-conventional
-npx husky init
-echo 'npx --no -- commitlint --edit "$1"' > .husky/commit-msg
-echo "export default { extends: ['@commitlint/config-conventional'] };" > commitlint.config.mjs
+pnpm lint
 ```
 
-`.husky/pre-push` (main/release 직접 push 차단):
-
-```bash
-#!/usr/bin/env sh
-branch=$(git branch --show-current)
-case "$branch" in
-  main) echo "✋ main 직접 push 금지 — PR 을 사용하세요"; exit 1 ;;
-esac
-```
+> 로컬 훅은 `--no-verify` 로 우회된다. 실수 방지 장치이지 강제 수단이 아니다 —
+> 진짜 강제는 아래 GitHub 서버 설정이다.
 
 ### GitHub 서버 설정 (1회, 저장소 관리자)
 
