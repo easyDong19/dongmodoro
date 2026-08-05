@@ -14,6 +14,7 @@
   --glow-teal: rgba(45, 138, 120, 0.55);
   --glow-amber: rgba(224, 158, 84, 0.4);
   --glow-moss: rgba(96, 140, 74, 0.35);
+  --glow-opacity: 0.36;   /* 실효 알파 0.20 상한 (ADR-003 §2) */
 
   --glass: rgba(255, 255, 255, 0.055);
   --glass-strong: rgba(255, 255, 255, 0.09);
@@ -33,13 +34,14 @@
     'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif;
   --font-mono: 'Azeret Mono', ui-monospace, monospace;
 
-  --text-2xs: 9px;
-  --text-xs: 10px;
-  --text-sm: 11px;
-  --text-md: 12px;
-  --text-lg: 14px;
-  --text-xl: 17px;
-  --text-display: 56px;
+  /* 폰트 크기만 rem — 루트 62.5% 이므로 1rem = 10px (ADR-007) */
+  --text-2xs: 0.9rem;     /* 9px  */
+  --text-xs: 1rem;        /* 10px */
+  --text-sm: 1.1rem;      /* 11px */
+  --text-md: 1.2rem;      /* 12px */
+  --text-lg: 1.4rem;      /* 14px */
+  --text-xl: 1.7rem;      /* 17px */
+  --text-display: 5.6rem; /* 56px */
 
   --weight-regular: 400;
   --weight-semibold: 600;
@@ -78,10 +80,49 @@
   --focus-ring-width: 2px;
   --focus-ring-offset: 2px;
   --focus-ring-color: #eef4ef;
-  --target-min: 24px;
+  --target-min: 24px;   /* px 필수 — SC 2.5.8 이 24 CSS px 절대값을 요구한다 */
+}
+
+/* ─────────────────────────────────────────────────────────────
+   라이트 테마 (ADR-008) — 토큰 이름은 그대로, 값만 재정의한다.
+   OS 선호를 따르되 data-theme 이 덮어쓴다. 다크가 기본값이다.
+   ───────────────────────────────────────────────────────────── */
+:root[data-theme='light'] {
+  --bg-deep: #e7eeec;              /* 흰색보다 어둡게 — 카드가 떠오르게 */
+  --glow-opacity: 0.18;            /* 실효 알파 상한 0.10 — 미학 근거 */
+
+  --glass: rgba(255, 255, 255, 0.72);
+  --glass-strong: rgba(255, 255, 255, 0.92);
+  --glass-border: rgba(12, 26, 22, 0.14);
+  --glass-border-soft: rgba(12, 26, 22, 0.08);
+  --control-border: rgba(12, 26, 22, 0.50);   /* 3.35:1 */
+
+  --ink: #0c1a16;                             /* 다크의 배경색을 재사용 */
+  --ink-dim: rgba(12, 26, 22, 0.65);          /* 4.97:1 — 판정 지점은 타이틀바 */
+  --ink-faint: rgba(12, 26, 22, 0.38);
+
+  --teal: #216e59;                            /* 색상 163° 유지 */
+  --amber: #8f550f;                           /* 색상 33° */
+  --danger: #b13820;                          /* 색상 13° */
+
+  --glass-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.9);
+  --glass-shadow: 0 12px 32px rgba(12, 26, 22, 0.10);
+  --control-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.9);
+  --control-shadow: 0 8px 24px rgba(12, 26, 22, 0.12);
+
+  --focus-ring-color: #0c1a16;
+}
+
+/* 고대비 모드는 테마보다 우선한다 (ADR-006 §2) */
+@media (forced-colors: active) {
+  :root { --glow-opacity: 0; }
+  .card, .overlay, .dialog { backdrop-filter: none; border: 1px solid CanvasText; }
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
+
+/* 루트 62.5% = 1rem 10px. body 에 --text-md 를 명시하지 않으면 본문이 10px 가 된다 (ADR-007) */
+html { font-size: 62.5%; }
 
 body {
   background: var(--bg-deep);
@@ -101,7 +142,7 @@ body::before {
     radial-gradient(60% 50% at 15% 10%, var(--glow-teal), transparent 70%),
     radial-gradient(50% 40% at 85% 15%, var(--glow-amber), transparent 70%),
     radial-gradient(60% 50% at 50% 100%, var(--glow-moss), transparent 70%);
-  opacity: .36;   /* ADR-003 §2: 광원 실효 알파 상한 0.20 = 0.55 × 0.36 */
+  opacity: var(--glow-opacity);   /* 다크 0.36 / 라이트 0.18 — 실효 알파 상한 (ADR-003·ADR-008) */
 }
 
 /* 움직임을 줄이되 상태 변화 피드백은 남긴다 (ADR-005 §2).
@@ -150,7 +191,7 @@ body::before {
     radial-gradient(60% 50% at 15% 10%, var(--glow-teal), transparent 70%),
     radial-gradient(50% 40% at 85% 15%, var(--glow-amber), transparent 70%),
     radial-gradient(60% 50% at 50% 100%, var(--glow-moss), transparent 70%);
-  opacity: .36;   /* ADR-003 §2: 광원 실효 알파 상한 0.20 */
+  opacity: var(--glow-opacity);
 }
 .win.wide { width: 1280px; height: 800px; }
 .win.medium { width: 980px; height: 720px; }
@@ -312,10 +353,18 @@ body::before {
   background: transparent; border: 1px solid transparent; border-radius: var(--radius-md); padding: 5px 14px;
 }
 .mode-tabs button[aria-selected="true"] { background: var(--glass-strong); border-color: var(--glass-border); color: var(--ink); }
-.ring { position: relative; width: 236px; height: 236px; }
+/* 링 지름은 em — --text-display 와 함께 비례 확대된다 (ADR-007 §3) */
+.ring { position: relative; width: 4.22em; height: 4.22em; font-size: var(--text-display); }
+.ring > svg { width: 100%; height: 100%; }
 .ring svg { transform: rotate(-90deg); }
 .ring-center { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; }
-.clock { font-family: var(--font-mono); font-variant-numeric: tabular-nums; font-size: var(--text-display); font-weight: var(--weight-bold); letter-spacing: -0.02em; line-height: 1; }
+.clock {
+  font-family: var(--font-mono); font-variant-numeric: tabular-nums;
+  font-size: 1em;   /* 링의 font-size 를 따라간다 — 변형은 .ring.md / .ring.sm */
+  font-weight: var(--weight-bold); letter-spacing: -0.02em; line-height: 1;
+}
+.ring.md { font-size: 4.6rem; }   /* 미디엄 */
+.ring.sm { font-size: 3.2rem; }   /* 내로우 */
 .session-label { font-size: var(--text-sm); color: var(--ink-dim); }
 .target { font-size: var(--text-sm); }
 .adjust { display: inline-flex; gap: 4px; align-items: center; }
@@ -473,7 +522,13 @@ body::before {
     <h1>dongmodoro — v1 와이어프레임</h1>
     <p>docs/features 8종 · docs/design-system 토큰 기준. 색·폰트·radius·유리 표면은 tokens.md 토큰만, 아이콘은 lucide 컴포넌트만(이모지 0), 요일은 전부 월요일 시작.</p>
     <p><b>이 문서는 명세가 아니다</b> — 기능 문서와 어긋나면 ux-spec·prd 가 이긴다. 디자인이 바뀌면 이 파일을 갱신한다(날짜 스냅샷을 새로 만들지 않는다).</p>
-    <p>접근성 기준선 반영 (2026-08-05, ADR-003~006): 텍스트 대비 4.5:1 · 비텍스트 3:1 · 포커스 링 · 히트 영역 24px · 색 외 제2 신호 · 다크 전용.</p>
+    <p>접근성 기준선 (ADR-003~006): 텍스트 대비 4.5:1 · 비텍스트 3:1 · 포커스 링 · 히트 영역 24px · 색 외 제2 신호. 폰트만 rem, 루트 62.5% (ADR-007). 다크·라이트 2테마 (ADR-008).</p>
+  </div>
+
+  <div class="doc-nav" role="group" aria-label="테마 미리보기 (문서 크롬 — 제품 UI 가 아니다)">
+    <button id="theme-dark" aria-pressed="true">다크</button>
+    <button id="theme-light" aria-pressed="false">라이트</button>
+    <span class="sm dim" style="align-self:center;margin-left:6px">제품에서는 OS 를 따르고 트레이 <span class="mono">테마</span> 서브메뉴가 덮어쓴다 (ADR-008 §4)</span>
   </div>
 
   <nav class="doc-nav" role="tablist" aria-label="와이어프레임 뷰">
@@ -646,7 +701,7 @@ body::before {
           </div>
 
           <div class="ring">
-            <svg width="236" height="236" viewBox="0 0 236 236">
+            <svg viewBox="0 0 236 236">
               <defs>
                 <linearGradient id="ringgrad" x1="0" y1="0" x2="1" y2="1">
                   <stop offset="0%" stop-color="var(--teal)"/>
@@ -868,7 +923,7 @@ body::before {
             <button role="tab" aria-selected="false">긴 휴식</button>
           </div>
           <div class="ring">
-            <svg width="236" height="236" viewBox="0 0 236 236">
+            <svg viewBox="0 0 236 236">
               <circle cx="118" cy="118" r="106" fill="none" stroke="var(--glass-strong)" stroke-width="7"/>
             </svg>
             <div class="ring-center">
@@ -1184,13 +1239,13 @@ body::before {
             <button role="tab" aria-selected="false">짧은 휴식</button>
             <button role="tab" aria-selected="false">긴 휴식</button>
           </div>
-          <div class="ring" style="width:200px;height:200px">
-            <svg width="200" height="200" viewBox="0 0 236 236" style="width:200px;height:200px">
+          <div class="ring md">
+            <svg viewBox="0 0 236 236">
               <circle cx="118" cy="118" r="106" fill="none" stroke="var(--glass-strong)" stroke-width="7"/>
               <circle cx="118" cy="118" r="106" fill="none" stroke="url(#ringgrad)" stroke-width="7" stroke-linecap="round" stroke-dasharray="666" stroke-dashoffset="220"/>
             </svg>
             <div class="ring-center">
-              <div class="clock" style="font-size:46px">12:34</div>
+              <div class="clock">12:34</div>
               <div class="session-label">3번째 집중</div>
               <div class="target">레이아웃 정리</div>
             </div>
@@ -1318,13 +1373,13 @@ body::before {
             <div class="mode-tabs">
               <button aria-selected="true">집중</button><button aria-selected="false">짧은 휴식</button><button aria-selected="false">긴 휴식</button>
             </div>
-            <div class="ring" style="width:150px;height:150px">
-              <svg viewBox="0 0 236 236" style="width:150px;height:150px">
+            <div class="ring sm">
+              <svg viewBox="0 0 236 236">
                 <circle cx="118" cy="118" r="106" fill="none" stroke="var(--glass-strong)" stroke-width="9"/>
                 <circle cx="118" cy="118" r="106" fill="none" stroke="url(#ringgrad)" stroke-width="9" stroke-linecap="round" stroke-dasharray="666" stroke-dashoffset="220"/>
               </svg>
               <div class="ring-center">
-                <div class="clock" style="font-size:32px">12:34</div>
+                <div class="clock">12:34</div>
                 <div class="xs dim">3번째 집중</div>
               </div>
             </div>
@@ -1677,7 +1732,9 @@ body::before {
         · <s>조작 타깃 24px 미달</s> — <span class="mono">--target-min</span>, 라벨과 히트 영역 분리 (ADR-004)<br>
         · <s>모션 시간·이징 미정의</s> — 150 / 300 / 400ms (ADR-005)<br>
         · <s>레이어 순서 미정의</s> — 5단계 (ADR-005)<br>
-        · <s>라이트 모드·고대비 미정</s> — 다크 전용 확정 + forced-colors 최소 대응 (ADR-006)<br>
+        · <s>고대비 미정</s> — forced-colors 최소 대응 (ADR-006 §2)<br>
+        · <s>다크 전용</s> — <b>뒤집혔다.</b> 라이트 테마 추가, OS 따라가기 + 트레이 3택 (ADR-008 이 ADR-006 §1 을 supersede)<br>
+        · <s>폰트 단위 px</s> — 폰트만 rem, 루트 62.5%, --target-min 은 px 유지 (ADR-007)<br>
         <br>
         <b>남은 TBD</b><br>
         · spacing 토큰 — M1 Task 7 에서 실제 레이아웃과 함께 결정 (의도적 보류)<br>
@@ -1691,7 +1748,10 @@ body::before {
         · 5px 핍 7개에서 solid / 윤곽선 / 링 3형태가 구분되는지<br>
         · 히트 영역 24px 이 인접 칩(조절 칩·요일 칩)에서 겹치지 않는지<br>
         · <span class="mono">backdrop-filter</span> 가 와이드 3컬럼에서 Electron 성능을 견디는지<br>
-        · Windows 고대비 모드 실기 확인
+        · Windows 고대비 모드 실기 확인<br>
+        · 라이트 테마의 유리 질감 — 흰 카드가 <span class="mono">#e7eeec</span> 배경에서 충분히 떠 보이는지<br>
+        · <b>라이트에서 초과 글로우가 읽히는지</b> — <span class="mono">--glow-amber</span> 는 두 테마 공통값이라 흰 카드 위에서 거의 안 보인다. 정보는 <span class="mono">+N</span> 배지·Flame 아이콘이 전달하지만(principles §3.5), "글로우로 긍정 처리" 라는 시각 의도가 약해진다. 라이트 전용 글로우 값이 필요한지 판단 필요<br>
+        · 루트 글자 크기 200% 에서 타이머 링(4.22em)이 레이아웃을 깨지 않는지
       </div>
     </div>
   </div>
@@ -1700,7 +1760,19 @@ body::before {
 </div>
 
 <script>
-  const nav = document.querySelector('.doc-nav');
+  // 테마 미리보기 — 문서 크롬이다. 제품의 전환 경로는 트레이 메뉴다 (ADR-008 §4)
+  const dark = document.getElementById('theme-dark');
+  const light = document.getElementById('theme-light');
+  function setTheme(t) {
+    if (t === 'light') document.documentElement.setAttribute('data-theme', 'light');
+    else document.documentElement.removeAttribute('data-theme');
+    dark.setAttribute('aria-pressed', String(t !== 'light'));
+    light.setAttribute('aria-pressed', String(t === 'light'));
+  }
+  dark.addEventListener('click', () => setTheme('dark'));
+  light.addEventListener('click', () => setTheme('light'));
+
+  const nav = document.querySelector('nav.doc-nav');
   const views = document.querySelectorAll('.view');
   nav.addEventListener('click', (e) => {
     const b = e.target.closest('button[data-v]');
