@@ -11,7 +11,7 @@
 | 타이틀바 | 프레임리스 창의 커스텀 바. 슬롯 순서는 **플랫폼 조건**이다(§1.1). 창 컨트롤이 점유하지 않는 빈 영역이 창 드래그 핸들 |
 | 배경 | `--bg-deep` + `--glow-teal` / `--glow-amber` / `--glow-moss` 라디얼 광원 + 미세 별. **정적 렌더** (장식성 무한 애니메이션 금지 — principles §4) |
 | 컬럼 | 유리 카드(`--glass`, `--glass-border`, `--radius-lg`)들의 flex column. 카드 헤더의 eyebrow 라벨은 `--text-2xs` + `--tracking-wider` |
-| eyebrow | `MONTH` / `WEEK` / `TODAY` — 컬럼이 어느 레이어인지 알리는 유일한 표지 |
+| eyebrow | `MONTH` / `WEEK` / `TODAY` — 컬럼이 어느 레이어인지 알리는 유일한 표지. 색은 **`--ink-dim`** 이다 ([ADR-003 §3](../../design-system/decisions/adr-003-contrast-baseline.md) — 유일한 표지를 `--ink-faint` 2.26:1 로 두지 않는다) |
 | 트레이 | 창 밖 상주. 창이 닫힌 동안에도 항상 사용 가능한 복귀 경로 (§6) |
 
 카드 내부 구성은 각 기능(timer, today-tasks, week-plan, milestones, calendar-records,
@@ -402,10 +402,16 @@ focus 실행 중 종료 요청 시 확인 1회를 거친다. 경계는 다음과
 
 | 항목 | 규칙 |
 |---|---|
+| **포커스 표시** | `:focus-visible` 에 `--ink` 링(`--focus-ring-*` 토큰). 이 표의 나머지 규칙이 전부 여기에 의존한다 — 포커스가 보이지 않으면 아래 항목들은 검증할 수 없다 ([ADR-004](../../design-system/decisions/adr-004-focus-and-target.md)) |
+| **조작 타깃** | 히트 영역 `--target-min`(24px) 이상. 라벨을 키우지 않고 투명 패딩으로 넓힌다. 인접 컨트롤의 히트 영역이 겹치지 않는다 (ADR-004 §2) |
 | 내로우 탭 | `tablist` / `tab` / `tabpanel` role. 좌우 화살표로 탭 이동, `Tab` 은 탭 줄을 하나의 정차점으로 취급 |
 | MONTH 오버레이 | **비모달이므로 포커스 트랩을 걸지 않는다.** `Tab` 으로 오버레이 밖(타이머·WEEK·TODAY)에 도달할 수 있어야 한다. 열릴 때 포커스는 오버레이 첫 요소로 이동하되 갇히지 않는다 |
 | 구간 전환 시 포커스 | 포커스된 요소가 접힘으로 사라지면 포커스를 **그 요소를 담고 있던 카드의 컨테이너**로 옮긴다. 문서 처음(body)으로 되돌리지 않는다 |
+| 고대비 모드 | `forced-colors: active` 에서 유리 표면·blur·광원을 포기하고 시스템 색을 따른다. 셸의 카드·오버레이·다이얼로그에 `1px solid CanvasText` 경계를 준다 ([ADR-006 §2](../../design-system/decisions/adr-006-theme-scope.md)) |
 | 트레이 메뉴 | OS 네이티브 메뉴이므로 OS 접근성에 위임한다 |
+
+- 포커스 링이 스크롤 컨테이너(`overflow: hidden`) 경계에서 잘리지 않게 오프셋 2px 만큼의
+  여유를 남긴다 — 구현 시 확인 항목이다 (ADR-004 Consequences).
 
 > TBD: 단축키 표(구간·탭 전환 단축키 유무), 스크린리더용 라이브 영역 문구(타이머 남은
 > 시간 읽기 주기)는 확정하지 않았다. 구현 전 별도로 정한다.
