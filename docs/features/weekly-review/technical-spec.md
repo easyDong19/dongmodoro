@@ -148,7 +148,7 @@ output: z.object({
       week: WeekKey,
       studiedDays: z.number().int(),   // distinct sessions.local_date (kind='focus')
       spentPomos: z.number().int(),    // focus 세션 수
-      budget: z.number().int().nullable(),   // 그 주 스냅샷 예산. 행이 없으면 null = "기록 없음"
+      budget: z.number().int().nullable(),   // 그 주 스냅샷 예산. **행이 없거나 budget 이 NULL 이면** null = "기록 없음" (ADR-018 §2)
       unplannedPomos: z.number().int(),      // 차액 정의 — 파생식 표 (ADR-012 §4)
     })),
     idleWeekCount: z.number().int(),   // 범위 내 기록이 전혀 없는 주 수 (공백 문구용)
@@ -162,7 +162,7 @@ output: z.object({
     id: Id, week: WeekKey, title: z.string(),
     estPomos: z.number().int(),        // 항목 est (Q13 — task est 합이 아니다)
     spentPomos: z.number().int(),
-    remaining: z.number().int().min(1),   // 파생식 표
+    remaining: z.number().int().min(0),   // 파생식 표. 측정값이므로 0 가능 (ADR-019 §1)
     carryWeeks: z.number().int().min(1),  // 파생식 표 (Q12)
   })),
   targetWeekBudget: z.number().int(),  // 확정 섹션 중립 사실용 (ux-spec §7.2). 스냅샷 없으면 기본 예산
@@ -221,9 +221,10 @@ output: z.object({
 2. 재조회한 pending 에 없는 itemId 의 예외는 **무시**한다 (`ignoredExceptionIds`).
    완료·삭제·폐기된 항목, 시스템 항목, 범위 밖 항목이 모두 여기로 흡수된다.
 3. 그 사이 새로 생긴 미완료 항목은 **이월**된다 (`autoCarried`).
-4. `carry_reduced.estPomos` 는 `1..remaining` 으로 **클램프**한다 (`clampedExceptionIds`).
-   거부하지 않는 이유는 2 와 같다 — 패널을 열어둔 채 세션을 돌리면 `remaining` 이
-   줄어들고, 거부하면 정상 사용이 확정을 실패시킨다.
+4. `carry_reduced.estPomos` 는 `1..이월 est` 로 **클램프**한다 (`clampedExceptionIds`).
+   이월 est 는 `max(1, remaining)` 이다 (ADR-019 §1). 거부하지 않는 이유는 2 와 같다 —
+   패널을 열어둔 채 세션을 돌리면 `remaining` 이 줄어들고, 거부하면 정상 사용이 확정을
+   실패시킨다.
 5. 응답은 자동 이월·무시·클램프를 **사실로 실어 보낸다.** 화면은 이를 숨기지 않는다
    (PRD R30, ux-spec §7.3).
 
@@ -266,8 +267,11 @@ Q5 가 닫은 구멍이 다시 열린다. 세션 내 임시 숨김은 renderer �
 ## DB
 
 주 키·달력 키의 포맷과 CHECK 는 ADR-009 §1·ADR-011 §6 을 따른다.
-`weeks.budget` 은 **NOT NULL** 이고 행 생성 시점에 해석된 값이 박제된다 (ADR-013 §1·§2)
-— ADR-011 §1 의 `budget NULL = 기본값 파생` 은 폐기됐다.
+`weeks.budget` 은 **nullable** 이다 (ADR-018 §1). 사용자가 예산을 정한 적이 있으면 행
+생성 시점에 해석된 값이 박제되고(ADR-013 §1·§2), 정한 적이 없으면 NULL 이다 — "아직
+정하지 않았다"와 "예산 0 으로 하겠다"를 데이터에서 구분하기 위해서다. ADR-011 §1 의
+`budget NULL = 기본값 파생`(조회 시점 파생) 은 폐기된 채로 남는다 — NULL 은 파생 신호가
+아니라 **"기록 없음"** 이다.
 
 ### 읽는 것
 
@@ -310,12 +314,13 @@ Q5 가 닫은 구멍이 다시 열린다. 세션 내 임시 숨김은 renderer �
 | 주 소진 | `count(sessions where kind='focus' and local_week = :week)` |
 | 공부한 날 | `count(distinct local_date)` (같은 필터) |
 | 계획에 없던 집중 (`unplannedPomos`) | `주 소진 − Σ(is_system = 0 인 항목의 소진)` — 차액 정의 (ADR-012 §4) |
-| 남은 몫 (`remaining`) | `max(1, week_items.est_pomos − 항목 소진)` (Q13 — 항목 est 기준) |
-| 축소 기본값 | `ceil(remaining / 2)`, 그 뒤 `1 … remaining` 로 클램프 |
+| 남은 몫 (`remaining`) | `max(0, week_items.est_pomos − 항목 소진)` (Q13 — 항목 est 기준). **측정값이므로 0 가능** (ADR-019 §1) |
+| 이월 est (`carryEst`) | `max(1, remaining)` — 하한 1 은 측정값의 성질이 아니라 **이월 규칙**이다 (ADR-019 §1) |
+| 축소 기본값 | `ceil(carryEst / 2)`, 그 뒤 `1 … carryEst` 로 클램프 |
 | 이월 배지 N주째 (`carryWeeks`) | `diffDays(week, origin_week) / 7 + 1` — 시간 모듈의 `diffDays()` 로 계산한다. 문자열 산술·ms 나눗셈 금지 (ADR-010 §2). 사슬 길이 아님 (Q12) |
-| 주 예산 | `weeks.budget` (NOT NULL). 행이 없으면 **"기록 없음"** — 파생하지 않는다 (ADR-013 §1) |
+| 주 예산 | `weeks.budget` (nullable). **행이 없거나 `budget` 이 NULL 이면 "기록 없음"** — 파생하지 않는다 (ADR-018 §1·§2) |
 | 새 `weeks` 행의 기본 예산 | `sum(settings.weekly_capacity)` 를 그 시점에 해석해 저장 |
-| 주간 총 집중 시간 | `그 주 budget × 그 주 focus_min` (길이 변경 전/후 비교에 사용 — ADR-013 §4) |
+| 주간 총 집중 시간 | `그 주 budget × 그 주 focus_min` (길이 변경 전/후 비교에 사용 — ADR-013 §4). `budget` 이 NULL 인 주는 이 값도 **"기록 없음"** 이다 |
 
 - **차액 정의를 쓰는 이유**: `task_id IS NULL` 만 세면, 사후 캡처가 시스템 "기타"
   항목에 붙인 세션이 어느 숫자에도 들어가지 않는다. 명시 항목 10 · 기타 6 · NULL 2 인
@@ -381,9 +386,10 @@ function settle(input): SettleResult {
       const ex = byId[src.id];
       if (ex?.kind === 'drop') continue;
 
-      let est = src.remaining;                         // 예외 없음 = 이월
+      const carryEst = Math.max(1, src.remaining);     // 이월 규칙의 하한 (ADR-019 §1)
+      let est = carryEst;                              // 예외 없음 = 이월
       if (ex?.kind === 'carry_reduced') {
-        est = clamp(ex.estPomos, 1, src.remaining);    // 규칙 4 — 거부하지 않고 클램프
+        est = clamp(ex.estPomos, 1, carryEst);         // 규칙 4 — 거부하지 않고 클램프
         if (est !== ex.estPomos) clamped.push(src.id);
       }
 
@@ -418,11 +424,13 @@ function settle(input): SettleResult {
     for (const w of [...weeksBetween(st.from, st.to), input.targetWeek]) {
       const isRange = w !== input.targetWeek;
       if (!exists('weeks', w)) {
-        const cap = readSetting('weekly_capacity');
+        // weekly_capacity 는 시딩되지 않으므로 NULL 일 수 있다 (ADR-018 §4).
+        // 그때는 두 컬럼을 NULL 로 둔다 — [0,…] 이나 0 을 지어내지 않는다 (ADR-018 §1).
+        const cap = readSetting('weekly_capacity');  // 배열 또는 undefined
         insert('weeks', {
           week: w,
-          capacity: json(cap),
-          budget: sum(cap),                       // 해석된 값을 저장 (ADR-013 §1)
+          capacity: cap ? json(cap) : null,
+          budget:   cap ? sum(cap) : null,        // 해석된 값을 저장 (ADR-013 §1)
           focus_min:       readSetting('focus_min'),
           short_break_min: readSetting('short_break_min'),
           long_break_min:  readSetting('long_break_min'),

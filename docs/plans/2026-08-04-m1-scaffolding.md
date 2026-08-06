@@ -588,7 +588,16 @@ pnpm add better-sqlite3 drizzle-orm
 pnpm add -D drizzle-kit @types/better-sqlite3
 ```
 
-electron 의 Node ABI 와 맞추기 위해 `pnpm add -D electron-rebuild` 후 `package.json` 스크립트에 `"postinstall": "electron-rebuild -f -w better-sqlite3"` 추가.
+electron 의 Node ABI 와 맞추기 위해 `pnpm add -D @electron/rebuild` 후 `package.json` 스크립트에 `"postinstall": "electron-rebuild -f -w better-sqlite3"` 추가.
+
+> **`electron-rebuild` 가 아니라 `@electron/rebuild` 다** (2026-08-06 확인). 구 패키지는
+> 2022-11 에 폐기됐고("Please use @electron/rebuild moving forward. There is no API change,
+> just a package name change") 그 뒤로 갱신이 없다. **바이너리 이름은 여전히
+> `electron-rebuild`** 이므로 `postinstall` 스크립트 문자열은 그대로다.
+>
+> 같은 점검에서 `drizzle-kit` 이 폐기된 하위 의존성 `@esbuild-kit/core-utils`·
+> `@esbuild-kit/esm-loader` 를 끌고 오는 것도 확인했다. 직접 고칠 수 없고 `pnpm audit`
+> 취약점은 0건이라 그대로 둔다 — 설치 시 경고가 뜨는 것이 정상이다.
 
 - [ ] **Step 2: 스키마 작성** — `src/main/db/schema.ts`
 
