@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from 'vitest'
-import { now, dayKey, weekKey, monthKey } from './index'
+import { now, dayKey, weekKey, monthKey, localKeys } from './index'
 
 afterEach(() => vi.useRealTimers())
 
@@ -36,5 +36,57 @@ describe('time module (ADR-009/010)', () => {
     expect(weekKey(new Date(2030, 0, 1))).toBe('2029-12-31') // 2030-01-01(화) → 전년 12/31(월)
     expect(weekKey(new Date(2029, 0, 1))).toBe('2029-01-01') // 1/1 이 월요일인 해 → 자기 자신
     expect(weekKey(new Date(2027, 7, 1))).toBe('2027-07-26') // 월초 일요일 → 전월 월요일
+  })
+})
+
+describe('localKeys — 달력 키 짝 (ADR-022 §1)', () => {
+  it('derives both keys from one instant', () => {
+    expect(localKeys(new Date(2026, 7, 4, 10, 30).getTime())).toEqual({
+      localDate: '2026-08-04', // 화
+      localWeek: '2026-08-03' // 그 주 월
+    })
+  })
+
+  it('agrees with dayKey/weekKey on every weekday of a week', () => {
+    for (let d = 3; d <= 9; d++) {
+      const at = new Date(2026, 7, d, 12)
+      expect(localKeys(at.getTime())).toEqual({ localDate: dayKey(at), localWeek: weekKey(at) })
+      expect(localKeys(at.getTime()).localWeek).toBe('2026-08-03')
+    }
+  })
+
+  /**
+   * 이 테스트가 이 함수의 존재 이유다. 자정을 사이에 둔 두 번의 시계 읽기는 서로 다른
+   * 주를 낸다 — 아래 first/second 가 그 재현이고, localKeys 는 그 갈라짐이 불가능하다.
+   */
+  it('cannot split across midnight the way two separate clock reads do', () => {
+    const sundayLate = new Date(2026, 7, 9, 23, 59, 59, 999) // 일 23:59:59.999
+    const mondayEarly = new Date(2026, 7, 10, 0, 0, 0, 0) // 월 00:00:00.000
+
+    // 따로 읽으면 갈라진다 (버그의 형태)
+    expect(dayKey(sundayLate)).toBe('2026-08-09')
+    expect(weekKey(mondayEarly)).toBe('2026-08-10')
+
+    // 함께 만들면 어느 쪽 순간이든 짝이 맞는다
+    expect(localKeys(sundayLate.getTime())).toEqual({
+      localDate: '2026-08-09',
+      localWeek: '2026-08-03'
+    })
+    expect(localKeys(mondayEarly.getTime())).toEqual({
+      localDate: '2026-08-10',
+      localWeek: '2026-08-10'
+    })
+  })
+
+  it('argless reads the current (fake) clock', () => {
+    vi.useFakeTimers({ now: new Date(2026, 7, 9, 23, 59, 59, 999) })
+    expect(localKeys()).toEqual({ localDate: '2026-08-09', localWeek: '2026-08-03' })
+  })
+
+  it('crosses the year boundary (53-week year)', () => {
+    expect(localKeys(new Date(2027, 0, 1, 9).getTime())).toEqual({
+      localDate: '2027-01-01',
+      localWeek: '2026-12-28'
+    })
   })
 })
