@@ -588,16 +588,32 @@ pnpm add better-sqlite3 drizzle-orm
 pnpm add -D drizzle-kit @types/better-sqlite3
 ```
 
-electron 의 Node ABI 와 맞추기 위해 `pnpm add -D @electron/rebuild` 후 `package.json` 스크립트에 `"postinstall": "electron-rebuild -f -w better-sqlite3"` 추가.
-
-> **`electron-rebuild` 가 아니라 `@electron/rebuild` 다** (2026-08-06 확인). 구 패키지는
-> 2022-11 에 폐기됐고("Please use @electron/rebuild moving forward. There is no API change,
-> just a package name change") 그 뒤로 갱신이 없다. **바이너리 이름은 여전히
-> `electron-rebuild`** 이므로 `postinstall` 스크립트 문자열은 그대로다.
+> **네이티브 재빌드는 하지 않는다 (2026-08-06 실측으로 폐기).** 이 계획서는 원래
+> `electron-rebuild` + `postinstall` 로 electron 의 Node ABI 에 맞춰 재빌드하라고 적었다.
+> **better-sqlite3 13 은 N-API prebuild(`prebuilds/darwin-arm64.node`, node-addon-api)를
+> 싣고 오며 N-API 는 ABI 안정**이므로 재빌드가 불필요하다. 같은 바이너리를 양쪽에서
+> 로드해 확인했다:
 >
-> 같은 점검에서 `drizzle-kit` 이 폐기된 하위 의존성 `@esbuild-kit/core-utils`·
-> `@esbuild-kit/esm-loader` 를 끌고 오는 것도 확인했다. 직접 고칠 수 없고 `pnpm audit`
-> 취약점은 0건이라 그대로 둔다 — 설치 시 경고가 뜨는 것이 정상이다.
+> | 런타임 | `process.versions.modules` | 결과 |
+> |---|---|---|
+> | Node 22.21.1 | 127 | 로드·질의 성공 |
+> | Electron 43.2.0 (Node 24.18.0) | 148 | 로드·질의 성공 |
+>
+> 재빌드를 넣으면 오히려 한쪽 ABI 로 고정돼 **vitest(Node)와 앱(Electron) 중 하나가
+> 깨진다.** 따라서 `@electron/rebuild` 도 `postinstall` 도 추가하지 않는다.
+> (참고: 구 `electron-rebuild` 패키지는 2022-11 폐기됐고 `@electron/rebuild` 가 후속이다 —
+> 재빌드가 필요해지면 그쪽을 쓴다.)
+>
+> **같은 실측에서 ADR-019 의 두 전제도 이 설치본(13.0.2)에서 직접 확인했다** —
+> `pragma foreign_keys` 기본값 **1**(ADR-019 §9), `json_valid()` 동작(JSON1 확장,
+> ADR-019 Consequences). ADR 은 13.0.3 에서 확인했다고 적었으나 13.0.2 도 같다.
+>
+> `drizzle-kit` 이 폐기된 하위 의존성 `@esbuild-kit/core-utils`·`@esbuild-kit/esm-loader`
+> 를 끌고 온다. 직접 고칠 수 없고 `pnpm audit` 취약점은 0건이라 그대로 둔다 — 설치 시
+> 경고가 뜨는 것이 정상이다.
+>
+> better-sqlite3 는 13.0.3 이 나와 있으나 pnpm 의 `minimumReleaseAge`(24h) 창에 아직
+> 들어오지 않아 13.0.2 가 설치된다. 의도된 동작이며 시간이 지나면 자동으로 올라간다.
 
 - [ ] **Step 2: 스키마 작성** — `src/main/db/schema.ts`
 
