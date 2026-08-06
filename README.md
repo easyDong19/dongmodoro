@@ -3,9 +3,15 @@
 월(결과물) → 주(얼마만큼) → 오늘(지금 뭐부터) 3층 계획과 뽀모도로 타이머를
 **한 화면에서 끊기지 않게** 잇는 로컬 데스크톱 앱.
 
-> **현재 상태: 앱 코드 0줄.** 기획·설계 문서와 구현 계획까지 완료된 단계이며,
-> 다음 작업은 [M1 스캐폴딩](docs/plans/2026-08-04-m1-scaffolding.md)이다.
-> 이 저장소의 지금 가치는 코드가 아니라 **결정의 기록**이다.
+> **현재 상태: M1 스캐폴딩 완료. 기능은 아직 없다.**
+> 앱을 실행하면 창이 뜨고, SQLite 가 열려 마이그레이션이 적용되고, 그 스키마 버전이
+> zod 로 검증된 IPC 를 타고 화면에 렌더된다 — 여기까지다. 타이머·오늘 목록 등
+> 사용자가 쓸 기능은 한 줄도 없다.
+> ([M1 계획](docs/plans/2026-08-04-m1-scaffolding.md))
+>
+> 그래서 이 저장소를 읽을 때 코드보다 **결정의 기록**이 여전히 크다. 스택도 스키마도
+> 코드보다 먼저 문서로 확정된 프로젝트이며, 코드는 그 결정이 깨지면 실패하도록
+> 만들어져 있다.
 
 ## 왜 만들었나
 
@@ -33,13 +39,29 @@ zod 검증 IPC / TanStack Query / Tailwind CSS v4 + shadcn/ui / Vitest.
 선택 근거는 전부 [ADR](docs/architecture/decisions/) 로 남아 있다 — 스택이 코드보다
 먼저 결정된 프로젝트다.
 
+## 개발
+
+**요구 환경**: Node 22 LTS 이상, pnpm. 패키지 매니저는 pnpm 만 쓴다
+([ADR-004](docs/architecture/decisions/adr-004-packaging-deploy.md)) — npm·yarn 으로 설치하면
+네이티브 모듈 빌드 허용 설정(`pnpm-workspace.yaml` 의 `allowBuilds`)이 적용되지 않는다.
+
 ```bash
-# M1 완료 후 사용 가능해질 명령 (지금은 package.json 이 없다)
 pnpm install
-pnpm dev        # 개발 실행
-pnpm test       # Vitest
-pnpm build      # 프로덕션 빌드
+pnpm dev          # 개발 실행 (창이 뜬다)
+pnpm test         # Vitest
+pnpm typecheck    # main·renderer 두 tsconfig 를 각각 검사
+pnpm lint         # ESLint — 아키텍처 경계 규칙 포함
+pnpm format       # Prettier
+pnpm build        # 프로덕션 빌드 (out/)
 ```
+
+커밋하면 husky 훅이 Prettier·ESLint·커밋 메시지 형식을 자동으로 검사한다. 훅에 걸리면
+`--no-verify` 로 우회하지 말고 규칙에 맞게 고친다 —
+[ADR-016](docs/architecture/decisions/adr-016-lint-and-git-hooks.md) 이 그 훅을
+"문서로만 존재하던 규칙을 실패하게 만드는 장치"로 정의한다.
+
+> 개발 중 화면에 뜨는 버전은 Electron 의 버전이다. `app.getVersion()` 은 패키징되지 않은
+> 상태에서 Electron 버전을 돌려주며, 앱 버전 `0.1.0` 은 M4 패키징 이후에 나온다.
 
 ## 저장소 구조
 
@@ -49,15 +71,32 @@ dongmodoro/
 ├── CONTEXT.md          # 도메인 용어집 — 캐노니컬 용어의 유일한 출처
 ├── CLAUDE.md           # AI 에이전트 작업 규칙 (용어·브랜치·커밋·이모지 금지)
 ├── CONTRIBUTING.md     # 브랜치 전략 (GitLab Flow 변형, 스쿼시 머지 전용)
+├── src/
+│   ├── main/           # Electron main = 작은 백엔드
+│   │   ├── db/         # Drizzle·better-sqlite3 import 가 허용되는 유일한 하위 트리
+│   │   ├── ipc/        # handleIpc — 발신자 검증·요청/응답 검증의 유일한 등록 경로
+│   │   └── services/   # 리포지토리 포트 (DB 라이브러리를 모른다)
+│   ├── preload/        # contextBridge 화이트리스트 (CJS 로 빌드된다)
+│   ├── renderer/       # React — FSD-lite (app / features / entities / shared)
+│   │   └── shared/styles/  # tokens.css = design-system/tokens.md 의 이식본
+│   └── shared/         # 순수 TS 전용 — Node·DOM API 금지. 시간 모듈과 IPC 계약
+├── drizzle/            # drizzle-kit 이 생성한 SQL 마이그레이션
 └── docs/
     ├── CLAUDE.md       # 문서 작성 규칙 — 폴더별 책임 경계의 정의
     ├── origin/         # ⛔ 원천 초안 (읽기 전용, 구속력 없음)
-    ├── features/       # 기능별 확정 기획 (8개 기능 × overview/prd/ux-spec)
-    ├── architecture/   # 기술 스택·프로세스 구조 + ADR 15건
-    ├── design-system/  # 디자인 토큰·시각 철칙 + ADR 8건 + 와이어프레임
+    ├── features/       # 기능별 확정 기획 (8개 기능)
+    ├── architecture/   # 기술 스택·프로세스 구조 + ADR 24건
+    ├── design-system/  # 디자인 토큰·시각 철칙 + ADR 9건 + 와이어프레임
     ├── decision-log/   # 결정 과정의 기록 (기각된 선택지 포함)
     └── plans/          # 구현 계획서 (마일스톤 단위 작업 지시서)
 ```
+
+폴더 경계는 문서로만 있는 규칙이 아니라 ESLint 가 강제한다 — `src/shared/` 가 Node·DOM 을
+import 하거나, `src/main/db/` 밖에서 Drizzle 을 import 하거나, 시간 모듈 밖에서
+`new Date()` 를 부르면 lint 가 실패한다
+([ADR-008](docs/architecture/decisions/adr-008-code-structure.md) ·
+[ADR-015](docs/architecture/decisions/adr-015-repository-ports.md) ·
+[ADR-009](docs/architecture/decisions/adr-009-time-format-convention.md)).
 
 ### 각 폴더가 하는 일과 힘의 순서
 
@@ -80,9 +119,13 @@ dongmodoro/
 
 | 문서 | 내용 |
 |---|---|
-| [2026-08-04-m1-scaffolding.md](docs/plans/2026-08-04-m1-scaffolding.md) | M1 워킹 스켈레톤 — 태스크 8개. "창이 뜨고, DB 가 열리고, IPC 왕복 1회가 화면에 렌더된다"까지. 기능 코드는 만들지 않는다 |
+| [2026-08-04-m1-scaffolding.md](docs/plans/2026-08-04-m1-scaffolding.md) | M1 워킹 스켈레톤 — 태스크 8개, **완료**. "창이 뜨고, DB 가 열리고, IPC 왕복 1회가 화면에 렌더된다"까지. 기능 코드는 만들지 않는다 |
 
-마일스톤 지도: **M1** 스캐폴딩(다음 작업) → 기능 구현 → **M4** 패키징
+계획서는 실행이 끝나도 고치지 않고 이력으로 남긴다. 실행 중에 계획이 틀린 것으로
+드러난 지점은 계획서 본문에 갱신 블록으로 표시돼 있다 (예: 네이티브 재빌드 불필요,
+리포지토리 페이크 보류).
+
+마일스톤 지도: **M1** 스캐폴딩(완료) → 기능 구현(다음) → **M4** 패키징
 (electron-builder, macOS 서명·공증, 트레이 세부). M1·M4 사이의 세부 분할은
 각 단계 착수 시점에 계획 문서로 추가된다.
 
@@ -92,12 +135,25 @@ dongmodoro/
 
 1. [PRODUCT.md](PRODUCT.md) — 무엇을, 누구를 위해, 왜
 2. [CONTEXT.md](CONTEXT.md) — 용어. 이걸 건너뛰면 "정산"과 "리뷰"를 섞어 쓰게 된다
-3. [docs/features/README.md](docs/features/README.md) — 기능 8개 인덱스. 관심 기능의 overview → prd 순
+3. [docs/features/README.md](docs/features/README.md) — 기능 8개 인덱스. 관심 기능의 overview → prd 순. 문서 세트는 기능마다 다르다 — ux-spec 은 화면 상태·문구가 요구사항 본문보다 길어진 4개 기능에만 있고, technical-spec 은 weekly-review 하나뿐이다 (필요 없는 문서를 만들지 않는 것이 규칙이다)
 4. [docs/architecture/overview.md](docs/architecture/overview.md) — 스택·프로세스 구조·미결정 사항
 5. [docs/design-system/tokens.md](docs/design-system/tokens.md) — 시각 값의 유일한 출처
 6. [docs/design-system/wireframes/v1-wireframe.html](docs/design-system/wireframes/v1-wireframe.html) — 브라우저로 열면 8개 뷰 + 다크/라이트 토글 (구속력 없는 시각 참조)
 
 "왜 이 결정인가"가 궁금해지면 각 문서가 인용하는 ADR → decision-log 순으로 내려간다.
+
+코드부터 보는 편이 빠른 사람은 이 순서가 짧다. 스켈레톤이라 파일이 적고, 각 파일이
+어떤 ADR 의 실행분인지 주석에 적혀 있다.
+
+1. `src/shared/ipc/contracts.ts` — 프로세스 사이를 오가는 것의 정의. 여기서 시작하면
+   main 과 renderer 양쪽으로 갈라진다
+2. `src/main/ipc/handle.ts` — 모든 IPC 가 지나는 한 지점 (발신자 검증 + 양방향 검증)
+3. `src/main/db/schema.ts` — 테이블 7개, CHECK 44개. 제약이 왜 이 형태인지는
+   [ADR-019](docs/architecture/decisions/adr-019-constraint-implementation.md) 가 설명한다
+4. `src/main/index.ts` — 부팅 순서(DB → 핸들러 → 창)와 실패 처리. DB 를 열지 못하면
+   창을 띄우지 않는다 — 기능 없는 창은 사용자에게 정상으로 보이기 때문이다.
+   다운그레이드·손상·마이그레이션 실패는 각각 다른 문장으로 설명하고, 그 밖의 실패도
+   같은 경로로 보내 조용히 사라지지 않게 한다
 
 ## 기여 규칙 요약
 
