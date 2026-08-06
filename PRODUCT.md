@@ -16,7 +16,10 @@ Electron 데스크톱 앱 (렌더러는 웹 기술). 스택은 코드보다 먼�
 - Tailwind CSS v4 + shadcn/ui, 아이콘 lucide-react
 - Vitest + Testing Library. Playwright 는 v1 비범위
 - main = 3층 백엔드(핸들러 → 서비스 → 순수 함수), renderer = FSD-lite, 경계는 zod 검증 IPC 만
-- 구현 현황: **앱 코드 0줄.** 기획·설계 문서와 M1 스캐폴딩 계획까지만 존재한다
+- 구현 현황: **M1 스캐폴딩 완료 — 기능 코드는 아직 없다.** 창·SQLite 스키마와 마이그레이션·
+  zod 검증 IPC 왕복 1회·리포지토리 포트·디자인 토큰과 shadcn 뼈대까지 서 있고,
+  타이머·오늘 목록 등 기능은 한 줄도 없다. 이미 있는 것을 다시 만들지 않도록
+  착수 전에 `src/` 를 먼저 본다
   ([docs/plans/2026-08-04-m1-scaffolding.md](docs/plans/2026-08-04-m1-scaffolding.md))
 
 ## Users
