@@ -35,7 +35,8 @@ CREATE TABLE `sessions` (
 	CONSTRAINT "sessions_ended_after_started" CHECK("sessions"."ended_at" >= "sessions"."started_at"),
 	CONSTRAINT "sessions_duration_range" CHECK(typeof("sessions"."duration_sec") = 'integer' AND "sessions"."duration_sec" >= 0),
 	CONSTRAINT "sessions_local_date_format" CHECK("sessions"."local_date" IS date("sessions"."local_date")),
-	CONSTRAINT "sessions_local_week_monday" CHECK("sessions"."local_week" IS date("sessions"."local_week") AND strftime('%w', "sessions"."local_week") = '1')
+	CONSTRAINT "sessions_local_week_monday" CHECK("sessions"."local_week" IS date("sessions"."local_week") AND strftime('%w', "sessions"."local_week") = '1'),
+	CONSTRAINT "sessions_local_calendar_consistent" CHECK("sessions"."local_week" IS date("sessions"."local_date", '-6 days', 'weekday 1'))
 );
 --> statement-breakpoint
 CREATE INDEX `idx_sessions_local_date` ON `sessions` (`local_date`);--> statement-breakpoint
@@ -122,10 +123,14 @@ CREATE TABLE `weeks` (
 	`long_break_min` integer NOT NULL,
 	`planned_at` text,
 	`settled_at` text,
+	`created_at` text NOT NULL,
+	`updated_at` text NOT NULL,
 	CONSTRAINT "weeks_week_monday" CHECK("weeks"."week" IS date("weeks"."week") AND strftime('%w', "weeks"."week") = '1'),
 	CONSTRAINT "weeks_budget_range" CHECK("weeks"."budget" IS NULL OR (typeof("weeks"."budget") = 'integer' AND "weeks"."budget" >= 0)),
 	CONSTRAINT "weeks_capacity_shape" CHECK("weeks"."capacity" IS NULL OR (json_valid("weeks"."capacity") AND json_array_length("weeks"."capacity") = 7 AND typeof(json_extract("weeks"."capacity", '$[0]')) = 'integer' AND json_extract("weeks"."capacity", '$[0]') >= 0 AND typeof(json_extract("weeks"."capacity", '$[1]')) = 'integer' AND json_extract("weeks"."capacity", '$[1]') >= 0 AND typeof(json_extract("weeks"."capacity", '$[2]')) = 'integer' AND json_extract("weeks"."capacity", '$[2]') >= 0 AND typeof(json_extract("weeks"."capacity", '$[3]')) = 'integer' AND json_extract("weeks"."capacity", '$[3]') >= 0 AND typeof(json_extract("weeks"."capacity", '$[4]')) = 'integer' AND json_extract("weeks"."capacity", '$[4]') >= 0 AND typeof(json_extract("weeks"."capacity", '$[5]')) = 'integer' AND json_extract("weeks"."capacity", '$[5]') >= 0 AND typeof(json_extract("weeks"."capacity", '$[6]')) = 'integer' AND json_extract("weeks"."capacity", '$[6]') >= 0)),
 	CONSTRAINT "weeks_baseline_range" CHECK(typeof("weeks"."focus_min") = 'integer' AND "weeks"."focus_min" >= 1 AND typeof("weeks"."short_break_min") = 'integer' AND "weeks"."short_break_min" >= 1 AND typeof("weeks"."long_break_min") = 'integer' AND "weeks"."long_break_min" >= 1),
 	CONSTRAINT "weeks_planned_at_format" CHECK("weeks"."planned_at" IS NULL OR ("weeks"."planned_at" GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]T[0-9][0-9]:[0-9][0-9]:[0-9][0-9].[0-9][0-9][0-9]Z' AND "weeks"."planned_at" IS strftime('%Y-%m-%dT%H:%M:%fZ', "weeks"."planned_at"))),
-	CONSTRAINT "weeks_settled_at_format" CHECK("weeks"."settled_at" IS NULL OR ("weeks"."settled_at" GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]T[0-9][0-9]:[0-9][0-9]:[0-9][0-9].[0-9][0-9][0-9]Z' AND "weeks"."settled_at" IS strftime('%Y-%m-%dT%H:%M:%fZ', "weeks"."settled_at")))
+	CONSTRAINT "weeks_settled_at_format" CHECK("weeks"."settled_at" IS NULL OR ("weeks"."settled_at" GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]T[0-9][0-9]:[0-9][0-9]:[0-9][0-9].[0-9][0-9][0-9]Z' AND "weeks"."settled_at" IS strftime('%Y-%m-%dT%H:%M:%fZ', "weeks"."settled_at"))),
+	CONSTRAINT "weeks_created_at_format" CHECK("weeks"."created_at" GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]T[0-9][0-9]:[0-9][0-9]:[0-9][0-9].[0-9][0-9][0-9]Z' AND "weeks"."created_at" IS strftime('%Y-%m-%dT%H:%M:%fZ', "weeks"."created_at")),
+	CONSTRAINT "weeks_updated_at_format" CHECK("weeks"."updated_at" GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]T[0-9][0-9]:[0-9][0-9]:[0-9][0-9].[0-9][0-9][0-9]Z' AND "weeks"."updated_at" IS strftime('%Y-%m-%dT%H:%M:%fZ', "weeks"."updated_at"))
 );

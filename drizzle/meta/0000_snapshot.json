@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "334170a0-f3e7-4bbb-a42d-49a2f62aa070",
+  "id": "29fc7dca-1da7-44fa-91c5-c3314eb22a88",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "tables": {
     "milestones": {
@@ -255,6 +255,10 @@
         "sessions_local_week_monday": {
           "name": "sessions_local_week_monday",
           "value": "\"sessions\".\"local_week\" IS date(\"sessions\".\"local_week\") AND strftime('%w', \"sessions\".\"local_week\") = '1'"
+        },
+        "sessions_local_calendar_consistent": {
+          "name": "sessions_local_calendar_consistent",
+          "value": "\"sessions\".\"local_week\" IS date(\"sessions\".\"local_date\", '-6 days', 'weekday 1')"
         }
       }
     },
@@ -751,6 +755,20 @@
           "primaryKey": false,
           "notNull": false,
           "autoincrement": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
         }
       },
       "indexes": {},
@@ -781,6 +799,14 @@
         "weeks_settled_at_format": {
           "name": "weeks_settled_at_format",
           "value": "\"weeks\".\"settled_at\" IS NULL OR (\"weeks\".\"settled_at\" GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]T[0-9][0-9]:[0-9][0-9]:[0-9][0-9].[0-9][0-9][0-9]Z' AND \"weeks\".\"settled_at\" IS strftime('%Y-%m-%dT%H:%M:%fZ', \"weeks\".\"settled_at\"))"
+        },
+        "weeks_created_at_format": {
+          "name": "weeks_created_at_format",
+          "value": "\"weeks\".\"created_at\" GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]T[0-9][0-9]:[0-9][0-9]:[0-9][0-9].[0-9][0-9][0-9]Z' AND \"weeks\".\"created_at\" IS strftime('%Y-%m-%dT%H:%M:%fZ', \"weeks\".\"created_at\")"
+        },
+        "weeks_updated_at_format": {
+          "name": "weeks_updated_at_format",
+          "value": "\"weeks\".\"updated_at\" GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]T[0-9][0-9]:[0-9][0-9]:[0-9][0-9].[0-9][0-9][0-9]Z' AND \"weeks\".\"updated_at\" IS strftime('%Y-%m-%dT%H:%M:%fZ', \"weeks\".\"updated_at\")"
         }
       }
     }

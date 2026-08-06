@@ -128,8 +128,17 @@ export const settings = sqliteTable(
  * 온보딩을 건너뛴 사용자가 첫 뽀모를 완주하면 계획 의사 없이 행이 먼저 생기므로,
  * 그때 `capacity`·`budget` 은 NULL 이다 — 0 을 지어내지 않는다.
  *
- * `updated_at` 이 없는 것은 의도다. mutable 테이블 넷(tasks·week_items·milestones·
- * settings)에 weeks 는 포함되지 않는다(ADR-006 §2) — 스냅샷은 박제되고 갱신되지 않는다.
+ * `created_at`·`updated_at` 이 있는 것은 ADR-006 §2 의 mutable 목록을 ADR-022 §3 이
+ * 정정한 결과다. 불변인 것은 **행이 아니라 스냅샷 컬럼**(`budget`·`capacity`·`focus_min`·
+ * `short_break_min`·`long_break_min`)이며(ADR-013 §3), 행 자체는 계획 확정·주중 재수정·
+ * 정산으로 UPDATE 된다(ADR-013 §2, week-plan R23).
+ *
+ * `planned_at` 으로 갱신 시각을 대신할 수 없다 — week-plan R23 이 "`planned_at` 은 최초
+ * 확정 시각만 담고 주중 재수정으로 다시 확정해도 갱신하지 않는다"고 못박았으므로,
+ * 재수정으로 `budget` 이 바뀌어도 시각 흔적이 남지 않는다.
+ *
+ * 다른 테이블은 PK 가 UUID v7 이라 생성 시각이 ID 에 내장되지만(ADR-006 §1), `weeks` 의
+ * PK 는 자연키(그 주 월요일 날짜)라 **생성 시각을 복원할 방법이 없는 유일한 테이블**이다.
  */
 export const weeks = sqliteTable(
   'weeks',
@@ -146,7 +155,9 @@ export const weeks = sqliteTable(
     /** 순간. 주간 계획 확정 시각. */
     plannedAt: text('planned_at'),
     /** 순간. 정산 시각. 정산 필요 **판정**은 워터마크 단독이며 이 값은 이력 전용이다. */
-    settledAt: text('settled_at')
+    settledAt: text('settled_at'),
+    createdAt: text('created_at').notNull().$defaultFn(now),
+    updatedAt: text('updated_at').notNull().$defaultFn(now).$onUpdate(now)
   },
   (t) => [
     check('weeks_week_monday', weekKeyCheck(t.week)),
@@ -178,7 +189,9 @@ export const weeks = sqliteTable(
       sql`${isInt(t.focusMin)} AND ${t.focusMin} >= 1 AND ${isInt(t.shortBreakMin)} AND ${t.shortBreakMin} >= 1 AND ${isInt(t.longBreakMin)} AND ${t.longBreakMin} >= 1`
     ),
     check('weeks_planned_at_format', nullableInstant(t.plannedAt)),
-    check('weeks_settled_at_format', nullableInstant(t.settledAt))
+    check('weeks_settled_at_format', nullableInstant(t.settledAt)),
+    check('weeks_created_at_format', instant(t.createdAt)),
+    check('weeks_updated_at_format', instant(t.updatedAt))
   ]
 )
 
@@ -411,6 +424,24 @@ export const sessions = sqliteTable(
     check('sessions_duration_range', sql`${isInt(t.durationSec)} AND ${t.durationSec} >= 0`),
     check('sessions_local_date_format', dateKey(t.localDate)),
     check('sessions_local_week_monday', weekKeyCheck(t.localWeek)),
+    /**
+     * 두 달력 키의 **정합성** (ADR-022 §2). 위 두 CHECK 은 각 값이 혼자 유효한지만 보므로
+     * `local_date = '1999-01-01'` + `local_week = '2026-08-03'` 이 통과한다. 캘린더는
+     * `local_date` 를, 집계·정산은 `local_week` 를 읽는데(ADR-012 §1) 검산식
+     * `주간 총 소진 = Σ(항목 소진) + 미분류` 가 `local_week` 만 쓰므로 어긋나도 신호가 없다.
+     *
+     * `'-6 days'` 를 **먼저** 두는 것이 이 식의 전부다. SQLite 의 `weekday 1` 은 이미
+     * 월요일이면 이동하지 않으므로 `'weekday 1','-7 days'` 는 월요일 입력에 전주 월요일을
+     * 낸다 — 40,000일 중 5,714일(모든 월요일) 오답이다 (ADR-021 §5 의 식이 이것이었다).
+     *
+     * NULL-safe 를 위해 `IS` 를 쓴다. 다만 `IS` 는 "둘 다 NULL 이면 통과"를 만들므로,
+     * 이 CHECK 의 방어는 **두 컬럼의 NOT NULL 선언에 의존한다.** 둘 중 하나라도 nullable
+     * 로 바꾸면 이 제약은 조용히 fail-open 한다.
+     */
+    check(
+      'sessions_local_calendar_consistent',
+      sql`${t.localWeek} IS date(${t.localDate}, '-6 days', 'weekday 1')`
+    ),
     index('idx_sessions_local_date').on(t.localDate),
     index('idx_sessions_local_week').on(t.localWeek),
     /**

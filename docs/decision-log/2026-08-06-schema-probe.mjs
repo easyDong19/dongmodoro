@@ -71,6 +71,9 @@ const T = {
     long_break_min: 15,
     planned_at: I,
     settled_at: null,
+    // ADR-022 §3 — weeks 는 mutable 이므로 두 컬럼이 NOT NULL 로 추가됐다.
+    created_at: I,
+    updated_at: I,
   }),
   milestones: () => ({
     id: uid('ms'),
@@ -198,7 +201,7 @@ const INSTANT_COLS = [
   ['task_pulls', 'removed_at'], ['task_pulls', 'created_at'], ['task_pulls', 'updated_at'],
   ['tasks', 'completed_at'], ['tasks', 'created_at'], ['tasks', 'updated_at'], ['tasks', 'deleted_at'],
   ['week_items', 'completed_at'], ['week_items', 'dropped_at'], ['week_items', 'created_at'], ['week_items', 'updated_at'], ['week_items', 'deleted_at'],
-  ['weeks', 'planned_at'], ['weeks', 'settled_at'],
+  ['weeks', 'planned_at'], ['weeks', 'settled_at'], ['weeks', 'created_at'], ['weeks', 'updated_at'],
 ];
 const BAD_INSTANTS = [
   'Z', '2026-08-03', '2026-08-03T09:00:00Z', '2026-08-03 09:00:00.000Z', 'garbage', '',
@@ -350,7 +353,24 @@ console.log('--- extra / self-directed ---');
 t("week_items.title = '' (no length constraint)", 'none', 'week_items', { title: '' }, 'accept');
 t("tasks.id = '' (no id constraint)", 'none', 'tasks', { id: '' }, 'accept');
 t('week_items week < origin_week (origin in the future)', 'none', 'week_items', { week: MON, origin_week: '2027-06-07' }, 'accept');
-t('sessions local_date outside local_week', 'none', 'sessions', { local_date: '2027-03-01', local_week: MON }, 'accept');
+// ADR-022 §2 가 정합성 CHECK 을 추가하기 전에는 통과했다 (캘린더와 집계가 다른 주를 가리킴).
+t('sessions local_date outside local_week', 'sessions_local_calendar_consistent', 'sessions', { local_date: '2027-03-01', local_week: MON }, 'reject');
+
+// ---------- 7. ADR-022 §2 — local_date / local_week 정합성 ----------
+// weeks 에는 MON(2026-08-03)·MON2(2026-08-10) 두 행만 있으므로 local_week 는 이 둘만 쓴다.
+console.log('--- local_date / local_week consistency (ADR-022 §2) ---');
+for (const [d, label] of [
+  ['2026-08-03', 'Mon (self)'], ['2026-08-04', 'Tue'], ['2026-08-05', 'Wed'], ['2026-08-06', 'Thu'],
+  ['2026-08-07', 'Fri'], ['2026-08-08', 'Sat'], ['2026-08-09', 'Sun'],
+]) {
+  t(`sessions ${d} ${label} -> ${MON}`, 'sessions_local_calendar_consistent', 'sessions', { local_date: d, local_week: MON }, 'accept');
+}
+t(`sessions 2026-08-10 Mon -> ${MON2}`, 'sessions_local_calendar_consistent', 'sessions', { local_date: '2026-08-10', local_week: MON2 }, 'accept');
+// 자정을 걸친 두 번의 시계 읽기가 만드는 형태 (ADR-022 §1 의 재현)
+t('sessions Sun 23:59 date + next-week key', 'sessions_local_calendar_consistent', 'sessions', { local_date: '2026-08-09', local_week: MON2 }, 'reject');
+t('sessions Mon 00:00 date + prev-week key', 'sessions_local_calendar_consistent', 'sessions', { local_date: '2026-08-10', local_week: MON }, 'reject');
+// ADR-021 §5 의 식 `date(x,'weekday 1','-7 days')` 였다면 이 두 건이 뒤집힌다 (모든 월요일 오답).
+t('sessions Mon self-week (would fail with the -7 days form)', 'sessions_local_calendar_consistent', 'sessions', { local_date: MON, local_week: MON }, 'accept');
 // ADR-021 §1 이 정수 강제를 추가하기 전에는 통과했다 (정렬 키가 TEXT 로 오염됨).
 t(
   "milestones.sort_order = 'abc'",
