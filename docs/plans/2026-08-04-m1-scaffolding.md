@@ -803,10 +803,22 @@ export function migrateDb(
 
 ### Task 5: 리포지토리 포트 패턴 고정 (ADR-015)
 
-포트·UoW·Drizzle 구현체·페이크·계약 테스트를 최소 1세트 만들어 이후 모든 기능이 복제할 패턴을 코드로 고정한다. 대상은 스캐폴딩에 실재하는 가장 단순한 테이블인 `settings`.
+포트·UoW·Drizzle 구현체를 최소 1세트 만들어 이후 모든 기능이 복제할 패턴을 코드로 고정한다. 대상은 스캐폴딩에 실재하는 가장 단순한 테이블인 `settings`.
+
+> **⚠️ 페이크와 계약 테스트는 만들지 않는다 (2026-08-06 갱신).**
+> 이 계획서가 적은 `memory.ts` + `settings.contract.test.ts` 는
+> [ADR-023](../architecture/decisions/adr-023-repository-port-rationale.md) 이 **보류**시켰다.
+> 착수 전 격리 조사 3건에서 ① 로컬 우선 데스크톱 앱 8종 중 페이크로 데이터 계층을 대체한
+> 사례 0건 ② 우리 스키마로 인메모리 실 DB 를 세우는 비용이 **0.54ms** 라 페이크가 아껴줄
+> 시간이 없음 ③ `Map` 페이크가 CHECK 44개·FK 6개를 재현하지 못해 계약 스위트를 오히려
+> 얕게 만듦이 확인됐다.
+>
+> 아래 Step 1 의 계약 테스트 코드와 Step 3 의 `memory.ts` 블록은 **이력으로 남긴 것이며
+> 실행 대상이 아니다.** 원본은 ADR-015(§1·§2·§3·§5) + ADR-023 이다.
+> UoW 는 **동기 그대로**다 — ADR-023 §2.
 
 **Files:**
-- Create: `src/main/services/ports.ts`, `src/main/db/repositories/drizzle.ts`, `src/main/db/repositories/memory.ts`, `src/main/db/repositories/settings.contract.test.ts`
+- Create: `src/main/services/ports.ts`, `src/main/db/repositories/drizzle.ts`, `src/main/db/repositories/settings.test.ts`
 
 **Interfaces:**
 - Consumes: Task 4 의 `openDb`/`migrateDb`(계약 테스트에서 인메모리 실 DB 준비), `schema.ts` 의 `settings` 테이블.
