@@ -1,0 +1,70 @@
+@import 'tailwindcss';
+@import './fonts.css';
+@import './tokens.css';
+
+/* Tailwind 의 간격 스케일을 px 로 바꾼다. 기본값은 0.25rem 인데 tokens.css 의
+   html { font-size: 62.5% } 때문에 1rem 이 10px 이라, 그대로 두면 모든 간격 유틸리티가
+   의도한 값의 62.5% 로 줄어든다 (h-9 가 36px 가 아니라 22.5px 로 렌더된다 — 빌드한 앱에서
+   실측). design-system ADR-007 이 "폰트 크기만 rem, 그 밖은 px" 라고 정한 규칙도 같이
+   깨진다. 4px 로 고정하면 h-9 = 36px 처럼 유틸리티 이름이 뜻하는 px 값 그대로가 된다.
+
+   이것은 spacing 토큰화가 아니다 — Tailwind 기본 스케일의 단위를 바로잡은 것뿐이고,
+   토큰 결정은 실측할 레이아웃이 생길 때까지 미뤄져 있다 (tokens.md §10). */
+@theme {
+  --spacing: 4px;
+}
+
+/* Tailwind 색 유틸리티를 토큰 참조로 매핑한다.
+
+   ⚠️ `@theme inline` 을 쓰지 않는다. inline 은 참조를 빌드 시점에 풀어 유틸리티에 값을
+   박아버린다 — bg-teal 이 다크 값 #6fd4b8 로 굳어서, data-theme 을 light 로 바꿔
+   --teal 이 #216e59 가 돼도 버튼 배경이 따라오지 않았다 (빌드한 앱에서 실측).
+   inline 없이 두면 유틸리티가 var(--color-teal) → var(--teal) 로 두 번 참조하고,
+   토큰 값이 바뀌는 순간 화면도 같이 바뀐다.
+
+   폰트·radius·text 크기는 여기서 다시 선언하지 않는다 — Tailwind 의 기본 테마가 쓰는
+   변수 이름(--font-sans, --radius-md, --text-sm …)이 tokens.css 의 토큰 이름과 같고,
+   tokens.css 는 레이어 밖이라 @layer theme 의 기본값을 이미 덮는다. 여기에 또 쓰면
+   같은 값이 두 벌이 된다. */
+@theme {
+  --color-bg-deep: var(--bg-deep);
+
+  --color-ink: var(--ink);
+  --color-ink-dim: var(--ink-dim);
+  --color-ink-faint: var(--ink-faint);
+
+  --color-teal: var(--teal);
+  --color-amber: var(--amber);
+  --color-danger: var(--danger);
+
+  --color-glass: var(--glass);
+  --color-glass-strong: var(--glass-strong);
+  --color-glass-border: var(--glass-border);
+  --color-glass-border-soft: var(--glass-border-soft);
+  --color-control-border: var(--control-border);
+}
+
+body {
+  background: var(--bg-deep);
+  color: var(--ink);
+  font-family: var(--font-sans);
+}
+
+/* :focus-visible 에서만 링을 그린다 — 마우스 클릭에 링이 뜨지 않게 (design-system ADR-004).
+   outline 을 대체 표시 없이 지우지 않는다. */
+:focus-visible {
+  outline: var(--focus-ring-width) solid var(--focus-ring-color);
+  outline-offset: var(--focus-ring-offset);
+}
+
+/* 조작 가능한 요소의 히트 영역 하한 (WCAG 2.2 SC 2.5.8 AA, design-system ADR-004 §2).
+   라벨·아이콘을 키워 달성하지 않으므로 최소 크기만 걸고 시각 크기는 건드리지 않는다. */
+button,
+[role='button'],
+a[href],
+input,
+select,
+summary {
+  min-height: var(--target-min);
+  min-width: var(--target-min);
+}

@@ -1,0 +1,40 @@
+/* 로컬 번들 폰트. 데스크톱 앱이라 CDN 을 쓸 수 없다 — 두 폰트 모두 npm 패키지로
+   받아 vite 가 빌드 산출물에 넣는다. 저장소에 바이너리를 커밋하지 않는 이유는
+   라이선스 파일이 패키지에 함께 오고 버전이 lockfile 로 고정되기 때문이다.
+
+   패밀리 이름은 tokens.md §2.1 의 --font-sans / --font-mono 값과 정확히 같아야 한다.
+   Pretendard 는 패키지가 이미 'Pretendard Variable' 로 선언하므로 그 CSS 를 그대로 쓰고,
+   Azeret Mono 는 @fontsource 가 'Azeret Mono Variable' 로 선언해 토큰과 어긋나므로
+   같은 woff2 를 토큰이 부르는 이름으로 다시 선언한다. (토큰 값 변경은 ADR 선행 —
+   tokens.md §10. 이름을 맞추는 쪽이 토큰을 건드리지 않는 길이다.)
+
+   두 폰트 모두 SIL Open Font License 1.1:
+   - Pretendard  (c) 2021 Kil Hyung-jin — node_modules/pretendard/README.md
+   - Azeret Mono (c) Displaay Type Foundry — node_modules/@fontsource-variable/azeret-mono/LICENSE */
+
+@import 'pretendard/dist/web/variable/pretendardvariable.css';
+
+@font-face {
+  font-family: 'Azeret Mono';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 100 900;
+  src: url('@fontsource-variable/azeret-mono/files/azeret-mono-latin-wght-normal.woff2')
+    format('woff2-variations');
+  unicode-range:
+    U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329,
+    U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: 'Azeret Mono';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 100 900;
+  src: url('@fontsource-variable/azeret-mono/files/azeret-mono-latin-ext-wght-normal.woff2')
+    format('woff2-variations');
+  unicode-range:
+    U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329,
+    U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F,
+    U+A720-A7FF;
+}
