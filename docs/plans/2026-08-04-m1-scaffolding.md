@@ -20,7 +20,9 @@
 - 시간: `now()`/`dayKey()`/`weekKey()`/`monthKey()` 는 `src/shared/time/` 모듈만 소유. 그 모듈 밖에서 `new Date()` 직접 호출 금지 (ADR-009 §3). 저장 포맷은 순간=UTC ISO `'...Z'`, 달력 키=`'YYYY-MM-DD'`/`'YYYY-MM'`, 길이=INTEGER+`_sec`/`_min` 접미사, epoch ms 저장 금지 (ADR-009 §1).
 - 주 시작 = 월요일, 주 키 = 그 주 월요일 날짜 `'YYYY-MM-DD'`, 요일 배열 index 0 = 월요일 (ADR-010).
 - NOT NULL·CHECK·FK 제약은 **첫 마이그레이션에 전부** 넣는다 — SQLite 는 나중에 추가하려면 테이블 재작성이다 (ADR-011 §6).
-- 연결마다 PRAGMA: `foreign_keys = ON`(better-sqlite3 기본 OFF), `journal_mode = WAL`, `synchronous = NORMAL`, `busy_timeout = 5000` (ADR-011 §7).
+- 연결마다 PRAGMA: `foreign_keys = ON`, `journal_mode = WAL`, `synchronous = NORMAL`, `busy_timeout = 5000` (ADR-011 §7).
+  ADR-011 §7 의 근거였던 "better-sqlite3 기본 OFF" 는 **사실이 아니다**(13.0.3 기본값 1 — ADR-019 §9).
+  그래도 **명시한다** — 버전에 따라 달라질 수 있는 것에 의존하지 않기 위해서다.
 - 렌더되는 UI 에 이모지 금지, 시각 값은 [design-system/tokens.md](../design-system/tokens.md) 의 토큰 이름으로만 (프로젝트 CLAUDE.md).
 - 커밋 메시지는 영어, Conventional Commits. 이 계획의 작업 브랜치는 `feature/m1-scaffolding` 하나이며 태스크마다 커밋한다.
 - 버전 플로어(실행 시점 최신 설치, 이 아래로는 금지): Node 22 LTS, Electron ≥ 35, electron-vite ≥ 3, React 19, drizzle-orm ≥ 0.36(sqlite `check()` 지원 필수), better-sqlite3 ≥ 11, zod ≥ 3.24, @tanstack/react-query ≥ 5, tailwindcss ≥ 4, vitest ≥ 2.
@@ -45,9 +47,9 @@ src/
 │   ├── services/
 │   │   └── ports.ts          # 리포지토리 포트 + UnitOfWork 인터페이스 (ADR-015)
 │   ├── db/                   # Drizzle import 가 허용되는 유일한 하위 트리
-│   │   ├── schema.ts         # Drizzle 스키마 (ADR-011~014 전체)
+│   │   ├── schema.ts         # Drizzle 스키마 (ADR-011~014 + 018·019 실행분)
 │   │   ├── open.ts           # 연결 + PRAGMA 세트
-│   │   ├── migrate.ts        # 백업 → 버전 검사 → 마이그레이션 적용
+│   │   ├── migrate.ts        # 백업 → 버전 검사 → 마이그레이션 적용 (ADR-020)
 │   │   └── repositories/
 │   │       ├── drizzle.ts    # 포트의 Drizzle 구현체 + UoW
 │   │       └── memory.ts     # 인메모리 페이크 (테스트 더블)
@@ -556,7 +558,20 @@ export const api = window.api
 
 ### Task 4: DB 계층 — 스키마·PRAGMA·백업·마이그레이션
 
-가장 큰 태스크. 스키마는 ADR-011 을 ADR-012~014 정정분까지 반영해 옮긴 것이며, **여기서 새 설계 결정을 하지 않는다.**
+가장 큰 태스크. **여기서 새 설계 결정을 하지 않는다.**
+
+> **⚠️ 스키마·마이그레이션의 원본은 이 문서가 아니다 (2026-08-05 갱신).**
+> 이 계획서가 들고 있던 `schema.ts` 코드 블록은 삭제했다. DB 계층 착수 전 격리 심사에서
+> 40건 가까운 문제가 나와 [ADR-018](../architecture/decisions/adr-018-first-run-state.md) ·
+> [ADR-019](../architecture/decisions/adr-019-constraint-implementation.md) ·
+> [ADR-020](../architecture/decisions/adr-020-db-safeguards.md) 이 추가됐고, 그 결과 계획서의
+> 사본이 **틀린 스키마**가 됐기 때문이다 (fail-open CHECK, `budget` NOT NULL, `task_pulls`
+> 컬럼 3종 누락 등).
+>
+> **원본 순서**: [ADR-011](../architecture/decisions/adr-011-schema-final.md)(골격)
+> → ADR-012·013·014(정정) → **ADR-018·019·020(실행분 확정, 최신)**.
+> 충돌하면 번호가 큰 쪽이 이긴다. 스키마를 두 곳에 두지 않는 것이 이 변경의 목적이므로,
+> **여기에 코드 블록을 다시 넣지 않는다.**
 
 **Files:**
 - Create: `drizzle.config.ts`, `src/main/db/schema.ts`, `src/main/db/open.ts`, `src/main/db/migrate.ts`, `src/main/db/migrate.test.ts`, `drizzle/`(생성물)
@@ -577,119 +592,28 @@ electron 의 Node ABI 와 맞추기 위해 `pnpm add -D electron-rebuild` 후 `p
 
 - [ ] **Step 2: 스키마 작성** — `src/main/db/schema.ts`
 
-컬럼 주석의 근거: ①=ADR-011 ②=ADR-012 ③=ADR-013 ④=ADR-014 ⑤=ADR-009 ⑥=ADR-010.
+ADR 을 열고 그대로 옮긴다. 아래는 **읽을 순서와 빠뜨리기 쉬운 지점의 체크리스트**이며,
+값·식의 원본이 아니다.
 
-```ts
-import { sqliteTable, text, integer, primaryKey, check, index } from 'drizzle-orm/sqlite-core'
-import { sql } from 'drizzle-orm'
+| # | 확인할 것 | 원본 |
+|---|---|---|
+| 1 | 테이블 7종 골격과 불변 달력 키, `completed_at` 통일 | ADR-011 §1~§5 |
+| 2 | 집계 술어가 요구하는 컬럼(`local_week`·`local_date`·`is_system`) | ADR-012 |
+| 3 | `weeks` 의 두 스냅샷 분리 — **`budget` 은 nullable 이다** | **ADR-018 §1** |
+| 4 | 달력 키·순간 CHECK 을 **NULL-safe 형태**로 (`IS date(...)`). `GLOB '[0-9]…'` 는 날짜 키에 쓰지 않는다 | **ADR-019 §2** |
+| 5 | 순간 컬럼 **21개 전부**에 형식 CHECK. `GLOB '*Z'` 는 `'Z'` 한 글자를 통과시킨다 | **ADR-019 §2** |
+| 6 | 값 범위 CHECK — `is_system IN (0,1)`, est_pomos 조건부, `json_array_length(capacity)=7`, `duration_sec >= 0`, `ended_at >= started_at` | **ADR-019 §3** |
+| 7 | `sessions.local_week` → `weeks(week)` FK. **`week_items.week` 에는 걸지 않는다**(정산 트랜잭션 순서 때문) | **ADR-019 §4** |
+| 8 | `task_pulls` 컬럼 3종 추가 — `removed_at`·`created_at`·`updated_at` | **ADR-019 §5** |
+| 9 | `settings.updated_at` + `CHECK(json_valid(value))`, 전 `updated_at` 에 `$onUpdate` | **ADR-019 §6** |
+| 10 | 부분 UNIQUE 인덱스 — 주당 시스템 기타 항목 1개 | **ADR-019 §7** |
+| 11 | 인덱스 정의 다듬기(신설은 미룸) | ADR-019 §8 |
+| 12 | 첫 실행 시딩 목록과 `settings.value` 의 NULL 표현 | **ADR-018 §4·§5** |
 
-// 재사용 CHECK 패턴 (⑤): 순간 = '...Z' 접미사, 달력 키 = GLOB
-const DATE_GLOB = "'[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]'"
-const MONTH_GLOB = "'[0-9][0-9][0-9][0-9]-[0-9][0-9]'"
-
-export const settings = sqliteTable('settings', {
-  key: text('key').primaryKey(),
-  value: text('value').notNull() // JSON
-})
-// 사용 키: weekly_capacity [월..일](⑥), focus_min/short_break_min/long_break_min(25/5/15),
-//          last_settled_week(월요일 날짜, ⑥), plan_lead_days(기본 1, ⑥),
-//          theme('system'|'light'|'dark', 기본 'system' — design-system ADR-008)
-
-export const milestones = sqliteTable('milestones', {
-  id: text('id').primaryKey(),                       // uuid v7 (ADR-006)
-  month: text('month').notNull(),                    // 'YYYY-MM'
-  title: text('title').notNull(),
-  completedAt: text('completed_at'),                 // ① §5: done boolean 폐지
-  sortOrder: integer('sort_order').notNull(),
-  createdAt: text('created_at').notNull(),
-  updatedAt: text('updated_at').notNull(),
-  archivedAt: text('archived_at')                    // ④: 물리 삭제 + 보관. deleted_at 없음
-}, (t) => [
-  check('milestones_month_format', sql`${t.month} GLOB ${sql.raw(MONTH_GLOB)}`)
-])
-
-export const weeks = sqliteTable('weeks', {
-  week: text('week').primaryKey(),                   // 그 주 월요일 날짜 (⑥)
-  budget: integer('budget').notNull(),               // ③ §1: NULL 파생 폐지, 확정 저장
-  capacity: text('capacity').notNull(),              // JSON [월..일] 스냅샷
-  focusMin: integer('focus_min').notNull(),
-  shortBreakMin: integer('short_break_min').notNull(),
-  longBreakMin: integer('long_break_min').notNull(),
-  plannedAt: text('planned_at'),
-  settledAt: text('settled_at'),
-  createdAt: text('created_at').notNull(),           // mutable 테이블 공통 (ADR-006)
-  updatedAt: text('updated_at').notNull()
-}, (t) => [
-  check('weeks_week_is_monday', sql`strftime('%w', ${t.week}) = '1'`)
-])
-
-export const weekItems = sqliteTable('week_items', {
-  id: text('id').primaryKey(),
-  week: text('week').notNull(),
-  title: text('title').notNull(),
-  estPomos: integer('est_pomos').notNull(),
-  milestoneId: text('milestone_id')
-    .references(() => milestones.id, { onDelete: 'set null' }), // ④ §3
-  days: text('days').notNull(),                      // JSON [월..일] 의도, [] = 미배치
-  originWeek: text('origin_week').notNull(),         // ① §4: 이월 배지 날짜 산술용
-  carryFromId: text('carry_from_id'),                // 직전 원본 추적 전용 (자기참조 FK 는 마이그레이션 SQL 로)
-  completedAt: text('completed_at'),                 // ① §5: status enum 폐지
-  droppedAt: text('dropped_at'),                     //   둘 다 NULL = active
-  isSystem: integer('is_system').notNull().default(0), // ① §4: 주차별 "기타" 행
-  createdAt: text('created_at').notNull(),
-  updatedAt: text('updated_at').notNull(),
-  deletedAt: text('deleted_at')                      // ④ §1: soft delete
-}, (t) => [
-  check('week_items_week_is_monday', sql`strftime('%w', ${t.week}) = '1'`),
-  check('week_items_origin_week_is_monday', sql`strftime('%w', ${t.originWeek}) = '1'`),
-  index('idx_week_items_week').on(t.week)
-])
-
-export const tasks = sqliteTable('tasks', {
-  id: text('id').primaryKey(),
-  weekItemId: text('week_item_id').notNull()
-    .references(() => weekItems.id),                 // NOT NULL — 부모 없는 task 는 "기타" 행에
-  title: text('title').notNull(),
-  estPomos: integer('est_pomos'),                    // 직접 추가 task 는 추정 없음 → NULL 허용
-  completedAt: text('completed_at'),                 // ① §5
-  createdAt: text('created_at').notNull(),
-  updatedAt: text('updated_at').notNull(),
-  deletedAt: text('deleted_at')                      // ④ §1
-}, (t) => [
-  index('idx_tasks_week_item').on(t.weekItemId)
-])
-
-export const taskPulls = sqliteTable('task_pulls', {
-  taskId: text('task_id').notNull().references(() => tasks.id),
-  pullDate: text('pull_date').notNull()              // ① §2: 행 승격 — 재-pull 이력 보존
-}, (t) => [
-  primaryKey({ columns: [t.taskId, t.pullDate] }),
-  check('task_pulls_date_format', sql`${t.pullDate} GLOB ${sql.raw(DATE_GLOB)}`),
-  index('idx_task_pulls_date').on(t.pullDate)
-])
-
-export const sessions = sqliteTable('sessions', {
-  id: text('id').primaryKey(),
-  startedAt: text('started_at').notNull(),           // 순간 (⑤)
-  endedAt: text('ended_at').notNull(),
-  durationSec: integer('duration_sec').notNull(),
-  kind: text('kind').notNull(),
-  taskId: text('task_id').references(() => tasks.id), // NULL = 미분류 집중
-  note: text('note'),
-  localDate: text('local_date').notNull(),           // ① §3: insert 시 1회 계산, 불변
-  localWeek: text('local_week').notNull(),
-  createdAt: text('created_at').notNull(),
-  updatedAt: text('updated_at').notNull()            // ① §3: 사후 캡처가 UPDATE 하므로
-}, (t) => [
-  check('sessions_kind', sql`${t.kind} IN ('focus','short','long')`),
-  check('sessions_started_utc', sql`${t.startedAt} GLOB '*Z'`),
-  check('sessions_local_date_format', sql`${t.localDate} GLOB ${sql.raw(DATE_GLOB)}`),
-  check('sessions_local_week_is_monday', sql`strftime('%w', ${t.localWeek}) = '1'`),
-  index('idx_sessions_local_week').on(t.localWeek),
-  index('idx_sessions_local_date').on(t.localDate),
-  index('idx_sessions_task').on(t.taskId)
-])
-```
+- 자기참조 FK(`week_items.carry_from_id`)는 drizzle-kit 이 빠뜨릴 수 있다 — Step 3 에서 확인한다.
+- 심사에서 **알고도 미룬 것**이 있다. 무엇을 왜 미뤘는지는
+  [DB 계층 착수 전 심사](../decision-log/2026-08-05-db-layer-audit.md) 에 있다. 구현 중
+  "이건 왜 이렇게 돼 있지"가 나오면 그 문서를 먼저 본다.
 
 `drizzle.config.ts`:
 
