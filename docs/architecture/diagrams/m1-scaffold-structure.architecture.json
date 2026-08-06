@@ -1,0 +1,214 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "dongmodoro — M1 스캐폴딩 구조",
+    "subtitle": "프로세스 경계와 모듈 배선 (기능 코드 이전 시점)",
+    "output": "m1-scaffold-structure.html"
+  },
+  "components": [
+    {
+      "id": "app",
+      "type": "frontend",
+      "label": "renderer/app",
+      "sublabel": "App.tsx · useQuery",
+      "pos": [60, 100],
+      "size": [170, 60]
+    },
+    {
+      "id": "api",
+      "type": "frontend",
+      "label": "renderer/shared",
+      "sublabel": "api.ts · window.api",
+      "pos": [270, 100],
+      "size": [170, 60]
+    },
+    {
+      "id": "shared",
+      "type": "messagebus",
+      "label": "src/shared",
+      "sublabel": "zod contracts · time",
+      "pos": [480, 250],
+      "size": [190, 60],
+      "tag": "pure TS"
+    },
+    {
+      "id": "preload",
+      "type": "security",
+      "label": "preload/index.ts",
+      "sublabel": "contextBridge only",
+      "pos": [270, 250],
+      "size": [170, 60]
+    },
+    {
+      "id": "handle",
+      "type": "security",
+      "label": "main/ipc/handle.ts",
+      "sublabel": "sender check + parse",
+      "pos": [270, 400],
+      "size": [170, 60]
+    },
+    {
+      "id": "system",
+      "type": "backend",
+      "label": "main/ipc/system.ts",
+      "sublabel": "system:getAppInfo",
+      "pos": [480, 400],
+      "size": [170, 60]
+    },
+    {
+      "id": "boot",
+      "type": "backend",
+      "label": "main/index.ts",
+      "sublabel": "bootstrap order",
+      "pos": [60, 400],
+      "size": [170, 60]
+    },
+    {
+      "id": "ports",
+      "type": "backend",
+      "label": "main/services",
+      "sublabel": "ports · UnitOfWork",
+      "pos": [690, 400],
+      "size": [170, 60]
+    },
+    {
+      "id": "mig",
+      "type": "cloud",
+      "label": "drizzle/0000_*.sql",
+      "sublabel": "bundled migration",
+      "pos": [60, 550],
+      "size": [170, 60]
+    },
+    {
+      "id": "dbcore",
+      "type": "database",
+      "label": "main/db",
+      "sublabel": "open.ts · migrate.ts",
+      "pos": [270, 550],
+      "size": [170, 60]
+    },
+    {
+      "id": "repo",
+      "type": "database",
+      "label": "db/schema · repos",
+      "sublabel": "Drizzle-only zone",
+      "pos": [480, 550],
+      "size": [170, 60]
+    },
+    {
+      "id": "appdb",
+      "type": "database",
+      "label": "app.db (userData)",
+      "sublabel": "SQLite · WAL",
+      "pos": [270, 720],
+      "size": [380, 60]
+    }
+  ],
+  "boundaries": [
+    {
+      "kind": "region",
+      "label": "renderer process — sandbox, contextIsolation",
+      "wraps": ["app", "api"]
+    },
+    { "kind": "security-group", "label": "preload — CJS bridge", "wraps": ["preload"] },
+    {
+      "kind": "region",
+      "label": "main process — handler / service / pure fn",
+      "wraps": ["boot", "handle", "system", "ports", "mig", "dbcore", "repo"]
+    },
+    { "kind": "region", "label": "userData", "wraps": ["appdb"] }
+  ],
+  "connections": [
+    { "from": "app", "to": "api", "variant": "emphasis" },
+    {
+      "from": "api",
+      "to": "preload",
+      "label": "invoke",
+      "variant": "emphasis",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "labelDy": 45
+    },
+    {
+      "from": "preload",
+      "to": "handle",
+      "label": "열린 채널 1개",
+      "variant": "emphasis",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "labelDy": 45
+    },
+    { "from": "handle", "to": "system", "label": "검증 통과", "variant": "emphasis", "labelDy": -24 },
+    { "from": "boot", "to": "handle", "label": "핸들러 등록", "labelDy": -24 },
+    {
+      "from": "boot",
+      "to": "dbcore",
+      "label": "DB 먼저",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "route": "orthogonal-v"
+    },
+    { "from": "mig", "to": "dbcore", "label": "SQL 적용", "labelDy": -24 },
+    {
+      "from": "dbcore",
+      "to": "appdb",
+      "label": "PRAGMA",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "labelDy": 55
+    },
+    {
+      "from": "repo",
+      "to": "appdb",
+      "label": "질의",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "labelDy": 55
+    },
+    {
+      "from": "repo",
+      "to": "ports",
+      "label": "포트 구현",
+      "variant": "dashed",
+      "fromSide": "top",
+      "toSide": "bottom",
+      "route": "orthogonal-v"
+    },
+    { "from": "shared", "to": "preload", "label": "Api 타입", "variant": "dashed", "labelDy": -24 }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "renderer",
+      "items": [
+        "App.tsx 는 window.api 로만 데이터를 읽는다",
+        "TanStack Query 기본값은 ADR-024 (networkMode always)",
+        "시각 값은 tokens.css 변수로만 소비한다"
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "main",
+      "items": [
+        "부트스트랩 순서: DB 열기 → 핸들러 등록 → 창 생성",
+        "handleIpc 가 유일한 채널 등록 경로다",
+        "서비스는 포트만 알고 Drizzle 을 모른다 (ADR-015)"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "IPC 3중 검증",
+      "items": ["발신자 검증 (senderFrame)", "요청 zod parse", "응답 zod parse"]
+    },
+    {
+      "dot": "slate",
+      "title": "M1 범위 밖",
+      "items": [
+        "타이머·오늘 목록 등 기능 코드 0줄",
+        "Query 무효화 키 계층 미결 (ADR 예정)",
+        "타이머 상태 구독 방식 미결 (ADR 예정)"
+      ]
+    }
+  ]
+}
