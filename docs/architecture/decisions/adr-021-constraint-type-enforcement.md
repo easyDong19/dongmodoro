@@ -1,6 +1,14 @@
 # ADR-021: 제약 실행분 2차 정정 — 타입 강제·순간 값 범위·capacity 원소
 
-- 상태: accepted (2026-08-06)
+- 상태: accepted (2026-08-06) · **§5 정정 (2026-08-06, 격리 리뷰 3건)**
+  - §5 표의 정합성 식 `date(local_date, 'weekday 1', '-7 days')` 는 **틀렸다.** SQLite 의
+    `weekday 1` 은 이미 월요일이면 이동하지 않으므로 −7일이 과교정되어 전주 월요일을 낸다
+    (40,000일 중 5,714일 = 모든 월요일 오답). 올바른 식은
+    `date(local_date, '-6 days', 'weekday 1')` 이며 [ADR-022](adr-022-calendar-key-pairing.md) §2
+    가 쓴다. 이 줄을 읽지 않고 §5 의 식을 복사하지 말 것.
+  - §5 가 "미뤘다"고 기록한 두 건은 ADR-022 가 **실행했다** — 정합성 CHECK(§2),
+    `weeks.created_at`·`updated_at`(§3). §5 의 "미룬다"는 판단은 이로써 종료됐다.
+  - §1~§4 와 §6, Consequences 는 유효하다.
 - 관계: [ADR-019](adr-019-constraint-implementation.md) 의 **결정을 뒤집지 않고 식을 정정한다.**
   §2(순간 컬럼의 GLOB)와 §3(값 범위 CHECK)이 의도한 것을 실제로 막지 못함이 실증돼,
   ADR-019 의 상태 줄에 정정을 단다. §7(부분 UNIQUE 인덱스)의 조건 하나를 넓힌다.

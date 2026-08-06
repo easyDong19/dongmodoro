@@ -4,6 +4,14 @@
   "sessions 는 `updated_at` 제외"는 [ADR-011](adr-011-schema-final.md) §3 이 뒤집었다
   (사후 캡처가 sessions 를 UPDATE 하므로 append-only 전제가 성립하지 않음).
   나머지 결정(UUID v7 PK 등)은 유효하다.
+- **추가 정정 (2026-08-06)** — Decision 2 의 mutable 목록에
+  [ADR-022](adr-022-calendar-key-pairing.md) §3 이 **`weeks` 를 추가**한다. 이 ADR 이
+  쓰인 2026-08-03 에는 `weeks` 테이블이 존재하지 않았고(신설은 다음 날
+  [ADR-011](adr-011-schema-final.md) §1), 목록의 누락은 제외 결정이 아니었다.
+  같은 목록은 ADR-011 §3(sessions)·[ADR-019](adr-019-constraint-implementation.md) §6(settings)
+  으로 이미 두 번 확장된 이력이 있다. Decision 1(UUID v7)과 Decision 2 의 나머지는 유효하다.
+  덧붙여 ADR-022 §3 은 `weeks` 에 한해 **`created_at` 도 함께 둔다** — 다른 테이블은 PK 가
+  UUID v7 이라 생성 시각이 ID 에 내장되지만 `weeks` 의 PK 는 자연키다.
 
 ## Context
 

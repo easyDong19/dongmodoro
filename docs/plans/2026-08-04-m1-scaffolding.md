@@ -569,9 +569,13 @@ export const api = window.api
 > 컬럼 3종 누락 등).
 >
 > **원본 순서**: [ADR-011](../architecture/decisions/adr-011-schema-final.md)(골격)
-> → ADR-012·013·014(정정) → **ADR-018·019·020(실행분 확정, 최신)**.
+> → ADR-012·013·014(정정) → ADR-018·019·020(실행분 확정)
+> → **[ADR-021](../architecture/decisions/adr-021-constraint-type-enforcement.md) ·
+> [ADR-022](../architecture/decisions/adr-022-calendar-key-pairing.md)(구현 후 심사 정정, 최신)**.
 > 충돌하면 번호가 큰 쪽이 이긴다. 스키마를 두 곳에 두지 않는 것이 이 변경의 목적이므로,
 > **여기에 코드 블록을 다시 넣지 않는다.**
+>
+> ⚠️ **ADR-021 §5 의 정합성 식은 틀렸다** — ADR-022 §5 가 정정했다. §5 표를 복사하지 말 것.
 
 **Files:**
 - Create: `drizzle.config.ts`, `src/main/db/schema.ts`, `src/main/db/open.ts`, `src/main/db/migrate.ts`, `src/main/db/migrate.test.ts`, `drizzle/`(생성물)
@@ -708,8 +712,9 @@ describe('migrateDb', () => {
   it('rejects an unknown session kind', () => {
     const { sqlite } = setup()
     const ins = () => sqlite.prepare(
-      `INSERT INTO sessions (id,started_at,ended_at,duration_sec,kind,local_date,local_week,created_at,updated_at)
-       VALUES ('01','2026-08-04T01:00:00.000Z','2026-08-04T01:25:00.000Z',1500,'nap','2026-08-04','2026-08-03','2026-08-04T01:00:00.000Z','2026-08-04T01:00:00.000Z')`
+      // sessions 에는 created_at 이 없다 (ADR-011 §3 — updated_at 만 추가).
+      `INSERT INTO sessions (id,started_at,ended_at,duration_sec,kind,local_date,local_week,updated_at)
+       VALUES ('01','2026-08-04T01:00:00.000Z','2026-08-04T01:25:00.000Z',1500,'nap','2026-08-04','2026-08-03','2026-08-04T01:00:00.000Z')`
     ).run()
     expect(ins).toThrow(/CHECK/)
   })
