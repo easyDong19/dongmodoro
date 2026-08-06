@@ -92,7 +92,10 @@ const EMOJI_SELECTORS = [
 const TESTS = ['**/*.test.ts', '**/*.test.tsx']
 
 export default tseslint.config(
-  { ignores: ['out/**', 'dist/**', 'node_modules/**', 'drizzle/**'] },
+  // docs/ 는 앱 소스가 아니다. 결정 원장에는 근거로 남긴 실행 가능한 검증 스크립트가
+  // 들어 있고(예: decision-log 의 제약 프로브), 그것들은 앱의 아키텍처 규칙이 아니라
+  // "그때 이렇게 확인했다"는 기록이다. 앱 규칙으로 검사하면 기록을 고치게 된다.
+  { ignores: ['out/**', 'dist/**', 'node_modules/**', 'drizzle/**', 'docs/**'] },
 
   js.configs.recommended,
   ...tseslint.configs.recommended,
