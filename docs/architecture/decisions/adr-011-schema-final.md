@@ -5,6 +5,17 @@
   - §1 의 `budget INTEGER NULL`(기본값 파생)과 행 생성 시점 → [ADR-013](adr-013-baseline-budget-effect.md) 이 정정 (확정 저장 + 첫 세션 시 생성)
   - 정의하지 않았던 삭제·보관 표현 → [ADR-014](adr-014-deletion-and-archive.md) 가 보완
   - 그 외(`weeks`·`task_pulls` 신설, 불변 달력 키, `completed_at` 통일, 제약·PRAGMA, 백업·버전 검사)는 유효하다.
+- **추가 정정 (2026-08-05, DB 계층 착수 전 심사)** — 결정은 유지되고 실행분·근거만 갱신된다.
+  - §6("제약은 초기 마이그레이션에 전부")의 **실행분**은 [ADR-019](adr-019-constraint-implementation.md) 가 확정한다 — CHECK 식 재작성(NULL-safe), 값 범위 제약, 누락 FK, `task_pulls` 컬럼 3종, `settings.updated_at`, 부분 UNIQUE 인덱스.
+  - §7 의 **"better-sqlite3 는 `foreign_keys` 기본 OFF" 는 사실이 아니다** (13.0.3 에서 기본값 1 확인 — ADR-019 §9). **`foreign_keys = ON` 을 명시하는 결정은 유지한다** — 버전에 따라 달라질 수 있는 것에 의존하지 않기 위해서다. 근거 문장만 무효다.
+  - §7 의 **백업·버전 검사의 실행 방법**은 [ADR-020](adr-020-db-safeguards.md) 이 확정한다 (WAL 포함 스냅샷, 조건부 백업, 보존 5개, 실패 3갈래, 종료 시 체크포인트).
+  - §1 의 `weeks` 컬럼 정의는 [ADR-018](adr-018-first-run-state.md) 기준으로 읽는다.
+- **추가 정정 (2026-08-06)** — [ADR-022](adr-022-calendar-key-pairing.md) §3 이 §1 의
+  `weeks` 컬럼 정의에 **`created_at`·`updated_at` 을 추가**한다. `weeks` 행은 계획 확정·
+  주중 재수정·정산으로 UPDATE 되므로 mutable 이고(ADR-013 §2, week-plan R23), PK 가
+  자연키라 생성 시각이 어디에도 남지 않기 때문이다. §1 의 나머지 컬럼과 §2~§7 은 유효하다.
+  §3(`sessions` 의 불변 달력 키)에는 ADR-022 §2 가 두 키의 정합성 CHECK 을 더한다 —
+  결정은 유지되고 제약이 추가되는 것이다.
 - 결정 근거 원장: [2026-08-04 기획 검증 세션](../../decision-log/2026-08-04-planning-session.md) §C (Q7·Q10~Q14 + ERD 평가 수용분)
 - 평가 대상 스냅샷: [2026-08-04-schema-draft-snapshot.md](../../decision-log/2026-08-04-schema-draft-snapshot.md) — 이 ADR 이전의 초안. 충돌 시 이 ADR 이 이긴다.
 

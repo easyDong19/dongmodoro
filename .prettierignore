@@ -1,0 +1,14 @@
+# 생성물·의존성·도구 캐시
+node_modules/
+out/
+dist/
+drizzle/
+pnpm-lock.yaml
+.impeccable/
+
+# 마크다운은 포매팅하지 않는다 (ADR-017 §3).
+# Prettier 는 표 셀을 "글자 수"로 패딩하는데 한글은 두 칸 폭으로 렌더된다 —
+# 정렬한다면서 오히려 어긋나게 만들고 diff 만 키운다 (tokens.md 한 파일에서 252줄).
+# 기획 문서는 손으로 쓴 산문이고, docs/origin/ 은 아예 읽기 전용이다 (docs/CLAUDE.md).
+*.md
+docs/

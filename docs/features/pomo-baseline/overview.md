@@ -21,7 +21,9 @@
 - [ADR-009](../../architecture/decisions/adr-009-time-format-convention.md): 길이 값의 단위 규약 (설정 길이는 분 `_min`, 측정 경과는 초 `duration_sec`)
 - [ADR-010](../../architecture/decisions/adr-010-week-definition.md): 주 시작 = 월요일, `weekly_capacity` 인덱스 0 = 월요일, 주 키 = 그 주 월요일 날짜
 - [ADR-011](../../architecture/decisions/adr-011-schema-final.md) §1: `weeks` 테이블 — 스키마 정의(컬럼·자료형·제약)의 소유자
-- [ADR-013](../../architecture/decisions/adr-013-baseline-budget-effect.md): 예산 확정 저장, 행 생성 시점 확장(첫 세션), 편집 시점과 효력 시점의 분리 — ADR-011 §1 의 `budget NULL` 파생을 폐기
+- [ADR-013](../../architecture/decisions/adr-013-baseline-budget-effect.md): 예산 확정 저장, 행 생성 시점 확장(첫 세션), 편집 시점과 효력 시점의 분리 — ADR-011 §1 의 `budget NULL` **조회 시점 파생**을 폐기. §1 의 NOT NULL 은 ADR-018 이 정정
+- [ADR-018](../../architecture/decisions/adr-018-first-run-state.md): `budget`·`capacity` nullable, `유효 예산` 판별 조건 확장, `settings` 시딩 목록 — 이 기능의 계약 정의에 직접 반영된다
+- [ADR-019](../../architecture/decisions/adr-019-constraint-implementation.md) §3·§6: 길이 3종 `>= 1` CHECK, `settings.value` JSON 유효성, `settings.updated_at`
 - [design-system/principles.md](../../design-system/principles.md) §1: 예산 초과는 실패가 아니다 (경고·빨간색 금지)
 - [결정 원장 2026-08-04](../../decision-log/2026-08-04-planning-session.md): Q4·Q8-1·Q9·ERD 평가 B4
 - [리뷰 결정 2026-08-04](../../decision-log/2026-08-04-review-decisions.md): D2(베이스라인 효력 시점)·D3(예산 확정 저장)

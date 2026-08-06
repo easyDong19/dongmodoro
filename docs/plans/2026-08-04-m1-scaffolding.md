@@ -20,10 +20,18 @@
 - 시간: `now()`/`dayKey()`/`weekKey()`/`monthKey()` 는 `src/shared/time/` 모듈만 소유. 그 모듈 밖에서 `new Date()` 직접 호출 금지 (ADR-009 §3). 저장 포맷은 순간=UTC ISO `'...Z'`, 달력 키=`'YYYY-MM-DD'`/`'YYYY-MM'`, 길이=INTEGER+`_sec`/`_min` 접미사, epoch ms 저장 금지 (ADR-009 §1).
 - 주 시작 = 월요일, 주 키 = 그 주 월요일 날짜 `'YYYY-MM-DD'`, 요일 배열 index 0 = 월요일 (ADR-010).
 - NOT NULL·CHECK·FK 제약은 **첫 마이그레이션에 전부** 넣는다 — SQLite 는 나중에 추가하려면 테이블 재작성이다 (ADR-011 §6).
-- 연결마다 PRAGMA: `foreign_keys = ON`(better-sqlite3 기본 OFF), `journal_mode = WAL`, `synchronous = NORMAL`, `busy_timeout = 5000` (ADR-011 §7).
+- 연결마다 PRAGMA: `foreign_keys = ON`, `journal_mode = WAL`, `synchronous = NORMAL`, `busy_timeout = 5000` (ADR-011 §7).
+  ADR-011 §7 의 근거였던 "better-sqlite3 기본 OFF" 는 **사실이 아니다**(13.0.3 기본값 1 — ADR-019 §9).
+  그래도 **명시한다** — 버전에 따라 달라질 수 있는 것에 의존하지 않기 위해서다.
 - 렌더되는 UI 에 이모지 금지, 시각 값은 [design-system/tokens.md](../design-system/tokens.md) 의 토큰 이름으로만 (프로젝트 CLAUDE.md).
 - 커밋 메시지는 영어, Conventional Commits. 이 계획의 작업 브랜치는 `feature/m1-scaffolding` 하나이며 태스크마다 커밋한다.
-- 버전 플로어(실행 시점 최신 설치, 이 아래로는 금지): Node 22 LTS, Electron ≥ 35, electron-vite ≥ 3, React 19, TypeScript ≥ 5.6 (`strict: true`), drizzle-orm ≥ 0.36(sqlite `check()` 지원 필수), better-sqlite3 ≥ 11, zod ≥ 3.24, @tanstack/react-query ≥ 5, tailwindcss ≥ 4, vitest ≥ 2.
+- 버전 플로어(실행 시점 최신 설치, 이 아래로는 금지): Node 22 LTS, Electron ≥ 35, electron-vite ≥ 3, React 19, drizzle-orm ≥ 0.36(sqlite `check()` 지원 필수), better-sqlite3 ≥ 11, zod ≥ 3.24, @tanstack/react-query ≥ 5, tailwindcss ≥ 4, vitest ≥ 2.
+- **TypeScript 는 예외적으로 6.x 라인에 고정한다** (`strict: true`). 최신인 7.x 는
+  typescript-eslint 가 지원하지 않는다 — 근거는 [ADR-016](../architecture/decisions/adr-016-lint-and-git-hooks.md) §6.
+- **커밋은 husky 훅을 통과해야 한다** (Task 1.5 이후): 서식은 Prettier 가 자동으로 고치고,
+  ESLint 아키텍처 규칙 · Conventional Commits · 한글 금지는 위반 시 커밋이 거부된다.
+  훅에 걸리면 우회(`--no-verify`)하지 말고 규칙에 맞게 고친다.
+- 시각 값·서식을 손으로 맞추려 애쓰지 않는다 — `pnpm format` 이 정한다 (ADR-017).
 
 **계획 밖 (이 계획에서 하지 않는 것):** 타이머·오늘 목록 등 기능 전부, Query invalidation 키 계층과 타이머 상태 구독 방식(타이머 착수 직전 별도 ADR — [overview.md 미결정 사항](../architecture/overview.md)), electron-builder 패키징(M4, ADR-004), Playwright.
 
@@ -39,9 +47,9 @@ src/
 │   ├── services/
 │   │   └── ports.ts          # 리포지토리 포트 + UnitOfWork 인터페이스 (ADR-015)
 │   ├── db/                   # Drizzle import 가 허용되는 유일한 하위 트리
-│   │   ├── schema.ts         # Drizzle 스키마 (ADR-011~014 전체)
+│   │   ├── schema.ts         # Drizzle 스키마 (ADR-011~014 + 018·019 실행분)
 │   │   ├── open.ts           # 연결 + PRAGMA 세트
-│   │   ├── migrate.ts        # 백업 → 버전 검사 → 마이그레이션 적용
+│   │   ├── migrate.ts        # 백업 → 버전 검사 → 마이그레이션 적용 (ADR-020)
 │   │   └── repositories/
 │   │       ├── drizzle.ts    # 포트의 Drizzle 구현체 + UoW
 │   │       └── memory.ts     # 인메모리 페이크 (테스트 더블)
@@ -79,18 +87,27 @@ tests → 각 모듈 옆 *.test.ts (Vitest)
 
 - [ ] **Step 1: 의존성 설치**
 
-```bash
-pnpm init
-pnpm add -D electron electron-vite vite @vitejs/plugin-react typescript @types/node
-pnpm add react react-dom
-pnpm add -D @types/react @types/react-dom
+**빌드 스크립트 차단 문제부터 처리한다.** pnpm 10+ 는 의존성의 빌드 스크립트를 기본
+차단하고(postinstall 이 공급망 공격의 주요 통로), 네이티브 모듈을 컴파일하는
+better-sqlite3 가 정확히 그것을 필요로 한다. 단, **ADR-004 가 적었던 `package.json` 의
+`pnpm.onlyBuiltDependencies` 는 pnpm 11 에서 읽히지 않는다** — 설정이 `pnpm-workspace.yaml`
+로, 키가 `allowBuilds` 맵으로 바뀌었다 (ADR-004 Consequences 에 현행화 반영됨).
+
+`pnpm-workspace.yaml`:
+
+```yaml
+allowBuilds:
+  better-sqlite3: true
+  electron: true
+  esbuild: true
 ```
 
-`package.json` 에 수동으로 추가:
+`package.json` (`pnpm` 필드는 넣지 않는다 — 무시된다):
 
 ```json
 {
   "name": "dongmodoro",
+  "version": "0.1.0",
   "private": true,
   "type": "module",
   "main": "out/main/index.js",
@@ -101,6 +118,27 @@ pnpm add -D @types/react @types/react-dom
   }
 }
 ```
+
+**electron 은 `allowBuilds` 에 넣어도 효과가 없다** — v42 부터 설치 스크립트를 아예 제공하지
+않고 첫 실행 때 런타임 바이너리(약 295MB)를 스스로 내려받는다. 그러므로 바이너리를 받기 위한
+`postinstall` 은 넣지 않는다. 받는 시점을 설치 시점으로 앞당기고 싶을 때만 `install-electron`
+bin 을 건다 — 테스트만 도는 CI 에서 불필요한 295MB 를 받게 되므로 기본값은 "넣지 않음"이다.
+
+그 다음 설치:
+
+```bash
+pnpm add -D electron electron-vite vite @vitejs/plugin-react typescript @types/node
+pnpm add react react-dom
+pnpm add -D @types/react @types/react-dom
+```
+
+설치 후 `pnpm exec electron --version` 이 버전을 출력하는지 확인한다 (여기서 바이너리를 받는다).
+
+> pnpm 11 은 게시된 지 `minimumReleaseAge`(기본 1440분 = 24시간) 이 안 지난 버전의 설치를
+> 거부한다 — 악성 릴리즈가 회수될 시간을 벌기 위함이다. 갓 나온 버전을 굳이 고정하면
+> `minimumReleaseAgeExclude` 예외가 만들어지는데, **그 예외를 만들지 않는다.** 그 안전장치를
+> 끄는 것이 곧 검증 안 된 릴리즈를 받는 것이므로, 버전이 창을 통과할 때까지 기다린다.
+> (2026-08-05: electron 43.3.0 이 전날 릴리즈라 이 창에 걸려 43.2.0 으로 간다.)
 
 - [ ] **Step 2: 설정 파일 작성**
 
@@ -115,7 +153,15 @@ export default defineConfig({
   main: {
     resolve: { alias: { '@shared': resolve('src/shared') } }
   },
-  preload: {},
+  preload: {
+    // "type": "module" 이면 기본 산출물이 index.mjs 인데, sandbox: true 인 preload 는
+    // ESM 을 로드하지 못한다 (ADR-007 이 sandbox 를 요구). CJS + .cjs 로 고정한다.
+    build: {
+      rollupOptions: {
+        output: { format: 'cjs', entryFileNames: '[name].cjs' }
+      }
+    }
+  },
   renderer: {
     resolve: {
       alias: {
@@ -128,7 +174,9 @@ export default defineConfig({
 })
 ```
 
-`tsconfig.node.json` (main·preload·shared 용), `tsconfig.web.json` (renderer·shared 용) — 둘 다 `"strict": true`, `"paths"` 에 위 alias 와 동일하게. `tsconfig.json` 은 두 파일을 `references` 로 묶는 솔루션 파일. `.gitignore` 에 `node_modules/`, `out/`, `dist/`, `*.local` 추가.
+`tsconfig.node.json` (main·preload·shared 용, `lib: ES2022` + `types: ['node']`), `tsconfig.web.json` (renderer·shared 용, `lib` 에 DOM + `jsx: react-jsx`) — 둘 다 `"strict": true`, `"paths"` 에 위 alias 와 동일하게. 두 파일을 나누는 이유는 renderer 에서 Node API 를 import 해도 타입 에러가 안 나는 상황을 막기 위함이다 (ADR-008 의 "shared 는 순수 TS" 규칙을 타입 검사로 강제). `tsconfig.json` 은 두 파일을 `references` 로 묶는 솔루션 파일. `.gitignore` 에 `node_modules/`, `out/`, `dist/`, `*.local` 추가.
+
+> TypeScript 7 에서 `baseUrl` 이 **제거**됐다. `paths` 값은 `["./src/shared/*"]` 처럼 `./` 로 시작하는 상대 경로로 쓴다.
 
 - [ ] **Step 3: 최소 코드 작성**
 
@@ -143,7 +191,7 @@ export function createWindow(): BrowserWindow {
     width: 1280,
     height: 800,
     webPreferences: {
-      preload: join(__dirname, '../preload/index.js'),
+      preload: join(__dirname, '../preload/index.cjs'), // CJS 강제 — 위 config 참조
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: true
@@ -173,13 +221,54 @@ app.on('window-all-closed', () => {
 })
 ```
 
-`src/preload/index.ts` 는 이 태스크에서는 빈 파일(주석만), `src/renderer/app/App.tsx` 는 `<h1>dongmodoro</h1>` 플레이스홀더, `src/renderer/main.tsx` 는 React 루트 마운트, `index.html` 은 vite 표준 골격 + `<div id="root">`.
+`src/preload/index.ts` 는 이 태스크에서는 빈 파일(주석만 — `export {}` 로 모듈화), `src/renderer/app/App.tsx` 는 `<h1>dongmodoro</h1>` 플레이스홀더, `src/renderer/main.tsx` 는 React 루트 마운트, `index.html` 은 vite 표준 골격 + `<div id="root">`.
+
+> `__dirname` 은 ESM 산출물에서도 쓸 수 있다 — electron-vite 가 CommonJS 심을 주입한다 (빌드 결과로 확인).
 
 - [ ] **Step 4: 검증**
 
-실행: `pnpm typecheck` → 에러 0. `pnpm dev` → 창이 뜨고 "dongmodoro" 텍스트 표시. `pnpm build` → `out/` 생성, 에러 0.
+실행: `pnpm typecheck` → 에러 0. `pnpm build` → `out/main/index.js`·`out/preload/index.cjs`·`out/renderer/` 생성, 에러 0. `pnpm dev` → 창이 뜨고 "dongmodoro" 텍스트 표시.
+
+육안 확인 대신 자동 검증을 쓸 수 있다: `--remote-debugging-port` 로 앱을 띄우고 CDP `Runtime.evaluate` 로 `document.querySelector('h1').textContent` 를 읽는다. 렌더는 비동기이므로 값이 나올 때까지 폴링해야 한다.
 
 - [ ] **Step 5: 커밋** — `feat: scaffold electron-vite app with react and strict typescript`
+
+---
+
+### Task 1.5: 규칙 강제 — ESLint 아키텍처 규칙 + husky/commitlint
+
+계획 수립 후 추가된 태스크다. 근거·설계는 [ADR-016](../architecture/decisions/adr-016-lint-and-git-hooks.md).
+**Task 2 앞에 두는 이유**: 코드가 134줄이라 소급 수정이 0 이고, `new Date()` 초크포인트
+규칙이 그 초크포인트를 만드는 Task 2 보다 먼저 존재해야 규칙과 구현이 같이 태어난다.
+
+**Files:**
+- Create: `eslint.config.js`, `commitlint.config.js`, `.husky/pre-commit`, `.husky/commit-msg`, `.husky/pre-push`
+- Modify: `package.json`(lint 스크립트·lint-staged·prepare), `CONTRIBUTING.md`, `docs/architecture/overview.md`
+
+**Interfaces:**
+- Produces: `pnpm lint`. 커밋 시 자동으로 도는 3개 훅.
+
+- [ ] **Step 1: 설치** — `pnpm add -D eslint @eslint/js typescript-eslint husky lint-staged @commitlint/cli @commitlint/config-conventional`
+
+  이때 **TypeScript 를 6.x 로 내린다** (`pnpm add -D typescript@6`) — typescript-eslint 가 TS 7 을 지원하지 않는다.
+
+- [ ] **Step 2: ESLint 규칙 작성** — ADR-008(shared 순수성) · ADR-015 §2(DB 격리) · ADR-009 §3(시간 초크포인트) · CLAUDE.md(이모지 금지).
+
+  > **함정**: flat config 는 같은 규칙 이름을 뒤 블록이 **통째로 덮어쓴다**(옵션 병합 아님).
+  > `no-restricted-imports` 를 shared 용·DB 용으로 각각 쓰면 shared 규칙이 조용히 사라진다.
+  > 파일 그룹을 겹치지 않게 나누고, 한 그룹에 필요한 옵션을 **한 블록에 모아서** 준다.
+
+- [ ] **Step 3: 규칙이 실제로 걸리는지 검증** — 규칙마다 위반 파일을 만들어 `pnpm lint` 로 확인하고 지운다. **이 단계를 건너뛰면 위 함정을 못 잡는다.**
+
+- [ ] **Step 3.5: Prettier** ([ADR-017](../architecture/decisions/adr-017-prettier.md), ADR-016 §2 대체) — `pnpm add -D prettier eslint-config-prettier`. `eslint-config-prettier` 는 flat config **마지막**에 둔다. `.prettierignore` 에 `*.md` 와 `docs/` 를 넣는다 — Prettier 는 표 셀을 글자 수로 패딩하는데 한글은 두 칸 폭이라 정렬이 오히려 깨지고, `docs/origin/` 은 읽기 전용이다.
+
+- [ ] **Step 4: husky 훅 3종** — `pre-commit`(lint-staged: prettier 로 고친 뒤 eslint 로 검사), `commit-msg`(commitlint + 한글 금지 커스텀 규칙), `pre-push`(main·release 차단).
+
+- [ ] **Step 5: 훅 검증** — 위반 코드·한글 메시지·형식 위반 커밋을 실제로 시도해 각각 차단되는지, 정상 커밋은 통과하는지 확인.
+
+- [ ] **Step 6: 문서 갱신** — CONTRIBUTING.md 강제화 계층 표(⏸ → ✅)와 스니펫, overview.md 확정 스택.
+
+- [ ] **Step 7: 커밋** — `feat: enforce architecture rules with eslint and git hooks`
 
 ---
 
@@ -228,6 +317,20 @@ describe('time module (ADR-009/010)', () => {
   })
   it('monthKey zero-pads', () => {
     expect(monthKey(new Date(2026, 0, 15))).toBe('2026-01')
+  })
+  // 서브에이전트 검증(2026-08-05)에서 추가: lint 가 모듈 밖 new Date() 를 막으므로
+  // 프로덕션이 실제로 타는 유일한 경로는 "인자 생략"인데, 위 테스트들은 전부
+  // 명시적 Date 인자 경로였다 — 무인자 경로가 가짜 시계를 타는지 직접 검증한다.
+  it('argless calls read the current (fake) clock', () => {
+    vi.useFakeTimers({ now: new Date(2026, 7, 4, 10, 30) }) // 로컬 2026-08-04 화
+    expect(dayKey()).toBe('2026-08-04')
+    expect(weekKey()).toBe('2026-08-03')
+    expect(monthKey()).toBe('2026-08')
+  })
+  it('weekKey crosses month and year boundaries', () => {
+    expect(weekKey(new Date(2030, 0, 1))).toBe('2029-12-31') // 2030-01-01(화) → 전년 12/31(월)
+    expect(weekKey(new Date(2029, 0, 1))).toBe('2029-01-01') // 1/1 이 월요일인 해 → 자기 자신
+    expect(weekKey(new Date(2027, 7, 1))).toBe('2027-07-26') // 월초 일요일 → 전월 월요일
   })
 })
 ```
@@ -279,7 +382,35 @@ export function monthKey(d: Date = new Date()): string {
 **Interfaces:**
 - Produces: renderer 전역 `window.api.system.getAppInfo(): Promise<{ appVersion: string; schemaVersion: number }>`. `handleIpc(channel, contract, fn)` — 발신자 검증·입력 parse·출력 parse 를 강제하는 유일한 핸들러 등록 경로. 이후 모든 도메인 API 는 이 패턴(channels → contracts {req,res} 쌍 → handleIpc → preload 매핑)을 복제한다 (ADR-007).
 
-- [ ] **Step 1: zod 설치** — `pnpm add zod`
+> **착수 전 고칠 것 3가지** (2026-08-05 실행 중 확인):
+>
+> 1. **preload 빌드에 `@shared` 별칭이 없다.** `electron.vite.config.ts` 의 preload 블록에
+>    `resolve: { alias: { '@shared': ... } }` 를 추가한다. 없으면 타입 검사는 통과하는데
+>    빌드에서 모듈을 못 찾는다.
+> 2. **preload 의 `rollupOptions` 를 직접 지정하면 electron-vite 의 기본 `external` 이 사라진다.**
+>    `external: ['electron']` 을 명시하지 않으면 npm `electron` 패키지의 **바이너리 다운로더**가
+>    번들에 딸려 들어가고, 실행 시 `Error: module not found: child_process` 로 preload 가
+>    통째로 죽는다. preload 가 비어 있던 Task 1 에서는 드러나지 않는다.
+> 3. **renderer 가 preload 의 `typeof api` 를 import 하지 않는다.** 그러면 renderer 타입 검사가
+>    electron 을 import 하는 파일로 끌려 들어간다(tsconfig.web 은 Node·Electron 타입을 뺐다).
+>    대신 `src/shared/ipc/api.ts` 에서 **계약으로부터 `Api` 타입을 파생**하고 preload 가
+>    `const api: Api` 로 그 표면을 구현한다. 파생 타입은 조건이 어긋나면 조용히 `never` 가
+>    되므로, 계약 타입으로 대입해 보는 컴파일 시점 단언을 테스트에 남긴다.
+
+> **구현 후 격리 구조 심사에서 확인·수정한 것 2가지** (2026-08-05, 위반 파일 실측):
+>
+> 1. **프로세스 경계 zone 규칙이 lint 에 없었다.** renderer→main·renderer→electron·
+>    shared→main(상대경로) import 가 lint·typecheck 모두 통과했다 — shared 순수성 규칙은
+>    모듈 이름 기준이라 상대경로 한 다리를 건너면 전이적으로 뚫린다. `eslint.config.js` 를
+>    프로세스 폴더별 5개 그룹(shared/renderer/preload/main/main-db)으로 재편하고
+>    `^(\.\./)+(main|…)(/|$)` 정규식 패턴으로 경계를 강제했다 (근거: ADR-008 단방향
+>    의존, ADR-016 §1). 위반 9종 물어뜯기로 전부 잡히는 것을 확인.
+> 2. **Node 내장 모듈 손 열거(15개)가 불완전했다** — `node:buffer` 가 통과. 열거를
+>    `node:module` 의 `builtinModules` 실목록 + `node:*` 글롭으로 교체했다.
+
+- [ ] **Step 1: zod 설치** — `pnpm add zod` (실행 시점 zod 4 가 설치된다. 응답 스키마는
+      `z.object` 대신 **`z.strictObject`** 를 쓴다 — `z.object` 는 모르는 키를 조용히 버려서
+      계약이 어긋나도 알 수 없다.)
 
 - [ ] **Step 2: 실패하는 계약 테스트 작성**
 
@@ -407,7 +538,19 @@ export const api = window.api
 
 `src/main/index.ts` 의 `whenReady` 에서 `registerSystemHandlers(() => 0)` 호출 (schemaVersion 은 Task 4 에서 실값 연결).
 
-- [ ] **Step 5: 검증** — `pnpm test` PASS. `pnpm dev` 실행 후 DevTools 콘솔에서 `await window.api.system.getAppInfo()` → `{ appVersion, schemaVersion }` 반환 확인.
+- [ ] **Step 4.5: `handle.ts` 단위 테스트** — 보안 핵심인데 계약 테스트로는 안 덮인다.
+      `vi.mock('electron')` 으로 `ipcMain.handle` 이 받아간 콜백을 붙잡아 직접 호출한다:
+      신뢰 발신자 통과 / 외부 URL 거부 / dev 서버 URL 통과 / 요청 위반 거부 / 응답 위반 거부 /
+      **에러 메시지에 입력값이 실리지 않음**.
+
+- [ ] **Step 5: 검증** — `pnpm test` PASS. 실제 앱을 띄워 왕복 확인 (CDP `Runtime.evaluate` +
+      `awaitPromise: true` 로 자동화 가능). 확인할 것: `typeof window.api === 'object'`,
+      `getAppInfo()` 가 계약대로 응답, **`window.ipcRenderer`·`window.require` 가 undefined**
+      (raw 노출 없음 — ADR-007 §3).
+
+      > 여분 인자를 renderer 에서 보내는 시도는 main 까지 도달하지 않는다 — preload 의
+      > 시그니처가 인자를 받지 않아 거기서 잘린다. 이는 버그가 아니라 더 강한 보장이며,
+      > main 의 `req.parse` 는 preload 버그에 대한 2차 방어선으로 남는다.
 
 - [ ] **Step 6: 커밋** — `feat: add zod-validated ipc contract with system.getAppInfo`
 
@@ -415,7 +558,24 @@ export const api = window.api
 
 ### Task 4: DB 계층 — 스키마·PRAGMA·백업·마이그레이션
 
-가장 큰 태스크. 스키마는 ADR-011 을 ADR-012~014 정정분까지 반영해 옮긴 것이며, **여기서 새 설계 결정을 하지 않는다.**
+가장 큰 태스크. **여기서 새 설계 결정을 하지 않는다.**
+
+> **⚠️ 스키마·마이그레이션의 원본은 이 문서가 아니다 (2026-08-05 갱신).**
+> 이 계획서가 들고 있던 `schema.ts` 코드 블록은 삭제했다. DB 계층 착수 전 격리 심사에서
+> 40건 가까운 문제가 나와 [ADR-018](../architecture/decisions/adr-018-first-run-state.md) ·
+> [ADR-019](../architecture/decisions/adr-019-constraint-implementation.md) ·
+> [ADR-020](../architecture/decisions/adr-020-db-safeguards.md) 이 추가됐고, 그 결과 계획서의
+> 사본이 **틀린 스키마**가 됐기 때문이다 (fail-open CHECK, `budget` NOT NULL, `task_pulls`
+> 컬럼 3종 누락 등).
+>
+> **원본 순서**: [ADR-011](../architecture/decisions/adr-011-schema-final.md)(골격)
+> → ADR-012·013·014(정정) → ADR-018·019·020(실행분 확정)
+> → **[ADR-021](../architecture/decisions/adr-021-constraint-type-enforcement.md) ·
+> [ADR-022](../architecture/decisions/adr-022-calendar-key-pairing.md)(구현 후 심사 정정, 최신)**.
+> 충돌하면 번호가 큰 쪽이 이긴다. 스키마를 두 곳에 두지 않는 것이 이 변경의 목적이므로,
+> **여기에 코드 블록을 다시 넣지 않는다.**
+>
+> ⚠️ **ADR-021 §5 의 정합성 식은 틀렸다** — ADR-022 §5 가 정정했다. §5 표를 복사하지 말 것.
 
 **Files:**
 - Create: `drizzle.config.ts`, `src/main/db/schema.ts`, `src/main/db/open.ts`, `src/main/db/migrate.ts`, `src/main/db/migrate.test.ts`, `drizzle/`(생성물)
@@ -432,123 +592,57 @@ pnpm add better-sqlite3 drizzle-orm
 pnpm add -D drizzle-kit @types/better-sqlite3
 ```
 
-electron 의 Node ABI 와 맞추기 위해 `pnpm add -D electron-rebuild` 후 `package.json` 스크립트에 `"postinstall": "electron-rebuild -f -w better-sqlite3"` 추가.
+> **네이티브 재빌드는 하지 않는다 (2026-08-06 실측으로 폐기).** 이 계획서는 원래
+> `electron-rebuild` + `postinstall` 로 electron 의 Node ABI 에 맞춰 재빌드하라고 적었다.
+> **better-sqlite3 13 은 N-API prebuild(`prebuilds/darwin-arm64.node`, node-addon-api)를
+> 싣고 오며 N-API 는 ABI 안정**이므로 재빌드가 불필요하다. 같은 바이너리를 양쪽에서
+> 로드해 확인했다:
+>
+> | 런타임 | `process.versions.modules` | 결과 |
+> |---|---|---|
+> | Node 22.21.1 | 127 | 로드·질의 성공 |
+> | Electron 43.2.0 (Node 24.18.0) | 148 | 로드·질의 성공 |
+>
+> 재빌드를 넣으면 오히려 한쪽 ABI 로 고정돼 **vitest(Node)와 앱(Electron) 중 하나가
+> 깨진다.** 따라서 `@electron/rebuild` 도 `postinstall` 도 추가하지 않는다.
+> (참고: 구 `electron-rebuild` 패키지는 2022-11 폐기됐고 `@electron/rebuild` 가 후속이다 —
+> 재빌드가 필요해지면 그쪽을 쓴다.)
+>
+> **같은 실측에서 ADR-019 의 두 전제도 이 설치본(13.0.2)에서 직접 확인했다** —
+> `pragma foreign_keys` 기본값 **1**(ADR-019 §9), `json_valid()` 동작(JSON1 확장,
+> ADR-019 Consequences). ADR 은 13.0.3 에서 확인했다고 적었으나 13.0.2 도 같다.
+>
+> `drizzle-kit` 이 폐기된 하위 의존성 `@esbuild-kit/core-utils`·`@esbuild-kit/esm-loader`
+> 를 끌고 온다. 직접 고칠 수 없고 `pnpm audit` 취약점은 0건이라 그대로 둔다 — 설치 시
+> 경고가 뜨는 것이 정상이다.
+>
+> better-sqlite3 는 13.0.3 이 나와 있으나 pnpm 의 `minimumReleaseAge`(24h) 창에 아직
+> 들어오지 않아 13.0.2 가 설치된다. 의도된 동작이며 시간이 지나면 자동으로 올라간다.
 
 - [ ] **Step 2: 스키마 작성** — `src/main/db/schema.ts`
 
-컬럼 주석의 근거: ①=ADR-011 ②=ADR-012 ③=ADR-013 ④=ADR-014 ⑤=ADR-009 ⑥=ADR-010.
+ADR 을 열고 그대로 옮긴다. 아래는 **읽을 순서와 빠뜨리기 쉬운 지점의 체크리스트**이며,
+값·식의 원본이 아니다.
 
-```ts
-import { sqliteTable, text, integer, primaryKey, check, index } from 'drizzle-orm/sqlite-core'
-import { sql } from 'drizzle-orm'
+| # | 확인할 것 | 원본 |
+|---|---|---|
+| 1 | 테이블 7종 골격과 불변 달력 키, `completed_at` 통일 | ADR-011 §1~§5 |
+| 2 | 집계 술어가 요구하는 컬럼(`local_week`·`local_date`·`is_system`) | ADR-012 |
+| 3 | `weeks` 의 두 스냅샷 분리 — **`budget` 은 nullable 이다** | **ADR-018 §1** |
+| 4 | 달력 키·순간 CHECK 을 **NULL-safe 형태**로 (`IS date(...)`). `GLOB '[0-9]…'` 는 날짜 키에 쓰지 않는다 | **ADR-019 §2** |
+| 5 | 순간 컬럼 **21개 전부**에 형식 CHECK. `GLOB '*Z'` 는 `'Z'` 한 글자를 통과시킨다 | **ADR-019 §2** |
+| 6 | 값 범위 CHECK — `is_system IN (0,1)`, est_pomos 조건부, `json_array_length(capacity)=7`, `duration_sec >= 0`, `ended_at >= started_at` | **ADR-019 §3** |
+| 7 | `sessions.local_week` → `weeks(week)` FK. **`week_items.week` 에는 걸지 않는다**(정산 트랜잭션 순서 때문) | **ADR-019 §4** |
+| 8 | `task_pulls` 컬럼 3종 추가 — `removed_at`·`created_at`·`updated_at` | **ADR-019 §5** |
+| 9 | `settings.updated_at` + `CHECK(json_valid(value))`, 전 `updated_at` 에 `$onUpdate` | **ADR-019 §6** |
+| 10 | 부분 UNIQUE 인덱스 — 주당 시스템 기타 항목 1개 | **ADR-019 §7** |
+| 11 | 인덱스 정의 다듬기(신설은 미룸) | ADR-019 §8 |
+| 12 | 첫 실행 시딩 목록과 `settings.value` 의 NULL 표현 | **ADR-018 §4·§5** |
 
-// 재사용 CHECK 패턴 (⑤): 순간 = '...Z' 접미사, 달력 키 = GLOB
-const DATE_GLOB = "'[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]'"
-const MONTH_GLOB = "'[0-9][0-9][0-9][0-9]-[0-9][0-9]'"
-
-export const settings = sqliteTable('settings', {
-  key: text('key').primaryKey(),
-  value: text('value').notNull() // JSON
-})
-// 사용 키: weekly_capacity [월..일](⑥), focus_min/short_break_min/long_break_min(25/5/15),
-//          last_settled_week(월요일 날짜, ⑥), plan_lead_days(기본 1, ⑥),
-//          theme('system'|'light'|'dark', 기본 'system' — design-system ADR-008)
-
-export const milestones = sqliteTable('milestones', {
-  id: text('id').primaryKey(),                       // uuid v7 (ADR-006)
-  month: text('month').notNull(),                    // 'YYYY-MM'
-  title: text('title').notNull(),
-  completedAt: text('completed_at'),                 // ① §5: done boolean 폐지
-  sortOrder: integer('sort_order').notNull(),
-  createdAt: text('created_at').notNull(),
-  updatedAt: text('updated_at').notNull(),
-  archivedAt: text('archived_at')                    // ④: 물리 삭제 + 보관. deleted_at 없음
-}, (t) => [
-  check('milestones_month_format', sql`${t.month} GLOB ${sql.raw(MONTH_GLOB)}`)
-])
-
-export const weeks = sqliteTable('weeks', {
-  week: text('week').primaryKey(),                   // 그 주 월요일 날짜 (⑥)
-  budget: integer('budget').notNull(),               // ③ §1: NULL 파생 폐지, 확정 저장
-  capacity: text('capacity').notNull(),              // JSON [월..일] 스냅샷
-  focusMin: integer('focus_min').notNull(),
-  shortBreakMin: integer('short_break_min').notNull(),
-  longBreakMin: integer('long_break_min').notNull(),
-  plannedAt: text('planned_at'),
-  settledAt: text('settled_at'),
-  createdAt: text('created_at').notNull(),           // mutable 테이블 공통 (ADR-006)
-  updatedAt: text('updated_at').notNull()
-}, (t) => [
-  check('weeks_week_is_monday', sql`strftime('%w', ${t.week}) = '1'`)
-])
-
-export const weekItems = sqliteTable('week_items', {
-  id: text('id').primaryKey(),
-  week: text('week').notNull(),
-  title: text('title').notNull(),
-  estPomos: integer('est_pomos').notNull(),
-  milestoneId: text('milestone_id')
-    .references(() => milestones.id, { onDelete: 'set null' }), // ④ §3
-  days: text('days').notNull(),                      // JSON [월..일] 의도, [] = 미배치
-  originWeek: text('origin_week').notNull(),         // ① §4: 이월 배지 날짜 산술용
-  carryFromId: text('carry_from_id'),                // 직전 원본 추적 전용 (자기참조 FK 는 마이그레이션 SQL 로)
-  completedAt: text('completed_at'),                 // ① §5: status enum 폐지
-  droppedAt: text('dropped_at'),                     //   둘 다 NULL = active
-  isSystem: integer('is_system').notNull().default(0), // ① §4: 주차별 "기타" 행
-  createdAt: text('created_at').notNull(),
-  updatedAt: text('updated_at').notNull(),
-  deletedAt: text('deleted_at')                      // ④ §1: soft delete
-}, (t) => [
-  check('week_items_week_is_monday', sql`strftime('%w', ${t.week}) = '1'`),
-  check('week_items_origin_week_is_monday', sql`strftime('%w', ${t.originWeek}) = '1'`),
-  index('idx_week_items_week').on(t.week)
-])
-
-export const tasks = sqliteTable('tasks', {
-  id: text('id').primaryKey(),
-  weekItemId: text('week_item_id').notNull()
-    .references(() => weekItems.id),                 // NOT NULL — 부모 없는 task 는 "기타" 행에
-  title: text('title').notNull(),
-  estPomos: integer('est_pomos'),                    // 직접 추가 task 는 추정 없음 → NULL 허용
-  completedAt: text('completed_at'),                 // ① §5
-  createdAt: text('created_at').notNull(),
-  updatedAt: text('updated_at').notNull(),
-  deletedAt: text('deleted_at')                      // ④ §1
-}, (t) => [
-  index('idx_tasks_week_item').on(t.weekItemId)
-])
-
-export const taskPulls = sqliteTable('task_pulls', {
-  taskId: text('task_id').notNull().references(() => tasks.id),
-  pullDate: text('pull_date').notNull()              // ① §2: 행 승격 — 재-pull 이력 보존
-}, (t) => [
-  primaryKey({ columns: [t.taskId, t.pullDate] }),
-  check('task_pulls_date_format', sql`${t.pullDate} GLOB ${sql.raw(DATE_GLOB)}`),
-  index('idx_task_pulls_date').on(t.pullDate)
-])
-
-export const sessions = sqliteTable('sessions', {
-  id: text('id').primaryKey(),
-  startedAt: text('started_at').notNull(),           // 순간 (⑤)
-  endedAt: text('ended_at').notNull(),
-  durationSec: integer('duration_sec').notNull(),
-  kind: text('kind').notNull(),
-  taskId: text('task_id').references(() => tasks.id), // NULL = 미분류 집중
-  note: text('note'),
-  localDate: text('local_date').notNull(),           // ① §3: insert 시 1회 계산, 불변
-  localWeek: text('local_week').notNull(),
-  createdAt: text('created_at').notNull(),
-  updatedAt: text('updated_at').notNull()            // ① §3: 사후 캡처가 UPDATE 하므로
-}, (t) => [
-  check('sessions_kind', sql`${t.kind} IN ('focus','short','long')`),
-  check('sessions_started_utc', sql`${t.startedAt} GLOB '*Z'`),
-  check('sessions_local_date_format', sql`${t.localDate} GLOB ${sql.raw(DATE_GLOB)}`),
-  check('sessions_local_week_is_monday', sql`strftime('%w', ${t.localWeek}) = '1'`),
-  index('idx_sessions_local_week').on(t.localWeek),
-  index('idx_sessions_local_date').on(t.localDate),
-  index('idx_sessions_task').on(t.taskId)
-])
-```
+- 자기참조 FK(`week_items.carry_from_id`)는 drizzle-kit 이 빠뜨릴 수 있다 — Step 3 에서 확인한다.
+- 심사에서 **알고도 미룬 것**이 있다. 무엇을 왜 미뤘는지는
+  [DB 계층 착수 전 심사](../decision-log/2026-08-05-db-layer-audit.md) 에 있다. 구현 중
+  "이건 왜 이렇게 돼 있지"가 나오면 그 문서를 먼저 본다.
 
 `drizzle.config.ts`:
 
@@ -618,8 +712,9 @@ describe('migrateDb', () => {
   it('rejects an unknown session kind', () => {
     const { sqlite } = setup()
     const ins = () => sqlite.prepare(
-      `INSERT INTO sessions (id,started_at,ended_at,duration_sec,kind,local_date,local_week,created_at,updated_at)
-       VALUES ('01','2026-08-04T01:00:00.000Z','2026-08-04T01:25:00.000Z',1500,'nap','2026-08-04','2026-08-03','2026-08-04T01:00:00.000Z','2026-08-04T01:00:00.000Z')`
+      // sessions 에는 created_at 이 없다 (ADR-011 §3 — updated_at 만 추가).
+      `INSERT INTO sessions (id,started_at,ended_at,duration_sec,kind,local_date,local_week,updated_at)
+       VALUES ('01','2026-08-04T01:00:00.000Z','2026-08-04T01:25:00.000Z',1500,'nap','2026-08-04','2026-08-03','2026-08-04T01:00:00.000Z')`
     ).run()
     expect(ins).toThrow(/CHECK/)
   })
@@ -708,10 +803,22 @@ export function migrateDb(
 
 ### Task 5: 리포지토리 포트 패턴 고정 (ADR-015)
 
-포트·UoW·Drizzle 구현체·페이크·계약 테스트를 최소 1세트 만들어 이후 모든 기능이 복제할 패턴을 코드로 고정한다. 대상은 스캐폴딩에 실재하는 가장 단순한 테이블인 `settings`.
+포트·UoW·Drizzle 구현체를 최소 1세트 만들어 이후 모든 기능이 복제할 패턴을 코드로 고정한다. 대상은 스캐폴딩에 실재하는 가장 단순한 테이블인 `settings`.
+
+> **⚠️ 페이크와 계약 테스트는 만들지 않는다 (2026-08-06 갱신).**
+> 이 계획서가 적은 `memory.ts` + `settings.contract.test.ts` 는
+> [ADR-023](../architecture/decisions/adr-023-repository-port-rationale.md) 이 **보류**시켰다.
+> 착수 전 격리 조사 3건에서 ① 로컬 우선 데스크톱 앱 8종 중 페이크로 데이터 계층을 대체한
+> 사례 0건 ② 우리 스키마로 인메모리 실 DB 를 세우는 비용이 **0.54ms** 라 페이크가 아껴줄
+> 시간이 없음 ③ `Map` 페이크가 CHECK 44개·FK 6개를 재현하지 못해 계약 스위트를 오히려
+> 얕게 만듦이 확인됐다.
+>
+> 아래 Step 1 의 계약 테스트 코드와 Step 3 의 `memory.ts` 블록은 **이력으로 남긴 것이며
+> 실행 대상이 아니다.** 원본은 ADR-015(§1·§2·§3·§5) + ADR-023 이다.
+> UoW 는 **동기 그대로**다 — ADR-023 §2.
 
 **Files:**
-- Create: `src/main/services/ports.ts`, `src/main/db/repositories/drizzle.ts`, `src/main/db/repositories/memory.ts`, `src/main/db/repositories/settings.contract.test.ts`
+- Create: `src/main/services/ports.ts`, `src/main/db/repositories/drizzle.ts`, `src/main/db/repositories/settings.test.ts`
 
 **Interfaces:**
 - Consumes: Task 4 의 `openDb`/`migrateDb`(계약 테스트에서 인메모리 실 DB 준비), `schema.ts` 의 `settings` 테이블.
@@ -847,6 +954,20 @@ export function makeMemoryUow(): UnitOfWork {
 
 - [ ] **Step 5: 커밋** — `feat: add repository ports with unit of work and contract tests`
 
+> **Task 3 구조 심사에서 이연된 관찰 지점 3건** (2026-08-05 격리 리뷰, PLAUSIBLE 판정 —
+> 당시엔 실해 0 이라 미룸. 이 태스크에서 채널·핸들러가 늘어나면 실해가 생긴다):
+>
+> 1. **핸들러 등록 완결성 검사** — 채널 추가 시 4곳 중 3곳(channels·contracts·preload)은
+>    컴파일러가 누락을 잡지만 main 의 `handleIpc` 등록 누락만 런타임 에러다. 등록 함수가
+>    여럿 생기는 이 태스크에서 `CHANNELS` 를 순회하며 전부 등록됐는지 확인하는 스모크
+>    테스트 1개를 추가한다.
+> 2. **preload 채널 문자열 매칭** — `: Api` 는 함수 시그니처만 검사하고 invoke 에 넘긴
+>    채널 문자열이 그 계약의 채널인지는 못 잡는다. 채널이 5개쯤 되면 preload api 객체를
+>    계약 순회로 기계 생성하는 방안을 검토한다 (설계 변경이므로 ADR 선행).
+> 3. **핸들러 본문 관례** — `handleIpc` 의 `fn` 에 비즈니스 로직이 축적되는 것을 막는
+>    기계 장치는 없다 (ADR-008 이 의도한 관례 의존). 규칙 있는 유스케이스의 fn 본문은
+>    "서비스 호출 1줄"을 유지하는지 리뷰 관찰 지점으로 삼는다.
+
 ---
 
 ### Task 6: TanStack Query 배선 — IPC 를 queryFn 으로
@@ -863,7 +984,17 @@ export function makeMemoryUow(): UnitOfWork {
 
 - [ ] **Step 2: 구현**
 
-`src/renderer/shared/query.ts` 는 `export const queryClient = new QueryClient()`. `main.tsx` 를 `QueryClientProvider` 로 감싸고, `App.tsx` 에서:
+> **⚠️ `new QueryClient()` 를 기본값 그대로 쓰지 않는다 (2026-08-06 갱신).**
+> 기본값은 **진짜 서버를 전제**한다. 특히 `networkMode` 기본값 `'online'` 이면 브라우저가
+> 오프라인이라고 판단하는 순간 **로컬 SQLite 조회가 `fetchStatus: 'paused'` 로 멈춘다**
+> (빌드된 앱에서 실측). 기본값 세트의 원본은
+> [ADR-024](../architecture/decisions/adr-024-query-client-defaults.md) 다 —
+> `networkMode: 'always'`(queries·mutations 양쪽) · `retry: false` ·
+> `refetchOnWindowFocus: false` · `staleTime` 은 전역으로 정하지 않음.
+> `retry: false` 의 대가로 **화면마다 에러 갈래가 필요하다** (없으면 실패가 영원한
+> "로딩 중"으로 위장된다).
+
+`src/renderer/shared/query.ts` 는 `queryClient` 싱글턴을 만든다(기본값은 ADR-024). `main.tsx` 를 `QueryClientProvider` 로 감싸고, `App.tsx` 에서:
 
 ```tsx
 import { useQuery } from '@tanstack/react-query'

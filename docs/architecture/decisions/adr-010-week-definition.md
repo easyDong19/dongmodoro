@@ -1,6 +1,13 @@
 # ADR-010: 주 정의 — 월요일 시작, 주 키 = 월요일 날짜, plan_lead_days
 
-- 상태: accepted (2026-08-04)
+- 상태: accepted (2026-08-04) · **CHECK 식 정정됨 (2026-08-05, [ADR-019](adr-019-constraint-implementation.md) §2·§9)**
+  - **결정은 유효하다** — DB 가 월요일 아닌 주 키를 거부한다.
+  - 이 문서가 제시한 CHECK 식 `strftime('%w', week) = '1'` 은 **fail-open** 이다:
+    `strftime` 이 NULL 을 반환하는 입력(`'0000-00-00'` 등)에서 비교가 NULL 이 되어
+    통과한다. 실행 형태는 NULL-safe `week IS date(week) AND strftime('%w', week) = '1'`
+    이며 ADR-019 §2 가 소유한다.
+  - 본문의 "(SQLite 검증 실증)" 표기는 **사실이 아니다** (실증되지 않았다).
+  - 본문은 이력으로 그대로 둔다.
 - 결정 근거 원장: [2026-08-04 기획 검증 세션](../../decision-log/2026-08-04-planning-session.md) §A (Q8-1·Q9·plan_lead_days)
 - 판정식 시각화: [2026-08-04-settlement-flow.html](../../decision-log/2026-08-04-settlement-flow.html)
 

@@ -1,6 +1,11 @@
 # ADR-013: 베이스라인·예산 — 확정 저장과 효력 시점 분리
 
-- 상태: accepted (2026-08-04)
+- 상태: accepted (2026-08-04) · **§1 부분 정정됨 (2026-08-05, [ADR-018](adr-018-first-run-state.md) §1)**
+  - §1 의 "`weeks.budget` 은 NOT NULL 정수" → ADR-018 이 **nullable 로 정정**한다.
+    "예산 미설정"과 "예산 0" 을 데이터에서 구분해야 하기 때문이며, `weeks` 행이 담는
+    두 스냅샷(사용자 입력 / 시점 기준)의 성격 분리에서 나온 결과다.
+  - **§2(행 생성 시점)·§3(편집·효력 분리)·§4(총 집중 시간 비교 표시)는 그대로 유효하다.**
+  - 본문은 이력으로 그대로 둔다.
 - 근거: [2026-08-04 리뷰 결정](../../decision-log/2026-08-04-review-decisions.md) D2·D3 · 상세 [review-findings.html](../../decision-log/2026-08-04-review-findings.html)
 - 관계: [ADR-011](adr-011-schema-final.md) §1 의 `budget NULL = 기본값 파생` 을 **폐기**하고, `weeks` 행 생성 시점을 확장한다 (부분 정정)
 
