@@ -984,7 +984,17 @@ export function makeMemoryUow(): UnitOfWork {
 
 - [ ] **Step 2: 구현**
 
-`src/renderer/shared/query.ts` 는 `export const queryClient = new QueryClient()`. `main.tsx` 를 `QueryClientProvider` 로 감싸고, `App.tsx` 에서:
+> **⚠️ `new QueryClient()` 를 기본값 그대로 쓰지 않는다 (2026-08-06 갱신).**
+> 기본값은 **진짜 서버를 전제**한다. 특히 `networkMode` 기본값 `'online'` 이면 브라우저가
+> 오프라인이라고 판단하는 순간 **로컬 SQLite 조회가 `fetchStatus: 'paused'` 로 멈춘다**
+> (빌드된 앱에서 실측). 기본값 세트의 원본은
+> [ADR-024](../architecture/decisions/adr-024-query-client-defaults.md) 다 —
+> `networkMode: 'always'`(queries·mutations 양쪽) · `retry: false` ·
+> `refetchOnWindowFocus: false` · `staleTime` 은 전역으로 정하지 않음.
+> `retry: false` 의 대가로 **화면마다 에러 갈래가 필요하다** (없으면 실패가 영원한
+> "로딩 중"으로 위장된다).
+
+`src/renderer/shared/query.ts` 는 `queryClient` 싱글턴을 만든다(기본값은 ADR-024). `main.tsx` 를 `QueryClientProvider` 로 감싸고, `App.tsx` 에서:
 
 ```tsx
 import { useQuery } from '@tanstack/react-query'

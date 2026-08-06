@@ -1,6 +1,10 @@
 # ADR-005: 타이머 아키텍처 — main 소유 + 상태 전이 push + Query 캐시 합류
 
-- 상태: accepted (2026-08-03)
+- 상태: accepted (2026-08-03) · **실행분 보강 (2026-08-06)** — §4 가 정한 "Query 캐시
+  합류"는 유효하고, **QueryClient 기본값**은 [ADR-024](adr-024-query-client-defaults.md)
+  가 확정한다. 특히 `networkMode: 'always'` 가 없으면 브라우저가 오프라인이라고 판단하는
+  순간 **로컬 SQLite 조회가 `paused` 로 멈춘다**(실측). §4 의 `staleTime: Infinity` 는
+  전역 기본값이 아니라 타이머 쿼리에 명시하는 값으로 읽는다 (ADR-024 §4).
 - 대체: [ADR-002](adr-002-state-tanstack-query-ipc.md) (타이머 미니 스토어 부분)
 
 ## Context
