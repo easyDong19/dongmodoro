@@ -1,0 +1,206 @@
+/* 디자인 토큰. 유일한 출처는 docs/design-system/tokens.md §9 이며 이 파일은 그 이식본이다.
+   값을 여기서 바꾸거나 새 토큰을 여기서 만들지 않는다 — 변경은 tokens.md §10 에 따라
+   ADR 을 먼저 쓴다.
+
+   §9 원본과의 구조 차이 한 곳: 라이트 테마. 원본 블록의 라이트 선택자는 문서용 축약이고
+   (§9 아래 "구현 메모"), 실제 구현은 값 세트를 한 번만 두고 두 경로가 그것을 참조하도록
+   하라고 지시한다. 그래서 라이트 값은 --light-* 로 한 번 정의하고, OS 선호 경로와
+   data-theme 경로가 같은 세트를 매핑한다. 값이 두 벌 존재하지 않는다. */
+
+/* 루트 62.5% = 1rem 10px. 폰트 크기만 rem 이다 (design-system ADR-007).
+   퍼센트이므로 사용자 기본 글자 크기에 대한 비례성은 보존된다. */
+html {
+  font-size: 62.5%;
+}
+body {
+  font-size: var(--text-md); /* 빠뜨리면 본문이 10px 로 렌더된다 */
+}
+
+:root {
+  /* ── 테마 무관 ────────────────────────────────── */
+
+  /* font */
+  --font-sans:
+    'Pretendard Variable', Pretendard, -apple-system, 'Apple SD Gothic Neo', 'Noto Sans KR',
+    sans-serif;
+  --font-mono: 'Azeret Mono', ui-monospace, monospace;
+
+  --text-2xs: 0.9rem; /* 9px  — 라틴 대문자 전용 (design-system ADR-009) */
+  --text-xs: 1rem; /* 10px — 조각·메타 전용, 문장 금지 */
+  --text-sm: 1.2rem; /* 12px — design-system ADR-009: 11→12 */
+  --text-md: 1.3rem; /* 13px — design-system ADR-009: 12→13 */
+  --text-lg: 1.4rem; /* 14px */
+  --text-xl: 1.7rem; /* 17px */
+  --text-display: 5.6rem; /* 56px */
+
+  --weight-regular: 400;
+  --weight-semibold: 600;
+  --weight-bold: 700;
+
+  --tracking-normal: 0;
+  --tracking-wide: 0.05em;
+  --tracking-wider: 0.14em;
+
+  /* radius — px 유지 (모서리는 글자 크기와 무관하다) */
+  --radius-sm: 9px;
+  --radius-md: 13px;
+  --radius-lg: 20px;
+
+  /* surface — backdrop 은 두 테마 공통 (design-system ADR-002) */
+  --glass-backdrop: blur(24px) saturate(140%);
+  --control-backdrop: blur(8px);
+
+  /* motion (design-system ADR-005) */
+  --motion-fast: 150ms;
+  --motion-medium: 300ms;
+  --motion-slow: 400ms;
+  --ease-standard: ease;
+
+  /* layer (design-system ADR-005) */
+  --layer-base: 0;
+  --layer-sticky: 10;
+  --layer-overlay: 20;
+  --layer-dialog: 30;
+  --layer-toast: 40;
+
+  /* interaction (design-system ADR-004) — px 필수: SC 2.5.8 이 24 CSS px 절대값을 요구한다 */
+  --focus-ring-width: 2px;
+  --focus-ring-offset: 2px;
+  --target-min: 24px;
+
+  /* ── 다크 = 기본 테마 ──────────────────────────── */
+
+  --bg-deep: #0c1a16;
+  --glow-teal: rgba(45, 138, 120, 0.55);
+  --glow-amber: rgba(224, 158, 84, 0.4);
+  --glow-moss: rgba(96, 140, 74, 0.35);
+  --glow-opacity: 0.36; /* 실효 알파 상한 0.20 (design-system ADR-003 §2) */
+
+  --glass: rgba(255, 255, 255, 0.055);
+  --glass-strong: rgba(255, 255, 255, 0.09);
+  --glass-border: rgba(255, 255, 255, 0.14); /* 장식용 */
+  --glass-border-soft: rgba(255, 255, 255, 0.08); /* 장식용 */
+  --control-border: rgba(238, 244, 239, 0.45); /* 컴포넌트 경계 — 3.50:1 */
+
+  --ink: #eef4ef;
+  --ink-dim: rgba(238, 244, 239, 0.6); /* 4.61:1 */
+  --ink-faint: rgba(238, 244, 239, 0.32); /* 꺼져 있음 전용 — tokens.md §1.3 허용 표 */
+
+  --teal: #6fd4b8;
+  --amber: #f0b671;
+  --danger: #e8907e;
+
+  --glass-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  --glass-shadow: 0 12px 32px rgba(0, 0, 0, 0.25);
+  --control-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.15);
+  --control-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+
+  --focus-ring-color: #eef4ef; /* --ink 와 같은 값 (design-system ADR-004) */
+
+  /* ── 라이트 테마 값 세트 (design-system ADR-008) ──
+     여기서 정의만 하고 적용하지 않는다. 적용은 아래 두 선택자가 한다.
+     토큰 이름은 그대로 두고 값만 재정의하므로 기능 문서는 테마를 의식하지 않는다. */
+
+  --light-bg-deep: #e7eeec; /* 흰색보다 어둡게 — 카드가 떠오르게 (ADR-008 §3) */
+  --light-glow-opacity: 0.18; /* 실효 알파 상한 0.10 — 미학 근거 */
+
+  --light-glass: rgba(255, 255, 255, 0.72);
+  --light-glass-strong: rgba(255, 255, 255, 0.92);
+  --light-glass-border: rgba(12, 26, 22, 0.14); /* 잉크 기반 — 흰 보더는 안 보인다 */
+  --light-glass-border-soft: rgba(12, 26, 22, 0.08);
+  --light-control-border: rgba(12, 26, 22, 0.5); /* 3.35:1 */
+
+  --light-ink: #0c1a16; /* 다크의 배경색을 재사용한다 */
+  --light-ink-dim: rgba(12, 26, 22, 0.65); /* 4.97:1 — 판정 지점이 타이틀바(카드 밖)다 */
+  --light-ink-faint: rgba(12, 26, 22, 0.38);
+
+  --light-teal: #216e59; /* 색상 163° 유지, 명도만 내림 */
+  --light-amber: #8f550f; /* 색상 33° */
+  --light-danger: #b13820; /* 색상 13° */
+
+  --light-glass-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.9);
+  --light-glass-shadow: 0 12px 32px rgba(12, 26, 22, 0.1);
+  --light-control-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.9);
+  --light-control-shadow: 0 8px 24px rgba(12, 26, 22, 0.12);
+
+  --light-focus-ring-color: #0c1a16;
+}
+
+/* 라이트 적용 — OS 선호를 따르되 data-theme 이 그것을 덮어쓴다 (ADR-008 §4).
+   data-theme 값은 settings 테이블의 theme 키(system/light/dark)에서 오며,
+   전환 경로는 트레이 메뉴다. 아직 그 배선은 없다(M1 후반). */
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme='dark']) {
+    --bg-deep: var(--light-bg-deep);
+    --glow-opacity: var(--light-glow-opacity);
+
+    --glass: var(--light-glass);
+    --glass-strong: var(--light-glass-strong);
+    --glass-border: var(--light-glass-border);
+    --glass-border-soft: var(--light-glass-border-soft);
+    --control-border: var(--light-control-border);
+
+    --ink: var(--light-ink);
+    --ink-dim: var(--light-ink-dim);
+    --ink-faint: var(--light-ink-faint);
+
+    --teal: var(--light-teal);
+    --amber: var(--light-amber);
+    --danger: var(--light-danger);
+
+    --glass-highlight: var(--light-glass-highlight);
+    --glass-shadow: var(--light-glass-shadow);
+    --control-highlight: var(--light-control-highlight);
+    --control-shadow: var(--light-control-shadow);
+
+    --focus-ring-color: var(--light-focus-ring-color);
+  }
+}
+
+:root[data-theme='light'] {
+  --bg-deep: var(--light-bg-deep);
+  --glow-opacity: var(--light-glow-opacity);
+
+  --glass: var(--light-glass);
+  --glass-strong: var(--light-glass-strong);
+  --glass-border: var(--light-glass-border);
+  --glass-border-soft: var(--light-glass-border-soft);
+  --control-border: var(--light-control-border);
+
+  --ink: var(--light-ink);
+  --ink-dim: var(--light-ink-dim);
+  --ink-faint: var(--light-ink-faint);
+
+  --teal: var(--light-teal);
+  --amber: var(--light-amber);
+  --danger: var(--light-danger);
+
+  --glass-highlight: var(--light-glass-highlight);
+  --glass-shadow: var(--light-glass-shadow);
+  --control-highlight: var(--light-control-highlight);
+  --control-shadow: var(--light-control-shadow);
+
+  --focus-ring-color: var(--light-focus-ring-color);
+}
+
+/* 움직임을 줄이되 상태 변화 피드백은 남긴다 (design-system ADR-005 §2) */
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --motion-fast: 0ms;
+    --motion-medium: 0ms;
+    --motion-slow: 0ms;
+  }
+}
+
+/* 고대비 모드는 테마보다 우선한다 — 두 테마 모두 팔레트를 포기한다 (design-system ADR-006 §2) */
+@media (forced-colors: active) {
+  :root {
+    --glow-opacity: 0;
+  }
+  .card,
+  .overlay,
+  .dialog {
+    backdrop-filter: none;
+    border: 1px solid CanvasText;
+  }
+}

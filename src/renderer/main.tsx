@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client'
 import { QueryClientProvider } from '@tanstack/react-query'
 import { App } from './app/App'
 import { queryClient } from './shared/query'
+import './shared/styles/global.css'
 
 const root = document.getElementById('root')
 if (!root) throw new Error('#root not found in index.html')
