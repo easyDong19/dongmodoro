@@ -36,6 +36,27 @@ describe('keysToInvalidate — ADR-025 §3 표의 코드화', () => {
     })
     expect(keys).toContainEqual(['today'])
   })
+  it('사후 캡처: week·day·month 를 무효화한다', () => {
+    const keys = keysToInvalidate({
+      type: 'capture-recorded',
+      payload: { localDate: '2026-08-07', localWeek: '2026-08-03' },
+      currentDayKey: '2026-08-07'
+    })
+    expect(keys).toContainEqual(['week', '2026-08-03', 'items'])
+    expect(keys).toContainEqual(['day', '2026-08-07'])
+    expect(keys).toContainEqual(['month'])
+  })
+  it('당김/철회: today·day·week·month calendar 를 무효화한다', () => {
+    const keys = keysToInvalidate({
+      type: 'pull-changed',
+      payload: { itemWeek: '2026-08-03' },
+      currentDayKey: '2026-08-07'
+    })
+    expect(keys).toContainEqual(['today', '2026-08-07'])
+    expect(keys).toContainEqual(['day', '2026-08-07'])
+    expect(keys).toContainEqual(['week', '2026-08-03', 'items'])
+    expect(keys).toContainEqual(['month', '2026-08', 'calendar'])
+  })
   it('완료 토글: day 는 전체(과거 소급), week 는 부모 항목의 주', () => {
     const keys = keysToInvalidate({
       type: 'task-toggled',

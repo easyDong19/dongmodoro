@@ -47,6 +47,8 @@ export type TimerEngineDeps = {
   getBaseline: () => Baseline
   /** 오늘 focus 세션 수 — 스냅샷마다 새로 읽는다 (세션 라벨 `N번째 집중`). */
   getFocusCountToday: () => number
+  /** 마지막 long 이후 focus 완료 수 — 스냅샷마다 새로 읽는다 (long 4회차 판정, I-1). */
+  getFocusSinceLastLong: () => number
   getTaskTitle: (taskId: string) => string | null
 }
 
@@ -80,7 +82,8 @@ export class TimerEngine {
       pausedRemainingSec: this.phase === 'paused' ? this.pausedRemainingSec : null,
       taskId: this.taskId,
       taskTitle: this.taskTitle,
-      focusCountToday: this.deps.getFocusCountToday()
+      focusCountToday: this.deps.getFocusCountToday(),
+      focusSinceLastLong: this.deps.getFocusSinceLastLong()
     }
   }
 

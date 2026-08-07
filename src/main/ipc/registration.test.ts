@@ -55,6 +55,7 @@ describe('IPC 등록 완결성 (ADR-007)', () => {
       notify: () => {},
       getBaseline: () => ({ focusMin: 25, shortBreakMin: 5, longBreakMin: 15 }),
       getFocusCountToday: () => 0,
+      getFocusSinceLastLong: () => 0,
       getTaskTitle: () => null
     })
     registerTimerHandlers(engine, uow)

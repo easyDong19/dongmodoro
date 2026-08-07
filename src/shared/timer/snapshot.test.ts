@@ -9,7 +9,8 @@ const base: TimerSnapshot = {
   pausedRemainingSec: null,
   taskId: null,
   taskTitle: null,
-  focusCountToday: 0
+  focusCountToday: 0,
+  focusSinceLastLong: 0
 }
 
 describe('remainingSec', () => {

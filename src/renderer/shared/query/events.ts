@@ -50,6 +50,9 @@ export function subscribeMainEvents(qc: QueryClient): () => void {
       previous,
       currentDayKey: payload.dayKey
     })
+    // M-4: 자정 경계로 focusCountToday 가 리셋되므로 `N번째 집중` 라벨이 다음 전이까지
+    // 낡은 값을 보여준다 — 타이머 스냅샷도 여기서 함께 무효화해 queryFn 으로 다시 채운다.
+    void qc.invalidateQueries({ queryKey: keys.timer() })
   })
   return () => {
     offTimer()

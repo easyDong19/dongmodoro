@@ -15,7 +15,8 @@ const runningSnapshot: TimerSnapshotWire = {
   pausedRemainingSec: null,
   taskId: null,
   taskTitle: null,
-  focusCountToday: 0
+  focusCountToday: 0,
+  focusSinceLastLong: 0
 }
 
 function setupApi(timer: TimerSnapshotWire) {

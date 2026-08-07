@@ -18,7 +18,8 @@ const idleFocusSnapshot: TimerSnapshotWire = {
   pausedRemainingSec: null,
   taskId: null,
   taskTitle: null,
-  focusCountToday: 0
+  focusCountToday: 0,
+  focusSinceLastLong: 0
 }
 
 type TodayRow = Awaited<ReturnType<Api['today']['list']>>['rows'][number]

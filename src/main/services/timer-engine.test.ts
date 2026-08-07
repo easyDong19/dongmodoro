@@ -55,6 +55,11 @@ function makeHarness(overrides: Partial<TimerEngineDeps> = {}): {
     },
     getBaseline: () => ({ focusMin: 25, shortBreakMin: 5, longBreakMin: 15 }),
     getFocusCountToday: () => completions.filter((c) => c.mode === 'focus').length,
+    // 실제 리포지토리(focusCountSinceLastLong)와 같은 규칙: 마지막 long 완료 이후의 focus 수.
+    getFocusSinceLastLong: () => {
+      const lastLongIndex = completions.map((c) => c.mode).lastIndexOf('long')
+      return completions.filter((c, i) => c.mode === 'focus' && i > lastLongIndex).length
+    },
     getTaskTitle: (id) => (id === 't1' ? '보고서 쓰기' : null),
     ...overrides
   }
@@ -204,6 +209,7 @@ describe('TimerEngine — ux-spec §2 상태 기계', () => {
     expect(snap.phase).toBe('idle')
     expect(snap.durationSec).toBe(15 * 60)
     expect(snap.focusCountToday).toBe(1) // 전이 발송 시점에 갱신
+    expect(snap.focusSinceLastLong).toBe(1) // 아직 long 완료 전 — focusCountToday 와 일치
 
     // ADR-026 §2 불변식: 기록(커밋+recorded) → transition → 알림
     expect(h.log.slice(-3)).toEqual(['complete', 'transition', 'notify:focus'])
@@ -318,6 +324,26 @@ describe('TimerEngine — ux-spec §2 상태 기계', () => {
     expect(snap.durationSec).toBe(25 * 60) // focus 기준 길이
     expect(snap.taskId).toBe('t1')
     expect(snap.taskTitle).toBe('보고서 쓰기')
+  })
+
+  it('focusSinceLastLong 은 long 완료 후 리셋되지만 focusCountToday 는 계속 누적된다 (I-1)', () => {
+    const h = makeHarness()
+    h.setNextFocusMode('long')
+    h.engine.start()
+    h.advance(25 * 60_000)
+    h.firePending() // focus #1 완료 → long 전환
+
+    h.engine.start() // long 세션 시작
+    h.engine.completeEarly() // long 완료 → focus idle 복귀
+    h.setNextFocusMode('short')
+
+    h.engine.start()
+    h.advance(25 * 60_000)
+    h.firePending() // long 이후 focus #1
+
+    const snap = h.engine.getSnapshot()
+    expect(snap.focusCountToday).toBe(2) // 오늘 전체 focus 는 2번째
+    expect(snap.focusSinceLastLong).toBe(1) // long 이후로는 1번째 — 두 필드가 갈린다
   })
 
   it('idle 이 아닌 상태의 start/startWithTask, running 이 아닌 pause 는 거부한다', () => {

@@ -20,6 +20,12 @@ export type TimerSnapshot = {
   taskTitle: string | null
   /** 오늘의 focus 세션 수 — 세션 라벨 `N번째 집중`(ux-spec §4)용. main 이 계산해 싣는다. */
   focusCountToday: number
+  /**
+   * 마지막 long 이후의 focus 완료 수 (자정에 리셋되지 않는다 — `sessions.focusCountSinceLastLong()`,
+   * drizzle.ts 의 포트 주석). long 4회차 판정은 이 필드로만 한다 — `focusCountToday` 는
+   * 자정에 끊겨서 4회차 판정에 쓰면 틀린다 (ux-spec §3, 리뷰 finding I-1).
+   */
+  focusSinceLastLong: number
 }
 
 export function remainingSec(s: TimerSnapshot, nowMs: number): number {

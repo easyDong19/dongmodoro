@@ -23,19 +23,14 @@ function formatMmSs(totalSec: number): string {
   return `${String(mm).padStart(2, '0')}:${String(ss).padStart(2, '0')}`
 }
 
-/**
- * 세션 라벨 (ux-spec §4). focus 는 `N번째 집중`, 휴식은 대기/진행 문구가 갈린다.
- *
- * ux-spec §4 는 long idle 의 4회차(마지막 long 이후 focus 4회 완료) 문구만 정의한다 —
- * 모드 탭을 눌러 4회차가 아닌 상태로 진입한 long idle 은 사양의 gap 이다. 여기서는
- * short idle 문구(`짧게 쉬어가요`)와 같은 구성으로 `길게 쉬어가요` 를 채워 넣는다(§4 를
- * 이 문서가 소급 수정하지 않음 — 실제 문서 갱신은 ux-spec 소유자가 판단).
- */
+/** 세션 라벨 (ux-spec §4). focus 는 `N번째 집중`, 휴식은 대기/진행 문구가 갈린다. */
 function sessionLabel(snapshot: TimerSnapshotWire): string {
   if (snapshot.mode === 'focus') return `${snapshot.focusCountToday + 1}번째 집중`
   if (snapshot.phase === 'running' || snapshot.phase === 'paused') return '쉬는 중'
   if (snapshot.mode === 'short') return '짧게 쉬어가요'
-  const isFourthCycle = snapshot.focusCountToday > 0 && snapshot.focusCountToday % 4 === 0
+  // long idle 의 4회차 판정은 focusSinceLastLong 으로 한다 — 자정에 안 끊기는 카운터라
+  // 엔진의 실제 전환 판정(timer-host.ts onComplete)과 항상 일치한다 (리뷰 finding I-1).
+  const isFourthCycle = snapshot.focusSinceLastLong > 0 && snapshot.focusSinceLastLong % 4 === 0
   return isFourthCycle ? '네 번째 집중 완료 — 길게 쉴 차례예요' : '길게 쉬어가요'
 }
 

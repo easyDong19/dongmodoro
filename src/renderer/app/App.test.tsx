@@ -17,7 +17,8 @@ const idleFocusSnapshot: TimerSnapshotWire = {
   pausedRemainingSec: null,
   taskId: null,
   taskTitle: null,
-  focusCountToday: 0
+  focusCountToday: 0,
+  focusSinceLastLong: 0
 }
 
 function setup({ clockNow }: { clockNow: () => Promise<typeof clock> }) {

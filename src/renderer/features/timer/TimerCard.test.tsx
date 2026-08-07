@@ -15,7 +15,8 @@ const baseSnapshot: TimerSnapshotWire = {
   pausedRemainingSec: null,
   taskId: null,
   taskTitle: null,
-  focusCountToday: 0
+  focusCountToday: 0,
+  focusSinceLastLong: 0
 }
 
 function setup(timer: TimerSnapshotWire) {
@@ -98,13 +99,37 @@ describe('TimerCard — 렌더 계약 (Task 10)', () => {
   })
 
   it('long idle 이고 4회차가 아니면 짧은 휴식과 구분되는 `길게 쉬어가요` 를 보여준다', async () => {
-    setup({ ...baseSnapshot, mode: 'long', durationSec: 900, focusCountToday: 2 })
+    setup({ ...baseSnapshot, mode: 'long', durationSec: 900, focusSinceLastLong: 2 })
     expect(await screen.findByText('길게 쉬어가요')).toBeInTheDocument()
   })
 
   it('long idle 이고 4회차면 4회차 완료 문구를 보여준다', async () => {
-    setup({ ...baseSnapshot, mode: 'long', durationSec: 900, focusCountToday: 4 })
+    setup({ ...baseSnapshot, mode: 'long', durationSec: 900, focusSinceLastLong: 4 })
     expect(await screen.findByText('네 번째 집중 완료 — 길게 쉴 차례예요')).toBeInTheDocument()
+  })
+
+  // 리뷰 finding I-1: 4회차 판정은 focusSinceLastLong 으로만 한다 — focusCountToday 는
+  // 자정에 끊기고(a) 마지막 long 이후 카운트와 어긋날 수 있어(b) 라벨이 거짓을 말한다.
+  it('I-1(a): 어제 focus 3회 + 오늘 1회처럼 focusCountToday 가 낮아도 focusSinceLastLong 이 4회차면 4회차 문구를 보여준다', async () => {
+    setup({
+      ...baseSnapshot,
+      mode: 'long',
+      durationSec: 900,
+      focusCountToday: 1, // 자정 이후로는 1회뿐이지만
+      focusSinceLastLong: 4 // 마지막 long 이후로는 4회째 — 엔진은 이걸로 전환했다
+    })
+    expect(await screen.findByText('네 번째 집중 완료 — 길게 쉴 차례예요')).toBeInTheDocument()
+  })
+
+  it('I-1(b): focusCountToday 가 4의 배수여도 focusSinceLastLong 이 4회차가 아니면 `길게 쉬어가요` 를 보여준다', async () => {
+    setup({
+      ...baseSnapshot,
+      mode: 'long',
+      durationSec: 900,
+      focusCountToday: 4, // 하루 총 4회지만 중간에 long 을 한 번 탔다
+      focusSinceLastLong: 2 // 그 long 이후로는 2회뿐
+    })
+    expect(await screen.findByText('길게 쉬어가요')).toBeInTheDocument()
   })
 
   it('조절 칩 6개가 렌더되고 클릭 시 adjust 를 호출한다', async () => {

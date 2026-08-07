@@ -27,6 +27,7 @@ export function startTimerHost(
     getBaseline: () => uow.run((repos) => effectiveBaseline(repos, localKeys().localWeek)),
     getFocusCountToday: () =>
       uow.run((repos) => repos.sessions.countFocusOn(localKeys().localDate)),
+    getFocusSinceLastLong: () => uow.run((repos) => repos.sessions.focusCountSinceLastLong()),
     getTaskTitle: (taskId) => uow.run((repos) => repos.tasks.titleOf(taskId)),
 
     onTransition: (snapshot) => {

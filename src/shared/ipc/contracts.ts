@@ -42,7 +42,8 @@ export const timerSnapshotSchema = z.strictObject({
   pausedRemainingSec: z.int().min(0).nullable(),
   taskId: z.string().nullable(),
   taskTitle: z.string().nullable(),
-  focusCountToday: z.int().min(0)
+  focusCountToday: z.int().min(0),
+  focusSinceLastLong: z.int().min(0)
 })
 
 export const contracts = {
@@ -89,7 +90,12 @@ export const contracts = {
       })
     }
   },
-  /** 상태 변경 명령의 응답은 전부 전이 후 스냅샷이다 — renderer 가 곧바로 캐시에 쓴다. */
+  /**
+   * 상태 변경 명령의 응답은 전부 전이 후 스냅샷이다. 다만 renderer 는 이 invoke 응답을
+   * 그대로 캐시에 쓰지 않는다 — `['timer']` 캐시를 채우는 유일한 쓰기는 main 이 뒤이어
+   * 보내는 `timer:transition` push 뿐이다(events.ts 초크포인트). invoke 응답은 호출부가
+   * 필요하면 직접 쓰되, 캐시 동기화는 그 push 이벤트가 책임진다.
+   */
   timer: {
     getState: { req: z.tuple([]), res: timerSnapshotSchema },
     start: { req: z.tuple([]), res: timerSnapshotSchema },
