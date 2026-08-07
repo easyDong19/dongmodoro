@@ -5,6 +5,12 @@
   가 확정한다. 특히 `networkMode: 'always'` 가 없으면 브라우저가 오프라인이라고 판단하는
   순간 **로컬 SQLite 조회가 `paused` 로 멈춘다**(실측). §4 의 `staleTime: Infinity` 는
   전역 기본값이 아니라 타이머 쿼리에 명시하는 값으로 읽는다 (ADR-024 §4).
+  · **실행분 보강 (2026-08-07)** — push 의 계약·구독·복구 규칙은
+  [ADR-026](adr-026-main-to-renderer-events.md) 이 확정한다. §4 의 "재마운트/새로고침 시
+  queryFn 이 스냅샷을 당겨온다"는 **캐시가 없을 때만**(새로고침·GC 후) 참이다 — 캐시
+  생존 중 재마운트는 pull 하지 않으며, 그 구간은 상주 리스너가 덮는다 (ADR-026 §4).
+  또한 `timer:done` 은 세션 기록의 신호가 아니다 — 무효화는 별도 이벤트
+  `session:recorded` 가 맡는다 (ADR-026 §1).
 - 대체: [ADR-002](adr-002-state-tanstack-query-ipc.md) (타이머 미니 스토어 부분)
 
 ## Context

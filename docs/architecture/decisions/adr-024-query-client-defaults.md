@@ -106,6 +106,9 @@ export const queryClient = new QueryClient({
 타이머 착수 시 별도 ADR 로 다룬다(계획서 Task 6). 현재 존재하는 키는
 `['system','appInfo']` 하나이며, 하나로 계층을 설계하면 틀린다.
 
+> 2026-08-07: [ADR-025](adr-025-query-key-hierarchy.md) 가 확정했다. ADR-025 는
+> 이 문서의 기본값에 `refetchOnReconnect: false` 를 하나 더한다 (§4).
+
 ## Consequences
 
 - (+) 인터넷 상태가 로컬 DB 조회를 막지 못한다. 재현 가능한 실패 하나가 닫힌다.

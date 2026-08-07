@@ -88,7 +88,7 @@ main 이 알아야 하는 값이고, 지정은 IPC 명령으로 보내 타이머
 > optimistic update 는 이 앱에서 필수가 아니다. "서버"가 같은 기기의 SQLite 라
 > IPC 왕복이 1~2ms 이므로 `mutate → invalidate` 로 충분히 즉각적이다.
 > 실제로 설계 노력이 필요한 것은 **invalidation 키 설계**(세션 완료가 어떤 query key
-> 를 무효화하는가)다.
+> 를 무효화하는가)다 — [ADR-025](decisions/adr-025-query-key-hierarchy.md) 가 확정했다.
 
 ## 디렉토리 구조
 
@@ -125,4 +125,7 @@ src/
 | 항목 | 선택지 | 결정 시점 |
 |---|---|---|
 | macOS 코드 서명·공증 | 미서명 배포 vs Apple Developer 계정 + notarization | 패키징 단계 (M4) |
-| Query invalidation 키 계층 | 세션 완료·정산 확정이 무효화할 key 범위 설계 | 구현 착수 시 (M1) |
+
+Query invalidation 키 계층은 [ADR-025](decisions/adr-025-query-key-hierarchy.md),
+main→renderer 이벤트 채널 규칙은 [ADR-026](decisions/adr-026-main-to-renderer-events.md)
+으로 확정됐다 (2026-08-07).
