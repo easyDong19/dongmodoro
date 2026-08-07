@@ -11,7 +11,19 @@ export const CHANNELS = {
     pull: 'today:pull',
     remove: 'today:remove',
     toggleComplete: 'today:toggleComplete'
-  }
+  },
+  timer: {
+    getState: 'timer:getState',
+    start: 'timer:start',
+    startWithTask: 'timer:startWithTask',
+    pause: 'timer:pause',
+    resume: 'timer:resume',
+    reset: 'timer:reset',
+    adjust: 'timer:adjust',
+    completeEarly: 'timer:completeEarly',
+    setMode: 'timer:setMode'
+  },
+  sessions: { capture: 'sessions:capture' }
 } as const
 
 /**

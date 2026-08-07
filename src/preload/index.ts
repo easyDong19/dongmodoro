@@ -36,6 +36,20 @@ const api: Api = {
     remove: (taskId) => ipcRenderer.invoke(CHANNELS.today.remove, taskId),
     toggleComplete: (taskId) => ipcRenderer.invoke(CHANNELS.today.toggleComplete, taskId)
   },
+  timer: {
+    getState: () => ipcRenderer.invoke(CHANNELS.timer.getState),
+    start: () => ipcRenderer.invoke(CHANNELS.timer.start),
+    startWithTask: (taskId) => ipcRenderer.invoke(CHANNELS.timer.startWithTask, taskId),
+    pause: () => ipcRenderer.invoke(CHANNELS.timer.pause),
+    resume: () => ipcRenderer.invoke(CHANNELS.timer.resume),
+    reset: () => ipcRenderer.invoke(CHANNELS.timer.reset),
+    adjust: (deltaMin) => ipcRenderer.invoke(CHANNELS.timer.adjust, deltaMin),
+    completeEarly: () => ipcRenderer.invoke(CHANNELS.timer.completeEarly),
+    setMode: (mode) => ipcRenderer.invoke(CHANNELS.timer.setMode, mode)
+  },
+  sessions: {
+    capture: (sessionId, title) => ipcRenderer.invoke(CHANNELS.sessions.capture, sessionId, title)
+  },
   events: {
     onTimerTransition: on(EVENT_CHANNELS.timerTransition),
     onSessionRecorded: on(EVENT_CHANNELS.sessionRecorded),

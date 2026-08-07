@@ -6,7 +6,9 @@ import { createWindow } from './window'
 import { registerSystemHandlers } from './ipc/system'
 import { registerClockHandlers } from './ipc/clock'
 import { registerTodayHandlers } from './ipc/today'
+import { registerTimerHandlers } from './ipc/timer'
 import { startClock } from './services/clock'
+import { startTimerHost } from './services/timer-host'
 import { openDb, closeDb } from './db/open'
 import { migrateDb } from './db/migrate'
 import { makeDrizzleUow } from './db/repositories/drizzle'
@@ -31,6 +33,7 @@ const MIGRATIONS_DIR = join(dirname(fileURLToPath(import.meta.url)), '../../driz
 let closeDatabase: (() => void) | undefined
 let mainWindow: BrowserWindow | null = null
 let stopClock: (() => void) | undefined
+let stopTimerHost: (() => void) | undefined
 
 /**
  * 시작 실패를 안내하고 종료한다 (ADR-020 §4).
@@ -75,7 +78,15 @@ app
     registerSystemHandlers(() => schemaVersion)
     registerClockHandlers()
     registerTodayHandlers(uow)
-    mainWindow = createWindow()
+    // 타이머는 창보다 먼저 산다 — renderer 가 죽어도 main 의 타이머는 계속 돈다 (R12).
+    const timerHost = startTimerHost(uow, () => mainWindow)
+    stopTimerHost = timerHost.stop
+    registerTimerHandlers(timerHost.engine, uow)
+    // 종료 확인 조건 (timer R13): focus 가 running/paused 일 때만 묻는다.
+    mainWindow = createWindow(() => {
+      const snap = timerHost.engine.getSnapshot()
+      return snap.mode === 'focus' && (snap.phase === 'running' || snap.phase === 'paused')
+    })
     // 자정 알람은 창이 있어야 보낼 대상이 있다 — 창 생성 후에 시작한다.
     stopClock = startClock(() => mainWindow)
   })
@@ -114,6 +125,8 @@ app
 app.on('before-quit', () => {
   stopClock?.()
   stopClock = undefined
+  stopTimerHost?.()
+  stopTimerHost = undefined
   closeDatabase?.()
   closeDatabase = undefined
 })

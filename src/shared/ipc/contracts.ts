@@ -34,6 +34,17 @@ const todayRowSchema = z.strictObject({
   pulledAt: z.string()
 })
 
+export const timerSnapshotSchema = z.strictObject({
+  mode: z.enum(['focus', 'short', 'long']),
+  phase: z.enum(['idle', 'running', 'paused']),
+  startedAt: z.number().nullable(),
+  durationSec: z.int().min(0),
+  pausedRemainingSec: z.int().min(0).nullable(),
+  taskId: z.string().nullable(),
+  taskTitle: z.string().nullable(),
+  focusCountToday: z.int().min(0)
+})
+
 export const contracts = {
   system: {
     getAppInfo: {
@@ -77,21 +88,29 @@ export const contracts = {
         completedAt: z.string().nullable()
       })
     }
+  },
+  /** 상태 변경 명령의 응답은 전부 전이 후 스냅샷이다 — renderer 가 곧바로 캐시에 쓴다. */
+  timer: {
+    getState: { req: z.tuple([]), res: timerSnapshotSchema },
+    start: { req: z.tuple([]), res: timerSnapshotSchema },
+    startWithTask: { req: z.tuple([z.string()]), res: timerSnapshotSchema },
+    pause: { req: z.tuple([]), res: timerSnapshotSchema },
+    resume: { req: z.tuple([]), res: timerSnapshotSchema },
+    reset: { req: z.tuple([]), res: timerSnapshotSchema },
+    adjust: { req: z.tuple([z.number()]), res: timerSnapshotSchema },
+    completeEarly: { req: z.tuple([]), res: timerSnapshotSchema },
+    setMode: { req: z.tuple([z.enum(['focus', 'short', 'long'])]), res: timerSnapshotSchema }
+  },
+  sessions: {
+    /** 사후 캡처 (timer R8). 응답은 세션의 저장 달력 키 — 초크포인트 payload (ADR-025 §3 사건 2). */
+    capture: {
+      req: z.tuple([z.string(), z.string()]),
+      res: z.strictObject({ localDate: z.string(), localWeek: z.string() })
+    }
   }
 } as const
 
 export type AppInfo = z.infer<typeof contracts.system.getAppInfo.res>
-
-export const timerSnapshotSchema = z.strictObject({
-  mode: z.enum(['focus', 'short', 'long']),
-  phase: z.enum(['idle', 'running', 'paused']),
-  startedAt: z.number().nullable(),
-  durationSec: z.int().min(0),
-  pausedRemainingSec: z.int().min(0).nullable(),
-  taskId: z.string().nullable(),
-  taskTitle: z.string().nullable(),
-  focusCountToday: z.int().min(0)
-})
 
 /** main 발 이벤트의 payload 계약. 발송 직전·수신 직후 양쪽에서 parse 한다. */
 export const eventContracts = {
