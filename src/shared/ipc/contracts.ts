@@ -23,3 +23,42 @@ export const contracts = {
 } as const
 
 export type AppInfo = z.infer<typeof contracts.system.getAppInfo.res>
+
+export const timerSnapshotSchema = z.strictObject({
+  mode: z.enum(['focus', 'short', 'long']),
+  phase: z.enum(['idle', 'running', 'paused']),
+  startedAt: z.number().nullable(),
+  durationSec: z.int().min(0),
+  pausedRemainingSec: z.int().min(0).nullable(),
+  taskId: z.string().nullable(),
+  taskTitle: z.string().nullable(),
+  focusCountToday: z.int().min(0)
+})
+
+/** main 발 이벤트의 payload 계약. 발송 직전·수신 직후 양쪽에서 parse 한다. */
+export const eventContracts = {
+  timerTransition: timerSnapshotSchema,
+  /**
+   * 커밋 후 발송 (ADR-026 §2). localDate·localWeek 는 저장값 그대로 —
+   * renderer 는 재계산하지 않는다 (ADR-025 §1-2). sessionId·kind·taskId·
+   * durationSec 는 캡처 바 판정용(자유 focus 만 캡처 대상 — timer R8).
+   */
+  sessionRecorded: z.strictObject({
+    sessionId: z.string(),
+    kind: z.enum(['focus', 'short', 'long']),
+    taskId: z.string().nullable(),
+    durationSec: z.int().min(0),
+    localDate: z.string(),
+    localWeek: z.string()
+  }),
+  /** 전이 후 값. 자정 정각 알람 + powerMonitor resume 보정 (ADR-026 §1). */
+  clockBoundary: z.strictObject({
+    dayKey: z.string(),
+    weekKey: z.string(),
+    monthKey: z.string()
+  })
+} as const
+
+export type TimerSnapshotWire = z.infer<typeof timerSnapshotSchema>
+export type SessionRecorded = z.infer<typeof eventContracts.sessionRecorded>
+export type ClockBoundary = z.infer<typeof eventContracts.clockBoundary>
