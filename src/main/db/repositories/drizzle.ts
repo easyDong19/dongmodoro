@@ -1,4 +1,4 @@
-import { and, desc, eq, gt, isNull, sql } from 'drizzle-orm'
+import { and, asc, desc, eq, gt, isNull, sql } from 'drizzle-orm'
 import type { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3'
 import { v7 as uuidv7 } from 'uuid'
 import { settings, weeks, weekItems, tasks, taskPulls, sessions } from '../schema'
@@ -117,6 +117,11 @@ function makeRepos(tx: Tx): Repositories {
               isNull(tasks.deletedAt)
             )
           )
+          // pulledAt(created_at) 은 ms 정밀도라 빠른 연속 pull 은 값이 같을 수 있다.
+          // rowid(삽입 순서)를 2차 정렬키로 세워 R4 의 "pull 순서"를 결정적으로 만든다 —
+          // 컬럼 추가 없이 SQLite 의 암묵 rowid 를 쓴다. 서비스의 안정 정렬이 이 순서를
+          // 그룹(완료/미완료) 안에서 그대로 보존한다.
+          .orderBy(asc(taskPulls.createdAt), sql`task_pulls.rowid`)
           .all()
 
         return rows.map((r) => {

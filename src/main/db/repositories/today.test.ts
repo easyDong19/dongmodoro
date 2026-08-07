@@ -13,8 +13,9 @@ import {
   removeTask,
   toggleTaskComplete
 } from '../../services/today'
+import { eq } from 'drizzle-orm'
 import { localKeys } from '../../../shared/time'
-import { weekItems } from '../schema'
+import { taskPulls, weekItems } from '../schema'
 import { makeDrizzleUow } from './drizzle'
 
 const REPO_MIGRATIONS = join(fileURLToPath(import.meta.url), '../../../../../drizzle')
@@ -65,6 +66,34 @@ describe('today.list (today-tasks R4)', () => {
 
     const result = listToday(uow)
     expect(result.rows.map((row) => row.taskId)).toEqual([b, c, a])
+  })
+
+  it('breaks pulledAt ties deterministically by insertion order (rowid)', () => {
+    // Reviewer-verified: sequential now() calls can land on the same millisecond, so
+    // `pulledAt` alone is not a reliable ordering key (see task-7-report.md fix note).
+    // This test forces the tie directly — every pulled row gets the identical
+    // `created_at` — so the assertion doesn't depend on the test happening to run
+    // fast enough to collide on the real clock.
+    const { uow, db } = drizzleUowOnMemoryDb()
+    const weekItemId = seedWeekItem(db, '2026-08-03', 'source')
+    const { localDate } = localKeys()
+
+    const taskIds = Array.from({ length: 5 }, () => uuidv7())
+    for (const id of taskIds) {
+      uow.run((r) => r.tasks.create({ id, weekItemId, title: id }))
+      uow.run((r) => r.today.pull(id, localDate))
+    }
+
+    // Force every task_pulls row onto the exact same created_at — the tie.
+    const tiedInstant = '2026-08-07T00:00:00.000Z'
+    for (const id of taskIds) {
+      db.update(taskPulls).set({ createdAt: tiedInstant }).where(eq(taskPulls.taskId, id)).run()
+    }
+
+    const result = listToday(uow)
+    expect(result.rows.every((row) => row.pulledAt === tiedInstant)).toBe(true)
+    // Despite the tie, order must still match insertion (rowid) order.
+    expect(result.rows.map((row) => row.taskId)).toEqual(taskIds)
   })
 })
 
