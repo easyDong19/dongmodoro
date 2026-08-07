@@ -79,29 +79,32 @@ describe('TimerCard — 렌더 계약 (Task 10)', () => {
     expect(await screen.findByText('25:00')).toBeInTheDocument()
   })
 
-  it('focus idle 이고 대상이 지정돼 있으면 해제 × 를 렌더하고 클릭 시 reset 을 부른다', async () => {
-    const mockApi = setup({ ...baseSnapshot, taskId: 't1', taskTitle: '집중할 일' })
-    expect(await screen.findByText('집중할 일')).toBeInTheDocument()
-    const clearButton = screen.getByRole('button', { name: '집중 대상 해제' })
-    fireEvent.click(clearButton)
-    expect(mockApi.timer.reset).toHaveBeenCalled()
-  })
-
-  it('running 중에는 해제 × 를 렌더하지 않는다', async () => {
+  it('focus running 중 집중 대상이 있으면 제목을 보여주고, 해제 버튼은 존재하지 않는다 (엔진상 idle+대상 조합은 불가능)', async () => {
     setup({ ...baseSnapshot, phase: 'running', startedAt: 0, taskId: 't1', taskTitle: '집중할 일' })
     expect(await screen.findByText('집중할 일')).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: '집중 대상 해제' })).not.toBeInTheDocument()
   })
 
-  it('대상 미지정이면 자유 집중을 보여준다', async () => {
+  it('대상 미지정이면 자유 집중을 보여주고, 해제 버튼은 렌더되지 않는다', async () => {
     setup(baseSnapshot)
     expect(await screen.findByText('자유 집중')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: '집중 대상 해제' })).not.toBeInTheDocument()
   })
 
   it('휴식 모드에서는 집중 대상 줄을 렌더하지 않는다', async () => {
     setup({ ...baseSnapshot, mode: 'short', durationSec: 300 })
     await screen.findByText('짧게 쉬어가요')
     expect(screen.queryByText('자유 집중')).not.toBeInTheDocument()
+  })
+
+  it('long idle 이고 4회차가 아니면 짧은 휴식과 구분되는 `길게 쉬어가요` 를 보여준다', async () => {
+    setup({ ...baseSnapshot, mode: 'long', durationSec: 900, focusCountToday: 2 })
+    expect(await screen.findByText('길게 쉬어가요')).toBeInTheDocument()
+  })
+
+  it('long idle 이고 4회차면 4회차 완료 문구를 보여준다', async () => {
+    setup({ ...baseSnapshot, mode: 'long', durationSec: 900, focusCountToday: 4 })
+    expect(await screen.findByText('네 번째 집중 완료 — 길게 쉴 차례예요')).toBeInTheDocument()
   })
 
   it('조절 칩 6개가 렌더되고 클릭 시 adjust 를 호출한다', async () => {

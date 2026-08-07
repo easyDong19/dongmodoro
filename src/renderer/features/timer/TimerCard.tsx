@@ -1,4 +1,3 @@
-import { X } from 'lucide-react'
 import type { TimerSnapshotWire } from '@shared/ipc/contracts'
 import type { TimerMode } from '@shared/timer/snapshot'
 import { api } from '@renderer/shared/api'
@@ -24,13 +23,20 @@ function formatMmSs(totalSec: number): string {
   return `${String(mm).padStart(2, '0')}:${String(ss).padStart(2, '0')}`
 }
 
-/** 세션 라벨 (ux-spec §4). focus 는 `N번째 집중`, 휴식은 대기/진행 문구가 갈린다. */
+/**
+ * 세션 라벨 (ux-spec §4). focus 는 `N번째 집중`, 휴식은 대기/진행 문구가 갈린다.
+ *
+ * ux-spec §4 는 long idle 의 4회차(마지막 long 이후 focus 4회 완료) 문구만 정의한다 —
+ * 모드 탭을 눌러 4회차가 아닌 상태로 진입한 long idle 은 사양의 gap 이다. 여기서는
+ * short idle 문구(`짧게 쉬어가요`)와 같은 구성으로 `길게 쉬어가요` 를 채워 넣는다(§4 를
+ * 이 문서가 소급 수정하지 않음 — 실제 문서 갱신은 ux-spec 소유자가 판단).
+ */
 function sessionLabel(snapshot: TimerSnapshotWire): string {
   if (snapshot.mode === 'focus') return `${snapshot.focusCountToday + 1}번째 집중`
   if (snapshot.phase === 'running' || snapshot.phase === 'paused') return '쉬는 중'
+  if (snapshot.mode === 'short') return '짧게 쉬어가요'
   const isFourthCycle = snapshot.focusCountToday > 0 && snapshot.focusCountToday % 4 === 0
-  if (snapshot.mode === 'long' && isFourthCycle) return '네 번째 집중 완료 — 길게 쉴 차례예요'
-  return '짧게 쉬어가요'
+  return isFourthCycle ? '네 번째 집중 완료 — 길게 쉴 차례예요' : '길게 쉬어가요'
 }
 
 /** 타이머 카드 — App 의 왼쪽 카드 (Task 10). 캡처 바를 하단에 함께 렌더한다. */
@@ -53,8 +59,6 @@ export function TimerCard() {
     else void api.timer.start()
   }
   const showCompleteButton = snapshot.mode === 'focus' && (isRunning || isPaused)
-  const showClearTarget =
-    snapshot.mode === 'focus' && snapshot.phase === 'idle' && snapshot.taskId !== null
 
   return (
     <div className="flex flex-col gap-4 rounded-lg p-4">
@@ -121,17 +125,6 @@ export function TimerCard() {
           >
             {snapshot.taskTitle ?? '자유 집중'}
           </span>
-          {showClearTarget ? (
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon-sm"
-              aria-label="집중 대상 해제"
-              onClick={() => void api.timer.reset()}
-            >
-              <X />
-            </Button>
-          ) : null}
         </div>
       ) : null}
 
@@ -142,7 +135,7 @@ export function TimerCard() {
             type="button"
             aria-label={`${delta > 0 ? '+' : ''}${delta}분`}
             onClick={() => void api.timer.adjust(delta)}
-            className="px-2 py-1 text-xs text-ink"
+            className="flex h-6 min-w-6 items-center justify-center px-2 text-xs text-ink"
             style={{ borderRadius: 'var(--radius-sm)', background: 'var(--glass)' }}
           >
             {delta > 0 ? `+${delta}` : delta}
