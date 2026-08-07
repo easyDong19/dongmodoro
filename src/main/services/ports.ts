@@ -24,8 +24,86 @@ export interface SettingsRepository {
   updatedAt(key: string): string | null
 }
 
+export type Baseline = { focusMin: number; shortBreakMin: number; longBreakMin: number }
+
+export interface WeeksRepository {
+  /** 그 주 스냅샷 3종. 행이 없으면 null (폴백은 여기서 하지 않는다 — baseline.ts 소관). */
+  baseline(week: string): Baseline | null
+  /** 행이 없을 때만 생성 + 길이 3종 박제 (ADR-013 §2). capacity·budget 은 NULL (ADR-018 §1). 멱등. */
+  ensure(week: string, baseline: Baseline): void
+}
+
+export interface WeekItemsRepository {
+  /** 그 주 시스템 "기타" 항목 id. 없으면 생성 (lazy — ADR-011 §4, est=0, days=[]). */
+  ensureSystemItem(week: string): string
+  /** 완료 토글용 — task 의 부모 항목 주 (초크포인트 payload 용). 없으면 null. */
+  weekOf(weekItemId: string): string | null
+}
+
+export type TodayRow = {
+  taskId: string
+  title: string
+  /** 부모 주간 항목명. 기타 항목이면 null (화면이 "기타"로 렌더). */
+  sourceTitle: string | null
+  sourceWeek: string
+  estPomos: number | null
+  /** 그 task 에 연결된 focus 세션 수 — 저장값이 아니라 파생 (원칙 8, today-tasks R3). */
+  spentPomos: number
+  completedAt: string | null
+  pulledAt: string
+}
+
+export interface TodayRepository {
+  /** 오늘 목록 (R1): removed_at IS NULL 인 pull 행 × deleted_at IS NULL 인 task. 정렬은 서비스가 한다. */
+  list(dayKey: string): TodayRow[]
+  /** upsert — 치웠던 행 재-pull 은 removed_at ← NULL (R14). 완료 task 거부는 서비스가 한다 (R7). */
+  pull(taskId: string, dayKey: string): void
+  /** R13: 그날 그 task 의 focus 세션 유무로 분기 — 있으면 removed_at 마킹, 없으면 행 삭제. */
+  remove(taskId: string, dayKey: string): 'marked' | 'deleted'
+}
+
+export interface TasksRepository {
+  create(t: {
+    id: string
+    weekItemId: string
+    title: string
+    estPomos?: number
+    completedAt?: string
+  }): void
+  /** completed ↔ 미완료 토글. 반환은 토글 후 completedAt. task 없으면 throw. */
+  toggleComplete(taskId: string): string | null
+  titleOf(taskId: string): string | null
+}
+
+export type SessionRow = {
+  id: string
+  startedAt: string
+  endedAt: string
+  durationSec: number
+  kind: 'focus' | 'short' | 'long'
+  taskId: string | null
+  localDate: string
+  localWeek: string
+}
+
+export interface SessionsRepository {
+  insert(row: SessionRow): void
+  /** 사후 캡처 (ADR-011 §3): 세션의 task_id·note 갱신. */
+  attachTask(sessionId: string, taskId: string, note: string): void
+  get(sessionId: string): SessionRow | null
+  /** 세션 라벨 "N번째 집중" — 그 날짜의 focus 세션 수. */
+  countFocusOn(dayKey: string): number
+  /** 사이클 S10 파생: 마지막 long 세션 이후의 focus 세션 수 (자정 경계에서 끊기지 않는다). */
+  focusCountSinceLastLong(): number
+}
+
 export interface Repositories {
   settings: SettingsRepository
+  weeks: WeeksRepository
+  weekItems: WeekItemsRepository
+  today: TodayRepository
+  tasks: TasksRepository
+  sessions: SessionsRepository
 }
 
 /**
