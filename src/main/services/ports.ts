@@ -73,6 +73,11 @@ export interface TasksRepository {
   /** completed ↔ 미완료 토글. 반환은 토글 후 completedAt. task 없으면 throw. */
   toggleComplete(taskId: string): string | null
   titleOf(taskId: string): string | null
+  /**
+   * 오늘 목록 유스케이스가 필요로 하는 최소 스냅샷 (pull 의 R7 완료 거부,
+   * pull·remove·toggleComplete 의 부모 주 조회용 `weekItemId`). 없으면 null.
+   */
+  get(taskId: string): { weekItemId: string; completedAt: string | null } | null
 }
 
 export type SessionRow = {

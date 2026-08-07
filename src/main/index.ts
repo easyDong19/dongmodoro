@@ -5,12 +5,14 @@ import type { BrowserWindow } from 'electron'
 import { createWindow } from './window'
 import { registerSystemHandlers } from './ipc/system'
 import { registerClockHandlers } from './ipc/clock'
+import { registerTodayHandlers } from './ipc/today'
 import { startClock } from './services/clock'
 import { openDb, closeDb } from './db/open'
 import { migrateDb } from './db/migrate'
 import { makeDrizzleUow } from './db/repositories/drizzle'
 import { seedSettings } from './services/seed'
 import { CorruptError, DowngradeError, MigrationError } from './db/errors'
+import type { UnitOfWork } from './services/ports'
 
 /**
  * 마이그레이션 폴더는 **번들 산출물 기준**으로 푼다.
@@ -53,24 +55,26 @@ function failStart(title: string, detail: string, backupDir: string): void {
   app.quit()
 }
 
-function startDb(): number {
+function startDb(): { schemaVersion: number; uow: UnitOfWork } {
   const userData = app.getPath('userData')
   const { db, sqlite } = openDb(join(userData, 'app.db'))
   closeDatabase = () => closeDb(sqlite)
   const { schemaVersion } = migrateDb(sqlite, db, userData, MIGRATIONS_DIR)
+  const uow = makeDrizzleUow(db)
   // Seed static settings after migration — ADR-018 §4
-  seedSettings(makeDrizzleUow(db))
-  return schemaVersion
+  seedSettings(uow)
+  return { schemaVersion, uow }
 }
 
 app
   .whenReady()
   .then(() => {
     // DB 가 먼저다 — 열지 못하면 창을 띄우지 않는다.
-    const schemaVersion = startDb()
+    const { schemaVersion, uow } = startDb()
     // 핸들러를 창보다 먼저 등록한다 — renderer 가 뜨자마자 호출해도 받을 사람이 있어야 한다.
     registerSystemHandlers(() => schemaVersion)
     registerClockHandlers()
+    registerTodayHandlers(uow)
     mainWindow = createWindow()
     // 자정 알람은 창이 있어야 보낼 대상이 있다 — 창 생성 후에 시작한다.
     stopClock = startClock(() => mainWindow)

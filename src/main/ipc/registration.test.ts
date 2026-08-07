@@ -33,8 +33,15 @@ describe('IPC 등록 완결성 (ADR-007)', () => {
   it('registers every channel declared in CHANNELS', async () => {
     const { registerSystemHandlers } = await import('./system')
     const { registerClockHandlers } = await import('./clock')
+    const { registerTodayHandlers } = await import('./today')
     registerSystemHandlers(() => 1)
     registerClockHandlers()
+    // handleIpc 만 걸면 되므로 fn 은 절대 호출되지 않는다 — uow 는 껍데기로 충분하다.
+    registerTodayHandlers({
+      run: () => {
+        throw new Error('not used in this registration test')
+      }
+    })
 
     const declared = allChannels(CHANNELS).sort()
     expect(declared.length).toBeGreaterThan(0)

@@ -4,7 +4,14 @@
  */
 export const CHANNELS = {
   system: { getAppInfo: 'system:getAppInfo' },
-  clock: { now: 'clock:now' }
+  clock: { now: 'clock:now' },
+  today: {
+    list: 'today:list',
+    addDirect: 'today:addDirect',
+    pull: 'today:pull',
+    remove: 'today:remove',
+    toggleComplete: 'today:toggleComplete'
+  }
 } as const
 
 /**

@@ -21,6 +21,19 @@ const clockBoundarySchema = z.strictObject({
   monthKey: z.string()
 })
 
+/** `TodayRow`(main/services/ports.ts) 를 그대로 미러링한다 — 필드·nullable 이 어긋나면
+ * 여기가 먼저 깨져야 한다 (choke-point payload, ADR-025 §3). */
+const todayRowSchema = z.strictObject({
+  taskId: z.string(),
+  title: z.string(),
+  sourceTitle: z.string().nullable(),
+  sourceWeek: z.string(),
+  estPomos: z.int().nullable(),
+  spentPomos: z.int(),
+  completedAt: z.string().nullable(),
+  pulledAt: z.string()
+})
+
 export const contracts = {
   system: {
     getAppInfo: {
@@ -35,6 +48,34 @@ export const contracts = {
     now: {
       req: z.tuple([]),
       res: clockBoundarySchema
+    }
+  },
+  today: {
+    list: {
+      req: z.tuple([]),
+      res: z.strictObject({
+        dayKey: z.string(),
+        rows: z.array(todayRowSchema)
+      })
+    },
+    addDirect: {
+      req: z.tuple([z.string()]),
+      res: z.strictObject({ itemWeek: z.string() })
+    },
+    pull: {
+      req: z.tuple([z.string()]),
+      res: z.strictObject({ itemWeek: z.string() })
+    },
+    remove: {
+      req: z.tuple([z.string()]),
+      res: z.strictObject({ itemWeek: z.string() })
+    },
+    toggleComplete: {
+      req: z.tuple([z.string()]),
+      res: z.strictObject({
+        parentWeek: z.string(),
+        completedAt: z.string().nullable()
+      })
     }
   }
 } as const

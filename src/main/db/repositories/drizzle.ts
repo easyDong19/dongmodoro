@@ -210,7 +210,16 @@ function makeRepos(tx: Tx): Repositories {
 
       titleOf: (taskId) =>
         tx.select({ title: tasks.title }).from(tasks).where(eq(tasks.id, taskId)).get()?.title ??
-        null
+        null,
+
+      get: (taskId) => {
+        const row = tx
+          .select({ weekItemId: tasks.weekItemId, completedAt: tasks.completedAt })
+          .from(tasks)
+          .where(eq(tasks.id, taskId))
+          .get()
+        return row ?? null
+      }
     },
 
     sessions: {

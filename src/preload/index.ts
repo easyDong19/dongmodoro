@@ -29,6 +29,13 @@ const api: Api = {
   clock: {
     now: () => ipcRenderer.invoke(CHANNELS.clock.now)
   },
+  today: {
+    list: () => ipcRenderer.invoke(CHANNELS.today.list),
+    addDirect: (title) => ipcRenderer.invoke(CHANNELS.today.addDirect, title),
+    pull: (taskId) => ipcRenderer.invoke(CHANNELS.today.pull, taskId),
+    remove: (taskId) => ipcRenderer.invoke(CHANNELS.today.remove, taskId),
+    toggleComplete: (taskId) => ipcRenderer.invoke(CHANNELS.today.toggleComplete, taskId)
+  },
   events: {
     onTimerTransition: on(EVENT_CHANNELS.timerTransition),
     onSessionRecorded: on(EVENT_CHANNELS.sessionRecorded),
