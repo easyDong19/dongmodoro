@@ -91,6 +91,44 @@ const EMOJI_SELECTORS = [
 
 const TESTS = ['**/*.test.ts', '**/*.test.tsx']
 
+/**
+ * ADR-025 §5: 캐시 조작(invalidate/refetch/reset/remove/setQueryData/setQueriesData/
+ * clear/cancelQueries)은 shared/query/invalidate.ts·events.ts 초크포인트에서만 한다.
+ * 세 갈래를 잡는다 — 메서드 접근(qc.invalidateQueries()), 구조분해(const { setQueryData } = qc),
+ * 계산 접근(qc['refetchQueries']()).
+ */
+const BANNED_QUERY_METHODS = [
+  'invalidateQueries',
+  'refetchQueries',
+  'resetQueries',
+  'removeQueries',
+  'setQueryData',
+  'setQueriesData',
+  'clear',
+  'cancelQueries'
+]
+const QUERY_MSG =
+  'ADR-025 §5: 캐시 조작은 shared/query/invalidate.ts·events.ts 초크포인트에서만 한다.'
+const QUERY_SELECTORS = [
+  {
+    selector: `CallExpression[callee.property.name=/^(${BANNED_QUERY_METHODS.join('|')})$/]`,
+    message: QUERY_MSG
+  },
+  {
+    selector: `CallExpression[callee.name=/^(${BANNED_QUERY_METHODS.join('|')})$/]`,
+    message: QUERY_MSG
+  },
+  {
+    selector: `MemberExpression[computed=true][property.value=/^(${BANNED_QUERY_METHODS.join('|')})$/]`,
+    message: QUERY_MSG
+  }
+]
+
+const QUERY_CHOKEPOINT_FILES = [
+  'src/renderer/shared/query/invalidate.ts',
+  'src/renderer/shared/query/events.ts'
+]
+
 export default tseslint.config(
   // docs/ 는 앱 소스가 아니다. 결정 원장에는 근거로 남긴 실행 가능한 검증 스크립트가
   // 들어 있고(예: decision-log 의 제약 프로브), 그것들은 앱의 아키텍처 규칙이 아니라
@@ -165,10 +203,18 @@ export default tseslint.config(
     ignores: ['src/shared/time/**', 'src/renderer/**', ...TESTS],
     rules: { 'no-restricted-syntax': ['error', ...TIME_SELECTORS] }
   },
-  // (D) renderer — 시간 초크포인트 + 이모지 금지를 한 블록에서 함께 준다
+  // (D-1) renderer 일반 — 시간 + 이모지 + 캐시 조작 금지. 초크포인트 두 파일은 캐시 조작이
+  // 존재 이유이므로 제외한다 (D-2 에서 시간+이모지만 다시 적용).
   {
     files: ['src/renderer/**/*.ts', 'src/renderer/**/*.tsx'],
-    ignores: TESTS,
+    ignores: [...QUERY_CHOKEPOINT_FILES, ...TESTS],
+    rules: {
+      'no-restricted-syntax': ['error', ...TIME_SELECTORS, ...EMOJI_SELECTORS, ...QUERY_SELECTORS]
+    }
+  },
+  // (D-2) 초크포인트·이벤트 리스너 — 시간 + 이모지만 (캐시 조작이 이 파일들의 존재 이유다)
+  {
+    files: QUERY_CHOKEPOINT_FILES,
     rules: { 'no-restricted-syntax': ['error', ...TIME_SELECTORS, ...EMOJI_SELECTORS] }
   },
 

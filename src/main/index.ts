@@ -1,11 +1,20 @@
 import { app, dialog, shell } from 'electron'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import type { BrowserWindow } from 'electron'
 import { createWindow } from './window'
 import { registerSystemHandlers } from './ipc/system'
+import { registerClockHandlers } from './ipc/clock'
+import { registerTodayHandlers } from './ipc/today'
+import { registerTimerHandlers } from './ipc/timer'
+import { startClock } from './services/clock'
+import { startTimerHost } from './services/timer-host'
 import { openDb, closeDb } from './db/open'
 import { migrateDb } from './db/migrate'
+import { makeDrizzleUow } from './db/repositories/drizzle'
+import { seedSettings } from './services/seed'
 import { CorruptError, DowngradeError, MigrationError } from './db/errors'
+import type { UnitOfWork } from './services/ports'
 
 /**
  * 마이그레이션 폴더는 **번들 산출물 기준**으로 푼다.
@@ -22,6 +31,9 @@ import { CorruptError, DowngradeError, MigrationError } from './db/errors'
 const MIGRATIONS_DIR = join(dirname(fileURLToPath(import.meta.url)), '../../drizzle')
 
 let closeDatabase: (() => void) | undefined
+let mainWindow: BrowserWindow | null = null
+let stopClock: (() => void) | undefined
+let stopTimerHost: (() => void) | undefined
 
 /**
  * 시작 실패를 안내하고 종료한다 (ADR-020 §4).
@@ -46,21 +58,37 @@ function failStart(title: string, detail: string, backupDir: string): void {
   app.quit()
 }
 
-function startDb(): number {
+function startDb(): { schemaVersion: number; uow: UnitOfWork } {
   const userData = app.getPath('userData')
   const { db, sqlite } = openDb(join(userData, 'app.db'))
   closeDatabase = () => closeDb(sqlite)
-  return migrateDb(sqlite, db, userData, MIGRATIONS_DIR).schemaVersion
+  const { schemaVersion } = migrateDb(sqlite, db, userData, MIGRATIONS_DIR)
+  const uow = makeDrizzleUow(db)
+  // Seed static settings after migration — ADR-018 §4
+  seedSettings(uow)
+  return { schemaVersion, uow }
 }
 
 app
   .whenReady()
   .then(() => {
     // DB 가 먼저다 — 열지 못하면 창을 띄우지 않는다.
-    const schemaVersion = startDb()
+    const { schemaVersion, uow } = startDb()
     // 핸들러를 창보다 먼저 등록한다 — renderer 가 뜨자마자 호출해도 받을 사람이 있어야 한다.
     registerSystemHandlers(() => schemaVersion)
-    createWindow()
+    registerClockHandlers()
+    registerTodayHandlers(uow)
+    // 타이머는 창보다 먼저 산다 — renderer 가 죽어도 main 의 타이머는 계속 돈다 (R12).
+    const timerHost = startTimerHost(uow, () => mainWindow)
+    stopTimerHost = timerHost.stop
+    registerTimerHandlers(timerHost.engine, uow)
+    // 종료 확인 조건 (timer R13): focus 가 running/paused 일 때만 묻는다.
+    mainWindow = createWindow(() => {
+      const snap = timerHost.engine.getSnapshot()
+      return snap.mode === 'focus' && (snap.phase === 'running' || snap.phase === 'paused')
+    })
+    // 자정 알람은 창이 있어야 보낼 대상이 있다 — 창 생성 후에 시작한다.
+    stopClock = startClock(() => mainWindow)
   })
   .catch((e: unknown) => {
     // 예상 못한 실패도 같은 경로로 보낸다 — 조용한 unhandled rejection 을 남기지 않는다.
@@ -95,6 +123,10 @@ app
 // 정상 종료 경로에서 WAL 을 접는다 (ADR-020 §5). 강제 종료는 막지 않는다 —
 // WAL 저널이 그 경우를 위해 존재하며 다음 시작 시 SQLite 가 복구한다.
 app.on('before-quit', () => {
+  stopClock?.()
+  stopClock = undefined
+  stopTimerHost?.()
+  stopTimerHost = undefined
   closeDatabase?.()
   closeDatabase = undefined
 })

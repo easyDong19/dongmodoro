@@ -25,4 +25,15 @@ export type Api = {
   [Group in keyof Contracts]: {
     [Channel in keyof Contracts[Group]]: Invoker<Contracts[Group][Channel]>
   }
+} & {
+  /**
+   * main → renderer 이벤트 구독 표면 (ADR-026 §4). 구독 함수는 해제 함수를 반환한다.
+   * 콜백은 payload 만 받는다 — Electron 의 `event` 는 넘기지 않는다. payload 의 수신 직후
+   * parse 는 여기(preload)가 아니라 renderer 리스너가 한다.
+   */
+  events: {
+    onTimerTransition: (cb: (payload: unknown) => void) => () => void
+    onSessionRecorded: (cb: (payload: unknown) => void) => () => void
+    onClockBoundary: (cb: (payload: unknown) => void) => () => void
+  }
 }

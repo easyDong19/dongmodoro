@@ -32,7 +32,33 @@ beforeEach(() => handled.clear())
 describe('IPC 등록 완결성 (ADR-007)', () => {
   it('registers every channel declared in CHANNELS', async () => {
     const { registerSystemHandlers } = await import('./system')
+    const { registerClockHandlers } = await import('./clock')
+    const { registerTodayHandlers } = await import('./today')
+    const { registerTimerHandlers } = await import('./timer')
+    const { TimerEngine } = await import('../services/timer-engine')
     registerSystemHandlers(() => 1)
+    registerClockHandlers()
+    // handleIpc 만 걸면 되므로 fn 은 절대 호출되지 않는다 — uow 는 껍데기로 충분하다.
+    const uow = {
+      run: () => {
+        throw new Error('not used in this registration test')
+      }
+    }
+    registerTodayHandlers(uow)
+    // 엔진은 순수 클래스라 스텁 의존성으로 실물을 세운다 — 핸들러 fn 은 호출되지 않는다.
+    const engine = new TimerEngine({
+      now: () => 0,
+      schedule: () => null,
+      cancel: () => {},
+      onTransition: () => {},
+      onComplete: () => 'focus',
+      notify: () => {},
+      getBaseline: () => ({ focusMin: 25, shortBreakMin: 5, longBreakMin: 15 }),
+      getFocusCountToday: () => 0,
+      getFocusSinceLastLong: () => 0,
+      getTaskTitle: () => null
+    })
+    registerTimerHandlers(engine, uow)
 
     const declared = allChannels(CHANNELS).sort()
     expect(declared.length).toBeGreaterThan(0)

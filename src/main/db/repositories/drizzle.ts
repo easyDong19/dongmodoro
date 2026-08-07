@@ -1,7 +1,9 @@
-import { eq } from 'drizzle-orm'
+import { and, asc, desc, eq, gt, isNull, sql } from 'drizzle-orm'
 import type { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3'
-import { settings } from '../schema'
-import type { Repositories, UnitOfWork } from '../../services/ports'
+import { v7 as uuidv7 } from 'uuid'
+import { settings, weeks, weekItems, tasks, taskPulls, sessions } from '../schema'
+import { now } from '../../../shared/time'
+import type { Repositories, SessionRow, UnitOfWork } from '../../services/ports'
 
 /** Drizzle 의 트랜잭션 핸들. `db` 와 같은 질의 API 를 갖지만 타입이 다르다. */
 type Tx = Parameters<Parameters<BetterSQLite3Database['transaction']>[0]>[0]
@@ -28,6 +30,275 @@ function makeRepos(tx: Tx): Repositories {
           .from(settings)
           .where(eq(settings.key, key))
           .get()?.updatedAt ?? null
+    },
+
+    weeks: {
+      baseline: (week) => {
+        const row = tx
+          .select({
+            focusMin: weeks.focusMin,
+            shortBreakMin: weeks.shortBreakMin,
+            longBreakMin: weeks.longBreakMin
+          })
+          .from(weeks)
+          .where(eq(weeks.week, week))
+          .get()
+        return row ?? null
+      },
+
+      // 행이 없을 때만 만든다 (weekly-review R37 — 있는 행의 길이 스냅샷은 덮지 않는다).
+      ensure: (week, baseline) => {
+        tx.insert(weeks)
+          .values({
+            week,
+            focusMin: baseline.focusMin,
+            shortBreakMin: baseline.shortBreakMin,
+            longBreakMin: baseline.longBreakMin
+          })
+          .onConflictDoNothing({ target: weeks.week })
+          .run()
+      }
+    },
+
+    weekItems: {
+      ensureSystemItem: (week) => {
+        const existing = tx
+          .select({ id: weekItems.id })
+          .from(weekItems)
+          .where(
+            and(eq(weekItems.week, week), eq(weekItems.isSystem, 1), isNull(weekItems.deletedAt))
+          )
+          .get()
+        if (existing) return existing.id
+
+        const id = uuidv7()
+        tx.insert(weekItems)
+          .values({
+            id,
+            week,
+            title: '기타',
+            estPomos: 0,
+            days: '[]',
+            originWeek: week,
+            isSystem: 1
+          })
+          .run()
+        return id
+      },
+
+      weekOf: (weekItemId) =>
+        tx
+          .select({ week: weekItems.week })
+          .from(weekItems)
+          .where(eq(weekItems.id, weekItemId))
+          .get()?.week ?? null
+    },
+
+    today: {
+      list: (dayKey) => {
+        const rows = tx
+          .select({
+            taskId: tasks.id,
+            title: tasks.title,
+            sourceTitle: weekItems.title,
+            isSystem: weekItems.isSystem,
+            sourceWeek: weekItems.week,
+            estPomos: tasks.estPomos,
+            completedAt: tasks.completedAt,
+            pulledAt: taskPulls.createdAt
+          })
+          .from(taskPulls)
+          .innerJoin(tasks, eq(taskPulls.taskId, tasks.id))
+          .innerJoin(weekItems, eq(tasks.weekItemId, weekItems.id))
+          .where(
+            and(
+              eq(taskPulls.pullDate, dayKey),
+              isNull(taskPulls.removedAt),
+              isNull(tasks.deletedAt)
+            )
+          )
+          // pulledAt(created_at) 은 ms 정밀도라 빠른 연속 pull 은 값이 같을 수 있다.
+          // rowid(삽입 순서)를 2차 정렬키로 세워 R4 의 "pull 순서"를 결정적으로 만든다 —
+          // 컬럼 추가 없이 SQLite 의 암묵 rowid 를 쓴다. 서비스의 안정 정렬이 이 순서를
+          // 그룹(완료/미완료) 안에서 그대로 보존한다.
+          .orderBy(asc(taskPulls.createdAt), sql`task_pulls.rowid`)
+          .all()
+
+        return rows.map((r) => {
+          const spentPomos =
+            tx
+              .select({ n: sql<number>`count(*)` })
+              .from(sessions)
+              .where(and(eq(sessions.taskId, r.taskId), eq(sessions.kind, 'focus')))
+              .get()?.n ?? 0
+
+          return {
+            taskId: r.taskId,
+            title: r.title,
+            sourceTitle: r.isSystem === 1 ? null : r.sourceTitle,
+            sourceWeek: r.sourceWeek,
+            estPomos: r.estPomos,
+            spentPomos,
+            completedAt: r.completedAt,
+            pulledAt: r.pulledAt
+          }
+        })
+      },
+
+      // 재-pull 은 removed_at 을 되살린다 (R14). "이미 활성"인 경우의 거부는 서비스가 한다.
+      pull: (taskId, dayKey) => {
+        tx.insert(taskPulls)
+          .values({ taskId, pullDate: dayKey })
+          .onConflictDoUpdate({
+            target: [taskPulls.taskId, taskPulls.pullDate],
+            set: { removedAt: null }
+          })
+          .run()
+      },
+
+      // today-tasks R13: 그날 그 task 의 focus 세션 유무로 분기.
+      remove: (taskId, dayKey) => {
+        const sessionCount =
+          tx
+            .select({ n: sql<number>`count(*)` })
+            .from(sessions)
+            .where(
+              and(
+                eq(sessions.taskId, taskId),
+                eq(sessions.localDate, dayKey),
+                eq(sessions.kind, 'focus')
+              )
+            )
+            .get()?.n ?? 0
+
+        if (sessionCount >= 1) {
+          tx.update(taskPulls)
+            .set({ removedAt: now() })
+            .where(and(eq(taskPulls.taskId, taskId), eq(taskPulls.pullDate, dayKey)))
+            .run()
+          return 'marked'
+        }
+
+        tx.delete(taskPulls)
+          .where(and(eq(taskPulls.taskId, taskId), eq(taskPulls.pullDate, dayKey)))
+          .run()
+        return 'deleted'
+      }
+    },
+
+    tasks: {
+      create: (t) => {
+        tx.insert(tasks)
+          .values({
+            id: t.id,
+            weekItemId: t.weekItemId,
+            title: t.title,
+            estPomos: t.estPomos ?? null,
+            completedAt: t.completedAt ?? null
+          })
+          .run()
+      },
+
+      toggleComplete: (taskId) => {
+        const row = tx
+          .select({ completedAt: tasks.completedAt })
+          .from(tasks)
+          .where(eq(tasks.id, taskId))
+          .get()
+        if (!row) {
+          throw new Error(`tasks.toggleComplete: task '${taskId}' not found`)
+        }
+        const next = row.completedAt === null ? now() : null
+        tx.update(tasks).set({ completedAt: next }).where(eq(tasks.id, taskId)).run()
+        return next
+      },
+
+      titleOf: (taskId) =>
+        tx.select({ title: tasks.title }).from(tasks).where(eq(tasks.id, taskId)).get()?.title ??
+        null,
+
+      get: (taskId) => {
+        const row = tx
+          .select({ weekItemId: tasks.weekItemId, completedAt: tasks.completedAt })
+          .from(tasks)
+          .where(eq(tasks.id, taskId))
+          .get()
+        return row ?? null
+      }
+    },
+
+    sessions: {
+      insert: (row) => {
+        tx.insert(sessions)
+          .values({
+            id: row.id,
+            startedAt: row.startedAt,
+            endedAt: row.endedAt,
+            durationSec: row.durationSec,
+            kind: row.kind,
+            taskId: row.taskId,
+            localDate: row.localDate,
+            localWeek: row.localWeek
+          })
+          .run()
+      },
+
+      attachTask: (sessionId, taskId, note) => {
+        tx.update(sessions).set({ taskId, note }).where(eq(sessions.id, sessionId)).run()
+      },
+
+      get: (sessionId) => {
+        const row = tx
+          .select({
+            id: sessions.id,
+            startedAt: sessions.startedAt,
+            endedAt: sessions.endedAt,
+            durationSec: sessions.durationSec,
+            kind: sessions.kind,
+            taskId: sessions.taskId,
+            localDate: sessions.localDate,
+            localWeek: sessions.localWeek
+          })
+          .from(sessions)
+          .where(eq(sessions.id, sessionId))
+          .get()
+        return (row as SessionRow | undefined) ?? null
+      },
+
+      countFocusOn: (dayKey) =>
+        tx
+          .select({ n: sql<number>`count(*)` })
+          .from(sessions)
+          .where(and(eq(sessions.localDate, dayKey), eq(sessions.kind, 'focus')))
+          .get()?.n ?? 0,
+
+      focusCountSinceLastLong: () => {
+        const lastLong = tx
+          .select({ startedAt: sessions.startedAt })
+          .from(sessions)
+          .where(eq(sessions.kind, 'long'))
+          .orderBy(desc(sessions.startedAt))
+          .limit(1)
+          .get()
+
+        if (!lastLong) {
+          return (
+            tx
+              .select({ n: sql<number>`count(*)` })
+              .from(sessions)
+              .where(eq(sessions.kind, 'focus'))
+              .get()?.n ?? 0
+          )
+        }
+
+        return (
+          tx
+            .select({ n: sql<number>`count(*)` })
+            .from(sessions)
+            .where(and(eq(sessions.kind, 'focus'), gt(sessions.startedAt, lastLong.startedAt)))
+            .get()?.n ?? 0
+        )
+      }
     }
   }
 }
