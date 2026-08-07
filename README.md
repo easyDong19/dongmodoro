@@ -85,7 +85,7 @@ dongmodoro/
     ├── CLAUDE.md       # 문서 작성 규칙 — 폴더별 책임 경계의 정의
     ├── origin/         # ⛔ 원천 초안 (읽기 전용, 구속력 없음)
     ├── features/       # 기능별 확정 기획 (8개 기능)
-    ├── architecture/   # 기술 스택·프로세스 구조 + ADR 24건
+    ├── architecture/   # 기술 스택·프로세스 구조 + ADR 26건
     ├── design-system/  # 디자인 토큰·시각 철칙 + ADR 9건 + 와이어프레임
     ├── decision-log/   # 결정 과정의 기록 (기각된 선택지 포함)
     └── plans/          # 구현 계획서 (마일스톤 단위 작업 지시서)
