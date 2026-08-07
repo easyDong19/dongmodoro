@@ -38,11 +38,18 @@ export const queryClient = new QueryClient({
     queries: {
       networkMode: 'always',
       retry: false,
-      refetchOnWindowFocus: false
+      refetchOnWindowFocus: false,
+      // 데스크톱 앱엔 "재연결"이라는 사건이 없다 — 이 값을 켜두면 OS 의 온라인 상태
+      // 이벤트에 로컬 SQLite 조회가 또 인질로 잡힌다. 갱신은 오직 invalidate 초크포인트
+      // (ADR-025 §4·§5)를 통해서만 일어난다.
+      refetchOnReconnect: false
     },
     mutations: {
       networkMode: 'always',
       retry: false
+      // refetchOnReconnect 는 MutationObserverOptions 에 없다 (TanStack Query v5) —
+      // 재요청 대상 자체가 없는 mutation 에는 애초에 의미가 없는 옵션이라 타입에서 뺐다.
+      // queries 쪽만 추가한다 (바로 위, ADR-025 §4).
     }
   }
 })

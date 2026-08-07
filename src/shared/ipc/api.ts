@@ -1,5 +1,5 @@
 import type { z } from 'zod'
-import type { contracts } from './contracts'
+import type { contracts, ClockBoundary } from './contracts'
 
 /**
  * preload 가 노출하는 API 의 표면을 **계약에서 기계적으로 파생**한다.
@@ -35,5 +35,15 @@ export type Api = {
     onTimerTransition: (cb: (payload: unknown) => void) => () => void
     onSessionRecorded: (cb: (payload: unknown) => void) => () => void
     onClockBoundary: (cb: (payload: unknown) => void) => () => void
+  }
+} & {
+  /**
+   * `clock:now` 채널 (Task 2). 아직 `contracts` 에 계약이 없다 — zod 계약과 main
+   * 핸들러는 Task 5 가 추가한다. 여기서는 useClock() 훅이 typecheck 되도록 표면만 연다.
+   * 그 전까지 이 채널을 실제로 부르는 코드는 없다 — invoke 하면 main 이 응답하지 않아
+   * reject 된다.
+   */
+  clock: {
+    now: () => Promise<ClockBoundary>
   }
 }
