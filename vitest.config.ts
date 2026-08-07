@@ -12,7 +12,9 @@ export default defineConfig({
   },
   test: {
     include: ['src/**/*.test.{ts,tsx}'],
-    environment: 'jsdom',
+    // 기본은 node — main 프로세스 테스트가 대다수다. jsdom 은 렌더러 컴포넌트
+    // 테스트에서만 파일 상단 `// @vitest-environment jsdom` 도크블록으로 켠다.
+    environment: 'node',
     setupFiles: ['./vitest.setup.ts']
   }
 })

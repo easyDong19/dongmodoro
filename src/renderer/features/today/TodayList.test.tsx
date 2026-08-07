@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 import { describe, it, expect, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import type {} from '@testing-library/jest-dom/vitest'
@@ -36,7 +37,16 @@ function makeRow(overrides: Partial<TodayRow> = {}): TodayRow {
   }
 }
 
-function setup({ rows, timer }: { rows: TodayRow[]; timer: TimerSnapshotWire }) {
+function setup({
+  rows,
+  timer,
+  listPromise
+}: {
+  rows: TodayRow[]
+  timer: TimerSnapshotWire
+  /** 브리프의 "지연/미해결 프로미스로 pending 상태를 목킹" 요청용 — 주면 rows 대신 이걸 쓴다. */
+  listPromise?: Promise<{ dayKey: string; rows: TodayRow[] }>
+}) {
   const qc = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } }
   })
@@ -46,7 +56,7 @@ function setup({ rows, timer }: { rows: TodayRow[]; timer: TimerSnapshotWire }) 
     system: { getAppInfo: vi.fn() },
     clock: { now: vi.fn().mockResolvedValue(clock) },
     today: {
-      list: vi.fn().mockResolvedValue({ dayKey: clock.dayKey, rows }),
+      list: vi.fn(() => listPromise ?? Promise.resolve({ dayKey: clock.dayKey, rows })),
       addDirect: vi.fn().mockResolvedValue({ itemWeek: clock.weekKey }),
       pull: vi.fn().mockResolvedValue({ itemWeek: clock.weekKey }),
       remove: vi.fn().mockResolvedValue({ itemWeek: clock.weekKey }),
@@ -115,6 +125,15 @@ describe('TodayList — 렌더 계약 (Task 9)', () => {
 
     await screen.findAllByTestId('today-row-title')
     expect(screen.queryByRole('button', { name: '타이머 시작' })).not.toBeInTheDocument()
+  })
+
+  it('조회가 아직 끝나지 않았으면 빈 상태 카피를 보여주지 않는다 (로딩 ≠ 0건)', () => {
+    // 절대 resolve 되지 않는 프로미스 — "아직 모른다"를 고정한 채 동기적으로 단언한다.
+    const neverResolves = new Promise<{ dayKey: string; rows: TodayRow[] }>(() => {})
+    setup({ rows: [], timer: idleFocusSnapshot, listPromise: neverResolves })
+
+    expect(screen.queryByText('오늘 몫이 비어 있어요')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('today-row-title')).not.toBeInTheDocument()
   })
 
   it('목록이 0건이면 M2 빈 상태 카피와 직접 입력 CTA 를 보여준다', async () => {

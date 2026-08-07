@@ -47,8 +47,7 @@ function TodayRowItem({
   const isDone = row.completedAt !== null
   return (
     <li
-      className="flex items-center gap-3 rounded-md px-2 py-2"
-      style={{ opacity: isDone ? 0.55 : 1 }}
+      className={`flex items-center gap-3 rounded-md px-2 py-2 ${isDone ? 'opacity-[0.55]' : ''}`}
     >
       <input
         type="checkbox"
@@ -69,7 +68,6 @@ function TodayRowItem({
           size="icon-sm"
           aria-label="타이머 시작"
           onClick={() => onPlay(row.taskId)}
-          style={{ minWidth: 'var(--target-min)', minHeight: 'var(--target-min)' }}
         >
           <Play />
         </Button>
@@ -80,7 +78,6 @@ function TodayRowItem({
         size="icon-sm"
         aria-label="치우기"
         onClick={() => onRemove(row.taskId)}
-        style={{ minWidth: 'var(--target-min)', minHeight: 'var(--target-min)' }}
       >
         <X />
       </Button>
@@ -99,6 +96,9 @@ export function TodayList() {
   const [draft, setDraft] = useState('')
 
   const canPlay = timerQuery.data?.mode === 'focus' && timerQuery.data?.phase === 'idle'
+  // query.data 가 아직 undefined 인 "로딩 중"과 "조회 결과 0건"은 다른 상태다 — 합치면
+  // 첫 마운트에서 실제로는 행이 있는데도 빈 상태 카피가 잠깐 깜빡인다.
+  const isLoading = query.data === undefined
   const rows = query.data?.rows ?? []
   const incomplete = rows.filter((r) => r.completedAt === null)
   const completed = rows.filter((r) => r.completedAt !== null)
@@ -128,17 +128,16 @@ export function TodayList() {
         placeholder="할 일을 바로 추가"
         className="flex-1 rounded-md border border-control-border bg-glass px-3 py-1.5 text-sm text-ink"
       />
-      <Button
-        type="submit"
-        variant="secondary"
-        size="icon-sm"
-        aria-label="추가"
-        style={{ minWidth: 'var(--target-min)', minHeight: 'var(--target-min)' }}
-      >
+      <Button type="submit" variant="secondary" size="icon-sm" aria-label="추가">
         <Plus />
       </Button>
     </form>
   )
+
+  if (isLoading) {
+    // 아직 조회 중 — 빈 상태 카피도, 행도 그리지 않는다 (있을지 없을지 모르므로).
+    return <div className="flex flex-col gap-4 rounded-lg p-4" aria-busy="true" />
+  }
 
   if (rows.length === 0) {
     return (
