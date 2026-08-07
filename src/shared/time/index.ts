@@ -55,6 +55,15 @@ export function nowMs(): number {
   return Date.now()
 }
 
+/**
+ * epoch ms → 순간(UTC ISO). 이미 벌어진 순간(세션 시작·종료)을 저장 경계에서 문자열로
+ * 변환할 때 쓴다 (ADR-009 §1 — 런타임은 epoch ms, 저장은 UTC ISO). 달력 키 재파생이
+ * 아니다 — 그것은 이 파일 상단 주석대로 금지다.
+ */
+export function instantFromMs(atEpochMs: number): string {
+  return new Date(atEpochMs).toISOString()
+}
+
 /** 자정 경계 이벤트의 달력 키 3종 (ADR-026 §1). 한 번의 시계 읽기에서 함께 파생한다 —
  * localKeys 와 같은 이유(ADR-022 §1)로, dayKey·weekKey·monthKey 가 자정을 걸쳐 갈라지면
  * 안 된다. 필드명은 `eventContracts.clockBoundary` 의 payload 모양을 그대로 따른다. */
