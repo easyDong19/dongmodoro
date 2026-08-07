@@ -49,3 +49,32 @@ export function localKeys(atEpochMs?: number): LocalKeys {
   const at = atEpochMs === undefined ? new Date() : new Date(atEpochMs)
   return { localDate: dayKey(at), localWeek: weekKey(at) }
 }
+
+/** 현재 순간의 epoch ms (ADR-009 §3). 알람 스케줄링처럼 epoch 산술이 필요한 셸이 쓴다. */
+export function nowMs(): number {
+  return Date.now()
+}
+
+/** 자정 경계 이벤트의 달력 키 3종 (ADR-026 §1). 한 번의 시계 읽기에서 함께 파생한다 —
+ * localKeys 와 같은 이유(ADR-022 §1)로, dayKey·weekKey·monthKey 가 자정을 걸쳐 갈라지면
+ * 안 된다. 필드명은 `eventContracts.clockBoundary` 의 payload 모양을 그대로 따른다. */
+export type CalendarKeys = {
+  readonly dayKey: string
+  readonly weekKey: string
+  readonly monthKey: string
+}
+
+export function calendarKeys(atEpochMs?: number): CalendarKeys {
+  const at = atEpochMs === undefined ? new Date() : new Date(atEpochMs)
+  return { dayKey: dayKey(at), weekKey: weekKey(at), monthKey: monthKey(at) }
+}
+
+/**
+ * 다음 자정(로컬)의 epoch ms. 자정 알람의 재예약 계산에 쓴다 (ADR-026 §1).
+ * `new Date()` 생성자를 여기 안에 가둬서 호출부(main/services/clock.ts)가 epoch ms 만
+ * 주고받게 한다 — ADR-009 §3 이 그 밖에서의 생성자 호출을 lint 로 막는다.
+ */
+export function startOfNextLocalDayMs(atEpochMs: number): number {
+  const at = new Date(atEpochMs)
+  return new Date(at.getFullYear(), at.getMonth(), at.getDate() + 1, 0, 0, 0, 0).getTime()
+}

@@ -26,15 +26,13 @@ const api: Api = {
   system: {
     getAppInfo: () => ipcRenderer.invoke(CHANNELS.system.getAppInfo)
   },
+  clock: {
+    now: () => ipcRenderer.invoke(CHANNELS.clock.now)
+  },
   events: {
     onTimerTransition: on(EVENT_CHANNELS.timerTransition),
     onSessionRecorded: on(EVENT_CHANNELS.sessionRecorded),
     onClockBoundary: on(EVENT_CHANNELS.clockBoundary)
-  },
-  // `clock:now` 채널·main 핸들러는 Task 5 가 추가한다 (registration.test.ts 의 완결성
-  // 검사 때문에 CHANNELS 에 미리 넣을 수 없다 — task-2-report.md 참조).
-  clock: {
-    now: () => ipcRenderer.invoke('clock:now')
   }
 }
 

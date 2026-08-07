@@ -1,8 +1,11 @@
 import { app, dialog, shell } from 'electron'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import type { BrowserWindow } from 'electron'
 import { createWindow } from './window'
 import { registerSystemHandlers } from './ipc/system'
+import { registerClockHandlers } from './ipc/clock'
+import { startClock } from './services/clock'
 import { openDb, closeDb } from './db/open'
 import { migrateDb } from './db/migrate'
 import { makeDrizzleUow } from './db/repositories/drizzle'
@@ -24,6 +27,8 @@ import { CorruptError, DowngradeError, MigrationError } from './db/errors'
 const MIGRATIONS_DIR = join(dirname(fileURLToPath(import.meta.url)), '../../drizzle')
 
 let closeDatabase: (() => void) | undefined
+let mainWindow: BrowserWindow | null = null
+let stopClock: (() => void) | undefined
 
 /**
  * 시작 실패를 안내하고 종료한다 (ADR-020 §4).
@@ -65,7 +70,10 @@ app
     const schemaVersion = startDb()
     // 핸들러를 창보다 먼저 등록한다 — renderer 가 뜨자마자 호출해도 받을 사람이 있어야 한다.
     registerSystemHandlers(() => schemaVersion)
-    createWindow()
+    registerClockHandlers()
+    mainWindow = createWindow()
+    // 자정 알람은 창이 있어야 보낼 대상이 있다 — 창 생성 후에 시작한다.
+    stopClock = startClock(() => mainWindow)
   })
   .catch((e: unknown) => {
     // 예상 못한 실패도 같은 경로로 보낸다 — 조용한 unhandled rejection 을 남기지 않는다.
@@ -100,6 +108,8 @@ app
 // 정상 종료 경로에서 WAL 을 접는다 (ADR-020 §5). 강제 종료는 막지 않는다 —
 // WAL 저널이 그 경우를 위해 존재하며 다음 시작 시 SQLite 가 복구한다.
 app.on('before-quit', () => {
+  stopClock?.()
+  stopClock = undefined
   closeDatabase?.()
   closeDatabase = undefined
 })

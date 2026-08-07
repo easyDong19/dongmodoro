@@ -10,6 +10,17 @@ import { z } from 'zod'
  * 채널마다 요청(req)·응답(res) 쌍이 규칙이다. 응답은 strictObject 로 모르는 키를 거부한다 —
  * z.object() 는 조용히 버리기 때문에 계약이 어긋나도 아무도 모른다.
  */
+/**
+ * 자정 경계 payload 스키마 (ADR-026 §1). `contracts.clock.now`(invoke 응답)와
+ * `eventContracts.clockBoundary`(이벤트 payload)가 같은 모양을 공유하므로 위에서 한 번만
+ * 선언한다 — 두 곳에 따로 쓰면 어긋날 여지가 생긴다.
+ */
+const clockBoundarySchema = z.strictObject({
+  dayKey: z.string(),
+  weekKey: z.string(),
+  monthKey: z.string()
+})
+
 export const contracts = {
   system: {
     getAppInfo: {
@@ -18,6 +29,12 @@ export const contracts = {
         appVersion: z.string(),
         schemaVersion: z.int()
       })
+    }
+  },
+  clock: {
+    now: {
+      req: z.tuple([]),
+      res: clockBoundarySchema
     }
   }
 } as const
@@ -52,11 +69,7 @@ export const eventContracts = {
     localWeek: z.string()
   }),
   /** 전이 후 값. 자정 정각 알람 + powerMonitor resume 보정 (ADR-026 §1). */
-  clockBoundary: z.strictObject({
-    dayKey: z.string(),
-    weekKey: z.string(),
-    monthKey: z.string()
-  })
+  clockBoundary: clockBoundarySchema
 } as const
 
 export type TimerSnapshotWire = z.infer<typeof timerSnapshotSchema>

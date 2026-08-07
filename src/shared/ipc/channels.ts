@@ -3,7 +3,8 @@
  * 새 유스케이스는 여기 → contracts.ts → handleIpc → preload 순으로 네 곳을 모두 채운다 (ADR-007).
  */
 export const CHANNELS = {
-  system: { getAppInfo: 'system:getAppInfo' }
+  system: { getAppInfo: 'system:getAppInfo' },
+  clock: { now: 'clock:now' }
 } as const
 
 /**

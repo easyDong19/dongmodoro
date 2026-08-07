@@ -1,8 +1,14 @@
+import { useEffect } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { api } from '../shared/api'
+import { queryClient } from '../shared/query'
+import { subscribeMainEvents } from '../shared/query/events'
 import { Button } from '@renderer/shared/ui/button'
 
 export function App() {
+  // main → renderer 이벤트 구독은 앱 최상단 한 곳에서만 한다 (ADR-026 §4).
+  useEffect(() => subscribeMainEvents(queryClient), [])
+
   const { data, error } = useQuery({
     queryKey: ['system', 'appInfo'],
     queryFn: () => api.system.getAppInfo()

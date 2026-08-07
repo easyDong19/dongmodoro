@@ -32,7 +32,9 @@ beforeEach(() => handled.clear())
 describe('IPC 등록 완결성 (ADR-007)', () => {
   it('registers every channel declared in CHANNELS', async () => {
     const { registerSystemHandlers } = await import('./system')
+    const { registerClockHandlers } = await import('./clock')
     registerSystemHandlers(() => 1)
+    registerClockHandlers()
 
     const declared = allChannels(CHANNELS).sort()
     expect(declared.length).toBeGreaterThan(0)
