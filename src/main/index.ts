@@ -5,6 +5,8 @@ import { createWindow } from './window'
 import { registerSystemHandlers } from './ipc/system'
 import { openDb, closeDb } from './db/open'
 import { migrateDb } from './db/migrate'
+import { makeDrizzleUow } from './db/repositories/drizzle'
+import { seedSettings } from './services/seed'
 import { CorruptError, DowngradeError, MigrationError } from './db/errors'
 
 /**
@@ -50,7 +52,10 @@ function startDb(): number {
   const userData = app.getPath('userData')
   const { db, sqlite } = openDb(join(userData, 'app.db'))
   closeDatabase = () => closeDb(sqlite)
-  return migrateDb(sqlite, db, userData, MIGRATIONS_DIR).schemaVersion
+  const { schemaVersion } = migrateDb(sqlite, db, userData, MIGRATIONS_DIR)
+  // Seed static settings after migration — ADR-018 §4
+  seedSettings(makeDrizzleUow(db))
+  return schemaVersion
 }
 
 app
