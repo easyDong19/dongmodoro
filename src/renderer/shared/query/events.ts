@@ -6,6 +6,16 @@ import { keys } from './keys'
 import { dispatchInvalidation } from './invalidate'
 
 /**
+ * 캡처 바가 대기 캐시를 비우는 유일한 경로 (Task 10) — `기록`·`건너뛰기`·Esc 셋 다
+ * 이걸 부른다. setQueryData 는 초크포인트 파일(events.ts·invalidate.ts)에서만 허용되므로
+ * (ADR-025 §5), CaptureBar 는 이 함수를 통해서만 캐시를 비운다.
+ */
+export function clearCapturePending(qc: QueryClient): void {
+  // setQueryData(key, undefined) 은 react-query 에서 무시된다(no-op) — 반드시 null 을 쓴다.
+  qc.setQueryData(keys.capturePending(), null)
+}
+
+/**
  * 앱 최상단 구독 한 곳 (ADR-026 §4). main 이 보내는 이벤트를 수신 직후 parse 하고,
  * 캐시를 갱신한다. 여러 곳에서 구독하면 순서·중복 부수효과를 보장할 수 없어 여기 하나로
  * 모은다.
@@ -19,6 +29,10 @@ export function subscribeMainEvents(qc: QueryClient): () => void {
   })
   const offSession = api.events.onSessionRecorded((raw) => {
     const payload = eventContracts.sessionRecorded.parse(raw)
+    // 자유 focus 완료(taskId 미지정)만 사후 캡처 대상이다 (ux-spec §5, Task 10).
+    if (payload.kind === 'focus' && payload.taskId === null) {
+      qc.setQueryData(keys.capturePending(), payload)
+    }
     const clock = qc.getQueryData<ClockBoundary>(keys.clock())
     dispatchInvalidation(qc, {
       type: 'session-recorded',

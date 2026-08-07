@@ -2,6 +2,7 @@ import { useEffect } from 'react'
 import { queryClient } from '../shared/query'
 import { subscribeMainEvents } from '../shared/query/events'
 import { TodayList } from '@renderer/features/today/TodayList'
+import { TimerCard } from '@renderer/features/timer/TimerCard'
 
 export function App() {
   // main → renderer 이벤트 구독은 앱 최상단 한 곳에서만 한다 (ADR-026 §4).
@@ -15,7 +16,7 @@ export function App() {
         style={{ background: 'var(--glass)' }}
         aria-label="타이머"
       >
-        {/* Task 10 에서 타이머 카드가 여기 들어온다. */}
+        <TimerCard />
       </section>
       <section
         className="w-[360px] rounded-lg"
