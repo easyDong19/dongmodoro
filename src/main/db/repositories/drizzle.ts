@@ -1,4 +1,5 @@
-import { and, asc, desc, eq, gt, isNull, sql } from 'drizzle-orm'
+import { and, asc, desc, eq, gt, gte, isNotNull, isNull, lte, sql } from 'drizzle-orm'
+import type { SQL } from 'drizzle-orm'
 import type { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3'
 import { v7 as uuidv7 } from 'uuid'
 import { settings, weeks, weekItems, tasks, taskPulls, sessions } from '../schema'
@@ -46,14 +47,23 @@ function makeRepos(tx: Tx): Repositories {
         return row ?? null
       },
 
-      // 행이 없을 때만 만든다 (weekly-review R37 — 있는 행의 길이 스냅샷은 덮지 않는다).
-      ensure: (week, baseline) => {
+      /**
+       * 행이 없을 때만 만든다. `onConflictDoNothing` 이 곧 "있는 행의 스냅샷은 덮지
+       * 않는다"는 규칙의 구현이다 (ADR-013 §3) — `DoUpdate` 로 바꾸는 순간 지각 정산이
+       * 진행 중인 주의 단위를 바꾸게 된다.
+       *
+       * capacity 는 JSON 문자열로 넣는다. 스키마의 `weeks_capacity_shape` CHECK 가
+       * 길이 7 · 원소 전부 0 이상 정수를 재검증한다 (ADR-021 §3).
+       */
+      ensure: (week, snapshot) => {
         tx.insert(weeks)
           .values({
             week,
-            focusMin: baseline.focusMin,
-            shortBreakMin: baseline.shortBreakMin,
-            longBreakMin: baseline.longBreakMin
+            focusMin: snapshot.focusMin,
+            shortBreakMin: snapshot.shortBreakMin,
+            longBreakMin: snapshot.longBreakMin,
+            capacity: snapshot.capacity === null ? null : JSON.stringify(snapshot.capacity),
+            budget: snapshot.budget
           })
           .onConflictDoNothing({ target: weeks.week })
           .run()
@@ -561,8 +571,305 @@ function makeRepos(tx: Tx): Repositories {
             .get()?.n ?? 0
         )
       }
+    },
+
+    review: {
+      /**
+       * 세 테이블의 최소 주 키. 달력 키는 사전순 = 시간순이라 `MIN()` 이 곧 가장 이른
+       * 주다 (ADR-009 §1). UNION 이 아니라 스칼라 3개의 최소를 쓰는 이유는, 세 컬럼의
+       * 의미가 서로 다르고("세션이 있었다"·"계획이 있었다"·"주 행이 생겼다") 어느
+       * 하나만 있어도 "기록이 있다"로 쳐야 하기 때문이다 (R28).
+       *
+       * `week_items` 는 삭제된 행을 빼지 않는다 — 삭제됐어도 **그 주에 무언가 있었다는
+       * 사실**은 남고, 폴백은 정산 범위를 넓히는 쪽이 안전하다.
+       */
+      earliestRecordedWeek: () => {
+        const min = (value: string | null | undefined): string | null => value ?? null
+        const candidates = [
+          min(
+            tx
+              .select({ w: sql<string | null>`min(${sessions.localWeek})` })
+              .from(sessions)
+              .get()?.w
+          ),
+          min(
+            tx
+              .select({ w: sql<string | null>`min(${weekItems.week})` })
+              .from(weekItems)
+              .get()?.w
+          ),
+          min(
+            tx
+              .select({ w: sql<string | null>`min(${weeks.week})` })
+              .from(weeks)
+              .get()?.w
+          )
+        ].filter((w): w is string => w !== null)
+
+        return candidates.length === 0 ? null : candidates.reduce((a, b) => (a < b ? a : b))
+      },
+
+      /**
+       * 술어는 `listPending` 과 **한 글자도 다르면 안 된다** — 배너가 말한 건수와 패널이
+       * 보여주는 목록이 갈리기 때문이다. 그래서 조건을 아래 `pendingPredicate` 하나로
+       * 뽑아 두 곳이 같은 것을 쓴다.
+       */
+      countPending: (from, to) =>
+        tx
+          .select({ n: sql<number>`count(*)` })
+          .from(weekItems)
+          .where(pendingPredicate(from, to))
+          .get()?.n ?? 0,
+
+      weekFacts: (from, to) => {
+        /**
+         * "기록이 있는 주" = 세션 1건 이상 **또는** 주간 항목 1건 이상 (technical-spec).
+         * 완전히 빈 주는 행이 없어야 하므로 범위를 채우지 않고 실제 기록에서 길어 올린다.
+         *
+         * 항목 쪽에서 `deleted_at` 만 거른다. 삭제는 "없던 일"이지만(ADR-014 §1) 폐기는
+         * 이력으로 남는 사실이라, 폐기 항목만 있는 주도 요약에 나타나야 한다.
+         */
+        const recorded = tx.all<{ w: string }>(sql`
+            SELECT ${sessions.localWeek} AS w FROM ${sessions}
+             WHERE ${sessions.localWeek} BETWEEN ${from} AND ${to}
+            UNION
+            SELECT ${weekItems.week} AS w FROM ${weekItems}
+             WHERE ${weekItems.week} BETWEEN ${from} AND ${to}
+               AND ${weekItems.deletedAt} IS NULL
+            ORDER BY w
+          `)
+
+        return recorded.map(({ w }) => {
+          const totals = tx
+            .select({
+              spent: sql<number>`count(*)`,
+              days: sql<number>`count(distinct ${sessions.localDate})`
+            })
+            .from(sessions)
+            .where(and(eq(sessions.localWeek, w), eq(sessions.kind, 'focus')))
+            .get()
+
+          /**
+           * Σ 의 정의역은 **그 주에 화면 목록으로 표시되는 항목**이다 (ADR-027 §1) —
+           * ADR-012 §4 수식의 `is_system = 0` 을 그렇게 읽는다. 폐기·삭제 항목을 Σ 에
+           * 넣으면 그 소진이 요약의 어느 숫자에도 안 들어가 화면에서 증발한다.
+           *
+           * `tasks.deleted_at` 은 일부러 거르지 않는다 — `listForWeek` 의 항목 소진과
+           * 같은 술어여야 차액 항등식이 성립한다 (ADR-027 §2).
+           */
+          const planned =
+            tx
+              .select({ n: sql<number>`count(*)` })
+              .from(sessions)
+              .innerJoin(tasks, eq(sessions.taskId, tasks.id))
+              .innerJoin(weekItems, eq(tasks.weekItemId, weekItems.id))
+              .where(
+                and(
+                  eq(sessions.localWeek, w),
+                  eq(sessions.kind, 'focus'),
+                  eq(weekItems.week, w),
+                  eq(weekItems.isSystem, 0),
+                  isNull(weekItems.droppedAt),
+                  isNull(weekItems.deletedAt)
+                )
+              )
+              .get()?.n ?? 0
+
+          const spentPomos = totals?.spent ?? 0
+          return {
+            week: w,
+            studiedDays: totals?.days ?? 0,
+            spentPomos,
+            budget:
+              tx.select({ budget: weeks.budget }).from(weeks).where(eq(weeks.week, w)).get()
+                ?.budget ?? null,
+            unplannedPomos: spentPomos - planned
+          }
+        })
+      },
+
+      lastStudied: () => {
+        const row = tx
+          .select({ week: sessions.localWeek, spentPomos: sql<number>`count(*)` })
+          .from(sessions)
+          .where(eq(sessions.kind, 'focus'))
+          .groupBy(sessions.localWeek)
+          .orderBy(desc(sessions.localWeek))
+          .limit(1)
+          .get()
+        return row ?? null
+      },
+
+      listPending: (from, to) =>
+        tx
+          .select({
+            id: weekItems.id,
+            week: weekItems.week,
+            title: weekItems.title,
+            estPomos: weekItems.estPomos,
+            originWeek: weekItems.originWeek,
+            milestoneId: weekItems.milestoneId,
+            spentPomos: itemSpent()
+          })
+          .from(weekItems)
+          .where(pendingPredicate(from, to))
+          .orderBy(asc(weekItems.week), asc(weekItems.createdAt), sql`week_items.rowid`)
+          .all(),
+
+      listCompleted: (from, to) =>
+        tx
+          .select({
+            id: weekItems.id,
+            week: weekItems.week,
+            title: weekItems.title,
+            spentPomos: itemSpent()
+          })
+          .from(weekItems)
+          .where(
+            and(
+              gte(weekItems.week, from),
+              lte(weekItems.week, to),
+              isNotNull(weekItems.completedAt),
+              isNull(weekItems.droppedAt),
+              isNull(weekItems.deletedAt),
+              eq(weekItems.isSystem, 0)
+            )
+          )
+          .orderBy(asc(weekItems.week), asc(weekItems.createdAt), sql`week_items.rowid`)
+          .all(),
+
+      applySettlement: ({ targetWeek, snapshot, rangeWeeks, drops, carries, at }) => {
+        // 4. 폐기 — soft. 원본 행은 남는다 (ADR-014 §1).
+        for (const id of drops) {
+          tx.update(weekItems)
+            .set({ droppedAt: at, updatedAt: at })
+            .where(eq(weekItems.id, id))
+            .run()
+        }
+
+        // 5. 이월 — 계획 대상 주에 **행을 새로 만든다** (UPDATE 아님).
+        //    원본을 옮기면 origin_week 박제와 "그 주에 무엇이 남았는가"라는 과거 사실이
+        //    동시에 파괴된다 (Q12).
+        const carried: { sourceItemId: string; newItemId: string }[] = []
+        for (const { sourceId, estPomos } of carries) {
+          const src = tx
+            .select({
+              title: weekItems.title,
+              milestoneId: weekItems.milestoneId,
+              originWeek: weekItems.originWeek
+            })
+            .from(weekItems)
+            .where(eq(weekItems.id, sourceId))
+            .get()
+          if (!src) continue
+
+          const newId = uuidv7()
+          tx.insert(weekItems)
+            .values({
+              id: newId,
+              week: targetWeek,
+              title: src.title,
+              estPomos,
+              milestoneId: src.milestoneId, // 마일스톤 승계 (ADR-012 §3)
+              days: '[]', // 요일 배치는 플래너에서 다시 (week-plan)
+              originWeek: src.originWeek, // 박제 승계 — 배지의 근거 (Q12)
+              carryFromId: sourceId, // 직전 원본. 이력 전용
+              isSystem: 0,
+              createdAt: at,
+              updatedAt: at
+            })
+            .run()
+
+          /**
+           * 5b. 미완료 조각 재부모화 (ADR-012 §3). 이것이 있어야 "지난 주 미완료 조각을
+           * 이번 주에 재개"가 성립한다. 항목은 "그 주의 계획이었다"는 사실이라 옮기지
+           * 않지만, 조각은 "무엇을 할 것인가"라서 옮긴다.
+           *
+           * 이미 붙은 세션의 귀속은 움직이지 않는다 — 항목 소진이 주 조건으로 집계되므로
+           * 과거 주의 숫자가 소급해 변하지 않는다.
+           */
+          tx.update(tasks)
+            .set({ weekItemId: newId, updatedAt: at })
+            .where(
+              and(
+                eq(tasks.weekItemId, sourceId),
+                isNull(tasks.completedAt),
+                isNull(tasks.deletedAt)
+              )
+            )
+            .run()
+
+          carried.push({ sourceItemId: sourceId, newItemId: newId })
+        }
+
+        /**
+         * 6. 주별 행 — 정산 범위의 각 주 **+ 계획 대상 주**. 계획 대상 주까지 만드는
+         * 이유는 스냅샷 없는 주가 남으면 그 주의 예산·단위가 나중에 전역 설정값으로
+         * 해석되기 때문이다 (ADR-013 §2). 있는 행은 `settled_at` 만 건드린다.
+         */
+        for (const week of [...rangeWeeks, targetWeek]) {
+          tx.insert(weeks)
+            .values({
+              week,
+              focusMin: snapshot.focusMin,
+              shortBreakMin: snapshot.shortBreakMin,
+              longBreakMin: snapshot.longBreakMin,
+              capacity: snapshot.capacity === null ? null : JSON.stringify(snapshot.capacity),
+              budget: snapshot.budget
+            })
+            .onConflictDoNothing({ target: weeks.week })
+            .run()
+        }
+        for (const week of rangeWeeks) {
+          tx.update(weeks).set({ settledAt: at }).where(eq(weeks.week, week)).run()
+        }
+
+        return { carried }
+      }
     }
   }
+}
+
+/**
+ * 정산 3택 대상의 술어 (technical-spec "3택 대상 조회 조건").
+ *
+ * 완료는 3택 대상이 아니고(Q14), 폐기·삭제된 항목은 이미 처분됐으며(ADR-014 §1),
+ * 시스템 "기타" 항목은 제외된다(Q7). 주 범위 비교가 문자열 비교인 것은 달력 키가
+ * 사전순 = 시간순이기 때문이다 (ADR-009 §1).
+ */
+/**
+ * 항목 소진의 상관 서브쿼리 (ADR-012 §1). `listForWeek` 은 항목 목록을 이미 주 하나로
+ * 좁혀 놓고 세지만, 정산은 **여러 주의 항목을 한 목록에** 담으므로 행마다 자기 주를
+ * 조건으로 써야 한다 — `week_items.week` 를 상관 참조하는 것이 그 차이다.
+ *
+ * 주 조건이 빠지면 주 경계를 넘긴 세션이 두 항목에서 세어지고 에러 없이 숫자만 틀린다.
+ * `tasks.deleted_at` 을 거르지 않는 것도 `listForWeek` 과 같다 (ADR-027 §2).
+ */
+function itemSpent(): SQL<number> {
+  /**
+   * 서브쿼리 전체를 raw SQL 로 쓴다. drizzle 의 컬럼 참조(`${weekItems.id}`)는 select
+   * 필드의 `sql` 템플릿 안에서 **테이블 접두사 없이** `"id"` 로 렌더되고(실측), 그러면
+   * 서브쿼리의 `tasks.id` 와 겹쳐 `ambiguous column name: id` 로 죽는다. 상관 참조는
+   * 반드시 테이블명으로 수식해야 한다.
+   */
+  return sql<number>`(
+    SELECT count(*) FROM sessions s
+      JOIN tasks t ON s.task_id = t.id
+     WHERE t.week_item_id = week_items.id
+       AND s.kind = 'focus'
+       AND s.local_week = week_items.week
+  )`
+}
+
+function pendingPredicate(from: string, to: string) {
+  return and(
+    gte(weekItems.week, from),
+    lte(weekItems.week, to),
+    isNull(weekItems.completedAt),
+    isNull(weekItems.droppedAt),
+    isNull(weekItems.deletedAt),
+    eq(weekItems.isSystem, 0)
+  )
 }
 
 /**

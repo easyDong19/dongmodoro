@@ -8,7 +8,7 @@ import type { TimerSnapshotWire } from '@shared/ipc/contracts'
 import { keys } from '@renderer/shared/query/keys'
 import { TodayList } from './TodayList'
 
-const clock = { dayKey: '2026-08-07', weekKey: '2026-08-03', monthKey: '2026-08' }
+const clock = { dayKey: '2026-08-07', weekKey: '2026-08-03', monthKey: '2026-08', weekdayIndex: 4 }
 
 const idleFocusSnapshot: TimerSnapshotWire = {
   mode: 'focus',

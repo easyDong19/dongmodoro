@@ -19,6 +19,12 @@ export type InvalidationEvent =
   | { type: 'plan-confirmed'; payload: { week: string }; currentDayKey: string }
   | { type: 'item-changed'; payload: { itemWeek: string }; currentDayKey: string }
   | {
+      type: 'settled'
+      /** 확정 응답이 실어 보낸 주 키 그대로. renderer 가 범위를 다시 계산하지 않는다. */
+      payload: { weeks: readonly string[]; targetWeek: string }
+      currentDayKey: string
+    }
+  | {
       type: 'clock-boundary'
       payload: ClockBoundary
       previous: ClockBoundary
@@ -72,6 +78,24 @@ export function keysToInvalidate(e: InvalidationEvent): readonly (readonly strin
     case 'item-changed':
       // 완료·완료 해제·폐기·pull 이 모두 이 갈래다 — 바뀌는 캐시 집합이 같다.
       return [keys.week(e.payload.itemWeek), keys.today(e.currentDayKey)]
+    case 'settled':
+      /**
+       * 확정 하나가 네 레이어를 건드린다 (technical-spec 캐시 무효화 표):
+       * 범위의 주들은 `settled_at`·스냅샷이 생기고, 계획 대상 주에는 이월 항목이 들어오며,
+       * 미완료 조각의 소속 항목이 바뀌어 오늘 목록의 표시가 달라지고, 워터마크 전진으로
+       * 배너가 사라진다. 마일스톤은 이월이 `milestone_id` 를 승계하므로 광역으로 턴다 —
+       * 전용 쿼리가 아직 없어 활성 구독은 0 이다.
+       *
+       * 드로어·플래너 초안은 적지 않는다. 두 키가 `keys.week(w)` 의 하위라 접두사로 함께
+       * 잡힌다. 반대 방향은 성립하지 않는다 — 긴 키로 짧은 키를 잡을 수 없다.
+       */
+      return [
+        ...e.payload.weeks.map((w) => keys.week(w)),
+        keys.week(e.payload.targetWeek),
+        keys.today(e.currentDayKey),
+        keys.monthAll(),
+        keys.reviewPending()
+      ]
     case 'clock-boundary': {
       const out: (readonly string[])[] = [keys.todayAll(), keys.reviewPending()]
       if (e.payload.weekKey !== e.previous.weekKey) out.push(keys.weekAll())

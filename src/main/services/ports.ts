@@ -35,11 +35,30 @@ export type WeekPlan = {
   plannedAt: string | null
 }
 
+/**
+ * `weeks` 행이 처음 생길 때 함께 박제되는 값 전부 (ADR-013 §2, weekly-review R37).
+ *
+ * 길이 3종과 계획 의사(capacity·budget)를 한 타입에 담는 이유는 **행 생성이 한 번뿐**
+ * 이기 때문이다. 길이만 먼저 박고 나중에 계획 의사를 채우는 경로를 열어 두면, 그 사이에
+ * 생긴 행이 "가용량을 정한 적 없는 주"인지 "정했는데 아직 안 박힌 주"인지 구분되지 않는다.
+ */
+export type WeekSnapshot = Baseline & {
+  /** 요일별 가용 뽀모 `[월..일]`. 정한 적 없으면 null — `[0,…]` 을 지어내지 않는다. */
+  capacity: number[] | null
+  /** 위 배열의 합을 **그 시점에 해석해** 저장한 값 (ADR-013 §1). 미설정이면 null. */
+  budget: number | null
+}
+
 export interface WeeksRepository {
   /** 그 주 스냅샷 3종. 행이 없으면 null (폴백은 여기서 하지 않는다 — baseline.ts 소관). */
   baseline(week: string): Baseline | null
-  /** 행이 없을 때만 생성 + 길이 3종 박제 (ADR-013 §2). capacity·budget 은 NULL (ADR-018 §1). 멱등. */
-  ensure(week: string, baseline: Baseline): void
+  /**
+   * 행이 없을 때만 생성 + 스냅샷 5종 박제 (ADR-013 §2). 멱등.
+   *
+   * **이미 있는 행의 스냅샷 컬럼은 어떤 값으로도 덮지 않는다** (ADR-013 §3) — 이 한 줄이
+   * "지각 정산이 진행 중인 주의 단위를 바꾼다"는 결함을 스키마 레벨에서 닫는다.
+   */
+  ensure(week: string, snapshot: WeekSnapshot): void
   /** 그 주 계획 스냅샷. 행이 없으면 null. */
   plan(week: string): WeekPlan | null
   /** 예산 저장 + `planned_at` 최초 1회만 기록. 행이 없으면 아무 것도 하지 않는다. */
@@ -178,6 +197,96 @@ export interface SessionsRepository {
   focusCountSinceLastLong(): number
 }
 
+export type ReviewWeekFact = {
+  week: string
+  /** focus 세션이 있었던 서로 다른 날짜 수. */
+  studiedDays: number
+  /** 그 주 focus 세션 전체. 폐기·삭제가 줄이지 않는다 (ADR-027 §2). */
+  spentPomos: number
+  /** 그 주 스냅샷 예산. 행이 없거나 NULL 이면 `null` = "기록 없음" (ADR-018 §1·§2). */
+  budget: number | null
+  /** 계획에 없던 집중 — **차액**이다. `주 소진 − Σ(목록에 보이는 항목의 소진)`. */
+  unplannedPomos: number
+}
+
+export type PendingItemRow = {
+  id: string
+  week: string
+  title: string
+  /** **항목 est** 다 — 하위 조각 est 의 합이 아니다 (Q13). */
+  estPomos: number
+  /** 그 항목의 주에 기록된 focus 세션만 (ADR-012 §1). */
+  spentPomos: number
+  /** 최초 생성 주. 이월 배지 `N주째` 의 재료 — 사슬 길이가 아니다 (Q12). */
+  originWeek: string
+  /** 이월이 승계한다 (R35). M3b 에서는 항상 null 이다. */
+  milestoneId: string | null
+}
+
+export type CompletedItemRow = {
+  id: string
+  week: string
+  title: string
+  spentPomos: number
+}
+
+export interface ReviewRepository {
+  /**
+   * 기록이 있는 가장 이른 주 = `min(sessions.local_week, week_items.week, weeks.week)`.
+   * 아무 기록도 없으면 `null`.
+   *
+   * 워터마크 부트스트랩의 **유실 폴백**에만 쓴다 (weekly-review R28). 키가 없는데 기록이
+   * 이미 있다는 것은 유실·복구된 DB 라는 뜻이고, 그때 `targetWeek − 1주` 로 초기화하면
+   * 정산하지 않은 과거 주가 조용히 영구 스킵된다.
+   */
+  earliestRecordedWeek(): string | null
+  /**
+   * 3택 대상 건수 (배너 문구용 스칼라). 조회 조건은 `listPending` 과 **같아야 한다** —
+   * 갈리면 배너가 말한 건수와 패널이 보여주는 목록이 어긋난다.
+   */
+  countPending(from: string, to: string): number
+  /**
+   * 범위 안에서 **기록이 있는 주**만 오름차순으로 (세션 ≥ 1 또는 주간 항목 ≥ 1).
+   * 완전히 빈 주는 행을 만들지 않는다 — 기록도 계획도 없는 주에는 해석할 예산조차
+   * 없기 때문이다 (ADR-013 §2). 화면은 그런 주를 "N주 쉬었어요" 로만 센다.
+   */
+  weekFacts(from: string, to: string): ReviewWeekFact[]
+  /**
+   * focus 세션이 있는 **가장 최근 주**와 그 소진. 없으면 `null`.
+   *
+   * **정산 범위와 무관하게** 조회한다 (R31) — 공백 기간을 말할 때 "마지막으로 공부한
+   * 주"는 범위 밖일 수 있고, 그게 이 값이 존재하는 이유다.
+   */
+  lastStudied(): { week: string; spentPomos: number } | null
+  /**
+   * 3택 대상. 주·생성순으로만 정렬한다 — "3주 이상 먼저"는 **표시 정렬**이라 화면이 한다
+   * (ux-spec §5.0). 남은 몫·`N주째` 도 여기서 계산하지 않는다: 규칙은 서비스가 갖는다.
+   */
+  listPending(from: string, to: string): PendingItemRow[]
+  /**
+   * "끝낸 것들". 기준은 **항목의 `week` 이 범위 안인가**이며 `completed_at` 시각이 범위
+   * 밖이어도 포함한다 — 그 항목이 어느 주의 계획이었는지가 기준이다 (ux-spec §4).
+   */
+  listCompleted(from: string, to: string): CompletedItemRow[]
+  /**
+   * 확정의 쓰기 전부 — **호출자가 결정을 이미 끝낸 상태**로 들어온다. 클램프·이월 est
+   * 계산·예외 흡수는 서비스가 하고 여기는 실행만 한다 (ADR-015 §1).
+   *
+   * 반드시 트랜잭션 안에서 부른다. 중간 실패 시 반쯤 정산된 상태가 남지 않아야 한다 (R22).
+   */
+  applySettlement(input: {
+    targetWeek: string
+    /** 새로 만드는 `weeks` 행에 박제할 값. 이미 있는 행에는 쓰이지 않는다. */
+    snapshot: WeekSnapshot
+    /** `settled_at` 을 찍을 정산 범위의 주들. */
+    rangeWeeks: readonly string[]
+    drops: readonly string[]
+    carries: readonly { sourceId: string; estPomos: number }[]
+    /** 순간 (UTC ISO). 한 번 읽어 넘긴다 (ADR-022 §1). */
+    at: string
+  }): { carried: { sourceItemId: string; newItemId: string }[] }
+}
+
 export interface Repositories {
   settings: SettingsRepository
   weeks: WeeksRepository
@@ -185,6 +294,7 @@ export interface Repositories {
   today: TodayRepository
   tasks: TasksRepository
   sessions: SessionsRepository
+  review: ReviewRepository
 }
 
 /**

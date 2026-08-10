@@ -19,17 +19,21 @@ function drizzleUowOnMemoryDb(): UnitOfWork {
   return makeDrizzleUow(db)
 }
 
-const BASELINE = { focusMin: 25, shortBreakMin: 5, longBreakMin: 15 }
+const LENGTHS = { focusMin: 25, shortBreakMin: 5, longBreakMin: 15 }
+/** `weeks.ensure` 는 길이뿐 아니라 계획 의사까지 받는다 (weekly-review R37). */
+const BASELINE = { ...LENGTHS, capacity: null, budget: null }
 
 describe('WeeksRepository', () => {
   it('ensure creates a row only when absent, and is idempotent', () => {
     const uow = drizzleUowOnMemoryDb()
     const week = '2026-08-03'
     uow.run((r) => r.weeks.ensure(week, BASELINE))
-    expect(uow.run((r) => r.weeks.baseline(week))).toEqual(BASELINE)
+    expect(uow.run((r) => r.weeks.baseline(week))).toEqual(LENGTHS)
     // 두 번째 ensure — 다른 길이를 넘겨도 기존 스냅샷을 덮지 않는다 (weekly-review R37).
-    uow.run((r) => r.weeks.ensure(week, { focusMin: 50, shortBreakMin: 10, longBreakMin: 30 }))
-    expect(uow.run((r) => r.weeks.baseline(week))).toEqual(BASELINE)
+    uow.run((r) =>
+      r.weeks.ensure(week, { ...BASELINE, focusMin: 50, shortBreakMin: 10, longBreakMin: 30 })
+    )
+    expect(uow.run((r) => r.weeks.baseline(week))).toEqual(LENGTHS)
   })
 
   it('baseline returns null when the row is absent', () => {

@@ -61,6 +61,11 @@ const api: Api = {
     uncomplete: (weekItemId) => ipcRenderer.invoke(CHANNELS.week.uncomplete, weekItemId),
     drop: (weekItemId) => ipcRenderer.invoke(CHANNELS.week.drop, weekItemId)
   },
+  review: {
+    getStatus: () => ipcRenderer.invoke(CHANNELS.review.getStatus),
+    getPending: () => ipcRenderer.invoke(CHANNELS.review.getPending),
+    settle: (input) => ipcRenderer.invoke(CHANNELS.review.settle, input)
+  },
   events: {
     onTimerTransition: on(EVENT_CHANNELS.timerTransition),
     onSessionRecorded: on(EVENT_CHANNELS.sessionRecorded),

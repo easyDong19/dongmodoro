@@ -36,6 +36,7 @@ describe('IPC 등록 완결성 (ADR-007)', () => {
     const { registerTodayHandlers } = await import('./today')
     const { registerTimerHandlers } = await import('./timer')
     const { registerWeekHandlers } = await import('./week')
+    const { registerReviewHandlers } = await import('./review')
     const { TimerEngine } = await import('../services/timer-engine')
     registerSystemHandlers(() => 1)
     registerClockHandlers()
@@ -47,6 +48,7 @@ describe('IPC 등록 완결성 (ADR-007)', () => {
     }
     registerTodayHandlers(uow)
     registerWeekHandlers(uow)
+    registerReviewHandlers(uow)
     // 엔진은 순수 클래스라 스텁 의존성으로 실물을 세운다 — 핸들러 fn 은 호출되지 않는다.
     const engine = new TimerEngine({
       now: () => 0,

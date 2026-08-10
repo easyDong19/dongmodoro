@@ -1,4 +1,5 @@
 import Database from 'better-sqlite3'
+import { sql } from 'drizzle-orm'
 import { drizzle } from 'drizzle-orm/better-sqlite3'
 import { migrate } from 'drizzle-orm/better-sqlite3/migrator'
 import { join } from 'node:path'
@@ -10,6 +11,9 @@ import { makeDrizzleUow } from './drizzle'
 const REPO_MIGRATIONS = join(fileURLToPath(import.meta.url), '../../../../../drizzle')
 
 export const TEST_BASELINE = { focusMin: 25, shortBreakMin: 5, longBreakMin: 15 }
+
+/** 시딩된 DB 의 기본 상태 — 가용량은 시딩하지 않으므로 계획 의사는 비어 있다. */
+export const TEST_SNAPSHOT = { ...TEST_BASELINE, capacity: null, budget: null }
 
 /**
  * 인메모리 실 SQLite (ADR-023 §3) + FK ON + 마이그레이션 + **설정 시딩**.
@@ -38,6 +42,27 @@ export function testUow(): { uow: UnitOfWork; db: ReturnType<typeof drizzle> } {
  */
 export function ensureWeeks(uow: UnitOfWork, ...weekKeys: readonly string[]): void {
   uow.run((repos) => {
-    for (const week of weekKeys) repos.weeks.ensure(week, TEST_BASELINE)
+    for (const week of weekKeys) repos.weeks.ensure(week, TEST_SNAPSHOT)
   })
+}
+
+/**
+ * 이월 배지 `N주째` 의 계산식만 검증하기 위해 `origin_week` 를 앞으로 되돌린다.
+ *
+ * 포트에 이런 메서드는 없다 — 프로덕션에서 `origin_week` 를 쓰는 경로는 항목 생성과
+ * 이월 승계 둘뿐이고, 그 둘은 값을 **정한다**. 되돌리기는 테스트만의 필요다.
+ *
+ * 이 함수가 여기 있는 이유: 서비스 테스트는 drizzle 을 import 할 수 없다 (ADR-015 §2,
+ * ESLint 강제). `src/main/db/` 안쪽인 이 파일이 그 경계를 대신 넘어 준다.
+ */
+export function backdateOriginWeek(
+  db: ReturnType<typeof drizzle>,
+  originWeek: string,
+  weekItemId?: string
+): void {
+  db.run(
+    weekItemId === undefined
+      ? sql`UPDATE week_items SET origin_week = ${originWeek}`
+      : sql`UPDATE week_items SET origin_week = ${originWeek} WHERE id = ${weekItemId}`
+  )
 }
