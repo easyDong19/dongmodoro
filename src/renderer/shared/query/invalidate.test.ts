@@ -17,7 +17,7 @@ describe('keysToInvalidate — ADR-025 §3 표의 코드화', () => {
     })
     expect(keys).toContainEqual(['today', '2026-08-07'])
     expect(keys).toContainEqual(['day', '2026-08-07'])
-    expect(keys).toContainEqual(['week', '2026-08-03', 'items'])
+    expect(keys).toContainEqual(['week', '2026-08-03'])
     expect(keys).toContainEqual(['month', '2026-08', 'calendar'])
     expect(keys).toContainEqual(['month']) // milestones 광역 (prefix)
   })
@@ -42,7 +42,7 @@ describe('keysToInvalidate — ADR-025 §3 표의 코드화', () => {
       payload: { localDate: '2026-08-07', localWeek: '2026-08-03' },
       currentDayKey: '2026-08-07'
     })
-    expect(keys).toContainEqual(['week', '2026-08-03', 'items'])
+    expect(keys).toContainEqual(['week', '2026-08-03'])
     expect(keys).toContainEqual(['day', '2026-08-07'])
     expect(keys).toContainEqual(['month'])
   })
@@ -54,7 +54,7 @@ describe('keysToInvalidate — ADR-025 §3 표의 코드화', () => {
     })
     expect(keys).toContainEqual(['today', '2026-08-07'])
     expect(keys).toContainEqual(['day', '2026-08-07'])
-    expect(keys).toContainEqual(['week', '2026-08-03', 'items'])
+    expect(keys).toContainEqual(['week', '2026-08-03'])
     expect(keys).toContainEqual(['month', '2026-08', 'calendar'])
   })
   it('완료 토글: day 는 전체(과거 소급), week 는 부모 항목의 주', () => {
@@ -64,7 +64,31 @@ describe('keysToInvalidate — ADR-025 §3 표의 코드화', () => {
       currentDayKey: '2026-08-07'
     })
     expect(keys).toContainEqual(['day'])
-    expect(keys).toContainEqual(['week', '2026-07-27', 'items'])
+    expect(keys).toContainEqual(['week', '2026-07-27'])
+  })
+  it('플래너 확정: 확정한 주와 오늘 목록을 무효화한다', () => {
+    expect(
+      keysToInvalidate({
+        type: 'plan-confirmed',
+        payload: { week: '2026-08-03' },
+        currentDayKey: '2026-08-05'
+      })
+    ).toEqual([
+      ['week', '2026-08-03'],
+      ['today', '2026-08-05']
+    ])
+  })
+  it('항목 변경: 그 항목의 주와 오늘 목록을 무효화한다 — 다른 주여도 오늘은 함께 턴다', () => {
+    expect(
+      keysToInvalidate({
+        type: 'item-changed',
+        payload: { itemWeek: '2026-08-10' },
+        currentDayKey: '2026-08-05'
+      })
+    ).toEqual([
+      ['week', '2026-08-10'],
+      ['today', '2026-08-05']
+    ])
   })
   it('경계 전이: 주가 바뀌면 week 전체가 추가된다', () => {
     const keys = keysToInvalidate({

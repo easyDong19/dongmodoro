@@ -13,7 +13,14 @@ export const keys = {
   reviewPending: () => ['review', 'pending'] as const,
   today: (dayKey: string) => ['today', dayKey] as const,
   day: (dayKey: string) => ['day', dayKey] as const,
-  weekItems: (weekKey: string) => ['week', weekKey, 'items'] as const,
+  /**
+   * 주간 카드 한 화면 (summary). `['week', weekKey]` 이며 `weekAll()` prefix 에 걸린다.
+   *
+   * M2 의 `weekItems(weekKey)` = `['week', weekKey, 'items']` 를 대체한다. 그 키는 어떤
+   * 쿼리도 쓰지 않는 상태였고, 더 긴 키로는 이 카드 쿼리를 무효화할 수 없었다 —
+   * 무효화는 "주어진 키를 접두사로 갖는 쿼리"를 잡으므로 방향이 반대다.
+   */
+  week: (weekKey: string) => ['week', weekKey] as const,
   monthCalendar: (monthKey: string) => ['month', monthKey, 'calendar'] as const,
   /** 캡처 바 대기 상태 (Task 10) — 이벤트 리스너가 쓰고 CaptureBar 가 읽는다. */
   capturePending: () => ['capture', 'pending'] as const,
