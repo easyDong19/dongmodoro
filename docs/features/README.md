@@ -46,7 +46,8 @@
 | 시간 포맷 4종 분류·시간 모듈 초크포인트 | [ADR-009](../architecture/decisions/adr-009-time-format-convention.md) |
 | 주 정의(월요일 시작·주 키)·계획일 모델 | [ADR-010](../architecture/decisions/adr-010-week-definition.md) |
 | 스키마 확정 (부분 정정 3건 있음) | [ADR-011](../architecture/decisions/adr-011-schema-final.md) |
-| 집계 술어·pull 주 제한 폐기 | [ADR-012](../architecture/decisions/adr-012-aggregation-predicate.md) |
+| 집계 술어·pull 주 제한 폐기 | [ADR-012](../architecture/decisions/adr-012-aggregation-predicate.md) (§4 수식은 ADR-027 로 부분 정정) |
+| 기타 행 차액의 정의역·표시 조건 | [ADR-027](../architecture/decisions/adr-027-other-row-domain.md) |
 | 베이스라인·예산의 확정 저장과 효력 시점 | [ADR-013](../architecture/decisions/adr-013-baseline-budget-effect.md) |
 | 삭제·보관 표현 | [ADR-014](../architecture/decisions/adr-014-deletion-and-archive.md) |
 | 반응형 브레이크포인트 토큰 | [design-system ADR-001](../design-system/decisions/adr-001-breakpoint-tokens.md) |
