@@ -28,6 +28,8 @@ export const keys = {
    */
   weekItemDrawer: (weekKey: string, weekItemId: string) =>
     ['week', weekKey, 'drawer', weekItemId] as const,
+  /** 플래너 초안. 드로어와 같은 이유로 `week(weekKey)` 아래에 둔다. */
+  weekPlanDraft: (weekKey: string) => ['week', weekKey, 'planDraft'] as const,
   monthCalendar: (monthKey: string) => ['month', monthKey, 'calendar'] as const,
   /** 캡처 바 대기 상태 (Task 10) — 이벤트 리스너가 쓰고 CaptureBar 가 읽는다. */
   capturePending: () => ['capture', 'pending'] as const,

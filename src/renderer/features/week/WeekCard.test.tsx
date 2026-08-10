@@ -269,3 +269,66 @@ describe('WeekCard — 드로어 배선 (§6·§3.1)', () => {
     expect(other.querySelectorAll('button')).toHaveLength(0)
   })
 })
+
+describe('WeekCard — 플래너 진입과 복귀 (§5.6)', () => {
+  const draft = { week: WEEK, budget: null, prefill: null, items: [] }
+
+  it('빈 상태 CTA 로 플래너에 들어간다', async () => {
+    const user = userEvent.setup()
+    await renderCard(makeSummary(), { planDraft: vi.fn().mockResolvedValue(draft) })
+
+    await user.click(screen.getByRole('button', { name: '+ 이번 주 할당 잡기' }))
+    expect(await screen.findByText('이번 주 계획')).toBeInTheDocument()
+  })
+
+  it('플래너에서는 게이지 대신 계획 합계가 그 자리를 대신한다 (§5.5)', async () => {
+    const user = userEvent.setup()
+    await renderCard(makeSummary(), { planDraft: vi.fn().mockResolvedValue(draft) })
+
+    expect(screen.getByTestId('week-gauge-slot')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: '+ 이번 주 할당 잡기' }))
+    await screen.findByText('이번 주 계획')
+    expect(screen.queryByTestId('week-gauge-slot')).not.toBeInTheDocument()
+    expect(screen.getByTestId('plan-total')).toBeInTheDocument()
+  })
+
+  it('취소하면 일반 뷰로 돌아가고 포커스가 열었던 버튼으로 귀속된다', async () => {
+    const user = userEvent.setup()
+    await renderCard(makeSummary(), { planDraft: vi.fn().mockResolvedValue(draft) })
+
+    await user.click(screen.getByRole('button', { name: '+ 이번 주 할당 잡기' }))
+    await user.click(await screen.findByRole('button', { name: '취소' }))
+
+    const cta = screen.getByRole('button', { name: '+ 이번 주 할당 잡기' })
+    expect(cta).toBeInTheDocument()
+    expect(cta).toHaveFocus()
+  })
+
+  it('`수정` 으로 들어가면 복귀 포커스도 `수정` 이다 — 진입 경로가 둘이다', async () => {
+    const user = userEvent.setup()
+    await renderCard(
+      makeSummary({ items: [makeItem({ completedAt: '2026-08-05T00:00:00.000Z' })] }),
+      { planDraft: vi.fn().mockResolvedValue(draft) }
+    )
+
+    await user.click(screen.getByRole('button', { name: '수정' }))
+    await user.click(await screen.findByRole('button', { name: '취소' }))
+    expect(screen.getByRole('button', { name: '수정' })).toHaveFocus()
+  })
+
+  it('확정하면 일반 뷰로 복귀한다', async () => {
+    const user = userEvent.setup()
+    const confirmPlan = vi.fn().mockResolvedValue({ week: WEEK, droppedCount: 0 })
+    await renderCard(makeSummary(), {
+      planDraft: vi.fn().mockResolvedValue(draft),
+      confirmPlan
+    })
+
+    await user.click(screen.getByRole('button', { name: '+ 이번 주 할당 잡기' }))
+    await user.click(await screen.findByRole('button', { name: '이번 주 시작' }))
+
+    expect(confirmPlan).toHaveBeenCalledWith({ week: WEEK, budget: null, items: [] })
+    expect(await screen.findByTestId('week-gauge-slot')).toBeInTheDocument()
+    expect(screen.queryByText('이번 주 계획')).not.toBeInTheDocument()
+  })
+})
