@@ -365,7 +365,7 @@ interface ReviewRepository {
 }
 ```
 
-- [ ] **Step 1: 실패하는 테스트 작성** — 핵심은 **등식**이다.
+- [x] **Step 1: 실패하는 테스트 작성** — 핵심은 **등식**이다.
 
 ```ts
 it('항목별 소진 합 + 계획에 없던 집중 = 그 주 소진 (R33 · A24)', () => {
@@ -386,15 +386,15 @@ it('예산이 NULL 인 주는 budget: null — 0 으로 만들지 않는다 (ADR
 it('lastStudied 는 정산 범위 밖도 본다 (R31 · A25)', () => { /* ... */ })
 ```
 
-- [ ] **Step 2: 실행해 실패 확인** — FAIL
+- [x] **Step 2: 실행해 실패 확인** — FAIL
 
-- [ ] **Step 3: 구현** — `unplannedPomos` 는 반드시 **차액**으로 계산한다. `task_id IS NULL` 만 세는 구현은 사후 캡처가 시스템 "기타" 항목에 붙인 세션을 어느 숫자에도 넣지 못한다 (ADR-012 §4). Σ 의 정의역은 M3a 의 `listForWeek` 술어와 같아야 한다 — `is_system = 0 AND dropped_at IS NULL AND deleted_at IS NULL` (ADR-027 §1).
+- [x] **Step 3: 구현** — `unplannedPomos` 는 반드시 **차액**으로 계산한다. `task_id IS NULL` 만 세는 구현은 사후 캡처가 시스템 "기타" 항목에 붙인 세션을 어느 숫자에도 넣지 못한다 (ADR-012 §4). Σ 의 정의역은 M3a 의 `listForWeek` 술어와 같아야 한다 — `is_system = 0 AND dropped_at IS NULL AND deleted_at IS NULL` (ADR-027 §1).
 
 주 필터는 저장 컬럼 `local_week` 에 직접 건다. `strftime()` 파생 금지 (ADR-011 §3).
 
-- [ ] **Step 4: 통과 확인** — `pnpm test` PASS
+- [x] **Step 4: 통과 확인** — `pnpm test` PASS
 
-- [ ] **Step 5: 커밋** — `feat: aggregate per-week settlement facts with unplanned focus as a residual`
+- [x] **Step 5: 커밋** — `feat: aggregate per-week settlement facts with unplanned focus as a residual`
 
 ---
 
@@ -423,7 +423,7 @@ interface ReviewRepository {
 
 서비스가 `remaining`·`carryWeeks` 를 붙인다 — **리포지토리가 계산하지 않는다.** `remaining` 은 M3a 의 `remainingPomos(est, spent)`, `carryWeeks` 는 M3a 의 `weeksSince(originWeek, week)` 다.
 
-- [ ] **Step 1: 실패하는 테스트 작성**
+- [x] **Step 1: 실패하는 테스트 작성**
 
 ```ts
 it('시스템 기타 항목은 3택 목록에 없다 (R16 · A11)', () => { /* ... */ })
@@ -439,9 +439,9 @@ it('2주 건너뛴 항목의 N주째는 사슬 길이가 아니라 주차 차이
 it('targetWeekBudget 은 스냅샷이 없으면 null 이다 (정정 ②)', () => { /* ... */ })
 ```
 
-- [ ] **Step 2: 실행해 실패 확인** — FAIL
+- [x] **Step 2: 실행해 실패 확인** — FAIL
 
-- [ ] **Step 3: 구현** — 조회 조건은 technical-spec 을 그대로 옮긴다:
+- [x] **Step 3: 구현** — 조회 조건은 technical-spec 을 그대로 옮긴다:
 
 ```sql
 WHERE week BETWEEN :from AND :to
@@ -454,9 +454,9 @@ ORDER BY week, created_at
 
 계약(`review.getPending`)은 technical-spec 의 스키마를 따르되 **`targetWeekBudget` 만 nullable** 로 바꾼다 (정정 ②). `baseline` 은 표시 전용으로 남긴다 — 편집 진입점은 이번 범위 밖이다.
 
-- [ ] **Step 4: 통과 확인** — `pnpm test && pnpm typecheck` PASS
+- [x] **Step 4: 통과 확인** — `pnpm test && pnpm typecheck` PASS
 
-- [ ] **Step 5: 커밋** — `feat: expose the settlement panel payload over ipc`
+- [x] **Step 5: 커밋** — `feat: expose the settlement panel payload over ipc`
 
 ---
 
@@ -489,7 +489,7 @@ interface WeeksRepository {
 export function weekSnapshot(repos: Repositories, week: string): WeekSnapshot
 ```
 
-- [ ] **Step 1: 실패하는 테스트 작성**
+- [x] **Step 1: 실패하는 테스트 작성**
 
 ```ts
 it('capacity 가 설정돼 있으면 새 행에 capacity 와 그 합이 함께 박제된다 (R37)', () => { /* ... */ })
@@ -499,9 +499,9 @@ it('이미 있는 행의 스냅샷 컬럼은 덮어쓰지 않는다 (ADR-013 §3
 })
 ```
 
-- [ ] **Step 2: 실행해 실패 확인** — FAIL
+- [x] **Step 2: 실행해 실패 확인** — FAIL
 
-- [ ] **Step 3: 구현** — 호출부 3곳을 함께 고친다:
+- [x] **Step 3: 구현** — 호출부 3곳을 함께 고친다:
 
 | 호출부 | 지금 | 바꾼 뒤 |
 |---|---|---|
@@ -509,9 +509,9 @@ it('이미 있는 행의 스냅샷 컬럼은 덮어쓰지 않는다 (ADR-013 §3
 | `sessions.ts:27` (그 주 첫 세션) | 같음 | 같음 |
 | `test-helpers.ts:41` | `ensure(week, TEST_BASELINE)` | `ensure(week, TEST_SNAPSHOT)` |
 
-- [ ] **Step 4: 통과 확인** — `pnpm test && pnpm typecheck` PASS. `grep -rn "\.ensure(" src` 로 남은 호출부가 없는지 확인
+- [x] **Step 4: 통과 확인** — `pnpm test && pnpm typecheck` PASS. `grep -rn "\.ensure(" src` 로 남은 호출부가 없는지 확인
 
-- [ ] **Step 5: 커밋** — `feat: snapshot capacity and budget alongside the baseline when a week row appears`
+- [x] **Step 5: 커밋** — `feat: snapshot capacity and budget alongside the baseline when a week row appears`
 
 ---
 
@@ -557,7 +557,7 @@ export function resolveDecisions(
 }
 ```
 
-- [ ] **Step 1: 실패하는 테스트 작성** — 순수 함수부터, 그 다음 트랜잭션.
+- [x] **Step 1: 실패하는 테스트 작성** — 순수 함수부터, 그 다음 트랜잭션.
 
 ```ts
 describe('resolveDecisions — 예외 흡수 (R29)', () => {
@@ -585,9 +585,9 @@ describe('settle — 트랜잭션', () => {
 })
 ```
 
-- [ ] **Step 2: 실행해 실패 확인** — FAIL
+- [x] **Step 2: 실행해 실패 확인** — FAIL
 
-- [ ] **Step 3: 구현** — 순서는 technical-spec 의 7단계 그대로다. **순서 자체가 안전 장치다:**
+- [x] **Step 3: 구현** — 순서는 technical-spec 의 7단계 그대로다. **순서 자체가 안전 장치다:**
 
 1. **재판정** (순수 함수 호출, write 없음) → 범위·계획 대상 주가 `expectedRange` 와 다르면 `STALE_RANGE`
 2. **pending 재조회** — 화면이 보낸 목록이 아니라 지금의 사실
@@ -599,9 +599,9 @@ describe('settle — 트랜잭션', () => {
 
 에러는 **`STALE_RANGE` 하나뿐**이다. `DECISION_MISSING`·`DECISION_UNKNOWN`·`REDUCED_OUT_OF_RANGE` 는 만들지 않는다 — 각각 "결정 없음 = 이월"·"무시"·"클램프"로 흡수됐다.
 
-- [ ] **Step 4: 통과 확인** — `pnpm test` PASS. `PRAGMA foreign_keys = ON` 이 켜져 있어야 `carry_from_id`·`tasks.week_item_id` FK 가 실제로 검증된다 (ADR-011 §7)
+- [x] **Step 4: 통과 확인** — `pnpm test` PASS. `PRAGMA foreign_keys = ON` 이 켜져 있어야 `carry_from_id`·`tasks.week_item_id` FK 가 실제로 검증된다 (ADR-011 §7)
 
-- [ ] **Step 5: 커밋** — `feat: settle a week range in one transaction that absorbs stale exceptions`
+- [x] **Step 5: 커밋** — `feat: settle a week range in one transaction that absorbs stale exceptions`
 
 ---
 
@@ -613,7 +613,7 @@ describe('settle — 트랜잭션', () => {
 - Modify: `src/renderer/shared/query/invalidate.ts`, `src/renderer/shared/query/keys.ts`(주석만)
 - Test: `src/renderer/shared/query/invalidate.test.ts`
 
-- [ ] **Step 1: 실패하는 테스트 작성**
+- [x] **Step 1: 실패하는 테스트 작성**
 
 ```ts
 describe('settled', () => {
@@ -630,9 +630,9 @@ describe('settled', () => {
 })
 ```
 
-- [ ] **Step 2: 실행해 실패 확인** — FAIL
+- [x] **Step 2: 실행해 실패 확인** — FAIL
 
-- [ ] **Step 3: 구현** — 유니온에 갈래를 더한다. `keys.reviewPending()` 은 M2 가 이미 만들어 뒀다 (지금까지 `clock-boundary` 만 썼다).
+- [x] **Step 3: 구현** — 유니온에 갈래를 더한다. `keys.reviewPending()` 은 M2 가 이미 만들어 뒀다 (지금까지 `clock-boundary` 만 썼다).
 
 ```ts
 | { type: 'settled'
@@ -642,9 +642,9 @@ describe('settled', () => {
 
 > **드로어·플래너 초안은 따로 적지 않는다.** 두 키가 `keys.week(w)` 의 하위라 주 키 무효화가 접두사로 함께 잡는다 (M3a 가 그렇게 배치했다). **긴 키로 짧은 키를 잡을 수는 없다** — M2 가 그 방향을 반대로 알고 버그를 남겼다.
 
-- [ ] **Step 4: 통과 확인** — `pnpm test && pnpm lint` PASS (초크포인트 밖 캐시 조작 0)
+- [x] **Step 4: 통과 확인** — `pnpm test && pnpm lint` PASS (초크포인트 밖 캐시 조작 0)
 
-- [ ] **Step 5: 커밋** — `feat: invalidate the settled weeks from the confirm response`
+- [x] **Step 5: 커밋** — `feat: invalidate the settled weeks from the confirm response`
 
 ---
 

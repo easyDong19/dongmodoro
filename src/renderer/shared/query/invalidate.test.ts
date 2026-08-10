@@ -112,3 +112,36 @@ describe('keysToInvalidate — ADR-025 §3 표의 코드화', () => {
     expect(keys).not.toContainEqual(['month']) // 달은 안 바뀜
   })
 })
+
+/**
+ * 확정 1회가 주간 카드·오늘 목록·마일스톤·배너까지 건드린다. **범위를 renderer 가 다시
+ * 계산하지 않는다** — 확정 응답이 실어 보낸 주 키 목록을 그대로 payload 로 넘긴다.
+ */
+describe('settled', () => {
+  it('범위의 주 · 계획 대상 주 · 오늘 · 마일스톤 · 배너를 무효화한다', () => {
+    expect(
+      keysToInvalidate({
+        type: 'settled',
+        payload: { weeks: ['2026-08-10', '2026-08-17'], targetWeek: '2026-08-24' },
+        currentDayKey: '2026-08-20'
+      })
+    ).toEqual([
+      ['week', '2026-08-10'],
+      ['week', '2026-08-17'],
+      ['week', '2026-08-24'],
+      ['today', '2026-08-20'],
+      ['month'],
+      ['review', 'pending']
+    ])
+  })
+
+  it('범위가 비어도 계획 대상 주와 배너는 턴다 — 워터마크가 전진했다', () => {
+    expect(
+      keysToInvalidate({
+        type: 'settled',
+        payload: { weeks: [], targetWeek: '2026-08-24' },
+        currentDayKey: '2026-08-20'
+      })
+    ).toEqual([['week', '2026-08-24'], ['today', '2026-08-20'], ['month'], ['review', 'pending']])
+  })
+})
