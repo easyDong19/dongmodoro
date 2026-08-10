@@ -2,7 +2,7 @@ import { CHANNELS } from '@shared/ipc/channels'
 import { contracts } from '@shared/ipc/contracts'
 import { calendarKeys, nowMs } from '@shared/time'
 import type { UnitOfWork } from '../services/ports'
-import { reviewStatus } from '../services/review'
+import { reviewPending, reviewStatus } from '../services/review'
 import { handleIpc } from './handle'
 
 /**
@@ -17,5 +17,8 @@ import { handleIpc } from './handle'
 export function registerReviewHandlers(uow: UnitOfWork): void {
   handleIpc(CHANNELS.review.getStatus, contracts.review.getStatus, () =>
     reviewStatus(uow, calendarKeys(nowMs()).dayKey)
+  )
+  handleIpc(CHANNELS.review.getPending, contracts.review.getPending, () =>
+    reviewPending(uow, calendarKeys(nowMs()).dayKey)
   )
 }

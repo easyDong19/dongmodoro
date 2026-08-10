@@ -1,4 +1,5 @@
 import Database from 'better-sqlite3'
+import { sql } from 'drizzle-orm'
 import { drizzle } from 'drizzle-orm/better-sqlite3'
 import { migrate } from 'drizzle-orm/better-sqlite3/migrator'
 import { join } from 'node:path'
@@ -40,4 +41,25 @@ export function ensureWeeks(uow: UnitOfWork, ...weekKeys: readonly string[]): vo
   uow.run((repos) => {
     for (const week of weekKeys) repos.weeks.ensure(week, TEST_BASELINE)
   })
+}
+
+/**
+ * 이월 배지 `N주째` 의 계산식만 검증하기 위해 `origin_week` 를 앞으로 되돌린다.
+ *
+ * 포트에 이런 메서드는 없다 — 프로덕션에서 `origin_week` 를 쓰는 경로는 항목 생성과
+ * 이월 승계 둘뿐이고, 그 둘은 값을 **정한다**. 되돌리기는 테스트만의 필요다.
+ *
+ * 이 함수가 여기 있는 이유: 서비스 테스트는 drizzle 을 import 할 수 없다 (ADR-015 §2,
+ * ESLint 강제). `src/main/db/` 안쪽인 이 파일이 그 경계를 대신 넘어 준다.
+ */
+export function backdateOriginWeek(
+  db: ReturnType<typeof drizzle>,
+  originWeek: string,
+  weekItemId?: string
+): void {
+  db.run(
+    weekItemId === undefined
+      ? sql`UPDATE week_items SET origin_week = ${originWeek}`
+      : sql`UPDATE week_items SET origin_week = ${originWeek} WHERE id = ${weekItemId}`
+  )
 }

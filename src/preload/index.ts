@@ -62,7 +62,8 @@ const api: Api = {
     drop: (weekItemId) => ipcRenderer.invoke(CHANNELS.week.drop, weekItemId)
   },
   review: {
-    getStatus: () => ipcRenderer.invoke(CHANNELS.review.getStatus)
+    getStatus: () => ipcRenderer.invoke(CHANNELS.review.getStatus),
+    getPending: () => ipcRenderer.invoke(CHANNELS.review.getPending)
   },
   events: {
     onTimerTransition: on(EVENT_CHANNELS.timerTransition),

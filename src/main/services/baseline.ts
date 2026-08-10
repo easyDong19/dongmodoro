@@ -18,8 +18,17 @@ function readIntSetting(repos: Repositories, key: string): number {
  * 참조) — 결정은 오직 여기서만 일어난다.
  */
 export function effectiveBaseline(repos: Repositories, week: string): Baseline {
-  const snap = repos.weeks.baseline(week)
-  if (snap) return snap
+  return repos.weeks.baseline(week) ?? globalBaseline(repos)
+}
+
+/**
+ * 전역 설정의 길이 3종 — **어느 주에도 매이지 않은 "지금 값"** 이다.
+ *
+ * 정산 패널의 길이 표시가 이것을 쓴다 (ux-spec §6). `effectiveBaseline` 을 쓰면 계획
+ * 대상 주에 이미 행이 있을 때 박제된 값이 나오는데, 그 자리는 "앞으로 적용될 값"을
+ * 말하는 자리라 다른 질문에 답하게 된다 (ADR-013 §3 — 편집 시점과 효력 시점의 분리).
+ */
+export function globalBaseline(repos: Repositories): Baseline {
   return {
     focusMin: readIntSetting(repos, 'focus_min'),
     shortBreakMin: readIntSetting(repos, 'short_break_min'),

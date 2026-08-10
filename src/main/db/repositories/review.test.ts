@@ -197,6 +197,115 @@ describe('review.lastStudied — 범위 밖도 본다 (R31·A25)', () => {
   })
 })
 
+describe('review.listPending · listCompleted — 3택 대상과 끝낸 것들', () => {
+  it('완료 항목은 끝낸 것들로, 미완료는 3택으로 갈린다 (A12)', () => {
+    const { uow } = testUow()
+    ensureWeeks(uow, W1)
+    uow.run((repos) => {
+      const { createdIds } = repos.weekItems.confirmPlan({
+        week: W1,
+        items: [
+          { id: null, title: '끝낸 것', estPomos: 2, days: [] },
+          { id: null, title: '남은 것', estPomos: 5, days: [] }
+        ]
+      })
+      repos.weekItems.complete(createdIds[0], '2026-08-06T00:00:00.000Z')
+
+      expect(repos.review.listCompleted(W1, W1).map((r) => r.title)).toEqual(['끝낸 것'])
+      expect(repos.review.listPending(W1, W1).map((r) => r.title)).toEqual(['남은 것'])
+    })
+  })
+
+  it('완료 시각이 범위 밖이어도 항목의 주가 범위 안이면 끝낸 것들에 있다', () => {
+    const { uow } = testUow()
+    ensureWeeks(uow, W1)
+    uow.run((repos) => {
+      const { createdIds } = repos.weekItems.confirmPlan({
+        week: W1,
+        items: [{ id: null, title: '늦게 끝낸 것', estPomos: 1, days: [] }]
+      })
+      // 정산 범위(W1)보다 두 주 뒤에 완료 처리했다
+      repos.weekItems.complete(createdIds[0], '2026-08-19T00:00:00.000Z')
+
+      expect(repos.review.listCompleted(W1, W1)).toHaveLength(1)
+    })
+  })
+
+  it('시스템 기타·폐기·삭제 항목은 어느 목록에도 없다 (R16)', () => {
+    const { uow } = testUow()
+    ensureWeeks(uow, W1)
+    uow.run((repos) => {
+      repos.weekItems.ensureSystemItem(W1)
+      const { createdIds } = repos.weekItems.confirmPlan({
+        week: W1,
+        items: [
+          { id: null, title: '폐기', estPomos: 1, days: [] },
+          { id: null, title: '남을 것', estPomos: 1, days: [] }
+        ]
+      })
+      repos.weekItems.drop(createdIds[0])
+
+      expect(repos.review.listPending(W1, W1).map((r) => r.title)).toEqual(['남을 것'])
+      expect(repos.review.listCompleted(W1, W1)).toEqual([])
+    })
+  })
+
+  it('소진은 그 항목의 주 조건으로 센다 — 주를 넘긴 세션은 빠진다 (ADR-012 §1)', () => {
+    const { uow } = testUow()
+    ensureWeeks(uow, W1, W2)
+    uow.run((repos) => {
+      const itemId = repos.weekItems.confirmPlan({
+        week: W1,
+        items: [{ id: null, title: 'A', estPomos: 5, days: [] }]
+      }).createdIds[0]
+      repos.tasks.create({ id: 't1', weekItemId: itemId, title: '조각' })
+      repos.sessions.insert(focusSession('s1', 't1', '2026-08-04', W1))
+      repos.sessions.insert(focusSession('s2', 't1', '2026-08-05', W1))
+      repos.sessions.insert(focusSession('s3', 't1', '2026-08-11', W2))
+
+      expect(repos.review.listPending(W1, W1)[0].spentPomos).toBe(2)
+    })
+  })
+
+  it('주·생성순으로만 정렬한다 — 이월 주수 정렬은 화면 몫이다', () => {
+    const { uow } = testUow()
+    ensureWeeks(uow, W1, W2)
+    uow.run((repos) => {
+      repos.weekItems.confirmPlan({
+        week: W2,
+        items: [{ id: null, title: '나중 주', estPomos: 1, days: [] }]
+      })
+      repos.weekItems.confirmPlan({
+        week: W1,
+        items: [
+          { id: null, title: '먼저', estPomos: 1, days: [] },
+          { id: null, title: '나중', estPomos: 1, days: [] }
+        ]
+      })
+
+      expect(repos.review.listPending(W1, W2).map((r) => r.title)).toEqual([
+        '먼저',
+        '나중',
+        '나중 주'
+      ])
+    })
+  })
+
+  it('origin_week 와 milestone_id 를 실어 보낸다 — 배지와 승계의 재료다', () => {
+    const { uow } = testUow()
+    ensureWeeks(uow, W1)
+    uow.run((repos) => {
+      repos.weekItems.confirmPlan({
+        week: W1,
+        items: [{ id: null, title: 'A', estPomos: 1, days: [] }]
+      })
+      const [row] = repos.review.listPending(W1, W1)
+      expect(row.originWeek).toBe(W1)
+      expect(row.milestoneId).toBeNull()
+    })
+  })
+})
+
 describe('review.countPending — 3택 대상 건수', () => {
   it('빈 범위면 0', () => {
     const { uow } = testUow()

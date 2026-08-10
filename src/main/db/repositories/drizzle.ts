@@ -1,4 +1,5 @@
-import { and, asc, desc, eq, gt, gte, isNull, lte, sql } from 'drizzle-orm'
+import { and, asc, desc, eq, gt, gte, isNotNull, isNull, lte, sql } from 'drizzle-orm'
+import type { SQL } from 'drizzle-orm'
 import type { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3'
 import { v7 as uuidv7 } from 'uuid'
 import { settings, weeks, weekItems, tasks, taskPulls, sessions } from '../schema'
@@ -688,7 +689,45 @@ function makeRepos(tx: Tx): Repositories {
           .limit(1)
           .get()
         return row ?? null
-      }
+      },
+
+      listPending: (from, to) =>
+        tx
+          .select({
+            id: weekItems.id,
+            week: weekItems.week,
+            title: weekItems.title,
+            estPomos: weekItems.estPomos,
+            originWeek: weekItems.originWeek,
+            milestoneId: weekItems.milestoneId,
+            spentPomos: itemSpent()
+          })
+          .from(weekItems)
+          .where(pendingPredicate(from, to))
+          .orderBy(asc(weekItems.week), asc(weekItems.createdAt), sql`week_items.rowid`)
+          .all(),
+
+      listCompleted: (from, to) =>
+        tx
+          .select({
+            id: weekItems.id,
+            week: weekItems.week,
+            title: weekItems.title,
+            spentPomos: itemSpent()
+          })
+          .from(weekItems)
+          .where(
+            and(
+              gte(weekItems.week, from),
+              lte(weekItems.week, to),
+              isNotNull(weekItems.completedAt),
+              isNull(weekItems.droppedAt),
+              isNull(weekItems.deletedAt),
+              eq(weekItems.isSystem, 0)
+            )
+          )
+          .orderBy(asc(weekItems.week), asc(weekItems.createdAt), sql`week_items.rowid`)
+          .all()
     }
   }
 }
@@ -700,6 +739,30 @@ function makeRepos(tx: Tx): Repositories {
  * 시스템 "기타" 항목은 제외된다(Q7). 주 범위 비교가 문자열 비교인 것은 달력 키가
  * 사전순 = 시간순이기 때문이다 (ADR-009 §1).
  */
+/**
+ * 항목 소진의 상관 서브쿼리 (ADR-012 §1). `listForWeek` 은 항목 목록을 이미 주 하나로
+ * 좁혀 놓고 세지만, 정산은 **여러 주의 항목을 한 목록에** 담으므로 행마다 자기 주를
+ * 조건으로 써야 한다 — `week_items.week` 를 상관 참조하는 것이 그 차이다.
+ *
+ * 주 조건이 빠지면 주 경계를 넘긴 세션이 두 항목에서 세어지고 에러 없이 숫자만 틀린다.
+ * `tasks.deleted_at` 을 거르지 않는 것도 `listForWeek` 과 같다 (ADR-027 §2).
+ */
+function itemSpent(): SQL<number> {
+  /**
+   * 서브쿼리 전체를 raw SQL 로 쓴다. drizzle 의 컬럼 참조(`${weekItems.id}`)는 select
+   * 필드의 `sql` 템플릿 안에서 **테이블 접두사 없이** `"id"` 로 렌더되고(실측), 그러면
+   * 서브쿼리의 `tasks.id` 와 겹쳐 `ambiguous column name: id` 로 죽는다. 상관 참조는
+   * 반드시 테이블명으로 수식해야 한다.
+   */
+  return sql<number>`(
+    SELECT count(*) FROM sessions s
+      JOIN tasks t ON s.task_id = t.id
+     WHERE t.week_item_id = week_items.id
+       AND s.kind = 'focus'
+       AND s.local_week = week_items.week
+  )`
+}
+
 function pendingPredicate(from: string, to: string) {
   return and(
     gte(weekItems.week, from),

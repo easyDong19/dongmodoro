@@ -1,5 +1,7 @@
-import { addDays, addWeeks, weekOfDay, weeksBetween } from '@shared/time'
-import type { Repositories, UnitOfWork } from './ports'
+import { addDays, addWeeks, weekOfDay, weeksBetween, weeksSince } from '@shared/time'
+import { effectiveBudget, globalBaseline } from './baseline'
+import { remainingPomos } from './week-plan'
+import type { Baseline, CompletedItemRow, Repositories, ReviewWeekFact, UnitOfWork } from './ports'
 
 const WATERMARK = 'last_settled_week'
 const LEAD = 'plan_lead_days'
@@ -106,6 +108,89 @@ export function reviewStatus(uow: UnitOfWork, todayKey: string): ReviewStatus {
       ...st,
       weekCount: weeksBetween(st.from, st.to).length,
       pendingItemCount: repos.review.countPending(st.from, st.to)
+    }
+  })
+}
+
+/** 3택 한 행. 남은 몫과 배지는 **저장값이 아니라 파생**이라 여기서 붙인다. */
+export type PendingDecisionRow = {
+  id: string
+  week: string
+  title: string
+  estPomos: number
+  spentPomos: number
+  /** `max(0, est − 소진)`. **측정값이므로 0 이 될 수 있다** (ADR-019 §1). */
+  remaining: number
+  /** 이월 배지 `N주째`. 사슬 길이가 아니라 주차 차이다 (Q12). */
+  carryWeeks: number
+}
+
+export type ReviewPending =
+  | { needed: false; targetWeek: string }
+  | {
+      needed: true
+      targetWeek: string
+      /** 계획 대상 주가 오늘이 속한 주인가 — 확정 버튼 라벨이 갈린다 (ux-spec §7.1). */
+      targetWeekIsCurrent: boolean
+      from: string
+      to: string
+      summary: {
+        weeks: ReviewWeekFact[]
+        /** 범위 안에서 기록이 전혀 없던 주의 수 — "N주 쉬었어요" 의 재료다. */
+        idleWeekCount: number
+        lastStudiedWeek: string | null
+        lastStudiedPomos: number | null
+      }
+      completed: CompletedItemRow[]
+      pending: PendingDecisionRow[]
+      /** **nullable 이다.** `weekly_capacity` 를 시딩하지 않으므로 기본 예산이 없다 */
+      targetWeekBudget: number | null
+      baseline: Baseline
+    }
+
+/**
+ * 정산 패널 데이터 (`review.getPending`). 읽기 전용이다.
+ *
+ * **빈 범위도 표현할 수 있어야 한다.** 패널은 배너에서만 열리지만, `STALE_RANGE` 후
+ * 재조회했을 때 범위가 사라져 있을 수 있다 (다른 창에서 확정했거나 자정을 넘겼거나).
+ * 그때 던지거나 빈 목록으로 거짓말하는 대신 `needed: false` 를 돌려 화면이
+ * "지금 정산할 주가 없어요" 로 갈 수 있게 한다 (ux-spec §8).
+ */
+export function reviewPending(uow: UnitOfWork, todayKey: string): ReviewPending {
+  return uow.run((repos) => {
+    const st = evaluateSettlement(repos, todayKey)
+    if (!st.needed) return st
+
+    const weeks = repos.review.weekFacts(st.from, st.to)
+    const last = repos.review.lastStudied()
+
+    return {
+      needed: true,
+      targetWeek: st.targetWeek,
+      targetWeekIsCurrent: weekOfDay(todayKey) === st.targetWeek,
+      from: st.from,
+      to: st.to,
+      summary: {
+        weeks,
+        idleWeekCount: weeksBetween(st.from, st.to).length - weeks.length,
+        lastStudiedWeek: last?.week ?? null,
+        lastStudiedPomos: last?.spentPomos ?? null
+      },
+      completed: repos.review.listCompleted(st.from, st.to),
+      pending: repos.review.listPending(st.from, st.to).map((row) => ({
+        id: row.id,
+        week: row.week,
+        title: row.title,
+        estPomos: row.estPomos,
+        spentPomos: row.spentPomos,
+        // M3a 가 만든 클램프를 그대로 쓴다 — 정산이 자기 것을 따로 만들면 두 곳이 갈린다.
+        remaining: remainingPomos(row.estPomos, row.spentPomos),
+        carryWeeks: weeksSince(row.originWeek, row.week)
+      })),
+      targetWeekBudget: effectiveBudget(repos, st.targetWeek),
+      // 계획 대상 주의 스냅샷이 아니라 **전역 설정값**이다 — 길이 표시는 "앞으로 적용될
+      // 값"을 말하는 자리이기 때문이다 (ADR-013 §3).
+      baseline: globalBaseline(repos)
     }
   })
 }

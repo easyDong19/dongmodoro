@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { bootstrapWatermark, evaluateSettlement, reviewStatus } from './review'
+import { backdateOriginWeek, ensureWeeks, testUow } from '../db/repositories/test-helpers'
+import { bootstrapWatermark, evaluateSettlement, reviewPending, reviewStatus } from './review'
 import type { Repositories, UnitOfWork } from './ports'
 
 /**
@@ -266,5 +267,163 @@ describe('reviewStatus — 배너 payload', () => {
       weekCount: 1,
       pendingItemCount: 0
     })
+  })
+})
+
+/**
+ * 여기서부터는 실 SQLite 다. `reviewPending` 은 리포지토리 다섯 개를 합성하는 자리라
+ * 페이크로 검증하면 "내가 짠 페이크가 내 기대와 같은지"만 확인하게 된다.
+ *
+ * 날짜 배치: 워터마크 8/03 · 오늘 8/30(일) → 계획 대상 주 8/31, 정산 범위 {8/10, 8/17, 8/24}.
+ * `seeded()` 는 앞의 두 주에만 행을 만들어 **8/24 를 공백 주로 남긴다.**
+ */
+describe('reviewPending — 패널 데이터', () => {
+  const W1 = '2026-08-10'
+  const W2 = '2026-08-17'
+  const TARGET = '2026-08-31'
+  const SUNDAY = '2026-08-30'
+  const WEDNESDAY = '2026-08-26'
+
+  function seeded(): ReturnType<typeof testUow> {
+    const t = testUow()
+    ensureWeeks(t.uow, W1, W2)
+    t.uow.run((repos) => repos.settings.set('last_settled_week', JSON.stringify('2026-08-03')))
+    return t
+  }
+
+  /** `needed: true` 를 좁혀 준다 — 아니면 아래 단언마다 분기를 써야 한다. */
+  function panel(uow: UnitOfWork, todayKey: string) {
+    const out = reviewPending(uow, todayKey)
+    if (!out.needed) throw new Error('정산 대기 상태여야 하는 셋업이다')
+    return out
+  }
+
+  it('빈 범위면 needed:false 로 답한다 — 던지지 않는다 (ux-spec §8)', () => {
+    const { uow } = testUow()
+    uow.run((repos) => repos.settings.set('last_settled_week', JSON.stringify('2026-08-24')))
+    expect(reviewPending(uow, SUNDAY)).toEqual({ needed: false, targetWeek: TARGET })
+  })
+
+  it('범위를 알리고 기록 있는 주만 담으며 공백 주는 세기만 한다 (R11)', () => {
+    const { uow } = seeded()
+    uow.run((repos) => {
+      repos.weekItems.confirmPlan({
+        week: W1,
+        items: [{ id: null, title: 'A', estPomos: 3, days: [] }]
+      })
+      repos.weekItems.confirmPlan({
+        week: W2,
+        items: [{ id: null, title: 'B', estPomos: 1, days: [] }]
+      })
+    })
+
+    const out = panel(uow, SUNDAY)
+    expect([out.from, out.to, out.targetWeek]).toEqual([W1, '2026-08-24', TARGET])
+    expect(out.summary.weeks.map((w) => w.week)).toEqual([W1, W2])
+    expect(out.summary.idleWeekCount).toBe(1) // 8/24 에는 아무 기록도 없다
+  })
+
+  /**
+   * `weeks` 행이 있다고 기록이 있는 것은 아니다 — 세션이나 항목이 있어야 한다
+   * (technical-spec `summary.weeks[]` 정의). 부트스트랩의 `earliestRecordedWeek` 은
+   * 반대로 `weeks` 행도 기록으로 세는데, 두 질문이 다르기 때문이다: 저쪽은 "이 DB 가
+   * 언제부터 쓰였나", 이쪽은 "이 주에 대해 할 말이 있나".
+   */
+  it('weeks 행만 있는 주는 요약에 나오지 않고 공백으로 센다', () => {
+    const { uow } = seeded() // W1·W2 의 weeks 행만 만들고 항목·세션은 넣지 않았다
+    const out = panel(uow, SUNDAY)
+    expect(out.summary.weeks).toEqual([])
+    expect(out.summary.idleWeekCount).toBe(3)
+  })
+
+  it('A8·A9 — 남은 몫이 항목 est 기준이고 소진이 넘치면 0 이다', () => {
+    const { uow } = seeded()
+    uow.run((repos) => {
+      const { createdIds } = repos.weekItems.confirmPlan({
+        week: W1,
+        items: [
+          { id: null, title: 'est 5 소진 2', estPomos: 5, days: [] },
+          { id: null, title: 'est 1 소진 3', estPomos: 1, days: [] }
+        ]
+      })
+      repos.tasks.create({ id: 'ta', weekItemId: createdIds[0], title: '조각' })
+      repos.tasks.create({ id: 'tb', weekItemId: createdIds[1], title: '조각' })
+      const s = (id: string, taskId: string) => ({
+        id,
+        startedAt: '2026-08-11T01:00:00.000Z',
+        endedAt: '2026-08-11T01:25:00.000Z',
+        durationSec: 1500,
+        kind: 'focus' as const,
+        taskId,
+        localDate: '2026-08-11',
+        localWeek: W1
+      })
+      repos.sessions.insert(s('a0', 'ta'))
+      repos.sessions.insert(s('a1', 'ta'))
+      for (let i = 0; i < 3; i++) repos.sessions.insert(s(`b${i}`, 'tb'))
+    })
+
+    const byTitle = new Map(panel(uow, SUNDAY).pending.map((p) => [p.title, p]))
+    expect(byTitle.get('est 5 소진 2')?.remaining).toBe(3)
+    expect(byTitle.get('est 1 소진 3')?.remaining).toBe(0)
+  })
+
+  /**
+   * A13. 이월 생성은 Task 6 소관이라 여기서는 `origin_week` 이 앞선 행을 **직접 심어**
+   * 계산식만 본다 — 사슬 길이로 세면 건너뛴 주에서 값이 틀어진다 (Q12).
+   */
+  it('A13 — N주째는 사슬 길이가 아니라 주차 차이다', () => {
+    const { uow, db } = seeded()
+    uow.run((repos) => {
+      repos.weekItems.confirmPlan({
+        week: W2,
+        items: [{ id: null, title: '오래된 것', estPomos: 1, days: [] }]
+      })
+    })
+    // 3주 앞(7/27)에 처음 생긴 항목이 두 주를 건너뛰어 8/17 에 와 있는 상태
+    backdateOriginWeek(db, '2026-07-27')
+
+    expect(panel(uow, SUNDAY).pending[0].carryWeeks).toBe(4)
+  })
+
+  it('정정 ② — 계획 대상 주의 스냅샷이 없으면 targetWeekBudget 이 null 이다', () => {
+    const { uow } = seeded()
+    expect(panel(uow, SUNDAY).targetWeekBudget).toBeNull()
+  })
+
+  it('길이는 계획 대상 주의 스냅샷이 아니라 전역 설정값이다 (ADR-013 §3)', () => {
+    const { uow } = seeded()
+    uow.run((repos) => {
+      repos.weeks.ensure(TARGET, { focusMin: 50, shortBreakMin: 10, longBreakMin: 30 })
+    })
+    expect(panel(uow, SUNDAY).baseline.focusMin).toBe(25)
+  })
+
+  it('계획 대상 주가 오늘이 속한 주인지 알린다 (ux-spec §7.1)', () => {
+    const { uow } = seeded()
+    expect(panel(uow, SUNDAY).targetWeekIsCurrent).toBe(false)
+    // 평일 지각 정산에서는 계획 대상 주가 곧 이번 주다
+    expect(panel(uow, WEDNESDAY).targetWeekIsCurrent).toBe(true)
+  })
+
+  it('A25 — 마지막으로 공부한 주는 정산 범위 밖이어도 실려 온다', () => {
+    const { uow } = seeded()
+    ensureWeeks(uow, '2026-08-03')
+    uow.run((repos) => {
+      repos.sessions.insert({
+        id: 'old',
+        startedAt: '2026-08-04T01:00:00.000Z',
+        endedAt: '2026-08-04T01:25:00.000Z',
+        durationSec: 1500,
+        kind: 'focus',
+        taskId: null,
+        localDate: '2026-08-04',
+        localWeek: '2026-08-03' // 범위(from = 8/10) 밖이다
+      })
+    })
+
+    const { summary } = panel(uow, SUNDAY)
+    expect(summary.lastStudiedWeek).toBe('2026-08-03')
+    expect(summary.lastStudiedPomos).toBe(1)
   })
 })

@@ -190,6 +190,27 @@ export type ReviewWeekFact = {
   unplannedPomos: number
 }
 
+export type PendingItemRow = {
+  id: string
+  week: string
+  title: string
+  /** **항목 est** 다 — 하위 조각 est 의 합이 아니다 (Q13). */
+  estPomos: number
+  /** 그 항목의 주에 기록된 focus 세션만 (ADR-012 §1). */
+  spentPomos: number
+  /** 최초 생성 주. 이월 배지 `N주째` 의 재료 — 사슬 길이가 아니다 (Q12). */
+  originWeek: string
+  /** 이월이 승계한다 (R35). M3b 에서는 항상 null 이다. */
+  milestoneId: string | null
+}
+
+export type CompletedItemRow = {
+  id: string
+  week: string
+  title: string
+  spentPomos: number
+}
+
 export interface ReviewRepository {
   /**
    * 기록이 있는 가장 이른 주 = `min(sessions.local_week, week_items.week, weeks.week)`.
@@ -218,6 +239,16 @@ export interface ReviewRepository {
    * 주"는 범위 밖일 수 있고, 그게 이 값이 존재하는 이유다.
    */
   lastStudied(): { week: string; spentPomos: number } | null
+  /**
+   * 3택 대상. 주·생성순으로만 정렬한다 — "3주 이상 먼저"는 **표시 정렬**이라 화면이 한다
+   * (ux-spec §5.0). 남은 몫·`N주째` 도 여기서 계산하지 않는다: 규칙은 서비스가 갖는다.
+   */
+  listPending(from: string, to: string): PendingItemRow[]
+  /**
+   * "끝낸 것들". 기준은 **항목의 `week` 이 범위 안인가**이며 `completed_at` 시각이 범위
+   * 밖이어도 포함한다 — 그 항목이 어느 주의 계획이었는지가 기준이다 (ux-spec §4).
+   */
+  listCompleted(from: string, to: string): CompletedItemRow[]
 }
 
 export interface Repositories {

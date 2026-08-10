@@ -57,6 +57,28 @@ const planDraftItemSchema = z.strictObject({
   days: z.array(z.int().min(0).max(6))
 })
 
+/** `ReviewWeekFact`(main/services/ports.ts) 미러링 — 정산 요약의 주별 한 줄. */
+const reviewWeekFactSchema = z.strictObject({
+  week: z.string(),
+  studiedDays: z.int(),
+  spentPomos: z.int(),
+  /** NULL = "기록 없음". 0 은 "예산 0 으로 하겠다"는 별개 사실이다 (ADR-018 §1). */
+  budget: z.int().nullable(),
+  unplannedPomos: z.int()
+})
+
+/** 3택 한 행. `remaining`·`carryWeeks` 는 저장값이 아니라 서비스가 붙인 파생값이다. */
+const pendingRowSchema = z.strictObject({
+  id: z.string(),
+  week: z.string(),
+  title: z.string(),
+  estPomos: z.int(),
+  spentPomos: z.int(),
+  /** 측정값이라 0 이 될 수 있다 (ADR-019 §1). 이월 est 의 하한 1 은 확정이 건다. */
+  remaining: z.int().min(0),
+  carryWeeks: z.int().min(1)
+})
+
 /** `ChildTaskRow`(main/services/ports.ts) 미러링 — 드로어 한 행. */
 const childTaskSchema = z.strictObject({
   taskId: z.string(),
@@ -240,6 +262,51 @@ export const contracts = {
           to: z.string(),
           weekCount: z.int().min(1),
           pendingItemCount: z.int().min(0)
+        })
+      ])
+    },
+    /**
+     * 정산 패널 데이터. `getStatus` 와 같은 이유로 판별 유니온이다 — 패널은 배너에서만
+     * 열리지만 `STALE_RANGE` 후 재조회하면 범위가 사라져 있을 수 있고(다른 창에서 확정,
+     * 자정 통과), 그때 던지거나 빈 목록으로 거짓말하는 대신 `needed: false` 로 답한다.
+     */
+    getPending: {
+      req: z.tuple([]),
+      res: z.discriminatedUnion('needed', [
+        z.strictObject({ needed: z.literal(false), targetWeek: z.string() }),
+        z.strictObject({
+          needed: z.literal(true),
+          targetWeek: z.string(),
+          targetWeekIsCurrent: z.boolean(),
+          from: z.string(),
+          to: z.string(),
+          summary: z.strictObject({
+            weeks: z.array(reviewWeekFactSchema),
+            idleWeekCount: z.int().min(0),
+            lastStudiedWeek: z.string().nullable(),
+            lastStudiedPomos: z.int().nullable()
+          }),
+          completed: z.array(
+            z.strictObject({
+              id: z.string(),
+              week: z.string(),
+              title: z.string(),
+              spentPomos: z.int()
+            })
+          ),
+          pending: z.array(pendingRowSchema),
+          /**
+           * **nullable 이다.** technical-spec 초안은 "스냅샷이 없으면 기본 예산(가용량 합)"
+           * 이라고 했지만 `weekly_capacity` 를 시딩하지 않기로 한 이상 그 기본값이 없고,
+           * 0 을 채우면 ADR-018 §1 이 구분하려던 "기록 없음"과 "예산 0"이 뭉개진다.
+           */
+          targetWeekBudget: z.int().nullable(),
+          /** 표시 전용. 편집 진입점은 pomo-baseline 마일스톤 소관이다. */
+          baseline: z.strictObject({
+            focusMin: z.int(),
+            shortBreakMin: z.int(),
+            longBreakMin: z.int()
+          })
         })
       ])
     }

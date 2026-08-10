@@ -36,7 +36,8 @@ export const CHANNELS = {
     drop: 'week:drop'
   },
   review: {
-    getStatus: 'review:getStatus'
+    getStatus: 'review:getStatus',
+    getPending: 'review:getPending'
   }
 } as const
 
