@@ -1,5 +1,7 @@
 import { weekRangeLabel, weekStartLabel } from '@shared/time'
 import { Button } from '@renderer/shared/ui/button'
+import { CompletedSection } from './CompletedSection'
+import { SummarySection } from './SummarySection'
 import type { ReviewPending } from './useReview'
 
 /**
@@ -13,7 +15,16 @@ import type { ReviewPending } from './useReview'
  * 배치는 잠정이다. 반응형 구간별 배치(인라인 확장 / 오버레이 / 탭 전체 화면)는
  * app-shell ux-spec 소관이고 아직 없다 (M3b 계획서 정정 ③).
  */
-export function ReviewPanel({ data, onClose }: { data: ReviewPending; onClose: () => void }) {
+export function ReviewPanel({
+  data,
+  currentWeek,
+  onClose
+}: {
+  data: ReviewPending
+  /** 오늘이 속한 주. 요약의 "이번 주 마감"과 "지난 주"를 가른다. */
+  currentWeek: string
+  onClose: () => void
+}) {
   if (!data.needed) {
     // 배너에서만 열리지만, 재조회 사이에 범위가 사라질 수 있다 — 다른 창에서 확정했거나
     // 자정을 넘겼거나. 빈 목록으로 거짓말하지 않고 사실을 적는다 (§8).
@@ -46,7 +57,20 @@ export function ReviewPanel({ data, onClose }: { data: ReviewPending; onClose: (
         <p className="font-mono text-xs tabular-nums text-ink-dim">{span}</p>
       </header>
 
-      <div data-testid="review-sections" className="min-h-0 flex-1 overflow-y-auto px-4 py-3" />
+      {/* 섹션 순서는 요약 → 끝낸 것들 → 남은 것들 → 안내 → 확정이며 내로우에서도
+          바뀌지 않는다 (§10). 남은 것들부터는 다음 태스크가 채운다. */}
+      <div
+        data-testid="review-sections"
+        className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-4 py-3"
+      >
+        <SummarySection
+          summary={data.summary}
+          from={data.from}
+          to={data.to}
+          currentWeek={currentWeek}
+        />
+        <CompletedSection rows={data.completed} />
+      </div>
 
       <div className="shrink-0 px-4 py-3">
         <Button type="button" variant="ghost" size="sm" onClick={onClose}>

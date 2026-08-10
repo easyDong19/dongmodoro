@@ -132,7 +132,7 @@ export function WeekCard() {
   // 정산 패널도 카드를 통째로 대신한다 (weekly-review 계획서 정정 ③). 플래너와 같은 자리라
   // 둘이 동시에 열리지 않는다 — 배너는 일반 뷰에만 있으므로 구조적으로 배타적이다.
   if (reviewing && review.data !== undefined) {
-    return <ReviewPanel data={review.data} onClose={leaveReview} />
+    return <ReviewPanel data={review.data} currentWeek={weekKey} onClose={leaveReview} />
   }
 
   // 플래너는 카드를 통째로 대신한다 — 일반 뷰와 나란히 두지 않는다 (§5.1).
