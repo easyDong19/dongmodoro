@@ -283,7 +283,7 @@ setPlan: (week, budget) => {
 - Consumes: Task 1 의 `weeks.ensure`·`weeks.setPlan`, `effectiveBaseline`
 - Produces: `testUow()`, `ensureWeeks()`; `WeekItemsRepository.confirmPlan` · `.listForWeek` · `.weekTotalSpent` · `.hasUnplannedActivity`; `otherRowSpent()` · `remainingPomos()` · `confirmWeekPlan()`
 
-- [ ] **Step 1: 계약 테스트 헬퍼를 먼저 만든다**
+- [x] **Step 1: 계약 테스트 헬퍼를 먼저 만든다**
 
 기존 테스트 3개(`today.test.ts`·`seed.test.ts`·`domain.test.ts`)가 **각자 로컬로** `drizzleUowOnMemoryDb()` 를 선언하고 있고 반환 모양도 통일돼 있지 않다. 새 테스트가 쓸 공용 헬퍼를 만든다. **기존 3개 파일은 건드리지 않는다** — 옮기면 이 태스크가 M2 테스트까지 손대게 된다.
 
@@ -331,7 +331,7 @@ export function ensureWeeks(uow: UnitOfWork, ...weekKeys: readonly string[]): vo
 }
 ```
 
-- [ ] **Step 2: 실패하는 계약 테스트 작성**
+- [x] **Step 2: 실패하는 계약 테스트 작성**
 
 ```ts
 // src/main/db/repositories/week-items.test.ts
@@ -669,9 +669,9 @@ describe('confirmWeekPlan', () => {
 })
 ```
 
-- [ ] **Step 3: 실행해 실패 확인** — `pnpm test` → FAIL (`confirmPlan`·`listForWeek` 없음)
+- [x] **Step 3: 실행해 실패 확인** — `pnpm test` → FAIL (`confirmPlan`·`listForWeek` 없음)
 
-- [ ] **Step 4: 포트 확장**
+- [x] **Step 4: 포트 확장**
 
 ```ts
 export type WeekItemRow = {
@@ -723,7 +723,7 @@ export interface WeekItemsRepository {
 }
 ```
 
-- [ ] **Step 5: 리포지토리 구현** — `drizzle.ts` 의 `weekItems` 블록에 추가. **소진 술어는 이 파일에만 존재한다.**
+- [x] **Step 5: 리포지토리 구현** — `drizzle.ts` 의 `weekItems` 블록에 추가. **소진 술어는 이 파일에만 존재한다.**
 
 ```ts
 listForWeek: (week) => {
@@ -880,7 +880,7 @@ confirmPlan: ({ week, items }) => {
 }
 ```
 
-- [ ] **Step 6: 서비스 구현** — `src/main/services/week-plan.ts`
+- [x] **Step 6: 서비스 구현** — `src/main/services/week-plan.ts`
 
 ```ts
 import { effectiveBaseline } from './baseline'
@@ -934,9 +934,9 @@ export function confirmWeekPlan(
 }
 ```
 
-- [ ] **Step 7: 통과 확인** — `pnpm test` PASS, `pnpm lint` 통과
+- [x] **Step 7: 통과 확인** — `pnpm test` PASS, `pnpm lint` 통과
 
-- [ ] **Step 8: 커밋** — `feat: add week item repository with spent aggregation and declarative confirm`
+- [x] **Step 8: 커밋** — `feat: add week item repository with spent aggregation and declarative confirm`
 
 ---
 

@@ -115,7 +115,168 @@ function makeRepos(tx: Tx): Repositories {
           .select({ week: weekItems.week })
           .from(weekItems)
           .where(eq(weekItems.id, weekItemId))
-          .get()?.week ?? null
+          .get()?.week ?? null,
+
+      listForWeek: (week) => {
+        const rows = tx
+          .select({
+            id: weekItems.id,
+            title: weekItems.title,
+            estPomos: weekItems.estPomos,
+            days: weekItems.days,
+            originWeek: weekItems.originWeek,
+            completedAt: weekItems.completedAt
+          })
+          .from(weekItems)
+          .where(
+            and(
+              eq(weekItems.week, week),
+              eq(weekItems.isSystem, 0),
+              isNull(weekItems.droppedAt),
+              isNull(weekItems.deletedAt)
+            )
+          )
+          .orderBy(asc(weekItems.createdAt), sql`week_items.rowid`)
+          .all()
+
+        return rows.map((r) => {
+          /**
+           * week-plan R8 의 집계 술어. `s.local_week = <항목의 week>` 조건이 핵심이다 —
+           * 빠뜨리면 주 경계를 넘긴 세션이 두 주에서 세어지고, 에러 없이 숫자만 틀린다.
+           * 이 술어는 이 파일 안에만 존재한다.
+           *
+           * **`tasks.deleted_at` 을 일부러 거르지 않는다.** 바로 아래 `counts` 는 거른다 —
+           * 두 질의가 서로 다른 질문에 답하기 때문이다:
+           *   · `spentPomos` = "이 항목 몫으로 실제로 한 집중" → 조각을 지워도 집중은 있었다
+           *   · `counts`     = "지금 남아 있는 조각 중 몇 개를 끝냈나" → 완료 제안의 재료
+           * 여기에 `deleted_at` 필터를 더하면 삭제된 조각의 소진이 항목에서 사라지는데
+           * `weekTotalSpent` 는 그대로라, 차액이 조용히 기타 행으로 새어 A24 가 깨진다.
+           * 비대칭이 버그로 보여도 고치지 말 것 — 차액 항등식이 이것에 의존한다 (ADR-027 §2).
+           */
+          const spentPomos =
+            tx
+              .select({ n: sql<number>`count(*)` })
+              .from(sessions)
+              .innerJoin(tasks, eq(sessions.taskId, tasks.id))
+              .where(
+                and(
+                  eq(tasks.weekItemId, r.id),
+                  eq(sessions.kind, 'focus'),
+                  eq(sessions.localWeek, week)
+                )
+              )
+              .get()?.n ?? 0
+
+          // 자식 0행이면 SQLite 의 sum() 은 NULL 을 돌려준다 — count 는 0 이므로 total 만으로
+          // 판정하지 않고 done 쪽에 폴백을 둔다.
+          const counts = tx
+            .select({
+              total: sql<number>`count(*)`,
+              done: sql<
+                number | null
+              >`sum(case when ${tasks.completedAt} is not null then 1 else 0 end)`
+            })
+            .from(tasks)
+            .where(and(eq(tasks.weekItemId, r.id), isNull(tasks.deletedAt)))
+            .get()
+
+          return {
+            id: r.id,
+            title: r.title,
+            estPomos: r.estPomos,
+            days: JSON.parse(r.days) as number[],
+            originWeek: r.originWeek,
+            completedAt: r.completedAt,
+            spentPomos,
+            childTotal: counts?.total ?? 0,
+            childDone: counts?.done ?? 0
+          }
+        })
+      },
+
+      weekTotalSpent: (week) =>
+        tx
+          .select({ n: sql<number>`count(*)` })
+          .from(sessions)
+          .where(and(eq(sessions.localWeek, week), eq(sessions.kind, 'focus')))
+          .get()?.n ?? 0,
+
+      hasUnplannedActivity: (week) => {
+        const looseSession = tx
+          .select({ id: sessions.id })
+          .from(sessions)
+          .where(
+            and(eq(sessions.localWeek, week), eq(sessions.kind, 'focus'), isNull(sessions.taskId))
+          )
+          .get()
+        if (looseSession) return true
+
+        const orphanTask = tx
+          .select({ id: tasks.id })
+          .from(tasks)
+          .innerJoin(weekItems, eq(tasks.weekItemId, weekItems.id))
+          .where(and(eq(weekItems.week, week), eq(weekItems.isSystem, 1), isNull(tasks.deletedAt)))
+          .get()
+        return orphanTask !== undefined
+      },
+
+      confirmPlan: ({ week, items }) => {
+        const existing = tx
+          .select({ id: weekItems.id })
+          .from(weekItems)
+          .where(
+            and(
+              eq(weekItems.week, week),
+              eq(weekItems.isSystem, 0),
+              isNull(weekItems.droppedAt),
+              isNull(weekItems.deletedAt)
+            )
+          )
+          .all()
+          .map((r) => r.id)
+
+        const createdIds: string[] = []
+        const kept = new Set<string>()
+
+        for (const item of items) {
+          const days = JSON.stringify(item.days)
+          if (item.id === null) {
+            const id = uuidv7()
+            tx.insert(weekItems)
+              .values({
+                id,
+                week,
+                title: item.title,
+                estPomos: item.estPomos,
+                days,
+                // 신규는 이 주가 최초 생성 주다. 이월만 원본 값을 승계한다 (R11) — 그 경로는
+                // 정산(M3b)이 별도로 만든다. 이 메서드를 이월에 재사용하면 배지가 1 로 리셋된다.
+                originWeek: week,
+                isSystem: 0
+              })
+              .run()
+            createdIds.push(id)
+            continue
+          }
+          if (!existing.includes(item.id)) {
+            throw new Error(`confirmPlan: item '${item.id}' does not belong to week ${week}`)
+          }
+          // origin_week·carry_from_id·milestone_id 는 건드리지 않는다 — 이력이 끊긴다 (R23).
+          tx.update(weekItems)
+            .set({ title: item.title, estPomos: item.estPomos, days })
+            .where(eq(weekItems.id, item.id))
+            .run()
+          kept.add(item.id)
+        }
+
+        const droppedIds = existing.filter((id) => !kept.has(id))
+        for (const id of droppedIds) {
+          // 폐기는 삭제가 아니다 (ADR-014 §1) — 자식 조각·세션은 손대지 않는다.
+          tx.update(weekItems).set({ droppedAt: now() }).where(eq(weekItems.id, id)).run()
+        }
+
+        return { createdIds, droppedIds }
+      }
     },
 
     today: {
