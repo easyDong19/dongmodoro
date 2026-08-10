@@ -15,11 +15,25 @@ import { fileURLToPath } from 'node:url'
 
 const HANGUL = /[ㄱ-ㆎ가-힣]/u
 
-/** 코드 스팬·펜스 블록을 지운다. 줄 번호를 보존하려고 줄바꿈은 남긴다. */
+function newlinesIn(text) {
+  return (text.match(/\n/g) ?? []).length
+}
+
+/**
+ * 코드 스팬·펜스 블록을 지운다. 줄 번호를 보존하려고 줄바꿈은 남긴다.
+ *
+ * 인라인 스팬이 **줄바꿈 하나까지** 걸치는 것을 허용한다. GitHub 은 스쿼시 커밋
+ * 본문을 조립할 때 PR 본문을 72자에서 강제 개행하는데, 그러면 백틱 쌍이 두 줄로
+ * 쪼개진다 — 개행을 막으면 인용이 인용으로 안 읽혀 오탐이 난다 (실제로 이 규칙을
+ * 들여온 커밋 자신이 걸렸다). 마크다운도 줄바꿈 걸친 인라인 코드를 허용한다.
+ *
+ * 두 줄 이상은 허용하지 않는다 — 짝이 안 맞는 백틱 하나가 문서를 통째로 삼켜
+ * 검사를 무력화하는 것을 막는 상한이다.
+ */
 function stripCode(text) {
   return text
-    .replace(/```[\s\S]*?```/g, (m) => '\n'.repeat((m.match(/\n/g) ?? []).length))
-    .replace(/`[^`\n]*`/g, '')
+    .replace(/```[\s\S]*?```/g, (m) => '\n'.repeat(newlinesIn(m)))
+    .replace(/`[^`]*`/g, (m) => (newlinesIn(m) <= 1 ? '\n'.repeat(newlinesIn(m)) : m))
 }
 
 /**
