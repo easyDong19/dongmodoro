@@ -39,11 +39,30 @@
 상세 규칙: [docs/design-system/principles.md §6](docs/design-system/principles.md).
 초안 문서 속 🍅 등은 문서용 속기일 뿐 구현 지시가 아니다.
 
-## 커밋 메시지는 무조건 영어로 작성한다
+## 커밋 메시지와 PR 은 무조건 영어로 작성한다
 
 - 커밋 메시지의 **제목·본문 전부 영어만** 사용한다. 한국어 금지 — 환경에 따라 인코딩이 깨져 히스토리를 읽을 수 없게 된다.
-- PR 제목도 마찬가지다 (스쿼시 머지 시 PR 제목이 main 커밋 메시지가 되므로).
+- **PR 제목과 본문 둘 다 영어다.** 스쿼시 머지 시 PR 제목은 main 커밋 제목이 되고 **PR 본문은 main 커밋 본문이 된다** — 둘 다 히스토리에 그대로 남는다.
 - Conventional Commits 형식: `feat:`, `fix:`, `chore:`, `refactor:`, `docs:`, `test:`
+
+### 한국어 인용은 백틱 안에서만
+
+도메인 용어와 UI 문구는 [CONTEXT.md](CONTEXT.md) 가 한국어로 정했으므로, 무엇을 바꿨는지 쓰려면 인용이 필요하다. **인용하는 한국어는 백틱으로 감싼다.**
+
+- 본문: 백틱 **밖**의 한글은 금지, 백틱 안(코드 스팬·펜스 블록)은 허용.
+  - ○ `` Reusing `예산을 정하면 예산 대비 소진이 보여요` would say something false. ``
+  - ✕ `## 무엇을 하는 PR인가`
+  - ✕ `## P1 — + 오늘로 now does what it says` → 백틱을 씌워 `` `+ 오늘로` `` 로 쓴다
+- **제목은 인용 예외가 없다** — 한 줄짜리 Conventional Commits 제목에 인용이 낄 자리가 없다.
+
+### 강제 장치가 두 겹인 이유
+
+| 경로 | 검사 |
+|---|---|
+| 로컬 커밋 | `commit-msg` 훅 → commitlint `no-hangul` (한글 0건) |
+| 스쿼시 머지 커밋 | **CI** [`pr-language.yml`](.github/workflows/pr-language.yml) → [`scripts/check-pr-language.mjs`](scripts/check-pr-language.mjs) |
+
+훅은 **로컬 커밋만** 본다. 스쿼시 머지 커밋의 본문은 GitHub 이 PR 본문으로 서버에서 조립하므로 훅이 물리적으로 닿지 못한다. PR #2~#15 가 이 틈으로 한국어 본문을 main 히스토리에 남겼고, CI 가 그 틈을 막는다. 검사기를 고칠 때는 `scripts/check-pr-language.test.mjs` 를 함께 고친다.
 
 ## 브랜치 전략 (GitLab Flow 변형)
 

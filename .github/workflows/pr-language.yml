@@ -1,0 +1,32 @@
+# PR 제목·본문의 언어를 검사한다 (CONTRIBUTING.md 커밋 규칙).
+#
+# 이 검사가 존재하는 이유: 로컬 commit-msg 훅의 commitlint 는 스쿼시 머지 커밋을
+# 보지 못한다. 그 커밋 본문은 GitHub 이 PR 본문으로 서버에서 조립하기 때문이다.
+# 훅이 닿지 않는 유일한 경로가 여기이고, PR #2~#15 가 그리로 빠져나갔다.
+name: PR language
+
+on:
+  pull_request:
+    # edited 가 핵심이다 — 제목·본문은 PR 을 연 뒤에도 계속 고쳐진다.
+    types: [opened, edited, reopened, synchronize]
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      # 제목·본문을 env 로 넘긴다. run 블록에 ${{ }} 로 직접 박으면 PR 본문이
+      # 셸 스크립트로 실행될 수 있다 (스크립트 인젝션).
+      - name: Check PR title and body
+        env:
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_BODY: ${{ github.event.pull_request.body }}
+        run: node scripts/check-pr-language.mjs

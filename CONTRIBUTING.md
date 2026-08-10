@@ -54,8 +54,26 @@
 ## 커밋 규칙
 
 - Conventional Commits 형식, husky + commitlint가 검사함
-- **커밋 메시지는 제목·본문 전부 영어로만 작성** (인코딩 깨짐 방지). PR 제목도 영어.
+- **커밋 메시지는 제목·본문 전부 영어로만 작성** (인코딩 깨짐 방지)
+- **PR 제목과 본문도 둘 다 영어다.** 스쿼시 머지에서 PR 제목은 main 커밋 제목이, **PR 본문은 main 커밋 본문이** 된다 — 둘 다 히스토리에 남는다
 - release 브랜치의 백포트 커밋에는 `(cherry picked from commit <hash>)` 표기
+
+### 한국어 인용은 백틱 안에서만
+
+[CONTEXT.md](CONTEXT.md) 가 도메인 용어와 UI 문구를 한국어로 정했으므로, 무엇을 바꿨는지
+쓰려면 인용이 필요하다. **인용하는 한국어는 백틱으로 감싼다.**
+
+| 대상 | 기준 |
+|---|---|
+| 커밋 제목·본문 | 한글 0건 (commitlint `no-hangul` 은 예외를 두지 않는다) |
+| PR 제목 | 한글 0건 — 한 줄짜리 제목에 인용이 낄 자리가 없다 |
+| PR 본문 | 백틱 **밖**의 한글 0건. 코드 스팬·펜스 블록 안은 허용 |
+
+```
+○  Reusing `예산을 정하면 예산 대비 소진이 보여요` would say something false.
+✕  ## 무엇을 하는 PR인가
+✕  ## P1 — + 오늘로 now does what it says      → `+ 오늘로` 로 감싼다
+```
 
 ## 금지 사항
 
@@ -73,7 +91,13 @@
 |---|---|---|---|
 | Claude 하네스 | Claude 의 git/gh 명령 | [.claude/hooks/protect-git-flow.sh](.claude/hooks/protect-git-flow.sh) (PreToolUse) | ✅ 적용됨 |
 | 로컬 git | 사람이 치는 commit/push | husky + commitlint + ESLint | ✅ 적용됨 ([ADR-016](docs/architecture/decisions/adr-016-lint-and-git-hooks.md)) |
+| GitHub Actions | **PR 제목·본문의 언어** | [pr-language.yml](.github/workflows/pr-language.yml) → [scripts/check-pr-language.mjs](scripts/check-pr-language.mjs) | ✅ 적용됨 |
 | GitHub 서버 | 모든 클라이언트 (최종 방어선) | branch ruleset + squash-only | ⏸ 설정 명령은 아래 |
+
+**CI 층이 따로 필요한 이유** — `commit-msg` 훅은 **로컬 커밋만** 본다. 스쿼시 머지 커밋의
+본문은 GitHub 이 PR 본문으로 서버에서 조립하므로 훅이 물리적으로 닿지 못한다. 실제로
+PR #2~#15 는 로컬 커밋이 전부 영어였는데도 이 경로로 한국어 본문을 main 히스토리에 남겼다.
+검사기를 고칠 때는 `scripts/check-pr-language.test.mjs` 를 함께 고친다 (`pnpm test scripts/`).
 
 - 하네스 훅 판정: main 에서의 커밋·머지·태그·push 는 **차단(deny)**, release 브랜치의 커밋·push 와 태그 push 는 **사용자 확인(ask)** — 백포트/배포는 정당한 플로우일 수 있어 사람이 판단한다.
 - 예외: 레포에 커밋이 하나도 없는 부트스트랩 시점에는 최초 커밋을 main 에 허용한다.
