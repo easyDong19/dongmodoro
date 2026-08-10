@@ -529,9 +529,28 @@ function settle(input): SettleResult {
 | 오늘 목록 | 미완료 조각의 `week_item_id` 가 바뀌어(5b) 조각의 소속 항목 표시가 달라진다 |
 | 정산 판정 상태 (배너) | 워터마크 전진 |
 
-> ⚠️ 가정: 위 목록은 이 기능이 바꾸는 사실의 범위에서 도출한 것이다. 구체적인
-> Query invalidation 키 계층은 architecture/overview.md 에서 **미결정** 상태이므로
-> (결정 원장 §F), 키가 확정되면 이 목록을 키로 옮겨 적는다. TBD.
+**키 계층은 확정됐다** ([ADR-025](../../architecture/decisions/adr-025-query-key-hierarchy.md),
+2026-08-07). 이전 판의 `⚠️ 가정` 블록은 이 표를 "키가 정해지면 옮겨 적는다"는 TBD 로
+남겨 두었으나, architecture/overview.md 가 그 미결을 이미 닫았으므로 위 대상들을 실제
+키로 적는다. 팩토리는 `src/renderer/shared/query/keys.ts` 다.
+
+| 대상 | 키 |
+|---|---|
+| 정산 범위 각 주 | `keys.week(w)` — 범위의 주마다 하나씩 |
+| 계획 대상 주 | `keys.week(계획 대상 주)` |
+| 마일스톤 | `keys.monthAll()` — 마일스톤 전용 쿼리가 아직 없어 광역 prefix 로 둔다 |
+| 오늘 목록 | `keys.today(currentDayKey)` |
+| 정산 판정 상태 (배너) | `keys.reviewPending()` |
+
+- **드로어·플래너 초안은 따로 적지 않는다.** 두 키가 `keys.week(w)` 의 하위이므로
+  (`['week', w, 'drawer', id]`·`['week', w, 'planDraft']`) 주 키 무효화가 접두사로 함께
+  잡는다 — M3a 가 그렇게 배치했다.
+- **긴 키로 짧은 키를 잡을 수 없다.** M2 가 `['week', w, 'items']` 를 무효화하면서 주간
+  카드(`['week', w]`)를 갱신한다고 믿었던 것이 그 실수였다. 무효화는 **주어진 키를
+  접두사로 갖는 쿼리**를 잡으므로 방향이 반대다.
+- 무효화 호출은 renderer 의 `dispatchInvalidation` 초크포인트를 통해서만 한다
+  (ADR-025 §5, ESLint 강제). 확정 응답이 실어 보내는 주 키 목록을 그 사건의 payload 로
+  넘긴다 — renderer 가 범위를 다시 계산하지 않는다.
 
 ### 시간·타임존
 
