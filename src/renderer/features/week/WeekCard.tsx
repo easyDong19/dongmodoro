@@ -52,7 +52,7 @@ function EmptyState({
  * 예산 대비 소진은 이 화면이 존재하는 이유라 항상 보여야 한다.
  */
 export function WeekCard() {
-  const { weekKey, query, pullNext, complete, uncomplete, drop } = useWeek()
+  const { weekKey, todayIndex, query, pullNext, complete, uncomplete, drop } = useWeek()
   // 동시에 하나만 열린다 (§6) — 열린 항목 id 하나로 표현한다.
   const [openId, setOpenId] = useState<string | null>(null)
   const [toast, setToast] = useState<string | null>(null)
@@ -108,7 +108,20 @@ export function WeekCard() {
     )
   }
 
-  const { items, otherRow, budget, totalSpent } = summary
+  const { otherRow, budget, totalSpent } = summary
+  /**
+   * 목록 정렬은 **생성순**이고, 오늘 배정된 항목만 상단으로 올린다 (§3.1, PRD R7·R10).
+   * 사용자가 순서를 바꾸는 UI 는 없다.
+   *
+   * `sort` 는 안정 정렬이므로 두 그룹 안의 생성순이 유지된다 — main 이 이미 생성순으로
+   * 주고 있다. 보고 있는 주가 이번 주가 아니면 "오늘 배정"이 성립하지 않아 정렬도 없다.
+   */
+  const items =
+    todayIndex === null
+      ? summary.items
+      : [...summary.items].sort(
+          (a, b) => Number(b.days.includes(todayIndex)) - Number(a.days.includes(todayIndex))
+        )
   const emptyKind =
     items.length > 0
       ? items.every((i) => i.completedAt !== null)
@@ -144,6 +157,7 @@ export function WeekCard() {
               key={row.id}
               row={row}
               week={weekKey}
+              todayIndex={todayIndex}
               onPullNext={onPullNext}
               onComplete={(id) => complete.mutate(id)}
               onUncomplete={(id) => uncomplete.mutate(id)}

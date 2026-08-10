@@ -359,3 +359,38 @@ describe('WeekCard — 타이포와 빈 공간', () => {
     expect(screen.getByTestId('week-item-list').className).not.toContain('justify-center')
   })
 })
+
+/**
+ * §3.1 마지막 줄 — 목록 정렬은 생성순이고 **오늘 배정된 항목만** 상단으로 올린다
+ * (PRD R7·R10). 사용자가 순서를 바꾸는 UI 는 없다.
+ */
+describe('WeekCard — 오늘 배정 상단 정렬 (A8)', () => {
+  it('오늘 배정된 항목이 위로 오고 나머지는 원래 순서를 지킨다', async () => {
+    await renderCard(
+      makeSummary({
+        items: [
+          makeItem({ id: 'a', title: '먼저', days: [] }),
+          makeItem({ id: 'b', title: '오늘 것', days: [4] }), // DAY = 금요일 (weekdayIndex 4)
+          makeItem({ id: 'c', title: '나중', days: [0] })
+        ]
+      })
+    )
+
+    const titles = screen
+      .getAllByTestId('week-item-row')
+      .map((row) => row.querySelector('span')?.textContent)
+    expect(titles).toEqual(['오늘 것', '먼저', '나중'])
+  })
+
+  it('오늘 배정이 없으면 생성순 그대로다', async () => {
+    await renderCard(
+      makeSummary({
+        items: [makeItem({ id: 'a', title: '먼저' }), makeItem({ id: 'b', title: '나중' })]
+      })
+    )
+    const titles = screen
+      .getAllByTestId('week-item-row')
+      .map((row) => row.querySelector('span')?.textContent)
+    expect(titles).toEqual(['먼저', '나중'])
+  })
+})

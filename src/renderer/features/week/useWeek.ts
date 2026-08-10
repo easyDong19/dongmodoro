@@ -13,7 +13,7 @@ import { useClock } from '@renderer/shared/query/useClock'
  * 있으므로(폐기·이월 항목) renderer 가 현재 주로 넘겨짚지 않는다.
  */
 export function useWeek() {
-  const { weekKey, dayKey } = useClock()
+  const { weekKey, dayKey, weekdayIndex } = useClock()
   const qc = useQueryClient()
 
   const query = useQuery({
@@ -33,5 +33,10 @@ export function useWeek() {
   const uncomplete = useMutation({ mutationFn: api.week.uncomplete, onSuccess: invalidateItem })
   const drop = useMutation({ mutationFn: api.week.drop, onSuccess: invalidateItem })
 
-  return { weekKey, dayKey, query, pullNext, complete, uncomplete, drop }
+  /**
+   * 일반 뷰는 **항상 오늘이 속한 주**를 보여주므로(PRD R4) 여기서는 늘 값이 있다.
+   * `WeekItemRow` 쪽이 `null` 을 받을 수 있게 열어 둔 것은 다른 주를 그리는 소비자를
+   * 위한 것이고(그때는 지난/오늘/다가올이 성립하지 않는다), 이 훅은 그 소비자가 아니다.
+   */
+  return { weekKey, dayKey, todayIndex: weekdayIndex, query, pullNext, complete, uncomplete, drop }
 }
