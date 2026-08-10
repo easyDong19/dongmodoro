@@ -26,3 +26,28 @@ export function effectiveBaseline(repos: Repositories, week: string): Baseline {
     longBreakMin: readIntSetting(repos, 'long_break_min')
   }
 }
+
+/**
+ * 유효 예산(week) 계약 (pomo-baseline R11). 반환 `null` 은 **"기록 없음"** 이며
+ * "예산 0" 이 아니다 — 후자는 `0` 으로 돌아온다 (ADR-018 §1).
+ *
+ * **조회 시점에 `sum(weekly_capacity)` 로 예산을 파생하는 경로는 이 계약에 없다.**
+ * capacity 는 입력 UI 의 프리필 재료일 뿐이다 (`budgetPrefill`). 여기에 폴백을 더하면
+ * "정하지 않았다"와 "이만큼으로 정했다"가 화면에서 구분되지 않는다.
+ *
+ * `effectiveBaseline` 과 달리 폴백이 **없다는 것 자체가 계약**이다.
+ */
+export function effectiveBudget(repos: Repositories, week: string): number | null {
+  return repos.weeks.plan(week)?.budget ?? null
+}
+
+/**
+ * 예산 입력의 기본값 프리필 (pomo-baseline R12). **조회 계약이 아니라 입력 UI 의
+ * 관심사다.** `weekly_capacity` 미설정이면 `null` 을 돌려 필드를 빈 채로 둔다 —
+ * M3a 에는 capacity 편집 UI 가 없으므로 항상 이 경로다.
+ */
+export function budgetPrefill(repos: Repositories): number | null {
+  const raw = repos.settings.get('weekly_capacity')
+  if (raw === null) return null
+  return (JSON.parse(raw) as number[]).reduce((sum, n) => sum + n, 0)
+}

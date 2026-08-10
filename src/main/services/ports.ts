@@ -26,11 +26,47 @@ export interface SettingsRepository {
 
 export type Baseline = { focusMin: number; shortBreakMin: number; longBreakMin: number }
 
+export type WeekPlan = {
+  /** NULL = "기록 없음". 0 은 "예산 0 으로 하겠다"는 별개 사실이다 (ADR-018 §1). */
+  budget: number | null
+  /** 요일별 가용 뽀모 `[월..일]`. 미설정이면 null. M3a 에서는 항상 null 이다. */
+  capacity: number[] | null
+  /** 최초 확정 시각. 주중 재수정으로 갱신하지 않는다 (week-plan R23). */
+  plannedAt: string | null
+}
+
 export interface WeeksRepository {
   /** 그 주 스냅샷 3종. 행이 없으면 null (폴백은 여기서 하지 않는다 — baseline.ts 소관). */
   baseline(week: string): Baseline | null
   /** 행이 없을 때만 생성 + 길이 3종 박제 (ADR-013 §2). capacity·budget 은 NULL (ADR-018 §1). 멱등. */
   ensure(week: string, baseline: Baseline): void
+  /** 그 주 계획 스냅샷. 행이 없으면 null. */
+  plan(week: string): WeekPlan | null
+  /** 예산 저장 + `planned_at` 최초 1회만 기록. 행이 없으면 아무 것도 하지 않는다. */
+  setPlan(week: string, budget: number | null): void
+}
+
+export type WeekItemRow = {
+  id: string
+  title: string
+  estPomos: number
+  /** 요일 배치 의도 `[0..6]`, 0 = 월요일. 빈 배열 = 미배치. */
+  days: number[]
+  /** 최초 생성 주. 이월 배지 `N주째` 계산의 재료 (R11). */
+  originWeek: string
+  completedAt: string | null
+  /** R8 술어 — 저장값이 아니라 파생. */
+  spentPomos: number
+  childTotal: number
+  childDone: number
+}
+
+export type PlanDraftItem = {
+  /** null = 이 초안에서 새로 추가된 행. 값이 있으면 기존 항목이다. */
+  id: string | null
+  title: string
+  estPomos: number
+  days: number[]
 }
 
 export interface WeekItemsRepository {
@@ -38,6 +74,46 @@ export interface WeekItemsRepository {
   ensureSystemItem(week: string): string
   /** 완료 토글용 — task 의 부모 항목 주 (초크포인트 payload 용). 없으면 null. */
   weekOf(weekItemId: string): string | null
+  /**
+   * 일반 뷰에 표시되는 항목 + 소진. **이 술어의 정의역이 곧 ADR-027 §1 의 Σ 다** —
+   * `is_system = 0 AND dropped_at IS NULL AND deleted_at IS NULL`.
+   * 폐기 항목을 포함시키면 A24 가 깨진다.
+   */
+  listForWeek(week: string): WeekItemRow[]
+  /** 그 주 focus 세션 전체. 폐기·삭제가 줄이지 않는다 (ADR-027 §2). */
+  weekTotalSpent(week: string): number
+  /** 기타 행 표시 조건 ①② — 미분류 세션 또는 부모 없는 조각이 있는가. ③은 서비스가 본다. */
+  hasUnplannedActivity(week: string): boolean
+  /**
+   * 선언형 확정 (R23·R24). 요청 목록이 그 주 계획의 **전체**다.
+   * - `id` 있음 → **ID 로** 매칭해 갱신. 제목 기준 매칭 금지 (제목을 고치면 이력이 끊긴다).
+   * - `id` 없음 → 신규 생성, `origin_week = week`.
+   * - 기존 항목이 목록에 없음 → `dropped_at` 기록 (폐기, 삭제 아님).
+   */
+  confirmPlan(input: { week: string; items: readonly PlanDraftItem[] }): {
+    createdIds: string[]
+    droppedIds: string[]
+  }
+  /** 드로어 헤더. 폐기 항목도 읽을 수 있다 (listForWeek 로는 못 찾는다). 없으면 null. */
+  header(weekItemId: string): { week: string; completedAt: string | null } | null
+  childTasks(weekItemId: string, dayKey: string): ChildTaskRow[]
+  /** 원클릭 pull 대상. 유자격 조각이 없으면 null (그때 화면은 드로어를 연다). */
+  nextPullable(weekItemId: string, dayKey: string): string | null
+  // complete/uncomplete 를 두 메서드로 나눈 이유: `setCompleted(id, at | null)` 은
+  // `update(id, patch)` 모양이라 이 파일 상단이 금지하는 CRUD 포트다. 유스케이스로 나눈다.
+  complete(weekItemId: string, at: string): void
+  uncomplete(weekItemId: string): void
+  drop(weekItemId: string): void
+}
+
+export type ChildTaskRow = {
+  taskId: string
+  title: string
+  estPomos: number | null
+  spentPomos: number
+  completedAt: string | null
+  /** 그 날짜에 활성 pull 행이 있는가 (§6.2 `오늘 목록에`). */
+  inToday: boolean
 }
 
 export type TodayRow = {

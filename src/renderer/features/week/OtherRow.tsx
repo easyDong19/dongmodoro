@@ -1,0 +1,24 @@
+import { PomoDots } from '@renderer/shared/ui/PomoDots'
+
+/**
+ * 기타 행 (ux-spec §3.4) — 목록 맨 아래 한 행. 계획에 없던 집중을 한 줄로 모은다.
+ *
+ * 값은 **차액**이라 main 이 계산해 보내며(ADR-027 §1), 이 컴포넌트는 판정하지 않는다.
+ *
+ * 톤: 점선 테두리로 계획 항목과 구분하되 `--ink-faint` 로 낮추지 않는다 — 실제로 한
+ * 집중이므로 흐리게 만들면 "덜 중요한 기록"이라고 거짓말을 하는 셈이다.
+ *
+ * est 가 0 이라 도트는 `neutral` 변형을 쓴다. default 로 그리면 소진 전부가 초과로
+ * 렌더된다 (PomoDots 주석 참조).
+ */
+export function OtherRow({ spentPomos }: { spentPomos: number }) {
+  return (
+    <li
+      data-testid="other-row"
+      className="flex items-center gap-2 rounded-md border border-dashed border-glass-border-soft px-2 py-2"
+    >
+      <span className="flex-1 text-sm text-ink-dim">기타 — 계획에 없던 집중</span>
+      <PomoDots spent={spentPomos} est={0} variant="neutral" />
+    </li>
+  )
+}

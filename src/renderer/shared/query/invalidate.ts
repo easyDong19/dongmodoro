@@ -16,6 +16,8 @@ export type InvalidationEvent =
     }
   | { type: 'pull-changed'; payload: { itemWeek: string }; currentDayKey: string } // 사건 3·4
   | { type: 'task-toggled'; payload: { parentWeek: string }; currentDayKey: string } // 사건 5
+  | { type: 'plan-confirmed'; payload: { week: string }; currentDayKey: string }
+  | { type: 'item-changed'; payload: { itemWeek: string }; currentDayKey: string }
   | {
       type: 'clock-boundary'
       payload: ClockBoundary
@@ -38,20 +40,20 @@ export function keysToInvalidate(e: InvalidationEvent): readonly (readonly strin
       return [
         todayKey,
         keys.day(localDate),
-        keys.weekItems(localWeek),
+        keys.week(localWeek),
         keys.monthCalendar(localDate.slice(0, 7)),
         keys.monthAll() // milestones 광역 — 마일스톤 쿼리가 아직 없어 prefix 로 표기 (활성 구독 0)
       ]
     }
     case 'capture-recorded': {
       const { localDate, localWeek } = e.payload
-      return [keys.weekItems(localWeek), keys.day(localDate), keys.monthAll()]
+      return [keys.week(localWeek), keys.day(localDate), keys.monthAll()]
     }
     case 'pull-changed': {
       return [
         keys.today(e.currentDayKey),
         keys.day(e.currentDayKey),
-        keys.weekItems(e.payload.itemWeek),
+        keys.week(e.payload.itemWeek),
         keys.monthCalendar(e.currentDayKey.slice(0, 7))
       ]
     }
@@ -59,10 +61,17 @@ export function keysToInvalidate(e: InvalidationEvent): readonly (readonly strin
       return [
         keys.today(e.currentDayKey),
         keys.dayAll(),
-        keys.weekItems(e.payload.parentWeek),
+        keys.week(e.payload.parentWeek),
         keys.monthAll()
       ]
     }
+    case 'plan-confirmed':
+      // 항목이 늘거나 폐기되면 그 주 카드와, 그 항목에서 pull 해둔 오늘 목록이 함께 변한다.
+      // 확정 주가 오늘 주가 아니어도 오늘을 무효화한다 — 판정 비용이 재조회 비용보다 크다.
+      return [keys.week(e.payload.week), keys.today(e.currentDayKey)]
+    case 'item-changed':
+      // 완료·완료 해제·폐기·pull 이 모두 이 갈래다 — 바뀌는 캐시 집합이 같다.
+      return [keys.week(e.payload.itemWeek), keys.today(e.currentDayKey)]
     case 'clock-boundary': {
       const out: (readonly string[])[] = [keys.todayAll(), keys.reviewPending()]
       if (e.payload.weekKey !== e.previous.weekKey) out.push(keys.weekAll())

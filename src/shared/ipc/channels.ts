@@ -23,7 +23,18 @@ export const CHANNELS = {
     completeEarly: 'timer:completeEarly',
     setMode: 'timer:setMode'
   },
-  sessions: { capture: 'sessions:capture' }
+  sessions: { capture: 'sessions:capture' },
+  week: {
+    summary: 'week:summary',
+    planDraft: 'week:planDraft',
+    confirmPlan: 'week:confirmPlan',
+    drawer: 'week:drawer',
+    pullNext: 'week:pullNext',
+    pullFromDrawer: 'week:pullFromDrawer',
+    complete: 'week:complete',
+    uncomplete: 'week:uncomplete',
+    drop: 'week:drop'
+  }
 } as const
 
 /**

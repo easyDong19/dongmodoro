@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from 'vitest'
-import { now, dayKey, weekKey, monthKey, localKeys } from './index'
+import { now, dayKey, weekKey, monthKey, localKeys, weekRangeLabel, weeksSince } from './index'
 
 afterEach(() => vi.useRealTimers())
 
@@ -88,5 +88,29 @@ describe('localKeys — 달력 키 짝 (ADR-022 §1)', () => {
       localDate: '2027-01-01',
       localWeek: '2026-12-28'
     })
+  })
+})
+
+describe('weeksSince (week-plan R11)', () => {
+  it('같은 주면 1 주째다 — 0 이 아니다', () => {
+    expect(weeksSince('2026-08-03', '2026-08-03')).toBe(1)
+  })
+
+  it('2주 전에 생긴 항목은 3주째다', () => {
+    expect(weeksSince('2026-07-20', '2026-08-03')).toBe(3)
+  })
+
+  it('월 경계를 넘어도 주 수로 센다', () => {
+    expect(weeksSince('2026-07-27', '2026-08-03')).toBe(2)
+  })
+})
+
+describe('weekRangeLabel (ux-spec §2)', () => {
+  it('월요일 키를 그 주 월~일 범위로 그린다', () => {
+    expect(weekRangeLabel('2026-08-03')).toBe('8/3 – 8/9')
+  })
+
+  it('월 경계를 넘는 주도 양쪽 월을 적는다', () => {
+    expect(weekRangeLabel('2026-08-31')).toBe('8/31 – 9/6')
   })
 })

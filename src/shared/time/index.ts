@@ -79,6 +79,37 @@ export function calendarKeys(atEpochMs?: number): CalendarKeys {
 }
 
 /**
+ * 달력 키 → epoch day. DST 를 타지 않도록 UTC 로만 센다 — 로컬 자정 산술은 전환일에
+ * ±1시간 어긋나 나눗셈이 한 칸 밀린다.
+ *
+ * 아래 두 함수는 **이미 고정된 달력 키끼리의 산술**만 한다. 이 파일 상단이 금지하는
+ * "저장된 순간(UTC)을 파싱해 달력 키를 재파생"하는 것이 아니므로 규칙 안이다.
+ */
+function dayNumber(calendarKey: string): number {
+  const [y, m, d] = calendarKey.split('-').map(Number)
+  return Date.UTC(y, m - 1, d) / 86_400_000
+}
+
+/**
+ * 이월 배지 `N주째` (week-plan R11). 두 주 키의 차이 ÷ 7 + 1.
+ * 항목이 만들어진 주가 곧 1주째다 — 0 주째는 없다. 이월 **사슬 길이로 세지 않는다**
+ * (중간에 한 주를 건너뛰어도 경과한 주 수가 답이다).
+ */
+export function weeksSince(originWeek: string, week: string): number {
+  return Math.floor((dayNumber(week) - dayNumber(originWeek)) / 7) + 1
+}
+
+/** 카드 헤더의 주 범위 `8/3 – 8/9` (ux-spec §2). 구분자는 en dash 이고 앞뒤에 공백이 있다. */
+export function weekRangeLabel(week: string): string {
+  const startMs = dayNumber(week) * 86_400_000
+  const label = (ms: number): string => {
+    const d = new Date(ms)
+    return `${d.getUTCMonth() + 1}/${d.getUTCDate()}`
+  }
+  return `${label(startMs)} – ${label(startMs + 6 * 86_400_000)}`
+}
+
+/**
  * 다음 자정(로컬)의 epoch ms. 자정 알람의 재예약 계산에 쓴다 (ADR-026 §1).
  * `new Date()` 생성자를 여기 안에 가둬서 호출부(main/services/clock.ts)가 epoch ms 만
  * 주고받게 한다 — ADR-009 §3 이 그 밖에서의 생성자 호출을 lint 로 막는다.

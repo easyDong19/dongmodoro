@@ -88,7 +88,7 @@ describe('subscribeMainEvents — 초크포인트 이음매', () => {
 
     expect(invalidated).toContainEqual(keys.today('2026-08-07'))
     expect(invalidated).toContainEqual(keys.day('2026-08-07'))
-    expect(invalidated).toContainEqual(keys.weekItems('2026-08-03'))
+    expect(invalidated).toContainEqual(keys.week('2026-08-03'))
     expect(invalidated).toContainEqual(keys.monthCalendar('2026-08'))
     expect(invalidated).toContainEqual(keys.monthAll())
   })
