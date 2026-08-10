@@ -71,11 +71,26 @@ export type CalendarKeys = {
   readonly dayKey: string
   readonly weekKey: string
   readonly monthKey: string
+  /**
+   * 그 주에서 오늘이 몇 번째 날인가. **0 = 월요일** … 6 = 일요일 (ADR-010 §1).
+   * `Date.getDay()`(0=일)와 기준이 다르다 — 우리 주는 월요일에 시작한다.
+   *
+   * 이 필드가 여기 있는 이유는 renderer 가 요일을 **계산할 수 없기 때문**이다.
+   * ESLint 의 `TIME_SELECTORS` 가 이 모듈 밖의 `new Date()`·`Date.now()` 를 막으므로,
+   * 요일 핍의 지난/오늘/앞으로 구분과 "오늘 배정된 항목" 정렬은 이 값이 유일한 통로다.
+   * dayKey·weekKey 와 **한 번의 시계 읽기에서 함께** 나오므로 자정을 걸쳐 갈라지지 않는다.
+   */
+  readonly weekdayIndex: number
 }
 
 export function calendarKeys(atEpochMs?: number): CalendarKeys {
   const at = atEpochMs === undefined ? new Date() : new Date(atEpochMs)
-  return { dayKey: dayKey(at), weekKey: weekKey(at), monthKey: monthKey(at) }
+  return {
+    dayKey: dayKey(at),
+    weekKey: weekKey(at),
+    monthKey: monthKey(at),
+    weekdayIndex: (at.getDay() + 6) % 7 // 0=일 … 6=토  →  0=월 … 6=일
+  }
 }
 
 /**
@@ -99,14 +114,51 @@ export function weeksSince(originWeek: string, week: string): number {
   return Math.floor((dayNumber(week) - dayNumber(originWeek)) / 7) + 1
 }
 
+/** epoch day → `8/3`. `dayNumber` 의 역이며 UTC 로만 읽어 DST 를 타지 않는다. */
+function monthDayLabel(atMs: number): string {
+  const d = new Date(atMs)
+  return `${d.getUTCMonth() + 1}/${d.getUTCDate()}`
+}
+
 /** 카드 헤더의 주 범위 `8/3 – 8/9` (ux-spec §2). 구분자는 en dash 이고 앞뒤에 공백이 있다. */
 export function weekRangeLabel(week: string): string {
   const startMs = dayNumber(week) * 86_400_000
-  const label = (ms: number): string => {
-    const d = new Date(ms)
-    return `${d.getUTCMonth() + 1}/${d.getUTCDate()}`
-  }
-  return `${label(startMs)} – ${label(startMs + 6 * 86_400_000)}`
+  return `${monthDayLabel(startMs)} – ${monthDayLabel(startMs + 6 * 86_400_000)}`
+}
+
+/**
+ * 좁은 자리용 주 라벨 `8/3` — 정산 목록의 출처 주처럼 `weekRangeLabel` 이 들어가지 않는 곳.
+ *
+ * **ISO 주 번호(`W35`)를 쓰지 않는다.** ux-spec 초안이 그 표기를 썼지만, 주 번호 산술은
+ * 53주 연도에서 깨지고(ADR-010 Context) 주간 카드 헤더가 이미 날짜 범위를 쓰고 있어
+ * 같은 컬럼 안에 두 표기가 섞인다. 저장값이 아니라 렌더 전용 라벨이다 (ADR-010 §2).
+ */
+export function weekStartLabel(week: string): string {
+  return monthDayLabel(dayNumber(week) * 86_400_000)
+}
+
+/**
+ * 주 키를 n 주 앞뒤로 옮긴다 (`n` 은 음수 가능).
+ *
+ * 주 번호가 아니라 **날짜**를 더한다 — ISO 주 번호 산술은 53주 연도에서 깨지고 밀리초
+ * 나눗셈은 DST 에서 한 칸 밀린다 (ADR-010 Context). 주 키는 언제나 월요일이므로
+ * ±7n 일을 더해도 월요일이 유지된다.
+ */
+export function addWeeks(weekKeyValue: string, n: number): string {
+  const at = new Date((dayNumber(weekKeyValue) + n * 7) * 86_400_000)
+  return `${at.getUTCFullYear()}-${pad(at.getUTCMonth() + 1)}-${pad(at.getUTCDate())}`
+}
+
+/**
+ * `from … to` 사이의 주 키를 **양끝 포함**해 오름차순으로 준다 (정산 범위의 각 주).
+ *
+ * `from > to` 는 빈 배열이며 **이것이 정상 상태다** — 평일 정상 사용과 정산 확정 직후가
+ * 모두 그 경로다 (weekly-review technical-spec §0.1).
+ */
+export function weeksBetween(from: string, to: string): string[] {
+  const out: string[] = []
+  for (let w = from; w <= to; w = addWeeks(w, 1)) out.push(w)
+  return out
 }
 
 /**

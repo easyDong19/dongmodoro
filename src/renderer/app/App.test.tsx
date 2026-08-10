@@ -7,7 +7,7 @@ import type { Api } from '@shared/ipc/api'
 import type { TimerSnapshotWire } from '@shared/ipc/contracts'
 import { App } from './App'
 
-const clock = { dayKey: '2026-08-07', weekKey: '2026-08-03', monthKey: '2026-08' }
+const clock = { dayKey: '2026-08-07', weekKey: '2026-08-03', monthKey: '2026-08', weekdayIndex: 4 }
 
 const idleFocusSnapshot: TimerSnapshotWire = {
   mode: 'focus',

@@ -1,5 +1,17 @@
 import { describe, it, expect, vi, afterEach } from 'vitest'
-import { now, dayKey, weekKey, monthKey, localKeys, weekRangeLabel, weeksSince } from './index'
+import {
+  now,
+  addWeeks,
+  calendarKeys,
+  dayKey,
+  weekKey,
+  monthKey,
+  localKeys,
+  weekRangeLabel,
+  weekStartLabel,
+  weeksBetween,
+  weeksSince
+} from './index'
 
 afterEach(() => vi.useRealTimers())
 
@@ -112,5 +124,72 @@ describe('weekRangeLabel (ux-spec §2)', () => {
 
   it('월 경계를 넘는 주도 양쪽 월을 적는다', () => {
     expect(weekRangeLabel('2026-08-31')).toBe('8/31 – 9/6')
+  })
+})
+
+describe('addWeeks — 날짜 산술 (ADR-010 §2)', () => {
+  it('앞뒤로 7일씩 움직인다', () => {
+    expect(addWeeks('2026-08-03', 1)).toBe('2026-08-10')
+    expect(addWeeks('2026-08-03', -1)).toBe('2026-07-27')
+    expect(addWeeks('2026-08-03', 0)).toBe('2026-08-03')
+  })
+
+  it('연말 경계를 넘는다 — 주 번호를 세지 않으므로 53주 연도가 문제되지 않는다', () => {
+    expect(addWeeks('2026-12-28', 1)).toBe('2027-01-04')
+    expect(addWeeks('2027-01-04', -1)).toBe('2026-12-28')
+  })
+
+  it('여러 주를 한 번에 움직여도 월요일이 유지된다', () => {
+    expect(addWeeks('2026-08-03', 5)).toBe('2026-09-07')
+  })
+})
+
+describe('weeksBetween — 양끝 포함', () => {
+  it('같은 주면 그 주 하나', () => {
+    expect(weeksBetween('2026-08-03', '2026-08-03')).toEqual(['2026-08-03'])
+  })
+
+  it('3주 범위면 3개를 오름차순으로 준다', () => {
+    expect(weeksBetween('2026-08-03', '2026-08-17')).toEqual([
+      '2026-08-03',
+      '2026-08-10',
+      '2026-08-17'
+    ])
+  })
+
+  it('from > to 면 빈 배열이다 — 정산 범위 없음이 정상 상태다', () => {
+    expect(weeksBetween('2026-08-10', '2026-08-03')).toEqual([])
+  })
+})
+
+describe('weekStartLabel (weekly-review 계획서 정정 ①)', () => {
+  it('좁은 자리용으로 월/일만 준다', () => {
+    expect(weekStartLabel('2026-08-03')).toBe('8/3')
+  })
+
+  it('앞자리 0 을 붙이지 않는다', () => {
+    expect(weekStartLabel('2026-01-05')).toBe('1/5')
+  })
+})
+
+describe('calendarKeys.weekdayIndex — 0 = 월요일 (ADR-010 §1)', () => {
+  const localMs = (iso: string): number => new Date(iso).getTime()
+
+  it('월요일이 0, 일요일이 6 이다', () => {
+    expect(calendarKeys(localMs('2026-08-03T09:00:00')).weekdayIndex).toBe(0)
+    expect(calendarKeys(localMs('2026-08-09T09:00:00')).weekdayIndex).toBe(6)
+  })
+
+  it('주 중간도 월요일 기준으로 센다', () => {
+    expect(calendarKeys(localMs('2026-08-06T23:59:00')).weekdayIndex).toBe(3)
+  })
+
+  it('weekKey 에 addDays(weekdayIndex) 를 하면 그 날짜가 나온다 — 두 값이 어긋나지 않는다', () => {
+    const at = localMs('2026-08-06T09:00:00')
+    const { dayKey: d, weekKey: w, weekdayIndex } = calendarKeys(at)
+    expect(weeksBetween(w, w)).toEqual([w])
+    // 주 시작 + 요일 인덱스 = 그 날. 한 번의 시계 읽기에서 나왔으므로 성립해야 한다.
+    const asDay = new Date(Date.UTC(2026, 7, 3) + weekdayIndex * 86_400_000)
+    expect(d).toBe(asDay.toISOString().slice(0, 10))
   })
 })

@@ -18,7 +18,9 @@ import { z } from 'zod'
 const clockBoundarySchema = z.strictObject({
   dayKey: z.string(),
   weekKey: z.string(),
-  monthKey: z.string()
+  monthKey: z.string(),
+  /** 0 = 월요일 … 6 = 일요일 (ADR-010 §1). renderer 가 요일을 계산할 수 없어 실어 보낸다. */
+  weekdayIndex: z.int().min(0).max(6)
 })
 
 /** `TodayRow`(main/services/ports.ts) 를 그대로 미러링한다 — 필드·nullable 이 어긋나면

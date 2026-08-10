@@ -45,7 +45,11 @@ const emptyDrawer: Drawer = { itemWeek: WEEK, completedAt: null, tasks: [] }
 
 async function renderCard(summary: Summary, over: Partial<Api['week']> = {}) {
   window.api = {
-    clock: { now: vi.fn().mockResolvedValue({ dayKey: DAY, weekKey: WEEK, monthKey: '2026-08' }) },
+    clock: {
+      now: vi
+        .fn()
+        .mockResolvedValue({ dayKey: DAY, weekKey: WEEK, monthKey: '2026-08', weekdayIndex: 4 })
+    },
     week: {
       summary: vi.fn().mockResolvedValue(summary),
       planDraft: vi.fn(),
@@ -63,7 +67,7 @@ async function renderCard(summary: Summary, over: Partial<Api['week']> = {}) {
   const qc = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } }
   })
-  qc.setQueryData(['clock'], { dayKey: DAY, weekKey: WEEK, monthKey: '2026-08' })
+  qc.setQueryData(['clock'], { dayKey: DAY, weekKey: WEEK, monthKey: '2026-08', weekdayIndex: 4 })
 
   const view = render(
     <QueryClientProvider client={qc}>

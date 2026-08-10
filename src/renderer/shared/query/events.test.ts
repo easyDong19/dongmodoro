@@ -104,7 +104,12 @@ describe('subscribeMainEvents — 초크포인트 이음매', () => {
     })
 
     subscribeMainEvents(qc)
-    fire.clock({ dayKey: '2026-08-08', weekKey: '2026-08-03', monthKey: '2026-08' })
+    fire.clock({
+      dayKey: '2026-08-08',
+      weekKey: '2026-08-03',
+      monthKey: '2026-08',
+      weekdayIndex: 5
+    })
 
     expect(invalidated).toContainEqual(keys.timer())
   })

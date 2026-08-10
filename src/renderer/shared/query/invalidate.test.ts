@@ -93,8 +93,18 @@ describe('keysToInvalidate — ADR-025 §3 표의 코드화', () => {
   it('경계 전이: 주가 바뀌면 week 전체가 추가된다', () => {
     const keys = keysToInvalidate({
       type: 'clock-boundary',
-      payload: { dayKey: '2026-08-10', weekKey: '2026-08-10', monthKey: '2026-08' },
-      previous: { dayKey: '2026-08-09', weekKey: '2026-08-03', monthKey: '2026-08' },
+      payload: {
+        dayKey: '2026-08-10',
+        weekKey: '2026-08-10',
+        monthKey: '2026-08',
+        weekdayIndex: 0
+      },
+      previous: {
+        dayKey: '2026-08-09',
+        weekKey: '2026-08-03',
+        monthKey: '2026-08',
+        weekdayIndex: 6
+      },
       currentDayKey: '2026-08-10'
     })
     expect(keys).toContainEqual(['today'])

@@ -44,7 +44,12 @@ describe('clock — 자정 경계 (ADR-026 §1)', () => {
   })
   it('경계 발화 시 전이 후 키 3종을 payload 로 만든다', () => {
     const p = boundaryPayload(localMs('2026-08-10T00:00:00'))
-    expect(p).toEqual({ dayKey: '2026-08-10', weekKey: '2026-08-10', monthKey: '2026-08' })
+    expect(p).toEqual({
+      dayKey: '2026-08-10',
+      weekKey: '2026-08-10',
+      monthKey: '2026-08',
+      weekdayIndex: 0
+    })
   })
   it('resume 보정: 잠든 사이 자정이 지났으면 즉시 발화 대상이다', () => {
     expect(crossedBoundary('2026-08-07', localMs('2026-08-08T07:00:00'))).toBe(true)
@@ -73,7 +78,8 @@ describe('startClock — 알람 + resume 보정 (ADR-026 §1)', () => {
     expect(win.webContents.send).toHaveBeenCalledWith('clock:boundary', {
       dayKey: '2026-08-08',
       weekKey: '2026-08-03',
-      monthKey: '2026-08'
+      monthKey: '2026-08',
+      weekdayIndex: 5
     })
     // 재예약되어 다음 자정까지 다시 타이머가 걸려 있다
     expect(vi.getTimerCount()).toBe(1)
@@ -93,7 +99,8 @@ describe('startClock — 알람 + resume 보정 (ADR-026 §1)', () => {
     expect(win.webContents.send).toHaveBeenCalledWith('clock:boundary', {
       dayKey: '2026-08-08',
       weekKey: '2026-08-03',
-      monthKey: '2026-08'
+      monthKey: '2026-08',
+      weekdayIndex: 5
     })
 
     stop()
