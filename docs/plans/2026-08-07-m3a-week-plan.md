@@ -1,5 +1,10 @@
 # M3a 주간 계획 구현 계획
 
+> **상태: 실행 완료** (2026-08-10, [PR #35](https://github.com/easyDong19/dongmodoro/pull/35) 스쿼시 머지).
+> 체크박스 하나만 열려 있다 — Task 10 Step 4 의 **코어 루프 수동 검증**은 실행 주체가
+> 실물 앱을 눌러 봐야 하는 항목이라 자동 검증(테스트·타입·린트·포맷·빌드 5종 통과)으로
+> 대체하지 않고 열어 둔다. 나머지는 전부 닫혔다.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) 문법으로 진행을 추적한다.
 
 **Goal:** 주간 항목을 만들고, 거기서 조각을 오늘로 가져오고, 그 조각으로 집중한 결과가 주간 카드 숫자로 되돌아오는 한 줄기를 화면에서 끝까지 통과시킨다.
@@ -1511,7 +1516,7 @@ export function dropItem(uow: UnitOfWork, weekItemId: string): { itemWeek: strin
 **Interfaces:**
 - Produces: `weekSummary()`, `planDraft()`; `window.api.week.{summary,planDraft,confirmPlan,drawer,pullNext,pullFromDrawer,complete,uncomplete,drop}`
 
-- [ ] **Step 1: 실패하는 테스트 작성**
+- [x] **Step 1: 실패하는 테스트 작성**
 
 ```ts
 // week-plan.test.ts 에 추가
@@ -1642,9 +1647,9 @@ describe('planDraft — 플래너 진입 프리필 (R16)', () => {
 })
 ```
 
-- [ ] **Step 2: 실행해 실패 확인** — FAIL
+- [x] **Step 2: 실행해 실패 확인** — FAIL
 
-- [ ] **Step 3: 조회 유스케이스 구현**
+- [x] **Step 3: 조회 유스케이스 구현**
 
 ```ts
 export type WeekSummary = {
@@ -1695,7 +1700,7 @@ export function planDraft(
 }
 ```
 
-- [ ] **Step 4: IPC 배선** — `channels.ts` 에 `week` 블록 9종을 더하고, `contracts.ts` 에 req/res 스키마(응답은 전부 `strictObject`), `api.ts`·`preload/index.ts`·`main/ipc/week.ts`·`main/index.ts` 를 채워 **채널 추가 4곳 규칙**을 지킨다. `main/ipc/week.ts` 는 M2 의 `today.ts` 와 같은 모양으로 `handleIpc` 만 쓴다.
+- [x] **Step 4: IPC 배선** — `channels.ts` 에 `week` 블록 9종을 더하고, `contracts.ts` 에 req/res 스키마(응답은 전부 `strictObject`), `api.ts`·`preload/index.ts`·`main/ipc/week.ts`·`main/index.ts` 를 채워 **채널 추가 4곳 규칙**을 지킨다. `main/ipc/week.ts` 는 M2 의 `today.ts` 와 같은 모양으로 `handleIpc` 만 쓴다.
 
 ```ts
 // channels.ts
@@ -1812,10 +1817,10 @@ week: {
 }
 ```
 
-- [ ] **Step 5: 통과 확인** — `pnpm test` PASS. `pnpm dev` 콘솔:
+- [x] **Step 5: 통과 확인** — `pnpm test` PASS. `pnpm dev` 콘솔:
   `const { weekKey } = await window.api.clock.now()` → `await window.api.week.confirmPlan({ week: weekKey, budget: 20, items: [{ id: null, title: '테스트', estPomos: 3, days: [] }] })` → `await window.api.week.summary(weekKey)` 에 항목 1행.
 
-- [ ] **Step 6: 커밋** — `feat: expose week plan use cases over validated ipc`
+- [x] **Step 6: 커밋** — `feat: expose week plan use cases over validated ipc`
 
 ---
 
@@ -1830,7 +1835,7 @@ week: {
 - Test: `src/renderer/shared/query/invalidate.test.ts`(기존 4사건 갱신 + 신규 2사건)
 - Test: `src/renderer/shared/query/events.test.ts` — **누락하면 typecheck 가 깨진다.** `:91` 이 `keys.weekItems('2026-08-03')` 를 **직접 호출**한다. 팩토리에서 항목을 지우는 순간 이 줄이 TS2339 로 죽는다. 코드베이스 전체에서 팩토리를 직접 부르는 유일한 자리이므로 `grep -rn "weekItems" src/` 로 0건이 될 때까지 확인한다
 
-- [ ] **Step 1: 실패하는 테스트 작성** — 기존 4사건의 기대값을 `['week', w]` 로 고치고, 신규 2사건을 더한다.
+- [x] **Step 1: 실패하는 테스트 작성** — 기존 4사건의 기대값을 `['week', w]` 로 고치고, 신규 2사건을 더한다.
 
 ```ts
 // invalidate.test.ts — 기존 session-recorded 기대값 수정
@@ -1877,9 +1882,9 @@ describe('item-changed', () => {
 })
 ```
 
-- [ ] **Step 2: 실행해 실패 확인** — FAIL
+- [x] **Step 2: 실행해 실패 확인** — FAIL
 
-- [ ] **Step 3: 구현**
+- [x] **Step 3: 구현**
 
 `keys.ts` — `weekItems` 를 제거하고 `week` 를 넣는다:
 
@@ -1920,9 +1925,9 @@ expect(invalidated).toContainEqual(keys.week('2026-08-03'))
 
 > **설계 스펙 §7 의 채널 이름을 고쳤다.** 스펙은 `item-completed` 로 적었지만 완료·완료 해제·폐기·pull 이 **무효화하는 캐시 집합이 동일**하므로 갈래를 넷으로 쪼갤 이유가 없다. 이름을 `item-changed` 로 넓혔고, 이 계획서가 그 정정의 근거다. 스펙 문구를 소급 수정하지는 않는다.
 
-- [ ] **Step 4: 통과 확인** — `pnpm test` PASS, `pnpm lint` 통과 (초크포인트 밖 캐시 조작 0). `grep -rn "weekItems" src/` 가 **0건**이어야 한다 — 남아 있으면 죽은 팩토리를 지우지 못한 것이다
+- [x] **Step 4: 통과 확인** — `pnpm test` PASS, `pnpm lint` 통과 (초크포인트 밖 캐시 조작 0). `grep -rn "weekItems" src/` 가 **0건**이어야 한다 — 남아 있으면 죽은 팩토리를 지우지 못한 것이다
 
-- [ ] **Step 5: 커밋** — `fix: point week invalidation at the key the card query uses`
+- [x] **Step 5: 커밋** — `fix: point week invalidation at the key the card query uses`
 
 ---
 
@@ -1941,7 +1946,7 @@ expect(invalidated).toContainEqual(keys.week('2026-08-03'))
 > import type {} from '@testing-library/jest-dom/vitest'
 > ```
 
-- [ ] **Step 1: 실패하는 테스트 작성**
+- [x] **Step 1: 실패하는 테스트 작성**
 
 ```tsx
 // @vitest-environment jsdom
@@ -1989,17 +1994,17 @@ describe('PomoDots', () => {
 })
 ```
 
-- [ ] **Step 2: 실행해 실패 확인** — FAIL
+- [x] **Step 2: 실행해 실패 확인** — FAIL
 
-- [ ] **Step 3: 구현** — 도트는 토큰 기반 커스텀(SVG/CSS), 초과 배지의 불꽃은 lucide `Flame` **컴포넌트**다. 채움 `--teal`, 미채움 `--ink-faint`, extra `--amber`. 숫자는 `--font-mono` + `tabular-nums`. 초과 글로우는 **정적**이다 — 무한 펄스 금지 (principles §4).
+- [x] **Step 3: 구현** — 도트는 토큰 기반 커스텀(SVG/CSS), 초과 배지의 불꽃은 lucide `Flame` **컴포넌트**다. 채움 `--teal`, 미채움 `--ink-faint`, extra `--amber`. 숫자는 `--font-mono` + `tabular-nums`. 초과 글로우는 **정적**이다 — 무한 펄스 금지 (principles §4).
 
 도트 자체에는 전이가 없다(개수가 바뀌면 즉시 다시 그린다). 모션이 붙는 것은 게이지 바뿐이며 그 `prefers-reduced-motion` 처리는 Task 7 이 소유한다 — 여기서 중복 구현하지 않는다.
 
 `neutral` 변형이 존재하는 이유를 파일 주석에 남긴다: 기타 행은 est 가 0 이라 default 규칙을 그대로 적용하면 **모든 도트가 초과로 렌더된다** (§3.4).
 
-- [ ] **Step 4: 통과 확인** — `pnpm test` PASS
+- [x] **Step 4: 통과 확인** — `pnpm test` PASS
 
-- [ ] **Step 5: 커밋** — `feat: add pomo dots with default and neutral variants`
+- [x] **Step 5: 커밋** — `feat: add pomo dots with default and neutral variants`
 
 ---
 
@@ -2013,7 +2018,7 @@ describe('PomoDots', () => {
 - Modify: `src/renderer/app/App.test.tsx` — **누락하면 기존 테스트가 깨진다** (아래 Step 1 마지막 항목)
 - Test: `WeekCard.test.tsx`, `BudgetGauge.test.tsx`, `WeekItemRow.test.tsx`, `src/shared/time/index.test.ts`(기존 갱신)
 
-- [ ] **Step 1: 실패하는 테스트 작성** — 렌더 계약만 (도메인 로직은 main 테스트가 덮는다)
+- [x] **Step 1: 실패하는 테스트 작성** — 렌더 계약만 (도메인 로직은 main 테스트가 덮는다)
 
 **렌더 테스트 4개 파일 전부 Task 6 의 jsdom 도크블록 2줄로 시작한다.**
 
@@ -2124,9 +2129,9 @@ week: {
 }
 ```
 
-- [ ] **Step 2: 실행해 실패 확인** — FAIL
+- [x] **Step 2: 실행해 실패 확인** — FAIL
 
-- [ ] **Step 3: 구현**
+- [x] **Step 3: 구현**
 
 ```ts
 // useWeek.ts
@@ -2206,9 +2211,9 @@ export function weekRangeLabel(week: string): string {
 
 모션: 게이지 바 변화는 `prefers-reduced-motion: reduce` 시 전이 없이 즉시 반영한다 (§9). 판정은 `src/renderer/shared/ui/useReducedMotion.ts` 한 곳에서만 하고(`matchMedia('(prefers-reduced-motion: reduce)')`), 컨테이너에 `data-motion="reduced"` 를 달아 그 속성으로 전이 클래스를 끈다 — 위 테스트가 이 속성을 본다. **Task 8 의 드로어 전이도 같은 훅을 쓴다** (판정을 두 번 만들지 않는다). 전역 `transition: none !important` 킬은 **폐기된 패턴**이므로 쓰지 않는다 (principles §4).
 
-- [ ] **Step 4: 통과 확인** — `pnpm test` PASS. `pnpm dev`: 콘솔로 항목을 만들고 카드에 행이 보이는지, **타이머로 1뽀모를 태우면 도트와 게이지가 함께 오르는지** 확인 (Task 5 의 키 정정이 실제로 동작하는지 여기서 드러난다).
+- [x] **Step 4: 통과 확인** — `pnpm test` PASS. `pnpm dev`: 콘솔로 항목을 만들고 카드에 행이 보이는지, **타이머로 1뽀모를 태우면 도트와 게이지가 함께 오르는지** 확인 (Task 5 의 키 정정이 실제로 동작하는지 여기서 드러난다).
 
-- [ ] **Step 5: 커밋** — `feat: add week card normal view with gauge, other row and completion`
+- [x] **Step 5: 커밋** — `feat: add week card normal view with gauge, other row and completion`
 
 ---
 
@@ -2220,7 +2225,7 @@ export function weekRangeLabel(week: string): string {
 - Modify: `WeekItemRow.tsx`
 - Test: `ItemDrawer.test.tsx`, `src/renderer/shared/ui/Toast.test.tsx`
 
-- [ ] **Step 1: 실패하는 테스트 작성** — 파일 첫 두 줄은 Task 6 의 jsdom 도크블록이다
+- [x] **Step 1: 실패하는 테스트 작성** — 파일 첫 두 줄은 Task 6 의 jsdom 도크블록이다
 
 **토스트** (`Toast.test.tsx`)
 - `role="status"` 이고 `aria-live="polite"` 다 — pull 은 사용자가 방금 누른 결과이므로 `assertive` 가 아니다
@@ -2243,15 +2248,15 @@ export function weekRangeLabel(week: string): string {
 - 드로어가 닫힐 때 포커스가 캐럿으로 돌아온다 (PRODUCT.md 접근성 §4)
 - **모든 조작 요소가 `--target-min`(24px) 하한을 지킨다** — 조각 선택 행·푸터 2버튼·항목 액션 3개. jsdom 은 레이아웃을 계산하지 않으므로 실측 대신 **토큰 클래스 존재로 검증**한다 (`min-h-[--target-min]` 이 붙어 있는지). 실제 픽셀은 Step 4 의 `pnpm dev` 수동 확인 몫이다
 
-- [ ] **Step 2: 실행해 실패 확인** — FAIL
+- [x] **Step 2: 실행해 실패 확인** — FAIL
 
-- [ ] **Step 3: 구현** — 기타 행의 캐럿은 M3a 에서 **렌더하지 않는다** (드릴다운을 뺐다).
+- [x] **Step 3: 구현** — 기타 행의 캐럿은 M3a 에서 **렌더하지 않는다** (드릴다운을 뺐다).
 
 드로어 펼침/접힘 전이는 §9 가 허용하지만 `prefers-reduced-motion: reduce` 에서는 전이 없이 즉시 반영한다. Task 7 의 게이지와 **같은 방식**을 쓴다 — 미디어 쿼리를 읽어 `data-motion="reduced"` 를 달고 그 속성으로 전이를 끈다. 판정 로직을 두 번 쓰지 않도록 Task 7 에서 만든 훅을 재사용한다.
 
-- [ ] **Step 4: 통과 확인** — `pnpm test` PASS. `pnpm dev`: 조각 0개 항목의 `+ 오늘로` → 드로어 열림 → 새 조각 적고 `오늘로 가져오기` → 오늘 목록에 등장.
+- [x] **Step 4: 통과 확인** — `pnpm test` PASS. `pnpm dev`: 조각 0개 항목의 `+ 오늘로` → 드로어 열림 → 새 조각 적고 `오늘로 가져오기` → 오늘 목록에 등장.
 
-- [ ] **Step 5: 커밋** — `feat: add inline item drawer with first-piece creation flow`
+- [x] **Step 5: 커밋** — `feat: add inline item drawer with first-piece creation flow`
 
 ---
 
@@ -2264,7 +2269,7 @@ export function weekRangeLabel(week: string): string {
 
 **편집 대상 주 토글이 없다.** 항상 오늘이 속한 주를 편집한다 — `다음 주` 는 이번 마일스톤에서 뺐다. 헤더·확정 버튼 라벨은 `이번 주 계획` · `이번 주 시작` 으로 고정한다. 빈 상태 CTA 도 `+ 이번 주 할당 잡기` 고정이다.
 
-- [ ] **Step 1: 실패하는 테스트 작성** — 파일 첫 두 줄은 Task 6 의 jsdom 도크블록이다
+- [x] **Step 1: 실패하는 테스트 작성** — 파일 첫 두 줄은 Task 6 의 jsdom 도크블록이다
 - ① 예산: `prefill === null` 이면 입력이 **비어 있고** `예산을 정하면 과적을 알려줘요` 가 뜬다. 라벨은 `이번 주 예산 (추정치)`
 - ② 항목: est 스테퍼 라벨은 `예상 뽀모`, **하한 1** — 1에서 감소를 눌러도 0이 되지 않는다 (A6). 제목 최대 40자
 - ② 초안 행 표기는 `[M2] 제목  월수금  (뽀모 3)  [×]` — est 는 행에서 `(뽀모 3)` 형태로 읽힌다 (§5.3)
@@ -2281,9 +2286,9 @@ export function weekRangeLabel(week: string): string {
 - **확정·취소로 일반 뷰에 돌아가면 포커스가 플래너를 열었던 버튼으로 귀속된다** (PRODUCT.md 접근성 §4). 플래너가 사라지면서 포커스가 `<body>` 로 떨어지면 키보드 사용자는 위치를 잃는다. 진입 경로가 둘(빈 상태 CTA · `수정`)이므로 **열 때 누른 요소를 기억**했다가 그쪽으로 돌려준다
 - 모든 조작 요소가 `--target-min`(24px) 하한을 지킨다 (요일 칩 7개·est 스테퍼 ±·초안 행 `×`). Task 8 과 같은 이유로 jsdom 에서는 **토큰 클래스 존재**로 검증하고 실제 픽셀은 Step 4 수동 확인이다
 
-- [ ] **Step 2: 실행해 실패 확인** — FAIL
+- [x] **Step 2: 실행해 실패 확인** — FAIL
 
-- [ ] **Step 3: 구현** — 4단계(예산·항목·요일·경고)를 한 화면에 위에서 아래로 쌓는다. 마법사·단계 전환 없음. 확정은 `api.week.confirmPlan` 한 번이다.
+- [x] **Step 3: 구현** — 4단계(예산·항목·요일·경고)를 한 화면에 위에서 아래로 쌓는다. 마법사·단계 전환 없음. 확정은 `api.week.confirmPlan` 한 번이다.
 
 `dispatchInvalidation` 은 **인자 2개**다 — `QueryClient` 를 첫 인자로 받고, 이벤트에 `currentDayKey` 가 필수다 (Task 5 의 유니온 정의). 둘 중 하나라도 빠지면 타입 에러다:
 
@@ -2304,9 +2309,9 @@ const confirm = useMutation({
 
   요일 부하 그래프는 만들지 않는다 (범위 축소). 총량 과적 바만 그린다.
 
-- [ ] **Step 4: 통과 확인** — `pnpm test` PASS. `pnpm dev` 전 구간 수동 검증: 플래너 → 항목 2개 → 확정 → 일반 뷰에 등장 → `+ 오늘로` → 타이머 → 도트 상승.
+- [x] **Step 4: 통과 확인** — `pnpm test` PASS. `pnpm dev` 전 구간 수동 검증: 플래너 → 항목 2개 → 확정 → 일반 뷰에 등장 → `+ 오늘로` → 타이머 → 도트 상승.
 
-- [ ] **Step 5: 커밋** — `feat: add planner mode with non-blocking overload warning`
+- [x] **Step 5: 커밋** — `feat: add planner mode with non-blocking overload warning`
 
 ---
 
@@ -2322,9 +2327,9 @@ const confirm = useMutation({
 > 적었고(docs/CLAUDE.md), Task 7 의 게이지 계약은 그 결정을 **인용**할 뿐이다.
 > 착수 시점에 두 문서에 TBD·가정 블록이 남아 있다면 병합 사고이므로 멈추고 확인한다.
 
-- [ ] **Step 1: R9 미결 종결 반영** — `week-plan/prd.md` R9 의 `> ⚠️ 가정:` 블록을 결정으로 교체한다. 드로어에서 "항목 est vs 자식 조각 est 합" 어긋남을 **표시하지 않는다.** 이유(두 값이 독립이라는 R9 자신의 정의 + 원칙 6)를 남기고 설계 스펙 §6 을 근거로 인용한다. **가정 블록을 조용히 지우지 않는다** — 결정으로 바뀌었음을 본문에 적는다.
+- [x] **Step 1: R9 미결 종결 반영** — `week-plan/prd.md` R9 의 `> ⚠️ 가정:` 블록을 결정으로 교체한다. 드로어에서 "항목 est vs 자식 조각 est 합" 어긋남을 **표시하지 않는다.** 이유(두 값이 독립이라는 R9 자신의 정의 + 원칙 6)를 남기고 설계 스펙 §6 을 근거로 인용한다. **가정 블록을 조용히 지우지 않는다** — 결정으로 바뀌었음을 본문에 적는다.
 
-- [ ] **Step 2: 계약 왕복 테스트 추가** (Task 4 검증에서 발견한 공백 · 2026-08-10 사용자 결정)
+- [x] **Step 2: 계약 왕복 테스트 추가** (Task 4 검증에서 발견한 공백 · 2026-08-10 사용자 결정)
 
   **Create: `src/main/ipc/week-contract.test.ts`**
 
@@ -2441,7 +2446,7 @@ describe('week 계약 왕복', () => {
   이 스텝은 **Step 6 과 커밋을 분리한다** — 코드 변경이 섞이면 Step 6 의 `docs:` 제목이 거짓이 된다:
   `test: verify week ipc contracts accept real service output`
 
-- [ ] **Step 3: 전체 검증 일괄 실행** — `pnpm test && pnpm lint && pnpm typecheck && pnpm format:check && pnpm build` 전부 0 에러. **Step 2 뒤에 둔 이유**: 마지막 일괄 검증이 새로 든 테스트를 포함해야 한다.
+- [x] **Step 3: 전체 검증 일괄 실행** — `pnpm test && pnpm lint && pnpm typecheck && pnpm format:check && pnpm build` 전부 0 에러. **Step 2 뒤에 둔 이유**: 마지막 일괄 검증이 새로 든 테스트를 포함해야 한다.
 
 - [ ] **Step 4: 코어 루프 수동 검증 체크리스트**
   - 계획 0개 상태에서 타이머·오늘 목록이 여전히 전부 동작한다 (원칙 1)
@@ -2455,9 +2460,9 @@ describe('week 계약 왕복', () => {
   - 예산을 **0 으로** 확정하면 소진 숫자만 보이고 `/ 미설정` 도 `예산을 정하면 …` 도 **없다** (ux-spec §7 · A27)
   - 항목을 20개 만들어도 게이지가 카드 하단에 남아 있다 — 목록만 스크롤한다 (§2)
 
-- [ ] **Step 5: 문서 갱신** — PRODUCT.md·README 의 구현 현황을 M3a 상태로 갱신하고, README 계획 표에 이 계획서 행을 추가한다. 마일스톤 지도를 `M3a 완료 → M3b 정산(다음)` 으로 옮긴다. **이번에 뺀 것들(요일 정보·부하 그래프·드릴다운)이 M3b 에서 살아난다는 사실을 함께 적는다.**
+- [x] **Step 5: 문서 갱신** — PRODUCT.md·README 의 구현 현황을 M3a 상태로 갱신하고, README 계획 표에 이 계획서 행을 추가한다. 마일스톤 지도를 `M3a 완료 → M3b 정산(다음)` 으로 옮긴다. **이번에 뺀 것들(요일 정보·부하 그래프·드릴다운)이 M3b 에서 살아난다는 사실을 함께 적는다.**
 
-- [ ] **Step 6: 커밋** — `docs: close the r9 open question and update status after m3a`
+- [x] **Step 6: 커밋** — `docs: close the r9 open question and update status after m3a`
 
 ---
 
