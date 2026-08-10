@@ -1,0 +1,58 @@
+import { weekRangeLabel, weekStartLabel } from '@shared/time'
+import { Button } from '@renderer/shared/ui/button'
+import type { ReviewPending } from './useReview'
+
+/**
+ * 정산 패널 (weekly-review ux-spec §1). 섹션 순서는 요약 → 끝낸 것들 → 남은 것들 →
+ * 안내 → 확정이며, 내로우에서도 바뀌지 않는다 (§10).
+ *
+ * **모달이 아니다** (R7, 원칙 5). 열려 있는 동안에도 타이머·오늘 목록 조작이 가능해야
+ * 하므로 화면을 덮지 않고 **주간 카드 자리를 인라인으로 대신한다** — 플래너와 같은
+ * 방식이다. 오버레이로 덮으면 그 약속이 실질적으로 깨진다.
+ *
+ * 배치는 잠정이다. 반응형 구간별 배치(인라인 확장 / 오버레이 / 탭 전체 화면)는
+ * app-shell ux-spec 소관이고 아직 없다 (M3b 계획서 정정 ③).
+ */
+export function ReviewPanel({ data, onClose }: { data: ReviewPending; onClose: () => void }) {
+  if (!data.needed) {
+    // 배너에서만 열리지만, 재조회 사이에 범위가 사라질 수 있다 — 다른 창에서 확정했거나
+    // 자정을 넘겼거나. 빈 목록으로 거짓말하지 않고 사실을 적는다 (§8).
+    return (
+      <div className="flex h-full flex-col">
+        <header className="shrink-0 px-4 pt-4">
+          <p className="eyebrow">WEEK</p>
+          <h2 className="card-title text-ink">정산</h2>
+        </header>
+        <div className="flex min-h-0 flex-1 flex-col items-start justify-center gap-2 px-4">
+          <p className="text-sm text-ink-dim">지금 정산할 주가 없어요</p>
+          <Button type="button" variant="secondary" size="sm" onClick={onClose}>
+            닫기
+          </Button>
+        </div>
+      </div>
+    )
+  }
+
+  const span =
+    data.from === data.to
+      ? weekRangeLabel(data.from)
+      : `${weekStartLabel(data.from)} – ${weekRangeLabel(data.to).split(' – ')[1]}`
+
+  return (
+    <div className="flex h-full flex-col">
+      <header className="shrink-0 px-4 pt-4">
+        <p className="eyebrow">WEEK</p>
+        <h2 className="card-title text-ink">정산</h2>
+        <p className="font-mono text-xs tabular-nums text-ink-dim">{span}</p>
+      </header>
+
+      <div data-testid="review-sections" className="min-h-0 flex-1 overflow-y-auto px-4 py-3" />
+
+      <div className="shrink-0 px-4 py-3">
+        <Button type="button" variant="ghost" size="sm" onClick={onClose}>
+          닫기
+        </Button>
+      </div>
+    </div>
+  )
+}

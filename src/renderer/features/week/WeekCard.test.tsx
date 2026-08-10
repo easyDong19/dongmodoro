@@ -43,15 +43,20 @@ type Drawer = Awaited<ReturnType<Api['week']['drawer']>>
 
 const emptyDrawer: Drawer = { itemWeek: WEEK, completedAt: null, tasks: [] }
 
+type Status = Awaited<ReturnType<Api['review']['getStatus']>>
+type Pending = Awaited<ReturnType<Api['review']['getPending']>>
+
 async function renderCard(
   summary: Summary,
   over: Partial<Api['week']> = {},
-  targetWeek: string = WEEK
+  targetWeek: string = WEEK,
+  review: { status?: Status; pending?: Pending } = {}
 ) {
   window.api = {
     review: {
       // 편집 대상 주의 기본값이 여기서 온다 — renderer 는 plan_lead_days 를 모른다.
-      getStatus: vi.fn().mockResolvedValue({ needed: false, targetWeek })
+      getStatus: vi.fn().mockResolvedValue(review.status ?? { needed: false, targetWeek }),
+      getPending: vi.fn().mockResolvedValue(review.pending ?? { needed: false, targetWeek })
     },
     clock: {
       now: vi
@@ -439,5 +444,57 @@ describe('WeekCard — 편집 대상 주 기본값 (A3·A5)', () => {
     await userEvent.click(screen.getByRole('button', { name: '다음 주' }))
     expect(await screen.findByText('다음 주 계획')).toBeInTheDocument()
     expect(planDraft).toHaveBeenCalledWith('2026-08-10')
+  })
+})
+
+/**
+ * 배너는 일반 뷰 상단에 얹히고, `정산 시작` 은 카드 자리를 패널로 바꾼다 (정정 ③).
+ * 오버레이로 덮지 않는 이유는 R7 — 패널이 열려 있어도 타이머·오늘 목록을 계속 써야 한다.
+ */
+describe('WeekCard — 정산 배너와 패널 (weekly-review §1·§2)', () => {
+  const pendingStatus: Status = {
+    needed: true,
+    targetWeek: '2026-08-10',
+    from: WEEK,
+    to: WEEK,
+    weekCount: 1,
+    pendingItemCount: 2
+  }
+
+  it('정산 대기가 아니면 배너가 없다', async () => {
+    await renderCard(makeSummary())
+    expect(screen.queryByTestId('review-banner')).not.toBeInTheDocument()
+  })
+
+  it('정산 대기면 배너가 목록 위에 뜨고 일반 뷰는 그대로 동작한다 (R7)', async () => {
+    await renderCard(makeSummary({ items: [makeItem()] }), {}, WEEK, { status: pendingStatus })
+    expect(await screen.findByTestId('review-banner')).toBeInTheDocument()
+    // 배너가 떠 있어도 목록·게이지가 사라지지 않는다
+    expect(screen.getByTestId('week-item-row')).toBeInTheDocument()
+    expect(screen.getByTestId('week-gauge-slot')).toBeInTheDocument()
+  })
+
+  it('정산 시작을 누르면 패널이 카드 자리를 대신한다', async () => {
+    await renderCard(makeSummary(), {}, WEEK, {
+      status: pendingStatus,
+      pending: { needed: false, targetWeek: '2026-08-10' }
+    })
+
+    await userEvent.click(await screen.findByRole('button', { name: '정산 시작' }))
+    expect(await screen.findByText('지금 정산할 주가 없어요')).toBeInTheDocument()
+    expect(screen.queryByTestId('week-item-list')).not.toBeInTheDocument()
+  })
+
+  it('닫으면 일반 뷰로 돌아가고 포커스가 정산 시작 버튼으로 귀속된다', async () => {
+    await renderCard(makeSummary(), {}, WEEK, {
+      status: pendingStatus,
+      pending: { needed: false, targetWeek: '2026-08-10' }
+    })
+
+    await userEvent.click(await screen.findByRole('button', { name: '정산 시작' }))
+    await userEvent.click(await screen.findByRole('button', { name: '닫기' }))
+
+    const cta = await screen.findByRole('button', { name: '정산 시작' })
+    expect(cta).toHaveFocus()
   })
 })
