@@ -949,7 +949,7 @@ export function confirmWeekPlan(
 **Interfaces:**
 - Produces: `WeekItemsRepository.header` · `.childTasks` · `.nextPullable` · `.complete` · `.uncomplete` · `.drop`; `itemDrawer()` · `pullNextFromItem()` · `pullFromDrawer()` · `setItemCompleted()` · `dropItem()`
 
-- [ ] **Step 1: 실패하는 테스트 작성**
+- [x] **Step 1: 실패하는 테스트 작성**
 
 ```ts
 // week-items.test.ts 에 추가 (기존 import 에 이어서)
@@ -1253,9 +1253,9 @@ describe('pullFromDrawer — R7·R27 을 서비스에서 강제한다', () => {
 })
 ```
 
-- [ ] **Step 2: 실행해 실패 확인** — `pnpm test` → FAIL
+- [x] **Step 2: 실행해 실패 확인** — `pnpm test` → FAIL
 
-- [ ] **Step 3: 포트 확장**
+- [x] **Step 3: 포트 확장**
 
 ```ts
 export type ChildTaskRow = {
@@ -1283,7 +1283,7 @@ export interface WeekItemsRepository {
 
 `complete`/`uncomplete` 를 **두 메서드로 나눈 이유:** `setCompleted(id, at | null)` 은 `update(id, patch)` 모양이라 ports.ts 상단이 금지하는 CRUD 포트다. 유스케이스 이름으로 나눈다.
 
-- [ ] **Step 4: 리포지토리 구현**
+- [x] **Step 4: 리포지토리 구현**
 
 ```ts
 header: (weekItemId) =>
@@ -1364,7 +1364,7 @@ drop: (weekItemId) => {
 }
 ```
 
-- [ ] **Step 5: 유스케이스 구현** — `week-plan.ts` 에 추가
+- [x] **Step 5: 유스케이스 구현** — `week-plan.ts` 에 추가
 
 ```ts
 import { v7 as uuidv7 } from 'uuid'
@@ -1494,9 +1494,9 @@ export function dropItem(uow: UnitOfWork, weekItemId: string): { itemWeek: strin
 }
 ```
 
-- [ ] **Step 6: 통과 확인** — `pnpm test` PASS
+- [x] **Step 6: 통과 확인** — `pnpm test` PASS
 
-- [ ] **Step 7: 커밋** — `feat: add drawer, item completion, drop and one-click pull`
+- [x] **Step 7: 커밋** — `feat: add drawer, item completion, drop and one-click pull`
 
 ---
 

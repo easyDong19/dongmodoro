@@ -1,5 +1,7 @@
+import { v7 as uuidv7 } from 'uuid'
+import { localKeys, now } from '../../shared/time'
 import { effectiveBaseline } from './baseline'
-import type { PlanDraftItem, UnitOfWork, WeekItemRow } from './ports'
+import type { ChildTaskRow, PlanDraftItem, UnitOfWork, WeekItemRow } from './ports'
 
 /**
  * 기타 행 소진 — **차액으로 정의한다** (ADR-027 §1).
@@ -45,5 +47,127 @@ export function confirmWeekPlan(
     repos.weeks.setPlan(input.week, input.budget)
     const { droppedIds } = repos.weekItems.confirmPlan({ week: input.week, items: input.items })
     return { week: input.week, droppedCount: droppedIds.length }
+  })
+}
+
+/** 드로어 한 화면 = 응답 하나. 폐기 항목도 열린다 (header 가 listForWeek 밖을 본다). */
+export function itemDrawer(
+  uow: UnitOfWork,
+  weekItemId: string
+): { itemWeek: string; completedAt: string | null; tasks: ChildTaskRow[] } {
+  const { localDate } = localKeys()
+  return uow.run((repos) => {
+    const header = repos.weekItems.header(weekItemId)
+    if (header === null) throw new Error(`itemDrawer: week item '${weekItemId}' not found`)
+    return {
+      itemWeek: header.week,
+      completedAt: header.completedAt,
+      tasks: repos.weekItems.childTasks(weekItemId, localDate)
+    }
+  })
+}
+
+/**
+ * 원클릭 pull (§3.1). 유자격 조각이 없으면 `pulled: null` 을 돌려주고, 화면은 그것을
+ * 신호로 드로어를 연다 — 첫 pull 은 선택이 아니라 생성이기 때문이다 (R12).
+ */
+export function pullNextFromItem(
+  uow: UnitOfWork,
+  weekItemId: string
+): { pulled: { taskId: string; title: string } | null; itemWeek: string } {
+  const { localDate } = localKeys()
+  return uow.run((repos) => {
+    const header = repos.weekItems.header(weekItemId)
+    if (header === null) throw new Error(`pullNext: week item '${weekItemId}' not found`)
+    // 완료된 항목은 pull 을 막는다 (R27). 화면도 막지만 계약이 최종 방어선이다.
+    if (header.completedAt !== null) {
+      throw new Error(`pullNext: item '${weekItemId}' is completed`)
+    }
+
+    const taskId = repos.weekItems.nextPullable(weekItemId, localDate)
+    if (taskId === null) return { pulled: null, itemWeek: header.week }
+
+    repos.today.pull(taskId, localDate)
+    return { pulled: { taskId, title: repos.tasks.titleOf(taskId) ?? '' }, itemWeek: header.week }
+  })
+}
+
+/**
+ * 드로어의 `오늘로 가져오기` (§6.3) — 새 조각 생성 + 선택한 기존 조각을 한 트랜잭션으로.
+ *
+ * M2 의 `pullTask`(services/today.ts)와 같은 규율을 따른다: **완료 거부·소속 검증을
+ * 서비스가 한다.** UI 비활성만으로는 IPC 를 직접 부르는 경로가 열린다.
+ */
+export function pullFromDrawer(
+  uow: UnitOfWork,
+  input: {
+    weekItemId: string
+    taskIds: readonly string[]
+    newTask: { title: string; estPomos: number | null } | null
+  }
+): { itemWeek: string } {
+  const { localDate } = localKeys()
+  return uow.run((repos) => {
+    const header = repos.weekItems.header(input.weekItemId)
+    if (header === null) throw new Error(`pullFromDrawer: item '${input.weekItemId}' not found`)
+    if (header.completedAt !== null) {
+      throw new Error(`pullFromDrawer: item '${input.weekItemId}' is completed`) // R27
+    }
+
+    for (const taskId of input.taskIds) {
+      const task = repos.tasks.get(taskId)
+      if (!task) throw new Error(`pullFromDrawer: task '${taskId}' not found`)
+      if (task.weekItemId !== input.weekItemId) {
+        throw new Error(`pullFromDrawer: task '${taskId}' does not belong to this item`)
+      }
+      if (task.completedAt !== null) {
+        throw new Error(`pullFromDrawer: task '${taskId}' is already completed`) // R7
+      }
+    }
+
+    if (input.newTask !== null) {
+      const trimmed = input.newTask.title.trim()
+      if (trimmed === '') throw new Error('pullFromDrawer: new task title must not be empty')
+      const taskId = uuidv7()
+      repos.tasks.create({
+        id: taskId,
+        weekItemId: input.weekItemId,
+        title: trimmed,
+        ...(input.newTask.estPomos === null ? {} : { estPomos: input.newTask.estPomos })
+      })
+      repos.today.pull(taskId, localDate)
+    }
+    for (const taskId of input.taskIds) repos.today.pull(taskId, localDate)
+
+    return { itemWeek: header.week }
+  })
+}
+
+/** 항목 완료 확정·해제 (R25·R27). 완료는 언제나 사용자 클릭이 만드는 사실이다. */
+export function setItemCompleted(
+  uow: UnitOfWork,
+  weekItemId: string,
+  completed: boolean
+): { itemWeek: string; completedAt: string | null } {
+  return uow.run((repos) => {
+    const header = repos.weekItems.header(weekItemId)
+    if (header === null) throw new Error(`setItemCompleted: item '${weekItemId}' not found`)
+    if (!completed) {
+      repos.weekItems.uncomplete(weekItemId)
+      return { itemWeek: header.week, completedAt: null }
+    }
+    const at = now()
+    repos.weekItems.complete(weekItemId, at)
+    return { itemWeek: header.week, completedAt: at }
+  })
+}
+
+/** `보내주기` (§6.3). 폐기이지 삭제가 아니다 — 자식 조각·세션은 남는다 (ADR-014 §1). */
+export function dropItem(uow: UnitOfWork, weekItemId: string): { itemWeek: string } {
+  return uow.run((repos) => {
+    const header = repos.weekItems.header(weekItemId)
+    if (header === null) throw new Error(`dropItem: item '${weekItemId}' not found`)
+    repos.weekItems.drop(weekItemId)
+    return { itemWeek: header.week }
   })
 }

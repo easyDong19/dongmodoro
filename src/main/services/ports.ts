@@ -94,6 +94,26 @@ export interface WeekItemsRepository {
     createdIds: string[]
     droppedIds: string[]
   }
+  /** 드로어 헤더. 폐기 항목도 읽을 수 있다 (listForWeek 로는 못 찾는다). 없으면 null. */
+  header(weekItemId: string): { week: string; completedAt: string | null } | null
+  childTasks(weekItemId: string, dayKey: string): ChildTaskRow[]
+  /** 원클릭 pull 대상. 유자격 조각이 없으면 null (그때 화면은 드로어를 연다). */
+  nextPullable(weekItemId: string, dayKey: string): string | null
+  // complete/uncomplete 를 두 메서드로 나눈 이유: `setCompleted(id, at | null)` 은
+  // `update(id, patch)` 모양이라 이 파일 상단이 금지하는 CRUD 포트다. 유스케이스로 나눈다.
+  complete(weekItemId: string, at: string): void
+  uncomplete(weekItemId: string): void
+  drop(weekItemId: string): void
+}
+
+export type ChildTaskRow = {
+  taskId: string
+  title: string
+  estPomos: number | null
+  spentPomos: number
+  completedAt: string | null
+  /** 그 날짜에 활성 pull 행이 있는가 (§6.2 `오늘 목록에`). */
+  inToday: boolean
 }
 
 export type TodayRow = {

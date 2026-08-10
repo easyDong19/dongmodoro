@@ -276,6 +276,83 @@ function makeRepos(tx: Tx): Repositories {
         }
 
         return { createdIds, droppedIds }
+      },
+
+      header: (weekItemId) =>
+        tx
+          .select({ week: weekItems.week, completedAt: weekItems.completedAt })
+          .from(weekItems)
+          .where(eq(weekItems.id, weekItemId))
+          .get() ?? null,
+
+      childTasks: (weekItemId, dayKey) => {
+        const rows = tx
+          .select({
+            taskId: tasks.id,
+            title: tasks.title,
+            estPomos: tasks.estPomos,
+            completedAt: tasks.completedAt
+          })
+          .from(tasks)
+          .where(and(eq(tasks.weekItemId, weekItemId), isNull(tasks.deletedAt)))
+          .orderBy(asc(tasks.createdAt), sql`tasks.rowid`)
+          .all()
+
+        return rows.map((r) => {
+          // 조각 단위 소진에는 주 조건을 걸지 않는다 — 이 숫자가 답하는 질문은 "이 조각으로
+          // 몇 뽀모 했나"이지 "이 주에 몇 뽀모 했나"가 아니다. 주 조건은 항목 소진(R8)의 것이다.
+          const spentPomos =
+            tx
+              .select({ n: sql<number>`count(*)` })
+              .from(sessions)
+              .where(and(eq(sessions.taskId, r.taskId), eq(sessions.kind, 'focus')))
+              .get()?.n ?? 0
+
+          const active = tx
+            .select({ taskId: taskPulls.taskId })
+            .from(taskPulls)
+            .where(
+              and(
+                eq(taskPulls.taskId, r.taskId),
+                eq(taskPulls.pullDate, dayKey),
+                isNull(taskPulls.removedAt)
+              )
+            )
+            .get()
+
+          return { ...r, spentPomos, inToday: active !== undefined }
+        })
+      },
+
+      // task_pulls 의 PK 가 (task_id, pull_date) 이고 조인 조건에 pullDate 가 고정돼 있으므로
+      // task 당 조인 행은 최대 1개다 — 중복 행이 나오지 않는다.
+      nextPullable: (weekItemId, dayKey) =>
+        tx
+          .select({ id: tasks.id })
+          .from(tasks)
+          .leftJoin(taskPulls, and(eq(taskPulls.taskId, tasks.id), eq(taskPulls.pullDate, dayKey)))
+          .where(
+            and(
+              eq(tasks.weekItemId, weekItemId),
+              isNull(tasks.deletedAt),
+              isNull(tasks.completedAt),
+              // 오늘 pull 행이 없거나, 있어도 치워진 행이면 다시 유자격이다 (R14).
+              sql`(${taskPulls.taskId} IS NULL OR ${taskPulls.removedAt} IS NOT NULL)`
+            )
+          )
+          .orderBy(asc(tasks.createdAt), sql`tasks.rowid`)
+          .get()?.id ?? null,
+
+      complete: (weekItemId, at) => {
+        tx.update(weekItems).set({ completedAt: at }).where(eq(weekItems.id, weekItemId)).run()
+      },
+
+      uncomplete: (weekItemId) => {
+        tx.update(weekItems).set({ completedAt: null }).where(eq(weekItems.id, weekItemId)).run()
+      },
+
+      drop: (weekItemId) => {
+        tx.update(weekItems).set({ droppedAt: now() }).where(eq(weekItems.id, weekItemId)).run()
       }
     },
 
