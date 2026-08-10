@@ -57,6 +57,30 @@ function makeRepos(tx: Tx): Repositories {
           })
           .onConflictDoNothing({ target: weeks.week })
           .run()
+      },
+
+      plan: (week) => {
+        const row = tx
+          .select({ budget: weeks.budget, capacity: weeks.capacity, plannedAt: weeks.plannedAt })
+          .from(weeks)
+          .where(eq(weeks.week, week))
+          .get()
+        if (!row) return null
+        return {
+          budget: row.budget,
+          capacity: row.capacity === null ? null : (JSON.parse(row.capacity) as number[]),
+          plannedAt: row.plannedAt
+        }
+      },
+
+      // planned_at 은 최초 확정 시각만 담는다 (week-plan R23·A31). COALESCE 가 그 규칙이다 —
+      // `set({ plannedAt: now() })` 로 쓰면 주중 재수정마다 갱신되어 "언제 계획했나"가
+      // "마지막으로 손댄 시각"으로 변질된다.
+      setPlan: (week, budget) => {
+        tx.update(weeks)
+          .set({ budget, plannedAt: sql`COALESCE(${weeks.plannedAt}, ${now()})` })
+          .where(eq(weeks.week, week))
+          .run()
       }
     },
 

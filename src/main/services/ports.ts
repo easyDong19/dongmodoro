@@ -26,11 +26,24 @@ export interface SettingsRepository {
 
 export type Baseline = { focusMin: number; shortBreakMin: number; longBreakMin: number }
 
+export type WeekPlan = {
+  /** NULL = "기록 없음". 0 은 "예산 0 으로 하겠다"는 별개 사실이다 (ADR-018 §1). */
+  budget: number | null
+  /** 요일별 가용 뽀모 `[월..일]`. 미설정이면 null. M3a 에서는 항상 null 이다. */
+  capacity: number[] | null
+  /** 최초 확정 시각. 주중 재수정으로 갱신하지 않는다 (week-plan R23). */
+  plannedAt: string | null
+}
+
 export interface WeeksRepository {
   /** 그 주 스냅샷 3종. 행이 없으면 null (폴백은 여기서 하지 않는다 — baseline.ts 소관). */
   baseline(week: string): Baseline | null
   /** 행이 없을 때만 생성 + 길이 3종 박제 (ADR-013 §2). capacity·budget 은 NULL (ADR-018 §1). 멱등. */
   ensure(week: string, baseline: Baseline): void
+  /** 그 주 계획 스냅샷. 행이 없으면 null. */
+  plan(week: string): WeekPlan | null
+  /** 예산 저장 + `planned_at` 최초 1회만 기록. 행이 없으면 아무 것도 하지 않는다. */
+  setPlan(week: string, budget: number | null): void
 }
 
 export interface WeekItemsRepository {

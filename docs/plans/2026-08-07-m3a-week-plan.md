@@ -134,7 +134,7 @@ import type {} from '@testing-library/jest-dom/vitest'
 **Interfaces:**
 - Produces: `effectiveBudget(repos, week): number | null` (`null` = **"기록 없음"**), `budgetPrefill(repos): number | null`, `WeeksRepository.plan(week)` / `.setPlan(week, budget)`
 
-- [ ] **Step 1: 실패하는 테스트 작성** — 페이크 repos 로 충분하다 (SQL 이 아니라 결정 순서를 검증한다)
+- [x] **Step 1: 실패하는 테스트 작성** — 페이크 repos 로 충분하다 (SQL 이 아니라 결정 순서를 검증한다)
 
 ```ts
 // src/main/services/budget.test.ts
@@ -184,9 +184,9 @@ describe('budgetPrefill (pomo-baseline R12)', () => {
 })
 ```
 
-- [ ] **Step 2: 실행해 실패 확인** — `pnpm test src/main/services/budget.test.ts` → FAIL (`effectiveBudget` 없음)
+- [x] **Step 2: 실행해 실패 확인** — `pnpm test src/main/services/budget.test.ts` → FAIL (`effectiveBudget` 없음)
 
-- [ ] **Step 3: 구현**
+- [x] **Step 3: 구현**
 
 `ports.ts` 의 `WeeksRepository` 확장 (기존 `baseline`·`ensure` 는 그대로):
 
@@ -264,9 +264,9 @@ setPlan: (week, budget) => {
 }
 ```
 
-- [ ] **Step 4: 통과 확인** — `pnpm test` PASS, `pnpm typecheck` 에러 0
+- [x] **Step 4: 통과 확인** — `pnpm test` PASS, `pnpm typecheck` 에러 0
 
-- [ ] **Step 5: 커밋** — `feat: add effective budget contract and weeks plan port`
+- [x] **Step 5: 커밋** — `feat: add effective budget contract and weeks plan port`
 
 ---
 
