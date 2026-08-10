@@ -1,15 +1,16 @@
 import { useRef, useState, type Ref } from 'react'
-import { weekRangeLabel } from '@shared/time'
+import { addWeeks, weekRangeLabel } from '@shared/time'
 import { Button } from '@renderer/shared/ui/button'
 import { Toast } from '@renderer/shared/ui/Toast'
 import { BudgetGauge } from './BudgetGauge'
 import { ItemDrawer } from './ItemDrawer'
 import { OtherRow } from './OtherRow'
-import { Planner } from './Planner'
+import { Planner, type PlanTarget } from './Planner'
 import { WeekItemRow } from './WeekItemRow'
 import { useDrawer } from './useDrawer'
 import { usePlanner } from './usePlanner'
 import { useWeek } from './useWeek'
+import { useReviewStatus } from '@renderer/features/review/useReviewStatus'
 
 /**
  * 빈 상태 세 갈래 (ux-spec §8). 사실만 적고 칭찬하지 않는다 (principles §1).
@@ -20,10 +21,13 @@ import { useWeek } from './useWeek'
  */
 function EmptyState({
   kind,
+  targetLabel,
   onOpenPlanner,
   ctaRef
 }: {
   kind: 'no-plan' | 'unplanned-only' | 'all-done'
+  /** CTA 라벨도 편집 대상 주 선택에서 파생한다 (§2 라벨 파생 규칙, PRD R5). */
+  targetLabel: string
   onOpenPlanner: () => void
   ctaRef: Ref<HTMLButtonElement>
 }) {
@@ -35,10 +39,10 @@ function EmptyState({
       <p className="text-sm text-ink-dim">
         {kind === 'all-done'
           ? '이번 주 할당을 다 끝냈어요'
-          : '이번 주 할당을 잡으면 뽀모 예산이 여기 보여요'}
+          : `${targetLabel} 할당을 잡으면 뽀모 예산이 여기 보여요`}
       </p>
       <Button ref={ctaRef} type="button" variant="secondary" size="sm" onClick={onOpenPlanner}>
-        {kind === 'all-done' ? '수정' : '+ 이번 주 할당 잡기'}
+        {kind === 'all-done' ? '수정' : `+ ${targetLabel} 할당 잡기`}
       </Button>
     </div>
   )
@@ -68,13 +72,29 @@ export function WeekCard() {
    * 때 버튼이 언마운트되므로, 노드를 붙잡으면 복귀 시점엔 죽은 참조가 된다.
    */
   const ctaRef = useRef<HTMLButtonElement | null>(null)
+  const status = useReviewStatus().data
+  /**
+   * 편집 대상 주 = `week_of(오늘 + plan_lead_days)` (PRD R3). renderer 가 그 식을 다시
+   * 계산하지 않고 판정 응답의 `targetWeek` 을 그대로 쓴다 — 설정이 바뀌면 여기도 따라간다.
+   * 판정이 아직 안 왔으면 **이번 주**로 둔다. 모를 때 `다음 주` 로 떨어지면 평일에
+   * 카드를 연 사용자가 한순간 다음 주 라벨을 보게 된다 — 기본 설정에서 그 값이 맞는
+   * 날은 일요일 하루뿐이다.
+   */
+  const defaultTarget: PlanTarget =
+    status === undefined || status.targetWeek === weekKey ? 'current' : 'next'
+  const [target, setTarget] = useState<PlanTarget | null>(null)
+  const planTarget = target ?? defaultTarget
+  const planWeek = planTarget === 'current' ? weekKey : addWeeks(weekKey, 1)
+
   const drawer = useDrawer(weekKey, openId)
-  const planner = usePlanner(planning)
+  const planner = usePlanner(planning, planWeek)
   const summary = query.data
 
   /** 복귀는 확정·취소 공통이다. 버튼이 다시 렌더된 뒤라야 포커스가 걸린다. */
   const leavePlanner = () => {
     setPlanning(false)
+    // 편집 대상 주 선택도 함께 놓는다 — 다음에 열 때는 그날의 기본값에서 다시 시작한다.
+    setTarget(null)
     queueMicrotask(() => ctaRef.current?.focus())
   }
 
@@ -100,8 +120,14 @@ export function WeekCard() {
   // 플래너는 카드를 통째로 대신한다 — 일반 뷰와 나란히 두지 않는다 (§5.1).
   if (planning && planner.query.data !== undefined) {
     return (
+      // key 로 주마다 새로 마운트한다 — 초안·예산·입력 중이던 값이 그 주의 것으로 전부
+      // 다시 채워져야 한다 (§5.0 전환 효과). 상태를 손으로 되돌리면 빠뜨릴 자리가 생긴다.
       <Planner
+        key={planWeek}
         draft={planner.query.data}
+        week={planWeek}
+        target={planTarget}
+        onChangeWeek={setTarget}
         onConfirm={(input) => planner.confirm.mutate(input, { onSuccess: leavePlanner })}
         onCancel={leavePlanner}
       />
@@ -188,7 +214,12 @@ export function WeekCard() {
         {otherRow.visible ? <OtherRow spentPomos={otherRow.spentPomos} /> : null}
         {emptyKind !== null ? (
           <li>
-            <EmptyState kind={emptyKind} onOpenPlanner={() => setPlanning(true)} ctaRef={ctaRef} />
+            <EmptyState
+              kind={emptyKind}
+              targetLabel={planTarget === 'current' ? '이번 주' : '다음 주'}
+              onOpenPlanner={() => setPlanning(true)}
+              ctaRef={ctaRef}
+            />
           </li>
         ) : null}
       </ul>

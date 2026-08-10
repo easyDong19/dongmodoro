@@ -9,6 +9,7 @@ import { Planner } from './Planner'
 type Draft = Awaited<ReturnType<Api['week']['planDraft']>>
 
 const WEEK = '2026-08-03'
+const NEXT_WEEK = '2026-08-10'
 
 function makeDraft(over: Partial<Draft> = {}): Draft {
   return { week: WEEK, budget: null, prefill: null, items: [], ...over }
@@ -16,11 +17,19 @@ function makeDraft(over: Partial<Draft> = {}): Draft {
 
 function renderPlanner(
   over: Partial<Draft> = {},
-  handlers: { onConfirm?: (i: unknown) => void; onCancel?: () => void } = {}
+  handlers: {
+    onConfirm?: (i: unknown) => void
+    onCancel?: () => void
+    onChangeWeek?: (next: 'current' | 'next') => void
+  } = {},
+  target: 'current' | 'next' = 'current'
 ) {
   return render(
     <Planner
       draft={makeDraft(over)}
+      week={target === 'current' ? WEEK : NEXT_WEEK}
+      target={target}
+      onChangeWeek={handlers.onChangeWeek ?? vi.fn()}
       onConfirm={handlers.onConfirm ?? vi.fn()}
       onCancel={handlers.onCancel ?? vi.fn()}
     />
@@ -30,12 +39,80 @@ function renderPlanner(
 const titleInput = () => screen.getByLabelText('할당 제목')
 const addButton = () => screen.getByRole('button', { name: '항목 추가' })
 
-describe('Planner — 편집 대상 주 (범위 축소)', () => {
-  it('주 토글이 없고 라벨이 이번 주로 고정된다', () => {
+/**
+ * §5.0. 라벨은 **편집 대상 주 선택 하나에서만** 파생한다 — 오늘이 무슨 요일인지에서
+ * 직접 파생하면 일요일에 `이번 주 할당 잡기` 를 눌렀는데 다음 주가 열리는 모순이 난다.
+ */
+describe('Planner — 편집 대상 주 (§5.0)', () => {
+  it('두 세그먼트를 렌더하고 선택된 쪽을 aria-pressed 로 알린다', () => {
     renderPlanner()
-    expect(screen.getByText('이번 주 계획')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: '이번 주 시작' })).toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: '다음 주' })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '이번 주' })).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByRole('button', { name: '다음 주' })).toHaveAttribute('aria-pressed', 'false')
+  })
+
+  it('선택 상태에 배경뿐 아니라 보더가 있다 (design-system ADR-006 §3)', () => {
+    // --glass-strong 은 고대비 모드에서 사라진다. 배경만으로 선택을 표현하면 안 된다.
+    renderPlanner()
+    expect(screen.getByRole('button', { name: '이번 주' }).className).toMatch(/border/)
+  })
+
+  it('헤더·확정 버튼 라벨이 선택에서 파생된다', () => {
+    renderPlanner({}, {}, 'next')
+    expect(screen.getByText('다음 주 계획')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '다음 주 시작' })).toBeInTheDocument()
+  })
+
+  it('선택된 주의 범위를 사실로 병기한다', () => {
+    renderPlanner({}, {}, 'next')
+    expect(screen.getByText('8/10 – 8/16')).toBeInTheDocument()
+  })
+
+  it('고치던 내용이 없으면 바로 전환한다', async () => {
+    const onChangeWeek = vi.fn()
+    renderPlanner({}, { onChangeWeek })
+    await userEvent.click(screen.getByRole('button', { name: '다음 주' }))
+    expect(onChangeWeek).toHaveBeenCalledWith('next')
+  })
+
+  it('고치던 내용이 있으면 확인을 1회 거친다 — 조용히 버리지 않는다', async () => {
+    const onChangeWeek = vi.fn()
+    renderPlanner({}, { onChangeWeek })
+    await userEvent.type(titleInput(), '쓰던 것')
+
+    await userEvent.click(screen.getByRole('button', { name: '다음 주' }))
+    expect(onChangeWeek).not.toHaveBeenCalled()
+    expect(screen.getByText(/고치던 내용이 있어요/)).toBeInTheDocument()
+
+    await userEvent.click(screen.getByRole('button', { name: '저장하지 않고 이동' }))
+    expect(onChangeWeek).toHaveBeenCalledWith('next')
+  })
+
+  it('확인에서 취소하면 전환하지 않고 안내가 사라진다', async () => {
+    const onChangeWeek = vi.fn()
+    renderPlanner({}, { onChangeWeek })
+    await userEvent.type(titleInput(), '쓰던 것')
+    await userEvent.click(screen.getByRole('button', { name: '다음 주' }))
+    await userEvent.click(screen.getByRole('button', { name: '여기 남기' }))
+
+    expect(onChangeWeek).not.toHaveBeenCalled()
+    expect(screen.queryByText(/고치던 내용이 있어요/)).not.toBeInTheDocument()
+  })
+
+  it('전환 확인에 --danger 를 쓰지 않는다 — 파괴적 행위가 아니다', async () => {
+    renderPlanner({}, {})
+    await userEvent.type(titleInput(), '쓰던 것')
+    await userEvent.click(screen.getByRole('button', { name: '다음 주' }))
+    expect(screen.getByRole('button', { name: '저장하지 않고 이동' }).className).not.toMatch(
+      /danger/
+    )
+  })
+
+  it('이미 선택된 세그먼트를 다시 눌러도 확인을 띄우지 않는다', async () => {
+    const onChangeWeek = vi.fn()
+    renderPlanner({}, { onChangeWeek })
+    await userEvent.type(titleInput(), '쓰던 것')
+    await userEvent.click(screen.getByRole('button', { name: '이번 주' }))
+    expect(screen.queryByText(/고치던 내용이 있어요/)).not.toBeInTheDocument()
   })
 })
 

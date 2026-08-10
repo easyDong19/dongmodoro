@@ -43,8 +43,16 @@ type Drawer = Awaited<ReturnType<Api['week']['drawer']>>
 
 const emptyDrawer: Drawer = { itemWeek: WEEK, completedAt: null, tasks: [] }
 
-async function renderCard(summary: Summary, over: Partial<Api['week']> = {}) {
+async function renderCard(
+  summary: Summary,
+  over: Partial<Api['week']> = {},
+  targetWeek: string = WEEK
+) {
   window.api = {
+    review: {
+      // 편집 대상 주의 기본값이 여기서 온다 — renderer 는 plan_lead_days 를 모른다.
+      getStatus: vi.fn().mockResolvedValue({ needed: false, targetWeek })
+    },
     clock: {
       now: vi
         .fn()
@@ -392,5 +400,44 @@ describe('WeekCard — 오늘 배정 상단 정렬 (A8)', () => {
       .getAllByTestId('week-item-row')
       .map((row) => row.querySelector('span')?.textContent)
     expect(titles).toEqual(['먼저', '나중'])
+  })
+})
+
+/**
+ * §2 라벨 파생 규칙 (PRD R5). 헤더·확정 버튼·빈 상태 CTA 가 **편집 대상 주 선택
+ * 하나에서만** 파생한다 — 오늘이 무슨 요일인지에서 직접 파생하면, 일요일에
+ * `이번 주 할당 잡기` 를 눌렀는데 다음 주가 열리는 모순이 생긴다.
+ */
+describe('WeekCard — 편집 대상 주 기본값 (A3·A5)', () => {
+  it('계획 대상 주가 다음 주면 빈 상태 CTA 도 다음 주라고 말한다', async () => {
+    await renderCard(makeSummary(), {}, '2026-08-10')
+    expect(await screen.findByRole('button', { name: '+ 다음 주 할당 잡기' })).toBeInTheDocument()
+  })
+
+  it('그 CTA 로 들어가면 다음 주 초안을 불러온다', async () => {
+    const planDraft = vi
+      .fn()
+      .mockResolvedValue({ week: '2026-08-10', budget: null, prefill: null, items: [] })
+    await renderCard(makeSummary(), { planDraft }, '2026-08-10')
+
+    await userEvent.click(await screen.findByRole('button', { name: '+ 다음 주 할당 잡기' }))
+    expect(await screen.findByText('다음 주 계획')).toBeInTheDocument()
+    expect(planDraft).toHaveBeenCalledWith('2026-08-10')
+  })
+
+  it('평일에는 이번 주가 기본이고 세그먼트로 다음 주 초안으로 옮길 수 있다', async () => {
+    const planDraft = vi
+      .fn()
+      .mockImplementation((week: string) =>
+        Promise.resolve({ week, budget: null, prefill: null, items: [] })
+      )
+    await renderCard(makeSummary(), { planDraft }, WEEK)
+
+    await userEvent.click(await screen.findByRole('button', { name: '+ 이번 주 할당 잡기' }))
+    expect(planDraft).toHaveBeenCalledWith(WEEK)
+
+    await userEvent.click(screen.getByRole('button', { name: '다음 주' }))
+    expect(await screen.findByText('다음 주 계획')).toBeInTheDocument()
+    expect(planDraft).toHaveBeenCalledWith('2026-08-10')
   })
 })
