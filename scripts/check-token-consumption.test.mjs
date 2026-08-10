@@ -93,3 +93,26 @@ describe('컨트롤 표면 (design-system ADR-002 §1)', () => {
     expect(global).not.toMatch(/--overlay-backdrop|--dialog-backdrop/)
   })
 })
+
+describe('카드 타이포 (시안 .card-head)', () => {
+  it('eyebrow 는 2xs + wider 자간이고 --ink-dim 이다', () => {
+    const eyebrow = rule(global, '.eyebrow')
+    expect(eyebrow).toMatch(/font-size:\s*var\(--text-2xs\)/)
+    expect(eyebrow).toMatch(/letter-spacing:\s*var\(--tracking-wider\)/)
+    // 컬럼이 어느 레이어인지 알리는 유일한 표지라 faint 가 아니라 dim 이다 (ADR-003 §3).
+    expect(eyebrow).toMatch(/color:\s*var\(--ink-dim\)/)
+    expect(eyebrow).not.toMatch(/--ink-faint/)
+  })
+
+  it('카드 제목은 lg + semibold 다 — 본문과 같은 크기로 두지 않는다', () => {
+    const title = rule(global, '.card-title')
+    expect(title).toMatch(/font-size:\s*var\(--text-lg\)/)
+    expect(title).toMatch(/font-weight:\s*var\(--weight-semibold\)/)
+  })
+
+  it('타이포도 raw 값을 새로 만들지 않는다', () => {
+    for (const selector of ['.eyebrow', '.card-title']) {
+      expect(rule(global, selector)).not.toMatch(/\b\d+(\.\d+)?(px|rem|em)\b/)
+    }
+  })
+})

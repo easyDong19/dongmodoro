@@ -122,12 +122,20 @@ export function WeekCard() {
     // 랜드마크 라벨은 App 의 감싸는 section 이 갖는다 — 여기에도 붙이면 같은 이름이 둘이 된다.
     <div className="flex h-full flex-col">
       <header className="shrink-0 px-4 pt-4">
-        <p className="text-xs tracking-wide text-ink-dim">WEEK</p>
-        <h2 className="text-base text-ink">이번 주 할당</h2>
+        <p className="eyebrow">WEEK</p>
+        <h2 className="card-title text-ink">이번 주 할당</h2>
         <p className="font-mono text-xs tabular-nums text-ink-dim">{weekRangeLabel(weekKey)}</p>
       </header>
 
-      <ul data-testid="week-item-list" className="min-h-0 flex-1 overflow-y-auto px-2 py-2">
+      {/* 보여줄 행이 없는 주에는 안내를 가운데로 올린다. 게이지는 하단 고정이라(§7) 목록이
+          위에 붙으면 그 사이가 통째로 비어 화면이 미완성으로 읽힌다. 행이 하나라도 있으면
+          위에서부터 쌓는다 — 목록은 읽는 순서가 있는 것이다. */}
+      <ul
+        data-testid="week-item-list"
+        className={`flex min-h-0 flex-1 flex-col overflow-y-auto px-2 py-2 ${
+          items.length === 0 && !otherRow.visible ? 'justify-center' : ''
+        }`}
+      >
         {items.map((row) => {
           const open = openId === row.id
           const drawerId = `week-drawer-${row.id}`

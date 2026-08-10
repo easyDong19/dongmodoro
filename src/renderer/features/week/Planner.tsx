@@ -123,8 +123,8 @@ export function Planner({
   return (
     <div className="flex h-full flex-col">
       <header className="shrink-0 px-4 pt-4">
-        <p className="text-xs tracking-wide text-ink-dim">WEEK</p>
-        <h2 className="text-base text-ink">이번 주 계획</h2>
+        <p className="eyebrow">WEEK</p>
+        <h2 className="card-title text-ink">이번 주 계획</h2>
       </header>
 
       <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3">

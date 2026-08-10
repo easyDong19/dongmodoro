@@ -90,6 +90,23 @@ body::before {
   box-shadow: var(--glass-highlight), var(--glass-shadow);
 }
 
+/* 카드 머리의 두 층 (시안 `.card-head`). 유틸리티로 흩뿌리지 않고 클래스로 묶는 이유는
+   세 카드가 같은 위계를 써야 하기 때문이다 — 한 카드만 제목이 커지면 그건 위계가 아니라
+   불일치다.
+
+   eyebrow 가 `--ink-faint` 가 아닌 것에 근거가 있다: 그 컬럼이 어느 레이어(WEEK/TODAY)인지
+   알리는 **유일한 표지**라 읽어야 하는 텍스트다 (design-system ADR-003 §3). */
+.eyebrow {
+  font-size: var(--text-2xs);
+  letter-spacing: var(--tracking-wider);
+  color: var(--ink-dim);
+}
+
+.card-title {
+  font-size: var(--text-lg);
+  font-weight: var(--weight-semibold);
+}
+
 /* 컨트롤 표면 (design-system ADR-002 §1) — 카드보다 얕은 두 번째 레벨이다. 버튼·칩·
    세그먼트 토글·스테퍼가 쓴다. 카드의 `blur(24px)` 를 컨트롤에 그대로 쓰면 카드 위에
    또 하나의 유리판이 얹혀 깊이가 두 겹으로 읽히므로, 반경이 절반 이하인 별도 토큰이다.
