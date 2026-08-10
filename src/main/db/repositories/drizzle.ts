@@ -47,14 +47,23 @@ function makeRepos(tx: Tx): Repositories {
         return row ?? null
       },
 
-      // 행이 없을 때만 만든다 (weekly-review R37 — 있는 행의 길이 스냅샷은 덮지 않는다).
-      ensure: (week, baseline) => {
+      /**
+       * 행이 없을 때만 만든다. `onConflictDoNothing` 이 곧 "있는 행의 스냅샷은 덮지
+       * 않는다"는 규칙의 구현이다 (ADR-013 §3) — `DoUpdate` 로 바꾸는 순간 지각 정산이
+       * 진행 중인 주의 단위를 바꾸게 된다.
+       *
+       * capacity 는 JSON 문자열로 넣는다. 스키마의 `weeks_capacity_shape` CHECK 가
+       * 길이 7 · 원소 전부 0 이상 정수를 재검증한다 (ADR-021 §3).
+       */
+      ensure: (week, snapshot) => {
         tx.insert(weeks)
           .values({
             week,
-            focusMin: baseline.focusMin,
-            shortBreakMin: baseline.shortBreakMin,
-            longBreakMin: baseline.longBreakMin
+            focusMin: snapshot.focusMin,
+            shortBreakMin: snapshot.shortBreakMin,
+            longBreakMin: snapshot.longBreakMin,
+            capacity: snapshot.capacity === null ? null : JSON.stringify(snapshot.capacity),
+            budget: snapshot.budget
           })
           .onConflictDoNothing({ target: weeks.week })
           .run()

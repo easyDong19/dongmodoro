@@ -12,6 +12,9 @@ const REPO_MIGRATIONS = join(fileURLToPath(import.meta.url), '../../../../../dri
 
 export const TEST_BASELINE = { focusMin: 25, shortBreakMin: 5, longBreakMin: 15 }
 
+/** 시딩된 DB 의 기본 상태 — 가용량은 시딩하지 않으므로 계획 의사는 비어 있다. */
+export const TEST_SNAPSHOT = { ...TEST_BASELINE, capacity: null, budget: null }
+
 /**
  * 인메모리 실 SQLite (ADR-023 §3) + FK ON + 마이그레이션 + **설정 시딩**.
  *
@@ -39,7 +42,7 @@ export function testUow(): { uow: UnitOfWork; db: ReturnType<typeof drizzle> } {
  */
 export function ensureWeeks(uow: UnitOfWork, ...weekKeys: readonly string[]): void {
   uow.run((repos) => {
-    for (const week of weekKeys) repos.weeks.ensure(week, TEST_BASELINE)
+    for (const week of weekKeys) repos.weeks.ensure(week, TEST_SNAPSHOT)
   })
 }
 

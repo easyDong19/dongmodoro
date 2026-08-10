@@ -1,6 +1,6 @@
 import { v7 as uuidv7 } from 'uuid'
 import { localKeys, now } from '../../shared/time'
-import { budgetPrefill, effectiveBaseline, effectiveBudget } from './baseline'
+import { budgetPrefill, effectiveBudget, weekSnapshot } from './baseline'
 import type { ChildTaskRow, PlanDraftItem, UnitOfWork, WeekItemRow } from './ports'
 
 /**
@@ -39,11 +39,10 @@ export function confirmWeekPlan(
   input: { week: string; budget: number | null; items: readonly PlanDraftItem[] }
 ): { week: string; droppedCount: number } {
   return uow.run((repos) => {
-    // 행이 없으면 그 시점 유효 길이를 박제해 만든다 (ADR-013 §2). 있으면 덮지 않는다.
-    // NOTE(M3b): weekly-review R37 은 capacity·예산까지 함께 박제하라고 요구한다.
-    // M3a 는 capacity 가 항상 NULL 이라 무해하지만, 정산이 capacity 편집을 들이면
-    // 플래너로 만든 주만 capacity 스냅샷이 비는 비대칭이 생긴다. 그때 ensure 를 확장할 것.
-    repos.weeks.ensure(input.week, effectiveBaseline(repos, input.week))
+    // 행이 없으면 그 시점 유효값을 박제해 만든다 (ADR-013 §2). 있으면 덮지 않는다.
+    // 길이뿐 아니라 가용량·예산까지 함께 박는다 (weekly-review R37) — 정산이 만드는
+    // 행과 같은 모양이어야 두 경로가 만든 주가 비대칭이 되지 않는다.
+    repos.weeks.ensure(input.week, weekSnapshot(repos, input.week))
     repos.weeks.setPlan(input.week, input.budget)
     const { droppedIds } = repos.weekItems.confirmPlan({ week: input.week, items: input.items })
     return { week: input.week, droppedCount: droppedIds.length }

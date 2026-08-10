@@ -394,7 +394,13 @@ describe('reviewPending — 패널 데이터', () => {
   it('길이는 계획 대상 주의 스냅샷이 아니라 전역 설정값이다 (ADR-013 §3)', () => {
     const { uow } = seeded()
     uow.run((repos) => {
-      repos.weeks.ensure(TARGET, { focusMin: 50, shortBreakMin: 10, longBreakMin: 30 })
+      repos.weeks.ensure(TARGET, {
+        focusMin: 50,
+        shortBreakMin: 10,
+        longBreakMin: 30,
+        capacity: null,
+        budget: null
+      })
     })
     expect(panel(uow, SUNDAY).baseline.focusMin).toBe(25)
   })

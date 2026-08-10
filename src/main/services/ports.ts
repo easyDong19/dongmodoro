@@ -35,11 +35,30 @@ export type WeekPlan = {
   plannedAt: string | null
 }
 
+/**
+ * `weeks` 행이 처음 생길 때 함께 박제되는 값 전부 (ADR-013 §2, weekly-review R37).
+ *
+ * 길이 3종과 계획 의사(capacity·budget)를 한 타입에 담는 이유는 **행 생성이 한 번뿐**
+ * 이기 때문이다. 길이만 먼저 박고 나중에 계획 의사를 채우는 경로를 열어 두면, 그 사이에
+ * 생긴 행이 "가용량을 정한 적 없는 주"인지 "정했는데 아직 안 박힌 주"인지 구분되지 않는다.
+ */
+export type WeekSnapshot = Baseline & {
+  /** 요일별 가용 뽀모 `[월..일]`. 정한 적 없으면 null — `[0,…]` 을 지어내지 않는다. */
+  capacity: number[] | null
+  /** 위 배열의 합을 **그 시점에 해석해** 저장한 값 (ADR-013 §1). 미설정이면 null. */
+  budget: number | null
+}
+
 export interface WeeksRepository {
   /** 그 주 스냅샷 3종. 행이 없으면 null (폴백은 여기서 하지 않는다 — baseline.ts 소관). */
   baseline(week: string): Baseline | null
-  /** 행이 없을 때만 생성 + 길이 3종 박제 (ADR-013 §2). capacity·budget 은 NULL (ADR-018 §1). 멱등. */
-  ensure(week: string, baseline: Baseline): void
+  /**
+   * 행이 없을 때만 생성 + 스냅샷 5종 박제 (ADR-013 §2). 멱등.
+   *
+   * **이미 있는 행의 스냅샷 컬럼은 어떤 값으로도 덮지 않는다** (ADR-013 §3) — 이 한 줄이
+   * "지각 정산이 진행 중인 주의 단위를 바꾼다"는 결함을 스키마 레벨에서 닫는다.
+   */
+  ensure(week: string, snapshot: WeekSnapshot): void
   /** 그 주 계획 스냅샷. 행이 없으면 null. */
   plan(week: string): WeekPlan | null
   /** 예산 저장 + `planned_at` 최초 1회만 기록. 행이 없으면 아무 것도 하지 않는다. */
