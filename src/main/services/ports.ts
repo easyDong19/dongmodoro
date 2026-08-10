@@ -268,6 +268,23 @@ export interface ReviewRepository {
    * 밖이어도 포함한다 — 그 항목이 어느 주의 계획이었는지가 기준이다 (ux-spec §4).
    */
   listCompleted(from: string, to: string): CompletedItemRow[]
+  /**
+   * 확정의 쓰기 전부 — **호출자가 결정을 이미 끝낸 상태**로 들어온다. 클램프·이월 est
+   * 계산·예외 흡수는 서비스가 하고 여기는 실행만 한다 (ADR-015 §1).
+   *
+   * 반드시 트랜잭션 안에서 부른다. 중간 실패 시 반쯤 정산된 상태가 남지 않아야 한다 (R22).
+   */
+  applySettlement(input: {
+    targetWeek: string
+    /** 새로 만드는 `weeks` 행에 박제할 값. 이미 있는 행에는 쓰이지 않는다. */
+    snapshot: WeekSnapshot
+    /** `settled_at` 을 찍을 정산 범위의 주들. */
+    rangeWeeks: readonly string[]
+    drops: readonly string[]
+    carries: readonly { sourceId: string; estPomos: number }[]
+    /** 순간 (UTC ISO). 한 번 읽어 넘긴다 (ADR-022 §1). */
+    at: string
+  }): { carried: { sourceItemId: string; newItemId: string }[] }
 }
 
 export interface Repositories {

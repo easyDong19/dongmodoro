@@ -736,7 +736,96 @@ function makeRepos(tx: Tx): Repositories {
             )
           )
           .orderBy(asc(weekItems.week), asc(weekItems.createdAt), sql`week_items.rowid`)
-          .all()
+          .all(),
+
+      applySettlement: ({ targetWeek, snapshot, rangeWeeks, drops, carries, at }) => {
+        // 4. 폐기 — soft. 원본 행은 남는다 (ADR-014 §1).
+        for (const id of drops) {
+          tx.update(weekItems)
+            .set({ droppedAt: at, updatedAt: at })
+            .where(eq(weekItems.id, id))
+            .run()
+        }
+
+        // 5. 이월 — 계획 대상 주에 **행을 새로 만든다** (UPDATE 아님).
+        //    원본을 옮기면 origin_week 박제와 "그 주에 무엇이 남았는가"라는 과거 사실이
+        //    동시에 파괴된다 (Q12).
+        const carried: { sourceItemId: string; newItemId: string }[] = []
+        for (const { sourceId, estPomos } of carries) {
+          const src = tx
+            .select({
+              title: weekItems.title,
+              milestoneId: weekItems.milestoneId,
+              originWeek: weekItems.originWeek
+            })
+            .from(weekItems)
+            .where(eq(weekItems.id, sourceId))
+            .get()
+          if (!src) continue
+
+          const newId = uuidv7()
+          tx.insert(weekItems)
+            .values({
+              id: newId,
+              week: targetWeek,
+              title: src.title,
+              estPomos,
+              milestoneId: src.milestoneId, // 마일스톤 승계 (ADR-012 §3)
+              days: '[]', // 요일 배치는 플래너에서 다시 (week-plan)
+              originWeek: src.originWeek, // 박제 승계 — 배지의 근거 (Q12)
+              carryFromId: sourceId, // 직전 원본. 이력 전용
+              isSystem: 0,
+              createdAt: at,
+              updatedAt: at
+            })
+            .run()
+
+          /**
+           * 5b. 미완료 조각 재부모화 (ADR-012 §3). 이것이 있어야 "지난 주 미완료 조각을
+           * 이번 주에 재개"가 성립한다. 항목은 "그 주의 계획이었다"는 사실이라 옮기지
+           * 않지만, 조각은 "무엇을 할 것인가"라서 옮긴다.
+           *
+           * 이미 붙은 세션의 귀속은 움직이지 않는다 — 항목 소진이 주 조건으로 집계되므로
+           * 과거 주의 숫자가 소급해 변하지 않는다.
+           */
+          tx.update(tasks)
+            .set({ weekItemId: newId, updatedAt: at })
+            .where(
+              and(
+                eq(tasks.weekItemId, sourceId),
+                isNull(tasks.completedAt),
+                isNull(tasks.deletedAt)
+              )
+            )
+            .run()
+
+          carried.push({ sourceItemId: sourceId, newItemId: newId })
+        }
+
+        /**
+         * 6. 주별 행 — 정산 범위의 각 주 **+ 계획 대상 주**. 계획 대상 주까지 만드는
+         * 이유는 스냅샷 없는 주가 남으면 그 주의 예산·단위가 나중에 전역 설정값으로
+         * 해석되기 때문이다 (ADR-013 §2). 있는 행은 `settled_at` 만 건드린다.
+         */
+        for (const week of [...rangeWeeks, targetWeek]) {
+          tx.insert(weeks)
+            .values({
+              week,
+              focusMin: snapshot.focusMin,
+              shortBreakMin: snapshot.shortBreakMin,
+              longBreakMin: snapshot.longBreakMin,
+              capacity: snapshot.capacity === null ? null : JSON.stringify(snapshot.capacity),
+              budget: snapshot.budget
+            })
+            .onConflictDoNothing({ target: weeks.week })
+            .run()
+        }
+        for (const week of rangeWeeks) {
+          tx.update(weeks).set({ settledAt: at }).where(eq(weeks.week, week)).run()
+        }
+
+        return { carried }
+      }
     }
   }
 }

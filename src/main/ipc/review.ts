@@ -1,8 +1,8 @@
 import { CHANNELS } from '@shared/ipc/channels'
 import { contracts } from '@shared/ipc/contracts'
-import { calendarKeys, nowMs } from '@shared/time'
+import { calendarKeys, instantFromMs, nowMs } from '@shared/time'
 import type { UnitOfWork } from '../services/ports'
-import { reviewPending, reviewStatus } from '../services/review'
+import { reviewPending, reviewStatus, settle } from '../services/review'
 import { handleIpc } from './handle'
 
 /**
@@ -21,4 +21,10 @@ export function registerReviewHandlers(uow: UnitOfWork): void {
   handleIpc(CHANNELS.review.getPending, contracts.review.getPending, () =>
     reviewPending(uow, calendarKeys(nowMs()).dayKey)
   )
+  handleIpc(CHANNELS.review.settle, contracts.review.settle, (input) => {
+    // 시계를 **한 번만** 읽어 날짜 키와 순간을 함께 만든다 (ADR-022 §1). 따로 읽으면
+    // 자정을 걸친 확정에서 재판정이 쓰는 날짜와 기록되는 시각이 다른 날을 가리킨다.
+    const at = nowMs()
+    return settle(uow, { dayKey: calendarKeys(at).dayKey, instant: instantFromMs(at) }, input)
+  })
 }

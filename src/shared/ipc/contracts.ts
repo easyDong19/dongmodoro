@@ -309,6 +309,50 @@ export const contracts = {
           })
         })
       ])
+    },
+    /**
+     * 확정. **결정 전체가 아니라 예외만 보낸다** (R29) — 패널이 모달이 아니라 열어둔 채
+     * 다른 화면에서 항목을 완료·삭제·추가하는 것이 정상 사용이고, 전 항목의 결정을
+     * 보내 서버가 집합 일치를 요구하면 그 정상 사용이 확정을 롤백시킨다.
+     *
+     * 빈 배열은 누락이 아니라 **"전부 이월"이라는 완전한 의사 표시**다 (R13).
+     */
+    settle: {
+      req: z.tuple([
+        z.strictObject({
+          expectedRange: z.strictObject({ from: z.string(), to: z.string() }),
+          targetWeek: z.string(),
+          exceptions: z.array(
+            z.discriminatedUnion('kind', [
+              z.strictObject({
+                kind: z.literal('carry_reduced'),
+                itemId: z.string(),
+                // 형식 검증만 여기서 한다. 상한 클램프는 서버가 재조회한 남은 몫으로 하며
+                // 거부하지 않는다 (규칙 4) — 열어둔 패널의 값은 언제든 낡을 수 있다.
+                estPomos: z.int().min(1)
+              }),
+              z.strictObject({ kind: z.literal('drop'), itemId: z.string() })
+            ])
+          )
+        })
+      ]),
+      res: z.strictObject({
+        settledThrough: z.string(),
+        carriedItemIds: z.array(z.string()),
+        droppedItemIds: z.array(z.string()),
+        carriedPomos: z.int(),
+        /** 화면이 몰랐을 수 있는 이월. 건수를 숨기지 않는다 (R30). */
+        autoCarried: z.array(
+          z.strictObject({
+            sourceItemId: z.string(),
+            newItemId: z.string(),
+            title: z.string(),
+            estPomos: z.int()
+          })
+        ),
+        ignoredExceptionIds: z.array(z.string()),
+        clampedExceptionIds: z.array(z.string())
+      })
     }
   }
 } as const

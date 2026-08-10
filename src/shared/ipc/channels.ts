@@ -37,7 +37,8 @@ export const CHANNELS = {
   },
   review: {
     getStatus: 'review:getStatus',
-    getPending: 'review:getPending'
+    getPending: 'review:getPending',
+    settle: 'review:settle'
   }
 } as const
 

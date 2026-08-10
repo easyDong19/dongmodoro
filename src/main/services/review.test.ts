@@ -1,6 +1,15 @@
 import { describe, expect, it } from 'vitest'
 import { backdateOriginWeek, ensureWeeks, testUow } from '../db/repositories/test-helpers'
-import { bootstrapWatermark, evaluateSettlement, reviewPending, reviewStatus } from './review'
+import {
+  bootstrapWatermark,
+  evaluateSettlement,
+  resolveDecisions,
+  reviewPending,
+  reviewStatus,
+  settle,
+  STALE_RANGE
+} from './review'
+import type { PendingDecisionRow } from './review'
 import type { Repositories, UnitOfWork } from './ports'
 
 /**
@@ -271,6 +280,81 @@ describe('reviewStatus — 배너 payload', () => {
 })
 
 /**
+ * 확정 결정의 순수 계산. **거부하지 않고 흡수하는 것**이 이 함수의 전부다 (R29) —
+ * 패널은 모달이 아니므로 열어둔 채 다른 화면에서 항목을 완료·삭제·추가하는 것이
+ * 정상 사용이고, 그 정상 사용이 확정을 실패시키면 안 된다.
+ */
+describe('resolveDecisions — 예외 흡수 (R29)', () => {
+  const row = (o: Partial<PendingDecisionRow> & { id: string }): PendingDecisionRow => ({
+    week: '2026-08-10',
+    title: o.id,
+    estPomos: 5,
+    spentPomos: 0,
+    remaining: 5,
+    carryWeeks: 1,
+    ...o
+  })
+
+  it('A7 — 예외가 비면 전부 이월이다 (R13)', () => {
+    const d = resolveDecisions([row({ id: 'a' }), row({ id: 'b' })], [])
+    expect(d.drops).toEqual([])
+    expect(d.carries).toEqual([
+      { sourceId: 'a', title: 'a', estPomos: 5, fromException: false },
+      { sourceId: 'b', title: 'b', estPomos: 5, fromException: false }
+    ])
+  })
+
+  it('A22 — 재조회 목록에 없는 예외는 무시한다. 거부하지 않는다', () => {
+    const d = resolveDecisions([row({ id: 'a' })], [{ kind: 'drop', itemId: 'gone' }])
+    expect(d.ignoredExceptionIds).toEqual(['gone'])
+    expect(d.drops).toEqual([])
+    expect(d.carries).toHaveLength(1)
+  })
+
+  it('A23 — 그 사이 새로 생긴 항목은 이월되고 예외가 아니었음이 표시된다', () => {
+    const d = resolveDecisions(
+      [row({ id: 'known' }), row({ id: 'new' })],
+      [{ kind: 'carry_reduced', itemId: 'known', estPomos: 2 }]
+    )
+    expect(d.carries).toEqual([
+      { sourceId: 'known', title: 'known', estPomos: 2, fromException: true },
+      { sourceId: 'new', title: 'new', estPomos: 5, fromException: false }
+    ])
+  })
+
+  it('보내주기는 이월하지 않는다', () => {
+    const d = resolveDecisions([row({ id: 'a' })], [{ kind: 'drop', itemId: 'a' }])
+    expect(d.drops).toEqual(['a'])
+    expect(d.carries).toEqual([])
+  })
+
+  it('A9 — 남은 몫이 0 이어도 이월 est 는 1 이다 (R14-1 · ADR-019 §1)', () => {
+    const d = resolveDecisions([row({ id: 'a', estPomos: 2, spentPomos: 5, remaining: 0 })], [])
+    expect(d.carries[0].estPomos).toBe(1)
+  })
+
+  it('축소 est 는 1..이월 est 로 클램프하고 그 사실을 알린다 (규칙 4)', () => {
+    const pending = [row({ id: 'a', remaining: 4 }), row({ id: 'b', remaining: 4 })]
+    const d = resolveDecisions(pending, [
+      { kind: 'carry_reduced', itemId: 'a', estPomos: 9 },
+      { kind: 'carry_reduced', itemId: 'b', estPomos: 3 }
+    ])
+    expect(d.carries.map((c) => c.estPomos)).toEqual([4, 3])
+    expect(d.clampedExceptionIds).toEqual(['a'])
+  })
+
+  it('패널을 열어둔 사이 남은 몫이 줄어도 거부하지 않고 새 상한으로 자른다', () => {
+    // 화면은 remaining 5 를 보고 3 을 보냈는데 그 사이 세션이 돌아 remaining 이 1 이 됐다
+    const d = resolveDecisions(
+      [row({ id: 'a', estPomos: 5, spentPomos: 4, remaining: 1 })],
+      [{ kind: 'carry_reduced', itemId: 'a', estPomos: 3 }]
+    )
+    expect(d.carries[0].estPomos).toBe(1)
+    expect(d.clampedExceptionIds).toEqual(['a'])
+  })
+})
+
+/**
  * 여기서부터는 실 SQLite 다. `reviewPending` 은 리포지토리 다섯 개를 합성하는 자리라
  * 페이크로 검증하면 "내가 짠 페이크가 내 기대와 같은지"만 확인하게 된다.
  *
@@ -431,5 +515,232 @@ describe('reviewPending — 패널 데이터', () => {
     const { summary } = panel(uow, SUNDAY)
     expect(summary.lastStudiedWeek).toBe('2026-08-03')
     expect(summary.lastStudiedPomos).toBe(1)
+  })
+})
+
+/**
+ * 확정 트랜잭션. 날짜는 위 패널 테스트와 같다 —
+ * 워터마크 8/03 · 오늘 8/30(일) → 계획 대상 주 8/31, 범위 {8/10, 8/17, 8/24}.
+ */
+describe('settle — 확정 (R22 · 트랜잭션 1개)', () => {
+  const W1 = '2026-08-10'
+  const TARGET = '2026-08-31'
+  const SUNDAY = '2026-08-30'
+  const AT = '2026-08-30T12:00:00.000Z'
+  const NOW = { dayKey: SUNDAY, instant: AT }
+  const RANGE = { from: W1, to: '2026-08-24' }
+
+  function seeded(): ReturnType<typeof testUow> {
+    const t = testUow()
+    ensureWeeks(t.uow, W1)
+    t.uow.run((repos) => repos.settings.set('last_settled_week', JSON.stringify('2026-08-03')))
+    return t
+  }
+
+  function plan(t: ReturnType<typeof testUow>, ...titles: string[]): string[] {
+    return t.uow.run(
+      (repos) =>
+        repos.weekItems.confirmPlan({
+          week: W1,
+          items: titles.map((title) => ({ id: null, title, estPomos: 3, days: [] }))
+        }).createdIds
+    )
+  }
+
+  const input = (exceptions: Parameters<typeof settle>[2]['exceptions'] = []) => ({
+    expectedRange: RANGE,
+    targetWeek: TARGET,
+    exceptions
+  })
+
+  it('A7 — 손대지 않고 확정하면 남은 항목 전체가 계획 대상 주에 생긴다 (R18)', () => {
+    const t = seeded()
+    plan(t, 'A', 'B')
+
+    const out = settle(t.uow, NOW, input())
+    expect(out.carriedItemIds).toHaveLength(2)
+    expect(out.carriedPomos).toBe(6)
+
+    t.uow.run((repos) => {
+      // 원본은 그 주에 미완료로 남는다 — 사실이 보존된다
+      expect(repos.weekItems.listForWeek(W1).map((r) => r.title)).toEqual(['A', 'B'])
+      expect(repos.weekItems.listForWeek(TARGET).map((r) => r.title)).toEqual(['A', 'B'])
+    })
+  })
+
+  it('R19 — 새 항목이 origin_week 를 승계하고 요일 배치는 비운다', () => {
+    const t = seeded()
+    plan(t, 'A')
+    backdateOriginWeek(t.db, '2026-07-27')
+
+    settle(t.uow, NOW, input())
+
+    t.uow.run((repos) => {
+      const [carried] = repos.weekItems.listForWeek(TARGET)
+      expect(carried.originWeek).toBe('2026-07-27') // 최초 생성 주가 박제된 채 따라온다
+      expect(carried.days).toEqual([])
+    })
+  })
+
+  it('A27 — 미완료 조각만 새 항목으로 옮겨간다. 완료 조각은 원본에 남는다 (R35)', () => {
+    const t = seeded()
+    const [itemId] = plan(t, 'A')
+    t.uow.run((repos) => {
+      repos.tasks.create({ id: 'done', weekItemId: itemId, title: '끝낸 조각', completedAt: AT })
+      repos.tasks.create({ id: 'open', weekItemId: itemId, title: '남은 조각' })
+    })
+
+    settle(t.uow, NOW, input())
+
+    t.uow.run((repos) => {
+      const [carried] = repos.weekItems.listForWeek(TARGET)
+      expect(repos.tasks.get('open')?.weekItemId).toBe(carried.id)
+      expect(repos.tasks.get('done')?.weekItemId).toBe(itemId)
+    })
+  })
+
+  it('A14 — 보내주기는 dropped_at 만 찍고 행을 남긴다 (R21)', () => {
+    const t = seeded()
+    const [a, b] = plan(t, 'A', 'B')
+
+    const out = settle(t.uow, NOW, input([{ kind: 'drop', itemId: a }]))
+    expect(out.droppedItemIds).toEqual([a])
+
+    t.uow.run((repos) => {
+      expect(repos.weekItems.listForWeek(TARGET).map((r) => r.title)).toEqual(['B'])
+      // 원본 행은 남아 있다 — 폐기는 삭제가 아니다 (ADR-014 §1)
+      expect(repos.weekItems.header(a)).not.toBeNull()
+      expect(repos.weekItems.listForWeek(W1).map((r) => r.id)).toEqual([b])
+    })
+  })
+
+  it('A10 — 축소 이월은 자른 est 로 새 항목을 만든다', () => {
+    const t = seeded()
+    const [a] = plan(t, 'A')
+
+    settle(t.uow, NOW, input([{ kind: 'carry_reduced', itemId: a, estPomos: 2 }]))
+
+    t.uow.run((repos) => expect(repos.weekItems.listForWeek(TARGET)[0].estPomos).toBe(2))
+  })
+
+  it('R4·A16 — 워터마크가 targetWeek − 1주로 가고 재판정하면 빈 범위다', () => {
+    const t = seeded()
+    plan(t, 'A')
+
+    const out = settle(t.uow, NOW, input())
+    expect(out.settledThrough).toBe('2026-08-24')
+    expect(reviewPending(t.uow, SUNDAY)).toEqual({ needed: false, targetWeek: TARGET })
+  })
+
+  it('A5 — 미완료 항목이 0건이어도 확정되고 워터마크만 전진한다 (R5)', () => {
+    const t = seeded()
+    const out = settle(t.uow, NOW, input())
+    expect(out.carriedItemIds).toEqual([])
+    expect(out.settledThrough).toBe('2026-08-24')
+  })
+
+  it('R37 — 범위의 주와 계획 대상 주에 행이 생기고 범위 쪽만 settled_at 을 받는다', () => {
+    const t = seeded()
+    settle(t.uow, NOW, input())
+    t.uow.run((repos) => {
+      // 범위 3주 + 계획 대상 주 전부 행이 있다
+      for (const w of [W1, '2026-08-17', '2026-08-24', TARGET]) {
+        expect(repos.weeks.baseline(w)).not.toBeNull()
+      }
+    })
+  })
+
+  it('시나리오 8 — 계획 대상 주에 이미 항목이 있으면 행을 추가할 뿐 병합하지 않는다', () => {
+    const t = seeded()
+    plan(t, '같은 제목')
+    t.uow.run((repos) =>
+      repos.weekItems.confirmPlan({
+        week: TARGET,
+        items: [{ id: null, title: '같은 제목', estPomos: 1, days: [] }]
+      })
+    )
+
+    settle(t.uow, NOW, input())
+
+    t.uow.run((repos) =>
+      expect(repos.weekItems.listForWeek(TARGET).map((r) => r.title)).toEqual([
+        '같은 제목',
+        '같은 제목'
+      ])
+    )
+  })
+
+  it('A23 — 응답이 자동 이월을 사실로 알린다 (R30)', () => {
+    const t = seeded()
+    const [a] = plan(t, '화면이 아는 것', '그 사이 생긴 것')
+
+    const out = settle(t.uow, NOW, input([{ kind: 'carry_reduced', itemId: a, estPomos: 1 }]))
+    expect(out.autoCarried.map((c) => c.title)).toEqual(['그 사이 생긴 것'])
+    expect(out.autoCarried[0].estPomos).toBe(3)
+  })
+
+  describe('STALE_RANGE', () => {
+    it('범위가 다르면 중단한다 (시나리오 10)', () => {
+      const t = seeded()
+      expect(() =>
+        settle(t.uow, NOW, { ...input(), expectedRange: { from: W1, to: '2026-08-17' } })
+      ).toThrow(STALE_RANGE)
+    })
+
+    it('계획 대상 주가 다르면 중단한다', () => {
+      const t = seeded()
+      expect(() => settle(t.uow, NOW, { ...input(), targetWeek: '2026-09-07' })).toThrow(
+        STALE_RANGE
+      )
+    })
+
+    it('이미 정산이 끝나 빈 범위면 중단한다', () => {
+      const t = seeded()
+      settle(t.uow, NOW, input())
+      expect(() => settle(t.uow, NOW, input())).toThrow(STALE_RANGE)
+    })
+
+    it('중단하면 아무것도 쓰지 않는다', () => {
+      const t = seeded()
+      plan(t, 'A')
+      expect(() => settle(t.uow, NOW, { ...input(), targetWeek: '2026-09-07' })).toThrow()
+      t.uow.run((repos) => {
+        expect(repos.weekItems.listForWeek(TARGET)).toEqual([])
+        expect(repos.settings.get('last_settled_week')).toBe('"2026-08-03"')
+      })
+    })
+  })
+
+  /**
+   * A15. 원자성은 주장이 아니라 검증 대상이다. 이월 INSERT·폐기가 끝난 **뒤** 마지막
+   * 단계(워터마크 전진)에서 터뜨려, 앞의 쓰기가 전부 되감기는지 본다.
+   */
+  it('A15 — 마지막 단계에서 실패하면 이월·폐기·워터마크가 전부 확정 이전 값이다 (R22)', () => {
+    const t = seeded()
+    const [a, b] = plan(t, 'A', 'B')
+
+    const faulty: UnitOfWork = {
+      run: (work) =>
+        t.uow.run((repos) =>
+          work({
+            ...repos,
+            settings: {
+              ...repos.settings,
+              set: (key, value) => {
+                if (key === 'last_settled_week') throw new Error('강제 실패')
+                repos.settings.set(key, value)
+              }
+            }
+          })
+        )
+    }
+
+    expect(() => settle(faulty, NOW, input([{ kind: 'drop', itemId: a }]))).toThrow('강제 실패')
+
+    t.uow.run((repos) => {
+      expect(repos.weekItems.listForWeek(TARGET)).toEqual([]) // 이월 INSERT 없음
+      expect(repos.weekItems.listForWeek(W1).map((r) => r.id)).toEqual([a, b]) // 폐기 없음
+      expect(repos.settings.get('last_settled_week')).toBe('"2026-08-03"')
+    })
   })
 })
