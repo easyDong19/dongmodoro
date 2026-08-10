@@ -22,15 +22,18 @@ import { cn } from '@renderer/shared/lib/utils'
    spacing(h-9·px-4 등)은 Tailwind 기본 스케일이다. spacing 토큰화는 실측할 레이아웃이
    생길 때까지 미뤘다 — tokens.md §10. */
 const buttonVariants = cva(
-  "inline-flex shrink-0 items-center justify-center gap-2 rounded-md text-sm font-medium whitespace-nowrap transition-all disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
+  // `control` = 컨트롤 레벨 backdrop (design-system ADR-002 §1). link 변형은 아래에서
+  // 무력하지만(배경이 없어 blur 할 대상이 없다) 기본에 두는 편이 변형마다 빠뜨리는 것보다 낫다.
+  "control inline-flex shrink-0 items-center justify-center gap-2 rounded-md text-sm font-medium whitespace-nowrap transition-all disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
   {
     variants: {
       variant: {
-        default: 'bg-teal text-bg-deep hover:bg-teal/90',
-        destructive: 'bg-danger text-bg-deep hover:bg-danger/90',
+        default: 'control-raised bg-teal text-bg-deep hover:bg-teal/90',
+        destructive: 'control-raised bg-danger text-bg-deep hover:bg-danger/90',
         outline: 'border border-control-border bg-glass text-ink hover:bg-glass-strong',
         secondary: 'bg-glass-strong text-ink hover:bg-glass',
         ghost: 'text-ink hover:bg-glass',
+        // link 는 표면이 아니라 글자다 — control 을 붙이지 않는다.
         link: 'text-teal underline-offset-4 hover:underline'
       },
       size: {

@@ -16,25 +16,15 @@ export function App() {
   return (
     <ClockGate>
       <main className="flex h-screen items-stretch justify-center gap-6 p-6">
-        <section
-          className="min-h-[320px] flex-1 rounded-lg p-4"
-          style={{ background: 'var(--glass)' }}
-          aria-label="타이머"
-        >
+        {/* `card` 는 표면 전용 클래스다 (global.css) — 배경·테두리·blur·그림자를 토큰으로
+            가져온다. 여백과 폭은 여기서 유틸리티로 준다. */}
+        <section className="card min-h-[320px] flex-1 p-4" aria-label="타이머">
           <TimerCard />
         </section>
-        <section
-          className="w-[360px] rounded-lg"
-          style={{ background: 'var(--glass)' }}
-          aria-label="주간 계획"
-        >
+        <section className="card w-[360px]" aria-label="주간 계획">
           <WeekCard />
         </section>
-        <section
-          className="w-[360px] rounded-lg"
-          style={{ background: 'var(--glass)' }}
-          aria-label="오늘 목록"
-        >
+        <section className="card w-[360px]" aria-label="오늘 목록">
           <TodayList />
         </section>
       </main>
