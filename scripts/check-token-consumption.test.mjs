@@ -51,9 +51,22 @@ describe('배경 광원 (tokens.md §1.1)', () => {
     expect(glow).not.toMatch(/animation|@keyframes/)
   })
 
-  it('클릭을 가로채지 않고 콘텐츠 뒤에 깔린다', () => {
+  it('클릭을 가로채지 않는다', () => {
     expect(glow).toMatch(/pointer-events:\s*none/)
-    expect(glow).toMatch(/z-index:\s*-1/)
+  })
+
+  /**
+   * 레이어 스케일은 base(0)~toast(40) 다섯 단계뿐이고 **base 아래가 없다**
+   * (tokens.md §7). 광원을 뒤로 보내려고 `z-index: -1` 을 새로 만드는 것은 토큰에 없는
+   * 값을 지어내는 것이라(§10, ADR 선행 규칙) 페인트 순서로 푼다 — 광원이 DOM 에서 먼저
+   * 오고, 콘텐츠가 `--layer-base` 로 스택 컨텍스트에 참여한다.
+   */
+  it('음수 레이어를 새로 만들지 않는다 — 스케일에 없는 값이다', () => {
+    expect(glow).not.toMatch(/z-index:\s*-/)
+  })
+
+  it('콘텐츠는 문서화된 base 레이어로 광원 위에 올라간다', () => {
+    expect(rule(global, 'main')).toMatch(/z-index:\s*var\(--layer-base\)/)
   })
 })
 
