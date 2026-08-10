@@ -148,6 +148,16 @@ export default tseslint.config(
     }
   },
 
+  // scripts/ 는 앱 코드가 아니라 저장소 도구다 (PR 언어 검사). CI 의 node 에서
+  // 직접 돌기 때문에 process·console 이 전역으로 있다 — 아래 프로세스별 import
+  // 제약(src/** 스코프)은 여기에 걸리지 않는다.
+  // 쓰는 전역만 적는다 — `globals` 패키지는 eslint 의 전이 의존이라 직접 import 하면
+  // 상위가 바꾸는 순간 깨진다.
+  {
+    files: ['scripts/**/*.mjs'],
+    languageOptions: { globals: { process: 'readonly', console: 'readonly' } }
+  },
+
   // ── import 제약 ─────────────────────────────────────────────────────────
   // 프로세스 폴더마다 전체 옵션을 한 번에 준다 (flat config 덮어쓰기 함정 — 상단 주석).
   // (A) src/shared/ — 순수성(ADR-008) + DB 격리(ADR-015) + 프로세스 경계
