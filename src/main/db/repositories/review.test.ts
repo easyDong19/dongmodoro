@@ -52,6 +52,151 @@ describe('review.earliestRecordedWeek — 워터마크 유실 폴백의 재료 (
   })
 })
 
+describe('review.weekFacts — 주별 사실 (R9·R11·R32·R33)', () => {
+  /**
+   * A24. 명시 항목 10 · 시스템 "기타" 항목 6 · 미분류 2 인 주.
+   *
+   * **차액이 아니면 이 테스트가 깨진다.** `task_id IS NULL` 만 세는 구현은 기타 항목에
+   * 붙은 6 을 어느 숫자에도 넣지 못해 사용자가 18 대신 12 를 보게 된다 (ADR-012 §4).
+   */
+  it('항목별 소진 합 + 계획에 없던 집중 = 그 주 소진 (R33)', () => {
+    const { uow } = testUow()
+    ensureWeeks(uow, W1)
+    uow.run((repos) => {
+      const itemId = repos.weekItems.confirmPlan({
+        week: W1,
+        items: [{ id: null, title: '논문', estPomos: 12, days: [] }]
+      }).createdIds[0]
+      repos.tasks.create({ id: 't-plan', weekItemId: itemId, title: '조각' })
+
+      const systemId = repos.weekItems.ensureSystemItem(W1)
+      repos.tasks.create({ id: 't-other', weekItemId: systemId, title: '사후 캡처' })
+
+      for (let i = 0; i < 10; i++) {
+        repos.sessions.insert(focusSession(`p${i}`, 't-plan', '2026-08-04', W1))
+      }
+      for (let i = 0; i < 6; i++) {
+        repos.sessions.insert(focusSession(`o${i}`, 't-other', '2026-08-05', W1))
+      }
+      for (let i = 0; i < 2; i++) {
+        repos.sessions.insert(focusSession(`n${i}`, null, '2026-08-06', W1))
+      }
+
+      const [fact] = repos.review.weekFacts(W1, W1)
+      expect(fact.spentPomos).toBe(18)
+      expect(fact.unplannedPomos).toBe(8) // 6 + 2 — 둘이 하나로 합쳐 나온다
+      expect(fact.studiedDays).toBe(3)
+    })
+  })
+
+  /**
+   * ADR-027 §1 의 정의역. 폐기 항목은 화면 목록에 나타나지 않으므로 Σ 에서 빠지고,
+   * 그 소진은 "계획에 없던 집중"으로 흡수된다 — 빼지 않으면 그 뽀모가 증발한다.
+   */
+  it('폐기 항목의 소진은 Σ 에서 빠져 계획에 없던 집중으로 흡수된다', () => {
+    const { uow } = testUow()
+    ensureWeeks(uow, W1)
+    uow.run((repos) => {
+      const { createdIds } = repos.weekItems.confirmPlan({
+        week: W1,
+        items: [{ id: null, title: '접은 것', estPomos: 3, days: [] }]
+      })
+      repos.tasks.create({ id: 't1', weekItemId: createdIds[0], title: '조각' })
+      repos.sessions.insert(focusSession('s1', 't1', '2026-08-04', W1))
+      repos.weekItems.drop(createdIds[0])
+
+      const [fact] = repos.review.weekFacts(W1, W1)
+      expect(fact.spentPomos).toBe(1)
+      expect(fact.unplannedPomos).toBe(1)
+    })
+  })
+
+  it('세션도 항목도 없는 주는 행을 만들지 않는다 — 공백 주는 세기만 한다', () => {
+    const { uow } = testUow()
+    ensureWeeks(uow, W1, W2, W3)
+    uow.run((repos) => {
+      repos.weekItems.confirmPlan({
+        week: W1,
+        items: [{ id: null, title: 'A', estPomos: 1, days: [] }]
+      })
+      repos.sessions.insert(focusSession('s1', null, '2026-08-18', W3))
+
+      expect(repos.review.weekFacts(W1, W3).map((f) => f.week)).toEqual([W1, W3])
+    })
+  })
+
+  it('예산이 없는 주는 budget: null 이다 — 0 으로 만들지 않는다 (ADR-018 §1)', () => {
+    const { uow } = testUow()
+    ensureWeeks(uow, W1, W2)
+    uow.run((repos) => {
+      repos.weekItems.confirmPlan({
+        week: W1,
+        items: [{ id: null, title: 'A', estPomos: 1, days: [] }]
+      })
+      repos.weekItems.confirmPlan({
+        week: W2,
+        items: [{ id: null, title: 'B', estPomos: 1, days: [] }]
+      })
+      repos.weeks.setPlan(W2, 0) // "예산 0 으로 하겠다" 는 별개의 사실이다
+
+      const byWeek = new Map(repos.review.weekFacts(W1, W2).map((f) => [f.week, f.budget]))
+      expect(byWeek.get(W1)).toBeNull()
+      expect(byWeek.get(W2)).toBe(0)
+    })
+  })
+
+  it('항목 소진은 그 항목의 주에 기록된 세션만 센다 (ADR-012 §1)', () => {
+    const { uow } = testUow()
+    ensureWeeks(uow, W1, W2)
+    uow.run((repos) => {
+      const itemId = repos.weekItems.confirmPlan({
+        week: W1,
+        items: [{ id: null, title: 'A', estPomos: 5, days: [] }]
+      }).createdIds[0]
+      repos.tasks.create({ id: 't1', weekItemId: itemId, title: '조각' })
+      repos.sessions.insert(focusSession('s1', 't1', '2026-08-04', W1))
+      // 같은 조각인데 주 경계를 넘겨 다음 주에 기록된 세션
+      repos.sessions.insert(focusSession('s2', 't1', '2026-08-11', W2))
+
+      const byWeek = new Map(repos.review.weekFacts(W1, W2).map((f) => [f.week, f]))
+      // W2 에는 그 항목이 없으므로 s2 는 W2 의 "계획에 없던 집중" 이 된다
+      expect(byWeek.get(W1)?.unplannedPomos).toBe(0)
+      expect(byWeek.get(W2)?.spentPomos).toBe(1)
+      expect(byWeek.get(W2)?.unplannedPomos).toBe(1)
+    })
+  })
+})
+
+describe('review.lastStudied — 범위 밖도 본다 (R31·A25)', () => {
+  it('아무 세션도 없으면 null', () => {
+    const { uow } = testUow()
+    expect(uow.run((repos) => repos.review.lastStudied())).toBeNull()
+  })
+
+  it('focus 세션이 있는 가장 최근 주와 그 소진을 준다', () => {
+    const { uow } = testUow()
+    ensureWeeks(uow, W1, W2)
+    uow.run((repos) => {
+      repos.sessions.insert(focusSession('a1', null, '2026-08-04', W1))
+      repos.sessions.insert(focusSession('b1', null, '2026-08-11', W2))
+      repos.sessions.insert(focusSession('b2', null, '2026-08-12', W2))
+
+      expect(repos.review.lastStudied()).toEqual({ week: W2, spentPomos: 2 })
+    })
+  })
+
+  it('focus 가 아닌 세션만 있는 주는 세지 않는다', () => {
+    const { uow } = testUow()
+    ensureWeeks(uow, W1, W2)
+    uow.run((repos) => {
+      repos.sessions.insert(focusSession('a1', null, '2026-08-04', W1))
+      repos.sessions.insert({ ...focusSession('b1', null, '2026-08-11', W2), kind: 'short' })
+
+      expect(repos.review.lastStudied()).toEqual({ week: W1, spentPomos: 1 })
+    })
+  })
+})
+
 describe('review.countPending — 3택 대상 건수', () => {
   it('빈 범위면 0', () => {
     const { uow } = testUow()

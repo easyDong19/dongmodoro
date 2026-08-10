@@ -609,7 +609,86 @@ function makeRepos(tx: Tx): Repositories {
           .select({ n: sql<number>`count(*)` })
           .from(weekItems)
           .where(pendingPredicate(from, to))
-          .get()?.n ?? 0
+          .get()?.n ?? 0,
+
+      weekFacts: (from, to) => {
+        /**
+         * "기록이 있는 주" = 세션 1건 이상 **또는** 주간 항목 1건 이상 (technical-spec).
+         * 완전히 빈 주는 행이 없어야 하므로 범위를 채우지 않고 실제 기록에서 길어 올린다.
+         *
+         * 항목 쪽에서 `deleted_at` 만 거른다. 삭제는 "없던 일"이지만(ADR-014 §1) 폐기는
+         * 이력으로 남는 사실이라, 폐기 항목만 있는 주도 요약에 나타나야 한다.
+         */
+        const recorded = tx.all<{ w: string }>(sql`
+            SELECT ${sessions.localWeek} AS w FROM ${sessions}
+             WHERE ${sessions.localWeek} BETWEEN ${from} AND ${to}
+            UNION
+            SELECT ${weekItems.week} AS w FROM ${weekItems}
+             WHERE ${weekItems.week} BETWEEN ${from} AND ${to}
+               AND ${weekItems.deletedAt} IS NULL
+            ORDER BY w
+          `)
+
+        return recorded.map(({ w }) => {
+          const totals = tx
+            .select({
+              spent: sql<number>`count(*)`,
+              days: sql<number>`count(distinct ${sessions.localDate})`
+            })
+            .from(sessions)
+            .where(and(eq(sessions.localWeek, w), eq(sessions.kind, 'focus')))
+            .get()
+
+          /**
+           * Σ 의 정의역은 **그 주에 화면 목록으로 표시되는 항목**이다 (ADR-027 §1) —
+           * ADR-012 §4 수식의 `is_system = 0` 을 그렇게 읽는다. 폐기·삭제 항목을 Σ 에
+           * 넣으면 그 소진이 요약의 어느 숫자에도 안 들어가 화면에서 증발한다.
+           *
+           * `tasks.deleted_at` 은 일부러 거르지 않는다 — `listForWeek` 의 항목 소진과
+           * 같은 술어여야 차액 항등식이 성립한다 (ADR-027 §2).
+           */
+          const planned =
+            tx
+              .select({ n: sql<number>`count(*)` })
+              .from(sessions)
+              .innerJoin(tasks, eq(sessions.taskId, tasks.id))
+              .innerJoin(weekItems, eq(tasks.weekItemId, weekItems.id))
+              .where(
+                and(
+                  eq(sessions.localWeek, w),
+                  eq(sessions.kind, 'focus'),
+                  eq(weekItems.week, w),
+                  eq(weekItems.isSystem, 0),
+                  isNull(weekItems.droppedAt),
+                  isNull(weekItems.deletedAt)
+                )
+              )
+              .get()?.n ?? 0
+
+          const spentPomos = totals?.spent ?? 0
+          return {
+            week: w,
+            studiedDays: totals?.days ?? 0,
+            spentPomos,
+            budget:
+              tx.select({ budget: weeks.budget }).from(weeks).where(eq(weeks.week, w)).get()
+                ?.budget ?? null,
+            unplannedPomos: spentPomos - planned
+          }
+        })
+      },
+
+      lastStudied: () => {
+        const row = tx
+          .select({ week: sessions.localWeek, spentPomos: sql<number>`count(*)` })
+          .from(sessions)
+          .where(eq(sessions.kind, 'focus'))
+          .groupBy(sessions.localWeek)
+          .orderBy(desc(sessions.localWeek))
+          .limit(1)
+          .get()
+        return row ?? null
+      }
     }
   }
 }

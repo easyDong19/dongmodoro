@@ -178,6 +178,18 @@ export interface SessionsRepository {
   focusCountSinceLastLong(): number
 }
 
+export type ReviewWeekFact = {
+  week: string
+  /** focus 세션이 있었던 서로 다른 날짜 수. */
+  studiedDays: number
+  /** 그 주 focus 세션 전체. 폐기·삭제가 줄이지 않는다 (ADR-027 §2). */
+  spentPomos: number
+  /** 그 주 스냅샷 예산. 행이 없거나 NULL 이면 `null` = "기록 없음" (ADR-018 §1·§2). */
+  budget: number | null
+  /** 계획에 없던 집중 — **차액**이다. `주 소진 − Σ(목록에 보이는 항목의 소진)`. */
+  unplannedPomos: number
+}
+
 export interface ReviewRepository {
   /**
    * 기록이 있는 가장 이른 주 = `min(sessions.local_week, week_items.week, weeks.week)`.
@@ -193,6 +205,19 @@ export interface ReviewRepository {
    * 갈리면 배너가 말한 건수와 패널이 보여주는 목록이 어긋난다.
    */
   countPending(from: string, to: string): number
+  /**
+   * 범위 안에서 **기록이 있는 주**만 오름차순으로 (세션 ≥ 1 또는 주간 항목 ≥ 1).
+   * 완전히 빈 주는 행을 만들지 않는다 — 기록도 계획도 없는 주에는 해석할 예산조차
+   * 없기 때문이다 (ADR-013 §2). 화면은 그런 주를 "N주 쉬었어요" 로만 센다.
+   */
+  weekFacts(from: string, to: string): ReviewWeekFact[]
+  /**
+   * focus 세션이 있는 **가장 최근 주**와 그 소진. 없으면 `null`.
+   *
+   * **정산 범위와 무관하게** 조회한다 (R31) — 공백 기간을 말할 때 "마지막으로 공부한
+   * 주"는 범위 밖일 수 있고, 그게 이 값이 존재하는 이유다.
+   */
+  lastStudied(): { week: string; spentPomos: number } | null
 }
 
 export interface Repositories {
