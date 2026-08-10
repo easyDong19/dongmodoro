@@ -2,9 +2,9 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) 문법으로 진행을 추적한다.
 
-**Goal:** 주간 항목을 만들고, 거기서 조각을 오늘로 가져오고, 그 조각으로 집중한 결과가 주간 카드 숫자로 되돌아오는 한 줄기를 화면에서 끝까지 통과시킨다. 정산·마일스톤·가용량 편집·반응형 셸은 만들지 않는다.
+**Goal:** 주간 항목을 만들고, 거기서 조각을 오늘로 가져오고, 그 조각으로 집중한 결과가 주간 카드 숫자로 되돌아오는 한 줄기를 화면에서 끝까지 통과시킨다.
 
-**Architecture:** 승인된 스펙 [docs/superpowers/specs/2026-08-07-m3a-week-plan-design.md](../superpowers/specs/2026-08-07-m3a-week-plan-design.md) 의 실행분이다. 소진 집계 술어를 리포지토리 SQL 한 곳에 가두고, 기타 행을 차액으로 정의하며, 플래너 확정을 선언형 전체 초안 한 트랜잭션으로 처리한다. 스키마는 M1 이 ADR-011 대로 이미 세웠으므로 **마이그레이션이 없다.**
+**Architecture:** 승인된 스펙 [2026-08-07-m3a-week-plan-design.md](../superpowers/specs/2026-08-07-m3a-week-plan-design.md) 의 실행분이며, 3인 리뷰(옹호·적대·중립)로 결함 15건을 잡은 뒤의 2판이다. 소진 집계 술어를 리포지토리 SQL 한 곳에 가두고, 기타 행을 차액으로 정의하며([ADR-027](../architecture/decisions/adr-027-other-row-domain.md)), 플래너 확정을 선언형 전체 초안 한 트랜잭션으로 처리한다. 스키마는 M1 이 ADR-011 대로 이미 세웠으므로 **마이그레이션이 없다.**
 
 **Tech Stack:** M2 스택 그대로 (Electron + electron-vite + React 19 + TS strict, better-sqlite3 + drizzle, zod 4, TanStack Query 5, Tailwind 4 + shadcn/ui, Vitest, uuid v7). 추가 의존성 없음.
 
@@ -12,33 +12,62 @@
 
 M1·M2 계획의 Global Constraints 가 전부 그대로 적용된다 (pnpm 전용, BrowserWindow 보안 플래그, `handleIpc` 로만 IPC 등록, Drizzle import 는 `src/main/db/` 만, `src/shared/` 순수 TS, 시간은 `src/shared/time/` 초크포인트, 주 시작 월요일, UI 이모지 금지·토큰만, 커밋 영어 Conventional Commits, husky 훅 우회 금지). 여기에 이번 마일스톤의 것:
 
-- **ADR-025**: 쿼리 키는 `keys.ts` 팩토리로만. 캐시 조작은 초크포인트 밖에서 금지 (ESLint 강제 중). 키 속 달력 키는 `useClock()` 또는 응답/payload 저장값만 — renderer 재계산 금지.
-- **ADR-015**: 유스케이스 하나 = `uow.run` 하나. 포트는 **유스케이스 단위**로 정의한다 — `findAll`/`update(id, patch)` 류 CRUD 포트 금지 ([ports.ts](../../src/main/services/ports.ts) 파일 상단 주석).
+- **ADR-025**: 쿼리 키는 `keys.ts` 팩토리로만. 캐시 조작은 초크포인트 밖에서 금지 (ESLint 강제 중). 키 속 달력 키는 `useClock()` 또는 응답 저장값만 — **renderer 재계산 금지** (`new Date()`·`Date.now()` 는 ESLint `TIME_SELECTORS` 가 막는다).
+- **ADR-027**: 기타 행 차액의 Σ 정의역은 **화면 목록에 표시되는 항목**(`is_system = 0 AND dropped_at IS NULL AND deleted_at IS NULL`)이다. 주간 총 소진은 그 주 focus 세션 수 전체이며 폐기·삭제가 이 값을 줄이지 않는다. 표시 조건은 세 갈래다.
+- **ADR-015**: 유스케이스 하나 = `uow.run` 하나. 포트는 **유스케이스 단위**로 정의한다 — `update(id, patch)` 류 CRUD 포트 금지 ([ports.ts](../../src/main/services/ports.ts) 상단 주석).
 - **작업 브랜치는 `feature/m3a-week-plan` 하나**이며 태스크마다 커밋한다.
 - 유효 베이스라인·유효 예산의 결정 순서는 `src/main/services/baseline.ts` 한 곳에만 존재한다 (pomo-baseline R13).
-- **`weekly_capacity` 는 미설정(NULL)이다.** 시딩하지 않는다 (pomo-baseline R8·R15). 그 결과의 화면 동작은 스펙 §3 표를 따른다.
+- **`weekly_capacity` 는 미설정(NULL)이다.** 시딩하지 않는다 (pomo-baseline R8·R15).
 - **`milestone_id` 는 항상 NULL.** 연결 칩·`M<n>` 배지를 만들지 않는다.
-- **과적 표시에 `--danger`·경고 아이콘·단정 문구 금지.** `--amber` + `+N` 배지 + 질문형까지만 (week-plan R21, principles §1·§2).
-
-**계획 밖:** 정산 전체(M3b), 마일스톤 기능, 가용량·뽀모 길이 편집 UI, 반응형 3단계·프레임리스 타이틀바·트레이(app-shell), 주 네비게이션, 항목 우선순위 정렬, 미래 날짜 pull.
+- **과적 표시에 `--danger`·경고 아이콘·단정 문구 금지.** `--amber` + `+N` 배지 + 질문형까지만 (R21, principles §1·§2).
+- **접근성 기준선** (principles §7): 조작 타깃 `--target-min`(24px) 하한, 포커스 링 유지, 색 단독 구분 금지, `prefers-reduced-motion: reduce` 시 전이 즉시 반영.
 
 ---
 
-## 차액 공식의 정의역 — 착수 전에 읽을 것
+## 이번 마일스톤에서 뺀 것 (사용자 결정 2026-08-07)
 
-week-plan R17 의 본문은 Σ 의 정의역을 "그 주의 `is_system = 0` 인 항목 전체"라고 쓴다. **여기서 폐기(`dropped_at` 있음) 항목이 포함되는지가 본문만으로는 애매하다.** 인수 기준 A24 로 역산해 확정한다.
+**"안 만든다"가 아니라 "지금은 값이 없어서 미룬다"** 이다. 각 항목이 언제 살아나는지 함께 적는다.
 
-> A24: 3뽀모를 소진한 항목을 폐기하면 항목은 목록에서 사라지지만 주간 총 소진은 줄지 않고, **그 3뽀모가 기타 행 값에 나타난다.**
+| 뺀 것 | 이유 | 언제 살아나나 |
+|---|---|---|
+| **"오늘이 무슨 요일인가" 정보 전체** | `useClock()` 은 `dayKey` 문자열만 주고 renderer 의 날짜 계산은 ESLint 가 막는다. 이 정보에 매달린 기능 3개를 함께 미룬다 | M3b 또는 app-shell 이 시간 정보를 더 필요로 할 때 `clock.now` 응답에 필드를 더해 한 번에 |
+| ├ 요일 핍 4상태(지난/오늘/앞으로) | 위 | 위와 동시 |
+| ├ 오늘 배정 항목 상단 정렬·강조 (R7·A8) | 위 | 위와 동시 |
+| └ 플래너의 `다음 주` 세그먼트 (R3·R5·A3·A5) | 위 + 다음 주 계획은 확정해도 일반 뷰에 안 보여(ux-spec §5.6) M3a 에서 검증 가능한 것이 안내 문구뿐 | 위와 동시 |
+| **요일별 부하 그래프** (R22-2) | `weekly_capacity` 가 NULL 이라 기준선이 없다. 기준 없는 막대 7개는 사용자가 판단할 근거가 되지 못한다 | M3b 가 정산에 capacity 편집 진입점을 만들면(pomo-baseline R25) 진짜 값이 된다 |
+| **기타 행 드릴다운** (§6.4 4행) | 새 IPC 채널 + 상관 서브쿼리를 써서 만드는 것이 읽기 전용 이름 목록이다. 총합 숫자는 드릴다운 없이도 보인다 | 언제든 (독립적) |
+| 마일스톤 연결 칩 | 스펙 결정 3. R6 이 미연결을 정상 상태로 정의 | milestones 기능 |
+| 반응형 3구간·정산 모드 | app-shell(M4) / M3b | 각 마일스톤 |
 
-폐기 항목의 소진이 기타 행에 **나타나려면** Σ 에서 빠져 있어야 한다. 따라서:
+**요일 핍은 `배정됨 / 미배정` 2상태로 만든다.** 색만으로 구분하지 않는다 — 배정됨은 `--teal` solid, 미배정은 `--ink-faint` 이면서 **지름이 더 작다** (principles §3.5 의 두 채널 규칙은 2상태에도 적용된다).
+
+**M3a 에서 검증할 수 없는 인수 기준** (스펙 §2 표 + 이번 축소분):
+
+| 인수 기준 | 상태 |
+|---|---|
+| A3·A5 (편집 대상 주 토글·라벨 파생) | 검증 불가 — `다음 주` 를 뺐다 |
+| A7 (마일스톤 연결) | 검증 불가 — 마일스톤이 없다 |
+| A8 (오늘 배정 상단 정렬) | 검증 불가 — 요일 정보를 뺐다 |
+| A14·A15 (이월 배지 `N주째`) | **부분** — 이월 생성은 정산 소관. `originWeek` 이 앞선 주인 행을 테스트로 직접 심어 **계산식만** 검증한다 (Task 7) |
+| A17 (다음 주 항목 드로어 pull) | 데이터는 열려 있으나 UI 도달 경로 없음 (주 네비게이션 비범위) |
+| A25·A26 (예산 프리필·스냅샷 불변) | **부분** — capacity 가 NULL 이라 프리필이 항상 없다. 저장·불변은 검증한다 |
+| A29 마지막 절 (부하 그래프) | 검증 불가 — 그래프를 뺐다. 총량 과적(A29 앞부분)은 검증한다 |
+
+---
+
+## 차액과 표시 조건 — ADR-027 인용
+
+이 계획서는 **결정하지 않는다.** [ADR-027](../architecture/decisions/adr-027-other-row-domain.md) 이 정한 것을 그대로 옮긴다.
 
 ```
-Σ 의 정의역 = 일반 뷰 목록에 실제로 표시되는 항목
-            = is_system = 0 AND dropped_at IS NULL AND deleted_at IS NULL
-            = listForWeek(week) 의 결과 그대로
+Σ 의 정의역 = is_system = 0 AND dropped_at IS NULL AND deleted_at IS NULL   (= 목록에 보이는 항목)
+기타 행 소진 = 주간 총 소진 − Σ(그 정의역의 항목 소진)
+주간 총 소진 = count(focus 세션 WHERE local_week = 그 주)     ← 폐기·삭제가 줄이지 않는다
+
+표시한다 ⟺ 미분류 focus 세션이 있다  OR  부모 없는 조각이 있다  OR  기타 행 소진 > 0
 ```
 
-이렇게 두면 화면의 등식이 **문자 그대로** 성립한다: `게이지 소진 = Σ(보이는 항목) + 기타 행`. 폐기 항목을 Σ 에 포함시키면 A24 가 깨지고 3뽀모가 화면 어디에도 나타나지 않는다.
+**세 번째 갈래를 빠뜨리면 A24 가 깨진다** — 폐기 항목의 소진만 있는 주에서 행이 숨겨져 그 뽀모가 화면에서 증발한다. 1판 계획서가 정확히 이 버그를 갖고 있었고, 테스트 세트가 그것을 비껴갔다.
 
 ---
 
@@ -46,43 +75,37 @@ week-plan R17 의 본문은 Σ 의 정의역을 "그 주의 `is_system = 0` 인 
 
 ```
 src/
-├── shared/
-│   └── ipc/
-│       ├── channels.ts          # (수정) week.* invoke 채널 8종
-│       ├── contracts.ts         # (수정) week.* req/res 스키마
-│       └── api.ts               # (수정) window.api.week 타입
+├── shared/ipc/
+│   ├── channels.ts              # (수정) week.* invoke 채널 9종
+│   ├── contracts.ts             # (수정) week.* req/res 스키마
+│   └── api.ts                   # (수정) window.api.week 타입
 ├── main/
 │   ├── services/
-│   │   ├── ports.ts             # (수정) WeeksRepository·WeekItemsRepository 확장
-│   │   ├── baseline.ts          # (수정) effectiveBudget + budgetPrefill 추가
-│   │   └── week-plan.ts         # 신규 — 주간 카드 유스케이스 7종 + 차액 순수 함수
-│   ├── ipc/
-│   │   └── week.ts              # 신규 — week.* 핸들러
+│   │   ├── ports.ts             # (수정) Weeks·WeekItems 포트 확장
+│   │   ├── baseline.ts          # (수정) effectiveBudget · budgetPrefill
+│   │   └── week-plan.ts         # 신규 — 유스케이스 + 순수 함수 2종
+│   ├── ipc/week.ts              # 신규 — week.* 핸들러
 │   ├── index.ts                 # (수정) week 핸들러 등록
-│   └── db/repositories/
-│       └── drizzle.ts           # (수정) 두 리포지토리 구현 추가
-├── preload/
-│   └── index.ts                 # (수정) week.* invoke 표면
+│   └── db/
+│       └── repositories/
+│           ├── drizzle.ts       # (수정) 두 리포지토리 구현
+│           ├── test-helpers.ts  # 신규 — 계약 테스트 공용 셋업 (Task 2)
+│           └── week-items.test.ts  # 신규 — 계약 테스트
+├── preload/index.ts             # (수정) week.* invoke 표면
 └── renderer/
-    ├── app/App.tsx              # (수정) 주간 카드를 ClockGate 안쪽에 추가
-    └── shared/
-        ├── query/
-        │   ├── keys.ts          # (수정) week(weekKey) 키 추가
-        │   └── invalidate.ts    # (수정) InvalidationEvent 2종 추가
-        └── ui/
-            └── PomoDots.tsx     # 신규 — 뽀모 도트 (default·neutral 두 변형)
+    ├── app/App.tsx              # (수정) 주간 카드를 ClockGate 안쪽에
+    ├── shared/
+    │   ├── query/keys.ts        # (수정) weekItems → week 로 교체
+    │   ├── query/invalidate.ts  # (수정) 기존 4사건 키 정정 + 신규 2사건
+    │   └── ui/PomoDots.tsx      # 신규
     └── features/week/
-        ├── useWeek.ts           # 조회 + mutation 훅
-        ├── WeekCard.tsx         # 모드 전환 껍데기 (일반 뷰 / 플래너)
-        ├── WeekItemRow.tsx      # 항목 행 + 요일 핍
-        ├── OtherRow.tsx         # 기타 행 (neutral 도트)
-        ├── BudgetGauge.tsx      # 예산 게이지
-        ├── ItemDrawer.tsx       # 항목 드로어 (인라인)
-        └── Planner.tsx          # 플래너 5단계
+        ├── useWeek.ts · WeekCard.tsx · WeekItemRow.tsx
+        ├── OtherRow.tsx · BudgetGauge.tsx
+        ├── ItemDrawer.tsx · Planner.tsx
 tests → 각 모듈 옆 *.test.ts(x)
 ```
 
-**중요 — 이벤트 채널을 추가하지 않는다.** 확정·완료·폐기·pull 은 전부 **renderer 가 시작하는 invoke** 다. M2 의 `pull-changed`·`task-toggled` 와 같이 mutation 의 `onSuccess` 에서 `dispatchInvalidation` 을 부르면 된다. `EVENT_CHANNELS`(main→renderer push)는 손대지 않는다 — 새로 넣는 것은 `InvalidationEvent` 유니온의 변형 2개뿐이다 (Task 6).
+**이벤트 채널(`EVENT_CHANNELS`)을 추가하지 않는다.** 확정·완료·폐기·pull 은 전부 renderer 가 시작하는 invoke 이므로, mutation `onSuccess` 에서 `dispatchInvalidation` 을 부른다 — M2 의 `pull-changed`·`task-toggled` 와 같은 패턴이다.
 
 ---
 
@@ -90,30 +113,28 @@ tests → 각 모듈 옆 *.test.ts(x)
 
 **Files:**
 - Modify: `src/main/services/ports.ts`, `src/main/services/baseline.ts`, `src/main/db/repositories/drizzle.ts`
-- Test: `src/main/services/baseline.test.ts` (신규)
+- Test: `src/main/services/budget.test.ts` (신규 — `baseline.test.ts` 는 `db/repositories/` 에 이미 있으므로 basename 충돌을 피한다)
 
 **Interfaces:**
-- Produces: `effectiveBudget(repos, week): number | null` — `null` 은 **"기록 없음"** 이다. `budgetPrefill(repos): number | null`. `WeeksRepository.plan(week)` / `.setPlan(week, budget)`
+- Produces: `effectiveBudget(repos, week): number | null` (`null` = **"기록 없음"**), `budgetPrefill(repos): number | null`, `WeeksRepository.plan(week)` / `.setPlan(week, budget)`
 
-- [ ] **Step 1: 실패하는 테스트 작성** — `src/main/services/baseline.test.ts` 에 추가한다. 인메모리 페이크 repos 로 충분하다 (SQL 이 아니라 결정 순서를 검증한다):
+- [ ] **Step 1: 실패하는 테스트 작성** — 페이크 repos 로 충분하다 (SQL 이 아니라 결정 순서를 검증한다)
 
 ```ts
+// src/main/services/budget.test.ts
 import { describe, expect, it } from 'vitest'
 import { budgetPrefill, effectiveBudget } from './baseline'
-import type { Repositories } from './ports'
+import type { Repositories, WeekPlan } from './ports'
 
-function fakeRepos(o: {
-  plan?: { budget: number | null; capacity: number[] | null; plannedAt: string | null } | null
-  settings?: Record<string, string>
-}): Repositories {
+function fakeRepos(o: { plan?: WeekPlan | null; settings?: Record<string, string> }): Repositories {
   const settings = o.settings ?? {}
   return {
-    settings: { get: (k) => settings[k] ?? null, set: () => {}, updatedAt: () => null },
+    settings: { get: (k: string) => settings[k] ?? null, set: () => {}, updatedAt: () => null },
     weeks: { baseline: () => null, ensure: () => {}, plan: () => o.plan ?? null, setPlan: () => {} }
   } as unknown as Repositories
 }
 
-describe('effectiveBudget', () => {
+describe('effectiveBudget (pomo-baseline R11)', () => {
   it('weeks 행이 없으면 기록 없음(null)', () => {
     expect(effectiveBudget(fakeRepos({ plan: null }), '2026-08-03')).toBeNull()
   })
@@ -128,36 +149,36 @@ describe('effectiveBudget', () => {
     expect(effectiveBudget(repos, '2026-08-03')).toBe(0)
   })
 
-  it('capacity 합으로 예산을 파생하지 않는다 (pomo-baseline R11)', () => {
-    // 행은 있고 budget 은 NULL, capacity 는 있다 → 그래도 기록 없음이다.
-    const repos = fakeRepos({ plan: { budget: null, capacity: [4, 4, 4, 4, 4, 0, 0], plannedAt: null } })
+  it('capacity 합으로 예산을 파생하지 않는다', () => {
+    const repos = fakeRepos({
+      plan: { budget: null, capacity: [4, 4, 4, 4, 4, 0, 0], plannedAt: null }
+    })
     expect(effectiveBudget(repos, '2026-08-03')).toBeNull()
   })
 })
 
-describe('budgetPrefill', () => {
-  it('weekly_capacity 가 없으면 프리필하지 않는다 (R12)', () => {
+describe('budgetPrefill (pomo-baseline R12)', () => {
+  it('weekly_capacity 가 없으면 프리필하지 않는다 — M3a 는 항상 이 경로다', () => {
     expect(budgetPrefill(fakeRepos({}))).toBeNull()
   })
 
   it('있으면 합을 프리필한다', () => {
-    const repos = fakeRepos({ settings: { weekly_capacity: '[4,4,4,4,4,0,0]' } })
-    expect(budgetPrefill(repos)).toBe(20)
+    expect(budgetPrefill(fakeRepos({ settings: { weekly_capacity: '[4,4,4,4,4,0,0]' } }))).toBe(20)
   })
 })
 ```
 
-- [ ] **Step 2: 실행해 실패 확인** — `pnpm test src/main/services/baseline.test.ts` → FAIL (`effectiveBudget` 없음)
+- [ ] **Step 2: 실행해 실패 확인** — `pnpm test src/main/services/budget.test.ts` → FAIL (`effectiveBudget` 없음)
 
 - [ ] **Step 3: 구현**
 
-`ports.ts` 의 `WeeksRepository` 에 두 메서드를 더한다 (기존 `baseline`·`ensure` 는 그대로):
+`ports.ts` 의 `WeeksRepository` 확장 (기존 `baseline`·`ensure` 는 그대로):
 
 ```ts
 export type WeekPlan = {
   /** NULL = "기록 없음". 0 은 "예산 0 으로 하겠다"는 별개 사실이다 (ADR-018 §1). */
   budget: number | null
-  /** 요일별 가용 뽀모 `[월..일]`. 미설정이면 null. */
+  /** 요일별 가용 뽀모 `[월..일]`. 미설정이면 null. M3a 에서는 항상 null 이다. */
   capacity: number[] | null
   /** 최초 확정 시각. 주중 재수정으로 갱신하지 않는다 (week-plan R23). */
   plannedAt: string | null
@@ -173,14 +194,14 @@ export interface WeeksRepository {
 }
 ```
 
-`baseline.ts` 에 두 함수를 더한다:
+`baseline.ts` 에 추가:
 
 ```ts
 /**
  * 유효 예산(week) 계약 (pomo-baseline R11). 반환 `null` 은 **"기록 없음"** 이며
  * "예산 0" 이 아니다 — 후자는 `0` 으로 돌아온다 (ADR-018 §1).
  *
- * **조회 시점에 `sum(weekly_capacity)` 로 예산을 파생하는 경로는 이 계약에 없다** (R11).
+ * **조회 시점에 `sum(weekly_capacity)` 로 예산을 파생하는 경로는 이 계약에 없다.**
  * capacity 는 입력 UI 의 프리필 재료일 뿐이다 (`budgetPrefill`).
  */
 export function effectiveBudget(repos: Repositories, week: string): number | null {
@@ -188,19 +209,18 @@ export function effectiveBudget(repos: Repositories, week: string): number | nul
 }
 
 /**
- * 예산 입력 필드의 기본값 프리필 (pomo-baseline R12). **조회 계약이 아니라 입력 UI 의
- * 관심사다** — 프리필 값은 사용자가 확정해야 비로소 저장된다.
- * `weekly_capacity` 미설정이면 `null` 을 돌려 필드를 빈 채로 둔다.
+ * 예산 입력의 기본값 프리필 (pomo-baseline R12). **조회 계약이 아니라 입력 UI 의
+ * 관심사다.** `weekly_capacity` 미설정이면 `null` 을 돌려 필드를 빈 채로 둔다 —
+ * M3a 에는 capacity 편집 UI 가 없으므로 항상 이 경로다.
  */
 export function budgetPrefill(repos: Repositories): number | null {
   const raw = repos.settings.get('weekly_capacity')
   if (raw === null) return null
-  const capacity = JSON.parse(raw) as number[]
-  return capacity.reduce((sum, n) => sum + n, 0)
+  return (JSON.parse(raw) as number[]).reduce((sum, n) => sum + n, 0)
 }
 ```
 
-`drizzle.ts` 의 `weeks` 블록에 구현을 더한다:
+`drizzle.ts` 의 `weeks` 블록에 추가:
 
 ```ts
 plan: (week) => {
@@ -217,7 +237,7 @@ plan: (week) => {
   }
 },
 
-// planned_at 은 최초 확정 시각만 담는다 (week-plan R23·A31). COALESCE 가 그 규칙이다 —
+// planned_at 은 최초 확정 시각만 담는다 (R23·A31). COALESCE 가 그 규칙이다 —
 // `set({ plannedAt: now() })` 로 쓰면 주중 재수정마다 갱신되어 "언제 계획했나"가
 // "마지막으로 손댄 시각"으로 변질된다.
 setPlan: (week, budget) => {
@@ -234,186 +254,401 @@ setPlan: (week, budget) => {
 
 ---
 
-### Task 2: 소진 집계 — 술어를 SQL 한 곳에
+### Task 2: 계약 테스트 헬퍼 + 주간 항목 리포지토리 (확정 · 소진 집계)
+
+1판에서 이 태스크는 둘로 쪼개져 있었고, **읽기 태스크의 테스트가 쓰기 태스크의 `confirmPlan` 을 불러** 5스텝이 성립하지 않았다. 같은 테이블의 읽기/쓰기는 서로 없이 테스트되지 않으므로 하나로 합친다.
 
 **Files:**
+- Create: `src/main/db/repositories/test-helpers.ts`, `src/main/db/repositories/week-items.test.ts`, `src/main/services/week-plan.ts`
 - Modify: `src/main/services/ports.ts`, `src/main/db/repositories/drizzle.ts`
-- Create: `src/main/services/week-plan.ts`
-- Test: `src/main/db/repositories/week-items.test.ts` (신규), `src/main/services/week-plan.test.ts` (신규)
+- Test: 위 `week-items.test.ts` + `src/main/services/week-plan.test.ts`
 
 **Interfaces:**
-- Produces: `WeekItemsRepository.listForWeek(week): WeekItemRow[]`, `.weekTotalSpent(week): number`, `.hasUnplannedActivity(week): boolean`; `otherRowSpent(total, items): number`
+- Consumes: Task 1 의 `weeks.ensure`·`weeks.setPlan`, `effectiveBaseline`
+- Produces: `testUow()`, `ensureWeeks()`; `WeekItemsRepository.confirmPlan` · `.listForWeek` · `.weekTotalSpent` · `.hasUnplannedActivity`; `otherRowSpent()` · `remainingPomos()` · `confirmWeekPlan()`
 
-- [ ] **Step 1: 실패하는 계약 테스트 작성** — 인메모리 실 SQLite (ADR-023 §3). M1 Task 5·M2 Task 6 과 같은 헬퍼를 쓴다.
+- [ ] **Step 1: 계약 테스트 헬퍼를 먼저 만든다**
+
+기존 테스트 3개(`today.test.ts`·`seed.test.ts`·`domain.test.ts`)가 **각자 로컬로** `drizzleUowOnMemoryDb()` 를 선언하고 있고 반환 모양도 통일돼 있지 않다. 새 테스트가 쓸 공용 헬퍼를 만든다. **기존 3개 파일은 건드리지 않는다** — 옮기면 이 태스크가 M2 테스트까지 손대게 된다.
+
+```ts
+// src/main/db/repositories/test-helpers.ts
+import Database from 'better-sqlite3'
+import { drizzle } from 'drizzle-orm/better-sqlite3'
+import { migrate } from 'drizzle-orm/better-sqlite3/migrator'
+import { join } from 'node:path'
+import { fileURLToPath } from 'node:url'
+import type { UnitOfWork } from '../../services/ports'
+import { seedSettings } from '../../services/seed'
+import { makeDrizzleUow } from './drizzle'
+
+const REPO_MIGRATIONS = join(fileURLToPath(import.meta.url), '../../../../../drizzle')
+
+export const TEST_BASELINE = { focusMin: 25, shortBreakMin: 5, longBreakMin: 15 }
+
+/**
+ * 인메모리 실 SQLite (ADR-023 §3) + FK ON + 마이그레이션 + **설정 시딩**.
+ *
+ * `seedSettings` 를 포함하는 이유: `effectiveBaseline`(services/baseline.ts)이 그 주
+ * `weeks` 스냅샷이 없을 때 settings 의 `focus_min` 을 읽고 **없으면 throw** 한다.
+ * 시딩 없이 `confirmWeekPlan` 을 부르면 `missing required setting 'focus_min'` 으로 죽는다.
+ */
+export function testUow(): { uow: UnitOfWork; db: ReturnType<typeof drizzle> } {
+  const sqlite = new Database(':memory:')
+  sqlite.pragma('foreign_keys = ON')
+  const db = drizzle(sqlite)
+  migrate(db, { migrationsFolder: REPO_MIGRATIONS })
+  const uow = makeDrizzleUow(db)
+  seedSettings(uow)
+  return { uow, db }
+}
+
+/**
+ * `sessions.local_week` 는 `weeks.week` 를 참조하는 FK 다 (schema.ts, ADR-019 §4).
+ * 세션을 넣기 전에 그 주 행이 없으면 `FOREIGN KEY constraint failed` 로 죽는다.
+ * **주 경계를 넘기는 테스트(A10)는 두 주를 모두 만들어야 한다.**
+ */
+export function ensureWeeks(uow: UnitOfWork, ...weekKeys: readonly string[]): void {
+  uow.run((repos) => {
+    for (const week of weekKeys) repos.weeks.ensure(week, TEST_BASELINE)
+  })
+}
+```
+
+- [ ] **Step 2: 실패하는 계약 테스트 작성**
 
 ```ts
 // src/main/db/repositories/week-items.test.ts
 import { describe, expect, it } from 'vitest'
-import { withTestUow } from './test-helpers' // M2 계약 테스트가 쓰는 헬퍼와 동일
+import { otherRowSpent } from '../../services/week-plan'
+import { ensureWeeks, testUow } from './test-helpers'
 
 const WEEK = '2026-08-03' // 월요일
-const NEXT = '2026-08-10'
-const BASE = { focusMin: 25, shortBreakMin: 5, longBreakMin: 15 }
+const NEXT = '2026-08-10' // 그 다음 월요일
 
-describe('weekItems.listForWeek', () => {
-  it('항목 소진은 그 항목의 주에 기록된 focus 세션만 센다 (R8 · A10)', () => {
-    withTestUow((uow) => {
-      uow.run((repos) => {
-        repos.weeks.ensure(WEEK, BASE)
-        const itemId = repos.weekItems.confirmPlan({
-          week: WEEK,
-          items: [{ id: null, title: '논문 3장', estPomos: 5, days: [] }]
-        }).createdIds[0]
-        repos.tasks.create({ id: 't1', weekItemId: itemId, title: '3장 1절' })
+function focusSession(id: string, taskId: string | null, localDate: string, localWeek: string) {
+  return {
+    id,
+    startedAt: '2026-08-04T01:00:00.000Z',
+    endedAt: '2026-08-04T01:25:00.000Z',
+    durationSec: 1500,
+    kind: 'focus' as const,
+    taskId,
+    localDate,
+    localWeek
+  }
+}
 
-        // 같은 주 세션 1개
-        repos.sessions.insert({
-          id: 's1', startedAt: '2026-08-04T01:00:00.000Z', endedAt: '2026-08-04T01:25:00.000Z',
-          durationSec: 1500, kind: 'focus', taskId: 't1',
-          localDate: '2026-08-04', localWeek: WEEK
-        })
-        // 자정·주 경계를 넘겨 다음 주로 기록된 세션 1개 — 같은 task 인데 주가 다르다
-        repos.sessions.insert({
-          id: 's2', startedAt: '2026-08-09T14:50:00.000Z', endedAt: '2026-08-09T15:15:00.000Z',
-          durationSec: 1500, kind: 'focus', taskId: 't1',
-          localDate: '2026-08-10', localWeek: NEXT
-        })
+describe('weekItems.listForWeek — 소진 집계 (R8)', () => {
+  it('항목 소진은 그 항목의 주에 기록된 focus 세션만 센다 (A10)', () => {
+    const { uow } = testUow()
+    ensureWeeks(uow, WEEK, NEXT) // 두 주 모두 — sessions.local_week FK
 
-        const rows = repos.weekItems.listForWeek(WEEK)
-        expect(rows).toHaveLength(1)
-        // s2 는 NEXT 주에 기록됐으므로 이 항목의 소진에 들어가지 않는다.
-        expect(rows[0].spentPomos).toBe(1)
-        // 그러나 주간 총 소진에는 각자의 주에서 정확히 한 번씩 세어진다.
-        expect(repos.weekItems.weekTotalSpent(WEEK)).toBe(1)
-        expect(repos.weekItems.weekTotalSpent(NEXT)).toBe(1)
-      })
+    uow.run((repos) => {
+      const itemId = repos.weekItems.confirmPlan({
+        week: WEEK,
+        items: [{ id: null, title: '논문 3장', estPomos: 5, days: [] }]
+      }).createdIds[0]
+      repos.tasks.create({ id: 't1', weekItemId: itemId, title: '3장 1절' })
+
+      repos.sessions.insert(focusSession('s1', 't1', '2026-08-04', WEEK))
+      // 같은 task 인데 주 경계를 넘겨 다음 주로 기록된 세션
+      repos.sessions.insert(focusSession('s2', 't1', '2026-08-10', NEXT))
+
+      const rows = repos.weekItems.listForWeek(WEEK)
+      expect(rows).toHaveLength(1)
+      expect(rows[0].spentPomos).toBe(1) // s2 는 이 주 소진이 아니다
+      // 총 소진에는 각자의 주에서 정확히 한 번씩 세어진다
+      expect(repos.weekItems.weekTotalSpent(WEEK)).toBe(1)
+      expect(repos.weekItems.weekTotalSpent(NEXT)).toBe(1)
     })
   })
 
   it('focus 가 아닌 세션은 세지 않는다', () => {
-    withTestUow((uow) => {
-      uow.run((repos) => {
-        repos.weeks.ensure(WEEK, BASE)
-        const itemId = repos.weekItems.confirmPlan({
-          week: WEEK, items: [{ id: null, title: 'A', estPomos: 2, days: [] }]
-        }).createdIds[0]
-        repos.tasks.create({ id: 't1', weekItemId: itemId, title: '조각' })
-        repos.sessions.insert({
-          id: 's1', startedAt: '2026-08-04T01:00:00.000Z', endedAt: '2026-08-04T01:05:00.000Z',
-          durationSec: 300, kind: 'short', taskId: 't1',
-          localDate: '2026-08-04', localWeek: WEEK
-        })
-        expect(repos.weekItems.listForWeek(WEEK)[0].spentPomos).toBe(0)
-      })
+    const { uow } = testUow()
+    ensureWeeks(uow, WEEK)
+    uow.run((repos) => {
+      const itemId = repos.weekItems.confirmPlan({
+        week: WEEK,
+        items: [{ id: null, title: 'A', estPomos: 2, days: [] }]
+      }).createdIds[0]
+      repos.tasks.create({ id: 't1', weekItemId: itemId, title: '조각' })
+      repos.sessions.insert({ ...focusSession('s1', 't1', '2026-08-04', WEEK), kind: 'short' })
+      expect(repos.weekItems.listForWeek(WEEK)[0].spentPomos).toBe(0)
     })
   })
 
-  it('폐기·시스템 항목은 목록에서 빠지고 생성순으로 정렬된다 (R10 · R18)', () => {
-    withTestUow((uow) => {
-      uow.run((repos) => {
-        repos.weeks.ensure(WEEK, BASE)
-        repos.weekItems.ensureSystemItem(WEEK)
-        const { createdIds } = repos.weekItems.confirmPlan({
-          week: WEEK,
-          items: [
-            { id: null, title: '먼저', estPomos: 1, days: [] },
-            { id: null, title: '나중', estPomos: 1, days: [] }
-          ]
-        })
-        // 두 번째 확정에서 '나중' 을 목록에서 빼면 폐기된다.
-        repos.weekItems.confirmPlan({
-          week: WEEK,
-          items: [{ id: createdIds[0], title: '먼저', estPomos: 1, days: [] }]
-        })
-
-        const rows = repos.weekItems.listForWeek(WEEK)
-        expect(rows.map((r) => r.title)).toEqual(['먼저'])
+  it('폐기·시스템 항목은 목록에서 빠지고 생성순으로 정렬된다 (R10·R18)', () => {
+    const { uow } = testUow()
+    ensureWeeks(uow, WEEK)
+    uow.run((repos) => {
+      repos.weekItems.ensureSystemItem(WEEK)
+      const { createdIds } = repos.weekItems.confirmPlan({
+        week: WEEK,
+        items: [
+          { id: null, title: '먼저', estPomos: 1, days: [] },
+          { id: null, title: '나중', estPomos: 1, days: [] }
+        ]
       })
+      repos.weekItems.confirmPlan({
+        week: WEEK,
+        items: [{ id: createdIds[0], title: '먼저', estPomos: 1, days: [] }]
+      })
+      expect(repos.weekItems.listForWeek(WEEK).map((r) => r.title)).toEqual(['먼저'])
     })
   })
 
-  it('자식 조각 완료/전체 수를 함께 돌려준다 (§3.1 조각 카운트)', () => {
-    withTestUow((uow) => {
-      uow.run((repos) => {
-        repos.weeks.ensure(WEEK, BASE)
-        const itemId = repos.weekItems.confirmPlan({
-          week: WEEK, items: [{ id: null, title: 'A', estPomos: 3, days: [] }]
-        }).createdIds[0]
-        repos.tasks.create({ id: 't1', weekItemId: itemId, title: '조각1' })
-        repos.tasks.create({ id: 't2', weekItemId: itemId, title: '조각2' })
-        repos.tasks.toggleComplete('t1')
+  it('자식 조각 완료/전체 수를 함께 돌려준다 (완료 제안의 재료)', () => {
+    const { uow } = testUow()
+    ensureWeeks(uow, WEEK)
+    uow.run((repos) => {
+      const itemId = repos.weekItems.confirmPlan({
+        week: WEEK,
+        items: [{ id: null, title: 'A', estPomos: 3, days: [] }]
+      }).createdIds[0]
+      repos.tasks.create({ id: 't1', weekItemId: itemId, title: '조각1' })
+      repos.tasks.create({ id: 't2', weekItemId: itemId, title: '조각2' })
+      repos.tasks.toggleComplete('t1')
 
-        const row = repos.weekItems.listForWeek(WEEK)[0]
-        expect(row.childTotal).toBe(2)
-        expect(row.childDone).toBe(1)
+      const row = repos.weekItems.listForWeek(WEEK)[0]
+      expect(row.childTotal).toBe(2)
+      expect(row.childDone).toBe(1)
+    })
+  })
+
+  it('자식이 0개면 childTotal·childDone 이 0 이다 (SUM 의 NULL 폴백)', () => {
+    const { uow } = testUow()
+    ensureWeeks(uow, WEEK)
+    uow.run((repos) => {
+      repos.weekItems.confirmPlan({
+        week: WEEK,
+        items: [{ id: null, title: 'A', estPomos: 1, days: [] }]
       })
+      const row = repos.weekItems.listForWeek(WEEK)[0]
+      expect(row.childTotal).toBe(0)
+      expect(row.childDone).toBe(0)
     })
   })
 })
 
-describe('weekItems.hasUnplannedActivity', () => {
-  it('소진 0 이어도 부모 없는 조각이 있으면 true (R17 · A23)', () => {
-    withTestUow((uow) => {
-      uow.run((repos) => {
-        const sysId = repos.weekItems.ensureSystemItem(WEEK)
-        repos.tasks.create({ id: 't1', weekItemId: sysId, title: '직접 추가' })
-        expect(repos.weekItems.hasUnplannedActivity(WEEK)).toBe(true)
-        expect(repos.weekItems.weekTotalSpent(WEEK)).toBe(0)
+describe('weekItems.confirmPlan — 선언형 확정', () => {
+  it('id 가 있으면 ID 로 매칭해 갱신하고 자식·origin_week 를 유지한다 (R23·A30)', () => {
+    const { uow } = testUow()
+    ensureWeeks(uow, WEEK)
+    uow.run((repos) => {
+      const id = repos.weekItems.confirmPlan({
+        week: WEEK,
+        items: [{ id: null, title: '원래 제목', estPomos: 3, days: [0] }]
+      }).createdIds[0]
+      repos.tasks.create({ id: 't1', weekItemId: id, title: '조각' })
+
+      repos.weekItems.confirmPlan({
+        week: WEEK,
+        items: [{ id, title: '고친 제목', estPomos: 5, days: [1, 3] }]
       })
+
+      const row = repos.weekItems.listForWeek(WEEK)[0]
+      expect(row.id).toBe(id) // 새 행이 만들어지지 않았다
+      expect(row.title).toBe('고친 제목')
+      expect(row.estPomos).toBe(5)
+      expect(row.days).toEqual([1, 3])
+      expect(row.childTotal).toBe(1) // 자식 조각이 살아 있다
+      expect(row.originWeek).toBe(WEEK)
+    })
+  })
+
+  it('목록에서 빠진 기존 항목은 폐기되고 자식·세션이 전부 남는다 (R24·A32)', () => {
+    const { uow } = testUow()
+    ensureWeeks(uow, WEEK)
+    uow.run((repos) => {
+      const id = repos.weekItems.confirmPlan({
+        week: WEEK,
+        items: [{ id: null, title: '보낼 항목', estPomos: 9, days: [] }]
+      }).createdIds[0]
+      repos.tasks.create({ id: 't1', weekItemId: id, title: '조각' })
+      for (let i = 0; i < 9; i++) {
+        repos.sessions.insert(focusSession(`s${i}`, 't1', '2026-08-04', WEEK))
+      }
+
+      const { droppedIds } = repos.weekItems.confirmPlan({ week: WEEK, items: [] })
+
+      expect(droppedIds).toEqual([id])
+      expect(repos.weekItems.listForWeek(WEEK)).toHaveLength(0) // 목록에서 사라졌다
+      expect(repos.weekItems.weekTotalSpent(WEEK)).toBe(9) // 총 소진은 줄지 않았다
+      expect(repos.tasks.get('t1')).not.toBeNull() // 조각은 남았다
+    })
+  })
+
+  it('폐기 항목의 소진이 기타 행 차액으로 나타난다 (A24 · ADR-027 §1)', () => {
+    const { uow } = testUow()
+    ensureWeeks(uow, WEEK)
+    uow.run((repos) => {
+      const { createdIds } = repos.weekItems.confirmPlan({
+        week: WEEK,
+        items: [
+          { id: null, title: '남길 항목', estPomos: 2, days: [] },
+          { id: null, title: '보낼 항목', estPomos: 3, days: [] }
+        ]
+      })
+      repos.tasks.create({ id: 'keep', weekItemId: createdIds[0], title: 'a' })
+      repos.tasks.create({ id: 'gone', weekItemId: createdIds[1], title: 'b' })
+      repos.sessions.insert(focusSession('s1', 'keep', '2026-08-04', WEEK))
+      repos.sessions.insert(focusSession('s2', 'gone', '2026-08-04', WEEK))
+      repos.sessions.insert(focusSession('s3', 'gone', '2026-08-04', WEEK))
+      repos.sessions.insert(focusSession('s4', 'gone', '2026-08-04', WEEK))
+
+      repos.weekItems.confirmPlan({
+        week: WEEK,
+        items: [{ id: createdIds[0], title: '남길 항목', estPomos: 2, days: [] }]
+      })
+
+      const visible = repos.weekItems.listForWeek(WEEK)
+      const total = repos.weekItems.weekTotalSpent(WEEK)
+      expect(total).toBe(4)
+      expect(visible[0].spentPomos).toBe(1)
+      expect(otherRowSpent(total, visible)).toBe(3) // 보낸 항목의 3뽀모가 여기 있다
+    })
+  })
+
+  it('다른 주 항목 id 를 보내면 거부한다', () => {
+    const { uow } = testUow()
+    ensureWeeks(uow, WEEK, NEXT)
+    uow.run((repos) => {
+      const id = repos.weekItems.confirmPlan({
+        week: NEXT,
+        items: [{ id: null, title: '다음 주 것', estPomos: 1, days: [] }]
+      }).createdIds[0]
+      expect(() =>
+        repos.weekItems.confirmPlan({
+          week: WEEK,
+          items: [{ id, title: '훔치기', estPomos: 1, days: [] }]
+        })
+      ).toThrow()
+    })
+  })
+})
+
+describe('weekItems.hasUnplannedActivity — 기타 행 표시 조건 ①② (ADR-027 §3)', () => {
+  it('소진 0 이어도 부모 없는 조각이 있으면 true (A23)', () => {
+    const { uow } = testUow()
+    ensureWeeks(uow, WEEK)
+    uow.run((repos) => {
+      const sysId = repos.weekItems.ensureSystemItem(WEEK)
+      repos.tasks.create({ id: 't1', weekItemId: sysId, title: '직접 추가' })
+      expect(repos.weekItems.hasUnplannedActivity(WEEK)).toBe(true)
+      expect(repos.weekItems.weekTotalSpent(WEEK)).toBe(0)
     })
   })
 
   it('미분류 세션(task 미연결)만 있어도 true', () => {
-    withTestUow((uow) => {
-      uow.run((repos) => {
-        repos.sessions.insert({
-          id: 's1', startedAt: '2026-08-04T01:00:00.000Z', endedAt: '2026-08-04T01:25:00.000Z',
-          durationSec: 1500, kind: 'focus', taskId: null,
-          localDate: '2026-08-04', localWeek: WEEK
-        })
-        expect(repos.weekItems.hasUnplannedActivity(WEEK)).toBe(true)
-      })
+    const { uow } = testUow()
+    ensureWeeks(uow, WEEK) // 세션 FK
+    uow.run((repos) => {
+      repos.sessions.insert(focusSession('s1', null, '2026-08-04', WEEK))
+      expect(repos.weekItems.hasUnplannedActivity(WEEK)).toBe(true)
+    })
+  })
+
+  it('폐기 항목의 소진만 있는 주는 이 술어로 false 다 — 세 번째 갈래가 필요한 이유', () => {
+    const { uow } = testUow()
+    ensureWeeks(uow, WEEK)
+    uow.run((repos) => {
+      const id = repos.weekItems.confirmPlan({
+        week: WEEK,
+        items: [{ id: null, title: 'A', estPomos: 1, days: [] }]
+      }).createdIds[0]
+      repos.tasks.create({ id: 't1', weekItemId: id, title: '조각' })
+      repos.sessions.insert(focusSession('s1', 't1', '2026-08-04', WEEK))
+      repos.weekItems.confirmPlan({ week: WEEK, items: [] })
+
+      // 미분류 세션도 부모 없는 조각도 없다 → 이 술어만으로는 행이 숨겨진다.
+      expect(repos.weekItems.hasUnplannedActivity(WEEK)).toBe(false)
+      // 그런데 차액은 1 이다. Task 4 의 weekSummary 가 세 번째 갈래로 이것을 살린다.
+      expect(otherRowSpent(1, repos.weekItems.listForWeek(WEEK))).toBe(1)
     })
   })
 
   it('세션도 조각도 없는 주는 false', () => {
-    withTestUow((uow) => {
-      uow.run((repos) => {
-        expect(repos.weekItems.hasUnplannedActivity(WEEK)).toBe(false)
-      })
-    })
+    const { uow } = testUow()
+    ensureWeeks(uow, WEEK)
+    uow.run((repos) => expect(repos.weekItems.hasUnplannedActivity(WEEK)).toBe(false))
   })
 })
 ```
 
-그리고 차액 순수 함수 테스트:
+순수 함수 테스트:
 
 ```ts
 // src/main/services/week-plan.test.ts
 import { describe, expect, it } from 'vitest'
-import { otherRowSpent } from './week-plan'
+import { ensureWeeks, testUow } from '../db/repositories/test-helpers'
+import { confirmWeekPlan, otherRowSpent, remainingPomos } from './week-plan'
 
-describe('otherRowSpent', () => {
-  it('총 소진에서 보이는 항목 소진 합을 뺀 값이다 (R17)', () => {
+const WEEK = '2026-08-03'
+
+describe('otherRowSpent (ADR-027 §1)', () => {
+  it('총 소진에서 보이는 항목 소진 합을 뺀 값이다', () => {
     expect(otherRowSpent(18, [{ spentPomos: 10 }])).toBe(8)
-  })
-
-  it('폐기 항목의 소진이 여기로 흡수된다 (A24)', () => {
-    // 총 5뽀모 중 3뽀모가 폐기된 항목 것 → 보이는 항목은 2뽀모만 들고 있다.
-    expect(otherRowSpent(5, [{ spentPomos: 2 }])).toBe(3)
   })
 
   it('보이는 항목이 없으면 총 소진 전부가 기타 행이다', () => {
     expect(otherRowSpent(4, [])).toBe(4)
   })
 })
+
+describe('remainingPomos (R9·A12)', () => {
+  it('남은 몫은 est − 소진이다', () => {
+    expect(remainingPomos(5, 2)).toBe(3)
+  })
+
+  it('소진이 est 를 넘어도 음수가 아니라 0 이다', () => {
+    expect(remainingPomos(3, 5)).toBe(0)
+  })
+})
+
+describe('confirmWeekPlan', () => {
+  it('planned_at 은 최초 확정만 담고 재확정으로 갱신되지 않는다 (R23·A31)', () => {
+    const { uow } = testUow()
+    confirmWeekPlan(uow, {
+      week: WEEK,
+      budget: 20,
+      items: [{ id: null, title: 'A', estPomos: 1, days: [] }]
+    })
+    const first = uow.run((r) => r.weeks.plan(WEEK)!.plannedAt)
+    expect(first).not.toBeNull()
+
+    confirmWeekPlan(uow, { week: WEEK, budget: 25, items: [] })
+    const second = uow.run((r) => r.weeks.plan(WEEK)!)
+    expect(second.plannedAt).toBe(first) // 갱신되지 않았다
+    expect(second.budget).toBe(25) // 예산은 갱신됐다
+  })
+
+  it('예산을 비운 채 확정하면 budget 이 NULL 로 남는다 (capacity 미설정 경로)', () => {
+    const { uow } = testUow()
+    confirmWeekPlan(uow, {
+      week: WEEK,
+      budget: null,
+      items: [{ id: null, title: 'A', estPomos: 1, days: [] }]
+    })
+    expect(uow.run((r) => r.weeks.plan(WEEK)!.budget)).toBeNull()
+  })
+
+  it('과적이어도 확정은 성공한다 (R22 — 차단 0건)', () => {
+    const { uow } = testUow()
+    const result = confirmWeekPlan(uow, {
+      week: WEEK,
+      budget: 2,
+      items: [{ id: null, title: 'A', estPomos: 50, days: [] }]
+    })
+    expect(result.week).toBe(WEEK)
+    expect(uow.run((r) => r.weekItems.listForWeek(WEEK))).toHaveLength(1)
+  })
+})
 ```
 
-- [ ] **Step 2: 실행해 실패 확인** — `pnpm test` → FAIL
+- [ ] **Step 3: 실행해 실패 확인** — `pnpm test` → FAIL (`confirmPlan`·`listForWeek` 없음)
 
-- [ ] **Step 3: 구현**
-
-`ports.ts` 에 타입과 메서드를 더한다:
+- [ ] **Step 4: 포트 확장**
 
 ```ts
 export type WeekItemRow = {
@@ -431,47 +666,41 @@ export type WeekItemRow = {
   childDone: number
 }
 
+export type PlanDraftItem = {
+  /** null = 이 초안에서 새로 추가된 행. 값이 있으면 기존 항목이다. */
+  id: string | null
+  title: string
+  estPomos: number
+  days: number[]
+}
+
 export interface WeekItemsRepository {
   ensureSystemItem(week: string): string
   weekOf(weekItemId: string): string | null
   /**
-   * 일반 뷰에 표시되는 항목 + 소진. 정의역이 곧 차액 공식의 Σ 다 —
+   * 일반 뷰에 표시되는 항목 + 소진. **이 술어의 정의역이 곧 ADR-027 §1 의 Σ 다** —
    * `is_system = 0 AND dropped_at IS NULL AND deleted_at IS NULL`.
-   * 폐기 항목을 포함시키면 A24 가 깨진다 (계획서 "차액 공식의 정의역" 절).
+   * 폐기 항목을 포함시키면 A24 가 깨진다.
    */
   listForWeek(week: string): WeekItemRow[]
-  /** 그 주 focus 세션 전체 (기타·미분류 포함). 게이지 소진이자 차액의 피감수. */
+  /** 그 주 focus 세션 전체. 폐기·삭제가 줄이지 않는다 (ADR-027 §2). */
   weekTotalSpent(week: string): number
-  /** 기타 행 **표시 조건** — 미분류 focus 세션 또는 부모 없는 조각이 하나라도 있는가 (R17). */
+  /** 기타 행 표시 조건 ①② — 미분류 세션 또는 부모 없는 조각이 있는가. ③은 서비스가 본다. */
   hasUnplannedActivity(week: string): boolean
+  /**
+   * 선언형 확정 (R23·R24). 요청 목록이 그 주 계획의 **전체**다.
+   * - `id` 있음 → **ID 로** 매칭해 갱신. 제목 기준 매칭 금지 (제목을 고치면 이력이 끊긴다).
+   * - `id` 없음 → 신규 생성, `origin_week = week`.
+   * - 기존 항목이 목록에 없음 → `dropped_at` 기록 (폐기, 삭제 아님).
+   */
+  confirmPlan(input: { week: string; items: readonly PlanDraftItem[] }): {
+    createdIds: string[]
+    droppedIds: string[]
+  }
 }
 ```
 
-`week-plan.ts` 를 만든다:
-
-```ts
-import type { WeekItemRow } from './ports'
-
-/**
- * 기타 행 소진 — **차액으로 정의한다** (week-plan R17, ADR-012 §4).
- * 독립 계산하면 ① 시스템 항목 이중 계상 ② 폐기 항목 소진 누락이 열린다.
- *
- * `items` 는 **화면에 보이는 항목**(= `listForWeek` 의 결과)이어야 한다. 폐기 항목을
- * 넣으면 그 소진이 어디에도 나타나지 않아 A24 가 깨진다.
- *
- * 클램프하지 않는다 — 술어가 옳으면 음수가 될 수 없고, 음수가 나온다면 그것은
- * 숨겨야 할 값이 아니라 드러나야 할 버그다.
- */
-export function otherRowSpent(
-  weekTotalSpent: number,
-  visibleItems: readonly Pick<WeekItemRow, 'spentPomos'>[]
-): number {
-  const planned = visibleItems.reduce((sum, item) => sum + item.spentPomos, 0)
-  return weekTotalSpent - planned
-}
-```
-
-`drizzle.ts` 의 `weekItems` 블록에 더한다. **소진 술어는 이 파일에만 존재한다:**
+- [ ] **Step 5: 리포지토리 구현** — `drizzle.ts` 의 `weekItems` 블록에 추가. **소진 술어는 이 파일에만 존재한다.**
 
 ```ts
 listForWeek: (week) => {
@@ -500,7 +729,7 @@ listForWeek: (week) => {
     /**
      * week-plan R8 의 집계 술어. `s.local_week = <항목의 week>` 조건이 핵심이다 —
      * 빠뜨리면 주 경계를 넘긴 세션이 두 주에서 세어지고, 에러 없이 숫자만 틀린다.
-     * 이 술어는 이 파일 안에만 존재한다 (R8, 성공 지표).
+     * 이 술어는 이 파일 안에만 존재한다.
      */
     const spentPomos =
       tx
@@ -508,23 +737,20 @@ listForWeek: (week) => {
         .from(sessions)
         .innerJoin(tasks, eq(sessions.taskId, tasks.id))
         .where(
-          and(
-            eq(tasks.weekItemId, r.id),
-            eq(sessions.kind, 'focus'),
-            eq(sessions.localWeek, week)
-          )
+          and(eq(tasks.weekItemId, r.id), eq(sessions.kind, 'focus'), eq(sessions.localWeek, week))
         )
         .get()?.n ?? 0
 
-    const childCounts =
-      tx
-        .select({
-          total: sql<number>`count(*)`,
-          done: sql<number>`sum(case when ${tasks.completedAt} is not null then 1 else 0 end)`
-        })
-        .from(tasks)
-        .where(and(eq(tasks.weekItemId, r.id), isNull(tasks.deletedAt)))
-        .get() ?? { total: 0, done: 0 }
+    // 자식 0행이면 SQLite 의 sum() 은 NULL 을 돌려준다 — count 는 0 이므로 total 만으로
+    // 판정하지 않고 done 쪽에 폴백을 둔다.
+    const counts = tx
+      .select({
+        total: sql<number>`count(*)`,
+        done: sql<number | null>`sum(case when ${tasks.completedAt} is not null then 1 else 0 end)`
+      })
+      .from(tasks)
+      .where(and(eq(tasks.weekItemId, r.id), isNull(tasks.deletedAt)))
+      .get()
 
     return {
       id: r.id,
@@ -534,8 +760,8 @@ listForWeek: (week) => {
       originWeek: r.originWeek,
       completedAt: r.completedAt,
       spentPomos,
-      childTotal: childCounts.total,
-      childDone: childCounts.done ?? 0
+      childTotal: counts?.total ?? 0,
+      childDone: counts?.done ?? 0
     }
   })
 },
@@ -551,9 +777,7 @@ hasUnplannedActivity: (week) => {
   const looseSession = tx
     .select({ id: sessions.id })
     .from(sessions)
-    .where(
-      and(eq(sessions.localWeek, week), eq(sessions.kind, 'focus'), isNull(sessions.taskId))
-    )
+    .where(and(eq(sessions.localWeek, week), eq(sessions.kind, 'focus'), isNull(sessions.taskId)))
     .get()
   if (looseSession) return true
 
@@ -561,193 +785,11 @@ hasUnplannedActivity: (week) => {
     .select({ id: tasks.id })
     .from(tasks)
     .innerJoin(weekItems, eq(tasks.weekItemId, weekItems.id))
-    .where(
-      and(eq(weekItems.week, week), eq(weekItems.isSystem, 1), isNull(tasks.deletedAt))
-    )
+    .where(and(eq(weekItems.week, week), eq(weekItems.isSystem, 1), isNull(tasks.deletedAt)))
     .get()
   return orphanTask !== undefined
-}
-```
+},
 
-- [ ] **Step 4: 통과 확인** — `pnpm test` PASS
-
-- [ ] **Step 5: 커밋** — `feat: aggregate week item spent pomos with the week predicate`
-
----
-
-### Task 3: 플래너 확정 트랜잭션
-
-**Files:**
-- Modify: `src/main/services/ports.ts`, `src/main/services/week-plan.ts`, `src/main/db/repositories/drizzle.ts`
-- Test: `src/main/db/repositories/week-items.test.ts`(추가), `src/main/services/week-plan.test.ts`(추가)
-
-**Interfaces:**
-- Consumes: Task 1 의 `weeks.ensure`·`weeks.setPlan`, `effectiveBaseline`
-- Produces: `WeekItemsRepository.confirmPlan(input): { createdIds: string[]; droppedIds: string[] }`, `confirmWeekPlan(uow, input): { week: string; droppedCount: number }`
-
-- [ ] **Step 1: 실패하는 테스트 작성**
-
-```ts
-// week-items.test.ts 에 추가
-describe('weekItems.confirmPlan', () => {
-  it('id 가 있으면 ID 로 매칭해 갱신하고 자식·origin_week 를 유지한다 (R23 · A30)', () => {
-    withTestUow((uow) => {
-      uow.run((repos) => {
-        repos.weeks.ensure(WEEK, BASE)
-        const id = repos.weekItems.confirmPlan({
-          week: WEEK, items: [{ id: null, title: '원래 제목', estPomos: 3, days: [0] }]
-        }).createdIds[0]
-        repos.tasks.create({ id: 't1', weekItemId: id, title: '조각' })
-
-        repos.weekItems.confirmPlan({
-          week: WEEK, items: [{ id, title: '고친 제목', estPomos: 5, days: [1, 3] }]
-        })
-
-        const row = repos.weekItems.listForWeek(WEEK)[0]
-        expect(row.id).toBe(id) // 새 행이 만들어지지 않았다
-        expect(row.title).toBe('고친 제목')
-        expect(row.estPomos).toBe(5)
-        expect(row.days).toEqual([1, 3])
-        expect(row.childTotal).toBe(1) // 자식 조각이 살아 있다
-        expect(row.originWeek).toBe(WEEK)
-      })
-    })
-  })
-
-  it('목록에서 빠진 기존 항목은 폐기되고 자식·세션이 전부 남는다 (R24 · A32)', () => {
-    withTestUow((uow) => {
-      uow.run((repos) => {
-        repos.weeks.ensure(WEEK, BASE)
-        const id = repos.weekItems.confirmPlan({
-          week: WEEK, items: [{ id: null, title: '보낼 항목', estPomos: 9, days: [] }]
-        }).createdIds[0]
-        repos.tasks.create({ id: 't1', weekItemId: id, title: '조각' })
-        for (let i = 0; i < 9; i++) {
-          repos.sessions.insert({
-            id: `s${i}`, startedAt: '2026-08-04T01:00:00.000Z', endedAt: '2026-08-04T01:25:00.000Z',
-            durationSec: 1500, kind: 'focus', taskId: 't1',
-            localDate: '2026-08-04', localWeek: WEEK
-          })
-        }
-
-        const { droppedIds } = repos.weekItems.confirmPlan({ week: WEEK, items: [] })
-
-        expect(droppedIds).toEqual([id])
-        expect(repos.weekItems.listForWeek(WEEK)).toHaveLength(0) // 목록에서 사라졌다
-        expect(repos.weekItems.weekTotalSpent(WEEK)).toBe(9)      // 총 소진은 줄지 않았다
-        expect(repos.tasks.get('t1')).not.toBeNull()              // 조각은 남았다
-      })
-    })
-  })
-
-  it('폐기된 항목의 소진이 기타 행 차액으로 나타난다 (A24)', () => {
-    withTestUow((uow) => {
-      uow.run((repos) => {
-        repos.weeks.ensure(WEEK, BASE)
-        const { createdIds } = repos.weekItems.confirmPlan({
-          week: WEEK,
-          items: [
-            { id: null, title: '남길 항목', estPomos: 2, days: [] },
-            { id: null, title: '보낼 항목', estPomos: 3, days: [] }
-          ]
-        })
-        repos.tasks.create({ id: 'keep', weekItemId: createdIds[0], title: 'a' })
-        repos.tasks.create({ id: 'gone', weekItemId: createdIds[1], title: 'b' })
-        const mk = (id: string, taskId: string) =>
-          repos.sessions.insert({
-            id, startedAt: '2026-08-04T01:00:00.000Z', endedAt: '2026-08-04T01:25:00.000Z',
-            durationSec: 1500, kind: 'focus', taskId,
-            localDate: '2026-08-04', localWeek: WEEK
-          })
-        mk('s1', 'keep')
-        mk('s2', 'gone'); mk('s3', 'gone'); mk('s4', 'gone')
-
-        repos.weekItems.confirmPlan({
-          week: WEEK, items: [{ id: createdIds[0], title: '남길 항목', estPomos: 2, days: [] }]
-        })
-
-        const visible = repos.weekItems.listForWeek(WEEK)
-        const total = repos.weekItems.weekTotalSpent(WEEK)
-        expect(total).toBe(4)
-        expect(visible[0].spentPomos).toBe(1)
-        expect(otherRowSpent(total, visible)).toBe(3) // 보낸 항목의 3뽀모가 여기 있다
-      })
-    })
-  })
-})
-```
-
-서비스 레벨:
-
-```ts
-// week-plan.test.ts 에 추가
-describe('confirmWeekPlan', () => {
-  it('planned_at 은 최초 확정만 담고 재확정으로 갱신되지 않는다 (R23 · A31)', () => {
-    withTestUow((uow) => {
-      confirmWeekPlan(uow, { week: WEEK, budget: 20, items: [{ id: null, title: 'A', estPomos: 1, days: [] }] })
-      const first = uow.run((r) => r.weeks.plan(WEEK)!.plannedAt)
-      expect(first).not.toBeNull()
-
-      confirmWeekPlan(uow, { week: WEEK, budget: 25, items: [] })
-      const second = uow.run((r) => r.weeks.plan(WEEK)!)
-      expect(second.plannedAt).toBe(first) // 갱신되지 않았다
-      expect(second.budget).toBe(25)       // 예산은 갱신됐다
-    })
-  })
-
-  it('예산을 비운 채 확정하면 budget 이 NULL 로 남는다 (capacity 미설정 경로)', () => {
-    withTestUow((uow) => {
-      confirmWeekPlan(uow, { week: WEEK, budget: null, items: [{ id: null, title: 'A', estPomos: 1, days: [] }] })
-      expect(uow.run((r) => r.weeks.plan(WEEK)!.budget)).toBeNull()
-    })
-  })
-
-  it('과적이어도 확정은 성공한다 (R22 — 차단 0건)', () => {
-    withTestUow((uow) => {
-      const result = confirmWeekPlan(uow, {
-        week: WEEK, budget: 2,
-        items: [{ id: null, title: 'A', estPomos: 50, days: [] }]
-      })
-      expect(result.week).toBe(WEEK)
-      expect(uow.run((r) => r.weekItems.listForWeek(WEEK))).toHaveLength(1)
-    })
-  })
-})
-```
-
-- [ ] **Step 2: 실행해 실패 확인** — `pnpm test` → FAIL
-
-- [ ] **Step 3: 구현**
-
-`ports.ts`:
-
-```ts
-export type PlanDraftItem = {
-  /** null = 이 초안에서 새로 추가된 행. 값이 있으면 기존 항목이다. */
-  id: string | null
-  title: string
-  estPomos: number
-  days: number[]
-}
-
-export interface WeekItemsRepository {
-  // ...앞의 것들
-  /**
-   * 선언형 확정 (week-plan R23·R24). 요청 목록이 그 주 계획의 **전체**다.
-   * - `id` 있음 → **ID 로** 매칭해 갱신. 제목 기준 매칭 금지 (제목을 고치면 이력이 끊긴다).
-   * - `id` 없음 → 신규 생성, `origin_week = week`.
-   * - 기존 항목이 목록에 없음 → `dropped_at` 기록 (폐기, 삭제 아님).
-   */
-  confirmPlan(input: { week: string; items: readonly PlanDraftItem[] }): {
-    createdIds: string[]
-    droppedIds: string[]
-  }
-}
-```
-
-`drizzle.ts`:
-
-```ts
 confirmPlan: ({ week, items }) => {
   const existing = tx
     .select({ id: weekItems.id })
@@ -777,7 +819,9 @@ confirmPlan: ({ week, items }) => {
           title: item.title,
           estPomos: item.estPomos,
           days,
-          originWeek: week, // 신규는 이 주가 최초 생성 주다. 이월만 원본 값을 승계한다 (R11).
+          // 신규는 이 주가 최초 생성 주다. 이월만 원본 값을 승계한다 (R11) — 그 경로는
+          // 정산(M3b)이 별도로 만든다. 이 메서드를 이월에 재사용하면 배지가 1 로 리셋된다.
+          originWeek: week,
           isSystem: 0
         })
         .run()
@@ -805,17 +849,42 @@ confirmPlan: ({ week, items }) => {
 }
 ```
 
-`week-plan.ts` 에 유스케이스를 더한다:
+- [ ] **Step 6: 서비스 구현** — `src/main/services/week-plan.ts`
 
 ```ts
 import { effectiveBaseline } from './baseline'
-import type { PlanDraftItem, UnitOfWork } from './ports'
+import type { PlanDraftItem, UnitOfWork, WeekItemRow } from './ports'
 
 /**
- * 플래너 확정 (week-plan R22~R24). **과적 여부와 무관하게 항상 성공한다** — 계획 확정을
- * 막는 경로가 이 함수에 없다 (R22, 차단 0건).
+ * 기타 행 소진 — **차액으로 정의한다** (ADR-027 §1).
  *
- * 전체가 트랜잭션 하나다 (ADR-015): weeks 행 보장 → 예산·planned_at → 항목 upsert·폐기.
+ * `visibleItems` 는 **화면에 보이는 항목**(= `listForWeek` 의 결과)이어야 한다. 폐기 항목을
+ * 넣으면 그 소진이 상쇄되어 어디에도 나타나지 않고 A24 가 깨진다.
+ *
+ * 클램프하지 않는다 — 술어가 옳으면 음수가 될 수 없고, 음수가 나온다면 그것은 숨겨야 할
+ * 값이 아니라 드러나야 할 버그다.
+ */
+export function otherRowSpent(
+  weekTotalSpent: number,
+  visibleItems: readonly Pick<WeekItemRow, 'spentPomos'>[]
+): number {
+  return weekTotalSpent - visibleItems.reduce((sum, item) => sum + item.spentPomos, 0)
+}
+
+/**
+ * 항목의 남은 몫 (R9·A12). 기준은 **항목 est** 이며 자식 조각 est 합이 아니다.
+ * 0 에서 클램프한다 — 소진이 est 를 넘긴 항목의 남은 몫은 음수가 아니라 0 이다.
+ *
+ * 화면에 그리는 것은 정산(M3b)이지만 규칙의 소유는 week-plan R9 이므로 여기서 만든다.
+ * 두 곳에서 각자 클램프하면 한쪽만 고쳐지는 날이 온다.
+ */
+export function remainingPomos(estPomos: number, spentPomos: number): number {
+  return Math.max(0, estPomos - spentPomos)
+}
+
+/**
+ * 플래너 확정 (R22~R24). **과적 여부와 무관하게 항상 성공한다** — 확정을 막는 경로가
+ * 이 함수에 없다 (R22, 차단 0건). 전체가 트랜잭션 하나다 (ADR-015).
  */
 export function confirmWeekPlan(
   uow: UnitOfWork,
@@ -823,6 +892,9 @@ export function confirmWeekPlan(
 ): { week: string; droppedCount: number } {
   return uow.run((repos) => {
     // 행이 없으면 그 시점 유효 길이를 박제해 만든다 (ADR-013 §2). 있으면 덮지 않는다.
+    // NOTE(M3b): weekly-review R37 은 capacity·예산까지 함께 박제하라고 요구한다.
+    // M3a 는 capacity 가 항상 NULL 이라 무해하지만, 정산이 capacity 편집을 들이면
+    // 플래너로 만든 주만 capacity 스냅샷이 비는 비대칭이 생긴다. 그때 ensure 를 확장할 것.
     repos.weeks.ensure(input.week, effectiveBaseline(repos, input.week))
     repos.weeks.setPlan(input.week, input.budget)
     const { droppedIds } = repos.weekItems.confirmPlan({ week: input.week, items: input.items })
@@ -831,145 +903,216 @@ export function confirmWeekPlan(
 }
 ```
 
-- [ ] **Step 4: 통과 확인** — `pnpm test` PASS
+- [ ] **Step 7: 통과 확인** — `pnpm test` PASS, `pnpm lint` 통과
 
-- [ ] **Step 5: 커밋** — `feat: confirm week plan as one declarative transaction`
+- [ ] **Step 8: 커밋** — `feat: add week item repository with spent aggregation and declarative confirm`
 
 ---
 
-### Task 4: 드로어 데이터 · 완료 · 폐기 · 원클릭 pull
+### Task 3: 드로어 · 완료 · 폐기 · 원클릭 pull
 
 **Files:**
 - Modify: `src/main/services/ports.ts`, `src/main/services/week-plan.ts`, `src/main/db/repositories/drizzle.ts`
-- Test: `src/main/db/repositories/week-items.test.ts`(추가), `src/main/services/week-plan.test.ts`(추가)
+- Test: `week-items.test.ts`(추가), `week-plan.test.ts`(추가)
 
 **Interfaces:**
-- Produces: `WeekItemsRepository.childTasks(itemId, dayKey)`, `.nextPullable(itemId, dayKey)`, `.setCompleted(itemId, at)`, `.drop(itemId)`, `.unplannedBreakdown(week)`; `pullNextFromItem(uow, itemId)`, `setItemCompleted(uow, itemId, completed)`, `dropItem(uow, itemId)`
+- Produces: `WeekItemsRepository.header` · `.childTasks` · `.nextPullable` · `.complete` · `.uncomplete` · `.drop`; `itemDrawer()` · `pullNextFromItem()` · `pullFromDrawer()` · `setItemCompleted()` · `dropItem()`
 
 - [ ] **Step 1: 실패하는 테스트 작성**
 
 ```ts
-// week-items.test.ts 에 추가
-describe('weekItems.nextPullable', () => {
-  it('유자격 조각 = 미완료·미삭제·오늘 pull 없음, 생성순 첫 번째 (§3.1)', () => {
-    withTestUow((uow) => {
-      uow.run((repos) => {
-        repos.weeks.ensure(WEEK, BASE)
-        const id = repos.weekItems.confirmPlan({
-          week: WEEK, items: [{ id: null, title: 'A', estPomos: 3, days: [] }]
-        }).createdIds[0]
-        repos.tasks.create({ id: 't1', weekItemId: id, title: '첫째' })
-        repos.tasks.create({ id: 't2', weekItemId: id, title: '둘째' })
+// week-items.test.ts 에 추가 (기존 import 에 이어서)
+describe('weekItems.nextPullable — 원클릭 pull 대상', () => {
+  it('유자격 = 미완료·미삭제·오늘 pull 없음, 생성순 첫 번째', () => {
+    const { uow } = testUow()
+    ensureWeeks(uow, WEEK)
+    uow.run((repos) => {
+      const id = repos.weekItems.confirmPlan({
+        week: WEEK,
+        items: [{ id: null, title: 'A', estPomos: 3, days: [] }]
+      }).createdIds[0]
+      repos.tasks.create({ id: 't1', weekItemId: id, title: '첫째' })
+      repos.tasks.create({ id: 't2', weekItemId: id, title: '둘째' })
 
-        expect(repos.weekItems.nextPullable(id, '2026-08-04')).toBe('t1')
-
-        repos.today.pull('t1', '2026-08-04')
-        expect(repos.weekItems.nextPullable(id, '2026-08-04')).toBe('t2')
-
-        repos.tasks.toggleComplete('t2')
-        expect(repos.weekItems.nextPullable(id, '2026-08-04')).toBeNull()
-      })
+      expect(repos.weekItems.nextPullable(id, '2026-08-04')).toBe('t1')
+      repos.today.pull('t1', '2026-08-04')
+      expect(repos.weekItems.nextPullable(id, '2026-08-04')).toBe('t2')
+      repos.tasks.toggleComplete('t2')
+      expect(repos.weekItems.nextPullable(id, '2026-08-04')).toBeNull()
     })
   })
 
-  it('치운 조각은 다시 유자격이다 (today-tasks R14)', () => {
-    withTestUow((uow) => {
-      uow.run((repos) => {
-        repos.weeks.ensure(WEEK, BASE)
-        const id = repos.weekItems.confirmPlan({
-          week: WEEK, items: [{ id: null, title: 'A', estPomos: 1, days: [] }]
-        }).createdIds[0]
-        repos.tasks.create({ id: 't1', weekItemId: id, title: '조각' })
-        repos.today.pull('t1', '2026-08-04')
-        repos.today.remove('t1', '2026-08-04')
-        expect(repos.weekItems.nextPullable(id, '2026-08-04')).toBe('t1')
-      })
+  it('치운 조각은 다시 유자격이다 — removed_at 분기 (today-tasks R14)', () => {
+    const { uow } = testUow()
+    ensureWeeks(uow, WEEK)
+    uow.run((repos) => {
+      const id = repos.weekItems.confirmPlan({
+        week: WEEK,
+        items: [{ id: null, title: 'A', estPomos: 1, days: [] }]
+      }).createdIds[0]
+      repos.tasks.create({ id: 't1', weekItemId: id, title: '조각' })
+      repos.today.pull('t1', '2026-08-04')
+      // 그날 focus 세션이 있어야 remove 가 행 삭제가 아니라 removed_at 마킹이 된다.
+      // 세션이 없으면 행이 지워져 `taskPulls IS NULL` 분기로 통과해버려,
+      // 검증하려던 `removed_at IS NOT NULL` 경로가 한 번도 실행되지 않는다.
+      repos.sessions.insert(focusSession('s1', 't1', '2026-08-04', WEEK))
+      expect(repos.today.remove('t1', '2026-08-04')).toBe('marked')
+
+      expect(repos.weekItems.nextPullable(id, '2026-08-04')).toBe('t1')
     })
   })
 })
 
-describe('weekItems.childTasks', () => {
-  it('조각별 소진과 오늘 목록 상태를 함께 준다 (§6.2)', () => {
-    withTestUow((uow) => {
-      uow.run((repos) => {
-        repos.weeks.ensure(WEEK, BASE)
-        const id = repos.weekItems.confirmPlan({
-          week: WEEK, items: [{ id: null, title: 'A', estPomos: 3, days: [] }]
-        }).createdIds[0]
-        repos.tasks.create({ id: 't1', weekItemId: id, title: '조각1', estPomos: 2 })
-        repos.tasks.create({ id: 't2', weekItemId: id, title: '조각2' })
-        repos.today.pull('t2', '2026-08-04')
-        repos.sessions.insert({
-          id: 's1', startedAt: '2026-08-04T01:00:00.000Z', endedAt: '2026-08-04T01:25:00.000Z',
-          durationSec: 1500, kind: 'focus', taskId: 't1',
-          localDate: '2026-08-04', localWeek: WEEK
-        })
+describe('weekItems.childTasks — 드로어 목록 (§6.2)', () => {
+  it('조각별 소진과 오늘 목록 상태를 함께 준다', () => {
+    const { uow } = testUow()
+    ensureWeeks(uow, WEEK)
+    uow.run((repos) => {
+      const id = repos.weekItems.confirmPlan({
+        week: WEEK,
+        items: [{ id: null, title: 'A', estPomos: 3, days: [] }]
+      }).createdIds[0]
+      repos.tasks.create({ id: 't1', weekItemId: id, title: '조각1', estPomos: 2 })
+      repos.tasks.create({ id: 't2', weekItemId: id, title: '조각2' })
+      repos.today.pull('t2', '2026-08-04')
+      repos.sessions.insert(focusSession('s1', 't1', '2026-08-04', WEEK))
 
-        const rows = repos.weekItems.childTasks(id, '2026-08-04')
-        expect(rows).toEqual([
-          { taskId: 't1', title: '조각1', estPomos: 2, spentPomos: 1, completedAt: null, inToday: false },
-          { taskId: 't2', title: '조각2', estPomos: null, spentPomos: 0, completedAt: null, inToday: true }
-        ])
-      })
+      expect(repos.weekItems.childTasks(id, '2026-08-04')).toEqual([
+        { taskId: 't1', title: '조각1', estPomos: 2, spentPomos: 1, completedAt: null, inToday: false },
+        { taskId: 't2', title: '조각2', estPomos: null, spentPomos: 0, completedAt: null, inToday: true }
+      ])
+    })
+  })
+})
+
+describe('weekItems.header — 드로어 헤더 (폐기 항목도 열린다)', () => {
+  it('폐기된 항목의 주·완료 시각을 읽을 수 있다', () => {
+    const { uow } = testUow()
+    ensureWeeks(uow, WEEK)
+    uow.run((repos) => {
+      const id = repos.weekItems.confirmPlan({
+        week: WEEK,
+        items: [{ id: null, title: 'A', estPomos: 1, days: [] }]
+      }).createdIds[0]
+      repos.weekItems.confirmPlan({ week: WEEK, items: [] })
+      expect(repos.weekItems.header(id)).toEqual({ week: WEEK, completedAt: null })
     })
   })
 })
 ```
 
-서비스 레벨:
-
 ```ts
 // week-plan.test.ts 에 추가
-describe('setItemCompleted', () => {
-  it('완료 후 세션이 더 붙어도 completed_at 이 변하지 않는다 (R28 · A37)', () => {
-    withTestUow((uow) => {
-      const week = WEEK
-      const id = uow.run((r) => {
-        r.weeks.ensure(week, BASE)
-        return r.weekItems.confirmPlan({
-          week, items: [{ id: null, title: 'A', estPomos: 3, days: [] }]
+import { dropItem, itemDrawer, pullFromDrawer, pullNextFromItem, setItemCompleted } from './week-plan'
+
+describe('setItemCompleted (R25·R27·R28)', () => {
+  it('완료 후 세션이 더 붙어도 completed_at 이 변하지 않는다 (A37)', () => {
+    const { uow } = testUow()
+    ensureWeeks(uow, WEEK)
+    const id = uow.run(
+      (r) =>
+        r.weekItems.confirmPlan({
+          week: WEEK,
+          items: [{ id: null, title: 'A', estPomos: 3, days: [] }]
         }).createdIds[0]
-      })
-      uow.run((r) => r.tasks.create({ id: 't1', weekItemId: id, title: '조각' }))
-      const at = setItemCompleted(uow, id, true).completedAt
-      expect(at).not.toBeNull()
+    )
+    uow.run((r) => r.tasks.create({ id: 't1', weekItemId: id, title: '조각' }))
 
-      uow.run((r) => {
-        for (let i = 0; i < 5; i++) {
-          r.sessions.insert({
-            id: `s${i}`, startedAt: '2026-08-04T01:00:00.000Z', endedAt: '2026-08-04T01:25:00.000Z',
-            durationSec: 1500, kind: 'focus', taskId: 't1',
-            localDate: '2026-08-04', localWeek: week
-          })
-        }
-      })
+    const at = setItemCompleted(uow, id, true).completedAt
+    expect(at).not.toBeNull()
 
-      const row = uow.run((r) => r.weekItems.listForWeek(week)[0])
-      expect(row.spentPomos).toBe(5)      // 소진은 계속 오른다
-      expect(row.completedAt).toBe(at)    // 완료 시각은 그대로다
+    uow.run((r) => {
+      for (let i = 0; i < 5; i++) {
+        r.sessions.insert({
+          id: `s${i}`,
+          startedAt: '2026-08-04T01:00:00.000Z',
+          endedAt: '2026-08-04T01:25:00.000Z',
+          durationSec: 1500,
+          kind: 'focus',
+          taskId: 't1',
+          localDate: '2026-08-04',
+          localWeek: WEEK
+        })
+      }
     })
+
+    const row = uow.run((r) => r.weekItems.listForWeek(WEEK)[0])
+    expect(row.spentPomos).toBe(5) // 소진은 계속 오른다
+    expect(row.completedAt).toBe(at) // 완료 시각은 그대로다
   })
 
-  it('완료를 해제하면 NULL 로 돌아간다 (R27)', () => {
-    withTestUow((uow) => {
-      const id = uow.run((r) => {
-        r.weeks.ensure(WEEK, BASE)
-        return r.weekItems.confirmPlan({
-          week: WEEK, items: [{ id: null, title: 'A', estPomos: 1, days: [] }]
+  it('완료를 해제하면 NULL 로 돌아간다', () => {
+    const { uow } = testUow()
+    ensureWeeks(uow, WEEK)
+    const id = uow.run(
+      (r) =>
+        r.weekItems.confirmPlan({
+          week: WEEK,
+          items: [{ id: null, title: 'A', estPomos: 1, days: [] }]
         }).createdIds[0]
-      })
-      setItemCompleted(uow, id, true)
-      expect(setItemCompleted(uow, id, false).completedAt).toBeNull()
+    )
+    setItemCompleted(uow, id, true)
+    expect(setItemCompleted(uow, id, false).completedAt).toBeNull()
+  })
+})
+
+describe('pullFromDrawer — R7·R27 을 서비스에서 강제한다', () => {
+  it('완료된 항목에서는 pull 할 수 없다 (R27)', () => {
+    const { uow } = testUow()
+    ensureWeeks(uow, WEEK)
+    const id = uow.run(
+      (r) =>
+        r.weekItems.confirmPlan({
+          week: WEEK,
+          items: [{ id: null, title: 'A', estPomos: 1, days: [] }]
+        }).createdIds[0]
+    )
+    uow.run((r) => r.tasks.create({ id: 't1', weekItemId: id, title: '조각' }))
+    setItemCompleted(uow, id, true)
+
+    expect(() => pullFromDrawer(uow, { weekItemId: id, taskIds: ['t1'], newTask: null })).toThrow()
+  })
+
+  it('완료된 조각은 pull 하지 않는다 (R7)', () => {
+    const { uow } = testUow()
+    ensureWeeks(uow, WEEK)
+    const id = uow.run(
+      (r) =>
+        r.weekItems.confirmPlan({
+          week: WEEK,
+          items: [{ id: null, title: 'A', estPomos: 1, days: [] }]
+        }).createdIds[0]
+    )
+    uow.run((r) => {
+      r.tasks.create({ id: 't1', weekItemId: id, title: '조각' })
+      r.tasks.toggleComplete('t1')
     })
+    expect(() => pullFromDrawer(uow, { weekItemId: id, taskIds: ['t1'], newTask: null })).toThrow()
+  })
+
+  it('다른 항목의 조각을 끼워 넣을 수 없다', () => {
+    const { uow } = testUow()
+    ensureWeeks(uow, WEEK)
+    const { createdIds } = uow.run((r) =>
+      r.weekItems.confirmPlan({
+        week: WEEK,
+        items: [
+          { id: null, title: 'A', estPomos: 1, days: [] },
+          { id: null, title: 'B', estPomos: 1, days: [] }
+        ]
+      })
+    )
+    uow.run((r) => r.tasks.create({ id: 'tb', weekItemId: createdIds[1], title: 'B 의 조각' }))
+    expect(() =>
+      pullFromDrawer(uow, { weekItemId: createdIds[0], taskIds: ['tb'], newTask: null })
+    ).toThrow()
   })
 })
 ```
 
 - [ ] **Step 2: 실행해 실패 확인** — `pnpm test` → FAIL
 
-- [ ] **Step 3: 구현**
-
-`ports.ts`:
+- [ ] **Step 3: 포트 확장**
 
 ```ts
 export type ChildTaskRow = {
@@ -982,28 +1125,31 @@ export type ChildTaskRow = {
   inToday: boolean
 }
 
-/** 기타 행 드릴다운 (§6.4) — 읽기 전용 두 그룹. */
-export type UnplannedBreakdown = {
-  named: { title: string; spentPomos: number }[]
-  /** task 에 연결되지 않은 focus 세션 수. */
-  anonymousPomos: number
-}
-
 export interface WeekItemsRepository {
-  // ...앞의 것들
+  // ...Task 2 의 것들
+  /** 드로어 헤더. 폐기 항목도 읽을 수 있다 (listForWeek 로는 못 찾는다). 없으면 null. */
+  header(weekItemId: string): { week: string; completedAt: string | null } | null
   childTasks(weekItemId: string, dayKey: string): ChildTaskRow[]
   /** 원클릭 pull 대상. 유자격 조각이 없으면 null (그때 화면은 드로어를 연다). */
   nextPullable(weekItemId: string, dayKey: string): string | null
-  /** `at` 이 null 이면 완료 해제. */
-  setCompleted(weekItemId: string, at: string | null): void
+  complete(weekItemId: string, at: string): void
+  uncomplete(weekItemId: string): void
   drop(weekItemId: string): void
-  unplannedBreakdown(week: string): UnplannedBreakdown
 }
 ```
 
-`drizzle.ts` 구현:
+`complete`/`uncomplete` 를 **두 메서드로 나눈 이유:** `setCompleted(id, at | null)` 은 `update(id, patch)` 모양이라 ports.ts 상단이 금지하는 CRUD 포트다. 유스케이스 이름으로 나눈다.
+
+- [ ] **Step 4: 리포지토리 구현**
 
 ```ts
+header: (weekItemId) =>
+  tx
+    .select({ week: weekItems.week, completedAt: weekItems.completedAt })
+    .from(weekItems)
+    .where(eq(weekItems.id, weekItemId))
+    .get() ?? null,
+
 childTasks: (weekItemId, dayKey) => {
   const rows = tx
     .select({
@@ -1043,67 +1189,61 @@ childTasks: (weekItemId, dayKey) => {
   })
 },
 
+// task_pulls 의 PK 가 (task_id, pull_date) 이고 조인 조건에 pullDate 가 고정돼 있으므로
+// task 당 조인 행은 최대 1개다 — 중복 행이 나오지 않는다.
 nextPullable: (weekItemId, dayKey) =>
   tx
     .select({ id: tasks.id })
     .from(tasks)
-    .leftJoin(
-      taskPulls,
-      and(eq(taskPulls.taskId, tasks.id), eq(taskPulls.pullDate, dayKey))
-    )
+    .leftJoin(taskPulls, and(eq(taskPulls.taskId, tasks.id), eq(taskPulls.pullDate, dayKey)))
     .where(
       and(
         eq(tasks.weekItemId, weekItemId),
         isNull(tasks.deletedAt),
         isNull(tasks.completedAt),
-        // 오늘 pull 행이 없거나, 있어도 치워진(removed) 행이면 다시 유자격이다 (R14).
+        // 오늘 pull 행이 없거나, 있어도 치워진 행이면 다시 유자격이다 (R14).
         sql`(${taskPulls.taskId} IS NULL OR ${taskPulls.removedAt} IS NOT NULL)`
       )
     )
     .orderBy(asc(tasks.createdAt), sql`tasks.rowid`)
     .get()?.id ?? null,
 
-setCompleted: (weekItemId, at) => {
+complete: (weekItemId, at) => {
   tx.update(weekItems).set({ completedAt: at }).where(eq(weekItems.id, weekItemId)).run()
+},
+
+uncomplete: (weekItemId) => {
+  tx.update(weekItems).set({ completedAt: null }).where(eq(weekItems.id, weekItemId)).run()
 },
 
 drop: (weekItemId) => {
   tx.update(weekItems).set({ droppedAt: now() }).where(eq(weekItems.id, weekItemId)).run()
-},
-
-unplannedBreakdown: (week) => {
-  const named = tx
-    .select({
-      title: tasks.title,
-      spentPomos: sql<number>`(
-        select count(*) from sessions s
-        where s.task_id = ${tasks.id} and s.kind = 'focus' and s.local_week = ${week}
-      )`
-    })
-    .from(tasks)
-    .innerJoin(weekItems, eq(tasks.weekItemId, weekItems.id))
-    .where(and(eq(weekItems.week, week), eq(weekItems.isSystem, 1), isNull(tasks.deletedAt)))
-    .orderBy(asc(tasks.createdAt))
-    .all()
-
-  const anonymousPomos =
-    tx
-      .select({ n: sql<number>`count(*)` })
-      .from(sessions)
-      .where(
-        and(eq(sessions.localWeek, week), eq(sessions.kind, 'focus'), isNull(sessions.taskId))
-      )
-      .get()?.n ?? 0
-
-  return { named, anonymousPomos }
 }
 ```
 
-`week-plan.ts` 유스케이스:
+- [ ] **Step 5: 유스케이스 구현** — `week-plan.ts` 에 추가
 
 ```ts
 import { v7 as uuidv7 } from 'uuid'
 import { localKeys, now } from '../../shared/time'
+import type { ChildTaskRow } from './ports'
+
+/** 드로어 한 화면 = 응답 하나. 폐기 항목도 열린다 (header 가 listForWeek 밖을 본다). */
+export function itemDrawer(
+  uow: UnitOfWork,
+  weekItemId: string
+): { itemWeek: string; completedAt: string | null; tasks: ChildTaskRow[] } {
+  const { localDate } = localKeys()
+  return uow.run((repos) => {
+    const header = repos.weekItems.header(weekItemId)
+    if (header === null) throw new Error(`itemDrawer: week item '${weekItemId}' not found`)
+    return {
+      itemWeek: header.week,
+      completedAt: header.completedAt,
+      tasks: repos.weekItems.childTasks(weekItemId, localDate)
+    }
+  })
+}
 
 /**
  * 원클릭 pull (§3.1). 유자격 조각이 없으면 `pulled: null` 을 돌려주고, 화면은 그것을
@@ -1115,26 +1255,53 @@ export function pullNextFromItem(
 ): { pulled: { taskId: string; title: string } | null; itemWeek: string } {
   const { localDate } = localKeys()
   return uow.run((repos) => {
-    const itemWeek = repos.weekItems.weekOf(weekItemId)
-    if (itemWeek === null) throw new Error(`pullNext: week item '${weekItemId}' not found`)
+    const header = repos.weekItems.header(weekItemId)
+    if (header === null) throw new Error(`pullNext: week item '${weekItemId}' not found`)
+    // 완료된 항목은 pull 을 막는다 (R27). 화면도 막지만 계약이 최종 방어선이다.
+    if (header.completedAt !== null) {
+      throw new Error(`pullNext: item '${weekItemId}' is completed`)
+    }
 
     const taskId = repos.weekItems.nextPullable(weekItemId, localDate)
-    if (taskId === null) return { pulled: null, itemWeek }
+    if (taskId === null) return { pulled: null, itemWeek: header.week }
 
     repos.today.pull(taskId, localDate)
-    return { pulled: { taskId, title: repos.tasks.titleOf(taskId) ?? '' }, itemWeek }
+    return { pulled: { taskId, title: repos.tasks.titleOf(taskId) ?? '' }, itemWeek: header.week }
   })
 }
 
-/** 드로어의 `오늘로 가져오기` — 새 조각 생성 + 선택한 기존 조각을 한 트랜잭션으로 (§6.3). */
+/**
+ * 드로어의 `오늘로 가져오기` (§6.3) — 새 조각 생성 + 선택한 기존 조각을 한 트랜잭션으로.
+ *
+ * M2 의 `pullTask`(services/today.ts)와 같은 규율을 따른다: **완료 거부·소속 검증을
+ * 서비스가 한다.** UI 비활성만으로는 IPC 를 직접 부르는 경로가 열린다.
+ */
 export function pullFromDrawer(
   uow: UnitOfWork,
-  input: { weekItemId: string; taskIds: readonly string[]; newTask: { title: string; estPomos: number | null } | null }
+  input: {
+    weekItemId: string
+    taskIds: readonly string[]
+    newTask: { title: string; estPomos: number | null } | null
+  }
 ): { itemWeek: string } {
   const { localDate } = localKeys()
   return uow.run((repos) => {
-    const itemWeek = repos.weekItems.weekOf(input.weekItemId)
-    if (itemWeek === null) throw new Error(`pullFromDrawer: item '${input.weekItemId}' not found`)
+    const header = repos.weekItems.header(input.weekItemId)
+    if (header === null) throw new Error(`pullFromDrawer: item '${input.weekItemId}' not found`)
+    if (header.completedAt !== null) {
+      throw new Error(`pullFromDrawer: item '${input.weekItemId}' is completed`) // R27
+    }
+
+    for (const taskId of input.taskIds) {
+      const task = repos.tasks.get(taskId)
+      if (!task) throw new Error(`pullFromDrawer: task '${taskId}' not found`)
+      if (task.weekItemId !== input.weekItemId) {
+        throw new Error(`pullFromDrawer: task '${taskId}' does not belong to this item`)
+      }
+      if (task.completedAt !== null) {
+        throw new Error(`pullFromDrawer: task '${taskId}' is already completed`) // R7
+      }
+    }
 
     if (input.newTask !== null) {
       const trimmed = input.newTask.title.trim()
@@ -1150,7 +1317,7 @@ export function pullFromDrawer(
     }
     for (const taskId of input.taskIds) repos.today.pull(taskId, localDate)
 
-    return { itemWeek }
+    return { itemWeek: header.week }
   })
 }
 
@@ -1161,92 +1328,137 @@ export function setItemCompleted(
   completed: boolean
 ): { itemWeek: string; completedAt: string | null } {
   return uow.run((repos) => {
-    const itemWeek = repos.weekItems.weekOf(weekItemId)
-    if (itemWeek === null) throw new Error(`setItemCompleted: item '${weekItemId}' not found`)
-    const at = completed ? now() : null
-    repos.weekItems.setCompleted(weekItemId, at)
-    return { itemWeek, completedAt: at }
+    const header = repos.weekItems.header(weekItemId)
+    if (header === null) throw new Error(`setItemCompleted: item '${weekItemId}' not found`)
+    if (!completed) {
+      repos.weekItems.uncomplete(weekItemId)
+      return { itemWeek: header.week, completedAt: null }
+    }
+    const at = now()
+    repos.weekItems.complete(weekItemId, at)
+    return { itemWeek: header.week, completedAt: at }
   })
 }
 
 /** `보내주기` (§6.3). 폐기이지 삭제가 아니다 — 자식 조각·세션은 남는다 (ADR-014 §1). */
 export function dropItem(uow: UnitOfWork, weekItemId: string): { itemWeek: string } {
   return uow.run((repos) => {
-    const itemWeek = repos.weekItems.weekOf(weekItemId)
-    if (itemWeek === null) throw new Error(`dropItem: item '${weekItemId}' not found`)
+    const header = repos.weekItems.header(weekItemId)
+    if (header === null) throw new Error(`dropItem: item '${weekItemId}' not found`)
     repos.weekItems.drop(weekItemId)
-    return { itemWeek }
+    return { itemWeek: header.week }
   })
 }
 ```
 
-- [ ] **Step 4: 통과 확인** — `pnpm test` PASS
+- [ ] **Step 6: 통과 확인** — `pnpm test` PASS
 
-- [ ] **Step 5: 커밋** — `feat: add drawer queries, item completion, drop and one-click pull`
+- [ ] **Step 7: 커밋** — `feat: add drawer, item completion, drop and one-click pull`
 
 ---
 
-### Task 5: 주간 카드 조회 유스케이스 + IPC 8종
+### Task 4: 주간 카드 조회 유스케이스 + IPC 9종
 
 **Files:**
-- Modify: `src/shared/ipc/channels.ts`, `src/shared/ipc/contracts.ts`, `src/shared/ipc/api.ts`, `src/preload/index.ts`, `src/main/index.ts`, `src/main/services/week-plan.ts`
+- Modify: `src/shared/ipc/{channels,contracts,api}.ts`, `src/preload/index.ts`, `src/main/index.ts`, `src/main/services/week-plan.ts`
 - Create: `src/main/ipc/week.ts`
-- Test: `src/main/services/week-plan.test.ts`(추가), `src/main/ipc/registration.test.ts`(기존 갱신)
+- Test: `week-plan.test.ts`(추가), `src/main/ipc/registration.test.ts`(기존 갱신)
 
 **Interfaces:**
-- Consumes: Task 1–4 전부
-- Produces: `window.api.week.{summary,planDraft,confirmPlan,drawer,pullNext,pullFromDrawer,setCompleted,drop}`
+- Produces: `weekSummary()`, `planDraft()`; `window.api.week.{summary,planDraft,confirmPlan,drawer,pullNext,pullFromDrawer,complete,uncomplete,drop}`
 
-- [ ] **Step 1: 실패하는 테스트 작성** — 조회 유스케이스가 차액·표시 조건을 조립하는지:
+- [ ] **Step 1: 실패하는 테스트 작성**
 
 ```ts
 // week-plan.test.ts 에 추가
-describe('weekSummary', () => {
-  it('보이는 항목 + 기타 행 + 게이지가 한 응답으로 나오고 등식이 성립한다 (성공 지표)', () => {
-    withTestUow((uow) => {
-      // 항목 1개(1뽀모) + 미분류 세션 2개 = 총 3뽀모
-      const id = uow.run((r) => {
-        r.weeks.ensure(WEEK, BASE)
-        return r.weekItems.confirmPlan({
-          week: WEEK, items: [{ id: null, title: 'A', estPomos: 4, days: [] }]
+import { weekSummary, planDraft } from './week-plan'
+
+describe('weekSummary — 한 화면 = 한 응답', () => {
+  it('등식이 성립한다: Σ(보이는 항목) + 기타 행 = 총 소진 (성공 지표)', () => {
+    const { uow } = testUow()
+    ensureWeeks(uow, WEEK)
+    const id = uow.run(
+      (r) =>
+        r.weekItems.confirmPlan({
+          week: WEEK,
+          items: [{ id: null, title: 'A', estPomos: 4, days: [] }]
         }).createdIds[0]
+    )
+    uow.run((r) => {
+      r.tasks.create({ id: 't1', weekItemId: id, title: '조각' })
+      const s = (sid: string, taskId: string | null) => ({
+        id: sid,
+        startedAt: '2026-08-04T01:00:00.000Z',
+        endedAt: '2026-08-04T01:25:00.000Z',
+        durationSec: 1500,
+        kind: 'focus' as const,
+        taskId,
+        localDate: '2026-08-04',
+        localWeek: WEEK
       })
-      uow.run((r) => {
-        r.tasks.create({ id: 't1', weekItemId: id, title: '조각' })
-        r.sessions.insert({ id: 's1', startedAt: '2026-08-04T01:00:00.000Z', endedAt: '2026-08-04T01:25:00.000Z', durationSec: 1500, kind: 'focus', taskId: 't1', localDate: '2026-08-04', localWeek: WEEK })
-        r.sessions.insert({ id: 's2', startedAt: '2026-08-04T02:00:00.000Z', endedAt: '2026-08-04T02:25:00.000Z', durationSec: 1500, kind: 'focus', taskId: null, localDate: '2026-08-04', localWeek: WEEK })
-        r.sessions.insert({ id: 's3', startedAt: '2026-08-04T03:00:00.000Z', endedAt: '2026-08-04T03:25:00.000Z', durationSec: 1500, kind: 'focus', taskId: null, localDate: '2026-08-04', localWeek: WEEK })
-      })
-
-      const s = weekSummary(uow, WEEK)
-      expect(s.totalSpent).toBe(3)
-      expect(s.items).toHaveLength(1)
-      expect(s.otherRow).toEqual({ visible: true, spentPomos: 2 })
-      // 등식: 게이지 소진 == Σ(보이는 항목) + 기타 행
-      expect(s.items.reduce((n, i) => n + i.spentPomos, 0) + s.otherRow.spentPomos).toBe(s.totalSpent)
+      r.sessions.insert(s('s1', 't1'))
+      r.sessions.insert(s('s2', null))
+      r.sessions.insert(s('s3', null))
     })
+
+    const summary = weekSummary(uow, WEEK)
+    expect(summary.totalSpent).toBe(3)
+    expect(summary.items).toHaveLength(1)
+    expect(summary.otherRow).toEqual({ visible: true, spentPomos: 2 })
+    expect(
+      summary.items.reduce((n, i) => n + i.spentPomos, 0) + summary.otherRow.spentPomos
+    ).toBe(summary.totalSpent)
   })
 
-  it('세션도 조각도 없으면 기타 행을 숨긴다 (R17)', () => {
-    withTestUow((uow) => {
-      uow.run((r) => r.weeks.ensure(WEEK, BASE))
-      expect(weekSummary(uow, WEEK).otherRow.visible).toBe(false)
+  it('폐기 항목의 소진만 있는 주에도 기타 행이 보인다 (A24 · ADR-027 §3 세 번째 갈래)', () => {
+    const { uow } = testUow()
+    ensureWeeks(uow, WEEK)
+    const id = uow.run(
+      (r) =>
+        r.weekItems.confirmPlan({
+          week: WEEK,
+          items: [{ id: null, title: 'A', estPomos: 1, days: [] }]
+        }).createdIds[0]
+    )
+    uow.run((r) => {
+      r.tasks.create({ id: 't1', weekItemId: id, title: '조각' })
+      for (let i = 0; i < 3; i++) {
+        r.sessions.insert({
+          id: `s${i}`,
+          startedAt: '2026-08-04T01:00:00.000Z',
+          endedAt: '2026-08-04T01:25:00.000Z',
+          durationSec: 1500,
+          kind: 'focus',
+          taskId: 't1',
+          localDate: '2026-08-04',
+          localWeek: WEEK
+        })
+      }
+      r.weekItems.confirmPlan({ week: WEEK, items: [] }) // 폐기
     })
+
+    const summary = weekSummary(uow, WEEK)
+    expect(summary.items).toHaveLength(0)
+    // 미분류 세션도 부모 없는 조각도 없지만 차액이 3 이므로 행을 보여야 한다.
+    expect(summary.otherRow).toEqual({ visible: true, spentPomos: 3 })
   })
 
-  it('weeks 행이 없으면 budget 이 null 이다 (기록 없음 — §7)', () => {
-    withTestUow((uow) => {
-      expect(weekSummary(uow, WEEK).budget).toBeNull()
-    })
+  it('세션도 조각도 없으면 기타 행을 숨긴다', () => {
+    const { uow } = testUow()
+    ensureWeeks(uow, WEEK)
+    expect(weekSummary(uow, WEEK).otherRow.visible).toBe(false)
+  })
+
+  it('weeks 행이 없으면 budget 이 null 이다 (기록 없음)', () => {
+    const { uow } = testUow()
+    expect(weekSummary(uow, WEEK).budget).toBeNull()
   })
 })
 ```
 
-- [ ] **Step 2: 실행해 실패 확인** — `pnpm test` → FAIL
+- [ ] **Step 2: 실행해 실패 확인** — FAIL
 
-- [ ] **Step 3: 구현**
-
-`week-plan.ts` 에 조회 2종을 더한다:
+- [ ] **Step 3: 조회 유스케이스 구현**
 
 ```ts
 export type WeekSummary = {
@@ -1262,20 +1474,23 @@ export function weekSummary(uow: UnitOfWork, week: string): WeekSummary {
   return uow.run((repos) => {
     const items = repos.weekItems.listForWeek(week)
     const totalSpent = repos.weekItems.weekTotalSpent(week)
+    const spentPomos = otherRowSpent(totalSpent, items)
     return {
       week,
       budget: effectiveBudget(repos, week),
       totalSpent,
       items,
       otherRow: {
-        visible: repos.weekItems.hasUnplannedActivity(week),
-        spentPomos: otherRowSpent(totalSpent, items)
+        // 표시 조건 세 갈래 (ADR-027 §3). 세 번째(`spentPomos > 0`)가 폐기·삭제로
+        // 흘러든 소진을 잡는다 — 앞의 두 갈래만 보면 A24 가 깨진다.
+        visible: repos.weekItems.hasUnplannedActivity(week) || spentPomos > 0,
+        spentPomos
       }
     }
   })
 }
 
-/** 플래너 진입 시 초안 프리필 (§5.2·§5.3). 기타 항목은 초안에 넣지 않는다 (R16). */
+/** 플래너 진입 시 초안 프리필. 기타 항목은 초안에 넣지 않는다 (R16). */
 export function planDraft(
   uow: UnitOfWork,
   week: string
@@ -1294,9 +1509,10 @@ export function planDraft(
 }
 ```
 
-`channels.ts` 에 더한다:
+- [ ] **Step 4: IPC 배선** — `channels.ts` 에 `week` 블록 9종을 더하고, `contracts.ts` 에 req/res 스키마(응답은 전부 `strictObject`), `api.ts`·`preload/index.ts`·`main/ipc/week.ts`·`main/index.ts` 를 채워 **채널 추가 4곳 규칙**을 지킨다. `main/ipc/week.ts` 는 M2 의 `today.ts` 와 같은 모양으로 `handleIpc` 만 쓴다.
 
 ```ts
+// channels.ts
 week: {
   summary: 'week:summary',
   planDraft: 'week:planDraft',
@@ -1304,14 +1520,14 @@ week: {
   drawer: 'week:drawer',
   pullNext: 'week:pullNext',
   pullFromDrawer: 'week:pullFromDrawer',
-  setCompleted: 'week:setCompleted',
+  complete: 'week:complete',
+  uncomplete: 'week:uncomplete',
   drop: 'week:drop'
 }
 ```
 
-`contracts.ts` 에 스키마를 더한다 (응답은 전부 `strictObject`):
-
 ```ts
+// contracts.ts
 const weekItemRowSchema = z.strictObject({
   id: z.string(),
   title: z.string(),
@@ -1324,14 +1540,23 @@ const weekItemRowSchema = z.strictObject({
   childDone: z.int()
 })
 
+// 사용자가 만드는 항목의 est 하한은 1 이다 (R6). 기타 항목은 이 경로를 거치지 않는다.
 const planDraftItemSchema = z.strictObject({
   id: z.string().nullable(),
   title: z.string().min(1).max(40),
-  estPomos: z.int().min(1), // 사용자가 만드는 항목의 하한 1 (R6). 기타 항목은 이 경로를 거치지 않는다.
+  estPomos: z.int().min(1),
   days: z.array(z.int().min(0).max(6))
 })
 
-// contracts 에 추가
+const childTaskSchema = z.strictObject({
+  taskId: z.string(),
+  title: z.string(),
+  estPomos: z.int().nullable(),
+  spentPomos: z.int(),
+  completedAt: z.string().nullable(),
+  inToday: z.boolean()
+})
+
 week: {
   summary: {
     req: z.tuple([z.string()]),
@@ -1367,16 +1592,7 @@ week: {
     res: z.strictObject({
       itemWeek: z.string(),
       completedAt: z.string().nullable(),
-      tasks: z.array(
-        z.strictObject({
-          taskId: z.string(),
-          title: z.string(),
-          estPomos: z.int().nullable(),
-          spentPomos: z.int(),
-          completedAt: z.string().nullable(),
-          inToday: z.boolean()
-        })
-      )
+      tasks: z.array(childTaskSchema)
     })
   },
   pullNext: {
@@ -1391,57 +1607,65 @@ week: {
       z.strictObject({
         weekItemId: z.string(),
         taskIds: z.array(z.string()),
-        newTask: z.strictObject({ title: z.string().min(1).max(40), estPomos: z.int().min(1).nullable() }).nullable()
+        newTask: z
+          .strictObject({ title: z.string().min(1).max(40), estPomos: z.int().min(1).nullable() })
+          .nullable()
       })
     ]),
     res: z.strictObject({ itemWeek: z.string() })
   },
-  setCompleted: {
-    req: z.tuple([z.string(), z.boolean()]),
+  complete: {
+    req: z.tuple([z.string()]),
     res: z.strictObject({ itemWeek: z.string(), completedAt: z.string().nullable() })
   },
-  drop: {
+  uncomplete: {
     req: z.tuple([z.string()]),
-    res: z.strictObject({ itemWeek: z.string() })
-  }
+    res: z.strictObject({ itemWeek: z.string(), completedAt: z.string().nullable() })
+  },
+  drop: { req: z.tuple([z.string()]), res: z.strictObject({ itemWeek: z.string() }) }
 }
 ```
 
-`src/main/ipc/week.ts` 를 만들고 `handleIpc` 로만 등록한다 (M2 의 `today.ts` 와 같은 모양). `api.ts`·`preload/index.ts`·`main/index.ts` 를 채워 **채널 추가 4곳 규칙**을 지킨다.
+- [ ] **Step 5: 통과 확인** — `pnpm test` PASS. `pnpm dev` 콘솔:
+  `const { weekKey } = await window.api.clock.now()` → `await window.api.week.confirmPlan({ week: weekKey, budget: 20, items: [{ id: null, title: '테스트', estPomos: 3, days: [] }] })` → `await window.api.week.summary(weekKey)` 에 항목 1행.
 
-기타 행 드릴다운(`unplannedBreakdown`)은 드로어 응답과 성격이 달라 `week:drawer` 에 섞지 않는다 — Task 9 에서 별도 채널 `week:unplanned` 로 추가한다.
-
-- [ ] **Step 4: 통과 확인** — `pnpm test` PASS. `pnpm dev` 콘솔에서:
-  `await window.api.week.confirmPlan({ week: (await window.api.clock.now()).weekKey, budget: 20, items: [{ id: null, title: '테스트', estPomos: 3, days: [] }] })` → `await window.api.week.summary((await window.api.clock.now()).weekKey)` 에 항목 1행.
-
-- [ ] **Step 5: 커밋** — `feat: expose week plan use cases over validated ipc`
+- [ ] **Step 6: 커밋** — `feat: expose week plan use cases over validated ipc`
 
 ---
 
-### Task 6: 무효화 초크포인트 확장
+### Task 5: 쿼리 키 정정 — M2 의 무효화를 실제로 연결한다
+
+**1판의 치명적 결함이 여기 있었다.** M2 는 `keys.weekItems(w)` = `['week', w, 'items']` 를 무효화하는데, 주간 카드 쿼리의 키는 `['week', w]` 다. TanStack Query 의 무효화는 **주어진 키를 접두사로 갖는 쿼리**를 잡으므로 **긴 키로 짧은 키를 잡을 수 없다.** 그대로 두면 세션을 기록해도 주간 카드가 갱신되지 않는다 — 이 마일스톤 Goal 의 마지막 화살표가 끊긴다.
+
+`keys.weekItems` 는 **현재 어떤 쿼리도 쓰지 않는다**(실측 확인). 죽은 팩토리 항목을 남기면 나중에 누군가 그것을 쿼리 키로 쓰고 "무효화되는 줄" 알게 되므로 **제거**하고 `keys.week` 로 대체한다.
 
 **Files:**
 - Modify: `src/renderer/shared/query/keys.ts`, `src/renderer/shared/query/invalidate.ts`
-- Test: `src/renderer/shared/query/invalidate.test.ts`(기존에 추가)
+- Test: `src/renderer/shared/query/invalidate.test.ts`(기존 4사건 갱신 + 신규 2사건)
 
-**Interfaces:**
-- Produces: `keys.week(weekKey)`, `InvalidationEvent` 의 `'plan-confirmed'` · `'item-changed'` 변형
-
-**이벤트 채널을 추가하지 않는다.** 이 태스크가 다루는 것은 `InvalidationEvent` 유니온이며, `EVENT_CHANNELS`(main→renderer push)는 손대지 않는다. 확정·완료·폐기·pull 은 renderer 가 시작한 invoke 이므로 mutation `onSuccess` 에서 `dispatchInvalidation` 을 부른다 — M2 의 `pull-changed`·`task-toggled` 와 같은 패턴이다.
-
-- [ ] **Step 1: 실패하는 테스트 작성**
+- [ ] **Step 1: 실패하는 테스트 작성** — 기존 4사건의 기대값을 `['week', w]` 로 고치고, 신규 2사건을 더한다.
 
 ```ts
-// invalidate.test.ts 에 추가
+// invalidate.test.ts — 기존 session-recorded 기대값 수정
+it('session-recorded 는 그 세션 주의 카드를 무효화한다', () => {
+  expect(
+    keysToInvalidate({
+      type: 'session-recorded',
+      payload: { localDate: '2026-08-05', localWeek: '2026-08-03' /* ...나머지 payload */ },
+      currentDayKey: '2026-08-05'
+    })
+  ).toContainEqual(['week', '2026-08-03'])
+})
+
 describe('plan-confirmed', () => {
-  it('확정한 주와 오늘 목록을 무효화한다 (그 주가 오늘 주일 때)', () => {
+  it('확정한 주와 오늘 목록을 무효화한다', () => {
     expect(
       keysToInvalidate({
         type: 'plan-confirmed',
         payload: { week: '2026-08-03' },
         currentDayKey: '2026-08-05'
       })
-    ).toEqual([['week', '2026-08-03'], ['week', '2026-08-03', 'items'], ['today', '2026-08-05']])
+    ).toEqual([['week', '2026-08-03'], ['today', '2026-08-05']])
   })
 })
 
@@ -1453,23 +1677,29 @@ describe('item-changed', () => {
         payload: { itemWeek: '2026-08-10' },
         currentDayKey: '2026-08-05'
       })
-    ).toEqual([['week', '2026-08-10'], ['week', '2026-08-10', 'items'], ['today', '2026-08-05']])
+    ).toEqual([['week', '2026-08-10'], ['today', '2026-08-05']])
   })
 })
 ```
 
-- [ ] **Step 2: 실행해 실패 확인** — `pnpm test` → FAIL
+- [ ] **Step 2: 실행해 실패 확인** — FAIL
 
 - [ ] **Step 3: 구현**
 
-`keys.ts` 에 한 줄 더한다 (`weekItems` 는 그대로 둔다 — M2 사건들이 이미 쓰고 있다):
+`keys.ts` — `weekItems` 를 제거하고 `week` 를 넣는다:
 
 ```ts
-/** 주간 카드 한 화면 (summary). `['week', weekKey]` 는 `weekAll()` prefix 에 그대로 걸린다. */
+/**
+ * 주간 카드 한 화면 (summary). `['week', weekKey]` 이며 `weekAll()` prefix 에 걸린다.
+ *
+ * M2 의 `weekItems(weekKey)` = `['week', weekKey, 'items']` 를 대체한다. 그 키는 어떤
+ * 쿼리도 쓰지 않는 상태였고, 더 긴 키로는 이 카드 쿼리를 무효화할 수 없었다 —
+ * 무효화는 "주어진 키를 접두사로 갖는 쿼리"를 잡으므로 방향이 반대다.
+ */
 week: (weekKey: string) => ['week', weekKey] as const,
 ```
 
-`invalidate.ts` 의 유니온과 `switch` 에 두 갈래를 더한다:
+`invalidate.ts` — 기존 4사건에서 `keys.weekItems(...)` 를 `keys.week(...)` 로 바꾸고, 유니온·`switch` 에 두 갈래를 더한다:
 
 ```ts
 | { type: 'plan-confirmed'; payload: { week: string }; currentDayKey: string }
@@ -1479,34 +1709,23 @@ week: (weekKey: string) => ['week', weekKey] as const,
 ```ts
 case 'plan-confirmed':
   // 항목이 늘거나 폐기되면 그 주 카드와, 그 항목에서 pull 해둔 오늘 목록이 함께 변한다.
-  return [
-    keys.week(e.payload.week),
-    keys.weekItems(e.payload.week),
-    keys.today(e.currentDayKey)
-  ]
+  // 확정 주가 오늘 주가 아니어도 오늘을 무효화한다 — 판정 비용이 재조회 비용보다 크다.
+  return [keys.week(e.payload.week), keys.today(e.currentDayKey)]
 case 'item-changed':
   // 완료·완료 해제·폐기·pull 이 모두 이 갈래다 — 바뀌는 캐시 집합이 같다.
-  return [
-    keys.week(e.payload.itemWeek),
-    keys.weekItems(e.payload.itemWeek),
-    keys.today(e.currentDayKey)
-  ]
+  return [keys.week(e.payload.itemWeek), keys.today(e.currentDayKey)]
 ```
 
 - [ ] **Step 4: 통과 확인** — `pnpm test` PASS, `pnpm lint` 통과 (초크포인트 밖 캐시 조작 0)
 
-- [ ] **Step 5: 커밋** — `feat: add week plan invalidation events to the choke point`
+- [ ] **Step 5: 커밋** — `fix: point week invalidation at the key the card query uses`
 
 ---
 
-### Task 7: 뽀모 도트 컴포넌트
+### Task 6: 뽀모 도트 컴포넌트
 
 **Files:**
-- Create: `src/renderer/shared/ui/PomoDots.tsx`
-- Test: `src/renderer/shared/ui/PomoDots.test.tsx`
-
-**Interfaces:**
-- Produces: `<PomoDots spent={n} est={n} variant="default" | "neutral" />`
+- Create: `src/renderer/shared/ui/PomoDots.tsx`, `PomoDots.test.tsx`
 
 - [ ] **Step 1: 실패하는 테스트 작성**
 
@@ -1530,13 +1749,12 @@ describe('PomoDots', () => {
     expect(screen.queryAllByTestId('pomo-dot-empty')).toHaveLength(0)
   })
 
-  it('neutral(기타 행): 소진 개수만 채우고 미채움·extra·+N 을 렌더하지 않는다 (§3.4)', () => {
+  it('neutral(기타 행): 소진만 채우고 미채움·extra·+N 을 렌더하지 않는다 (§3.4)', () => {
     render(<PomoDots spent={3} est={0} variant="neutral" />)
     expect(screen.getAllByTestId('pomo-dot-filled')).toHaveLength(3)
     expect(screen.queryAllByTestId('pomo-dot-empty')).toHaveLength(0)
     expect(screen.queryAllByTestId('pomo-dot-extra')).toHaveLength(0)
-    // 숫자는 소진 단독 — `3/0` 을 쓰지 않는다.
-    expect(screen.getByText('3')).toBeInTheDocument()
+    expect(screen.getByText('3')).toBeInTheDocument() // 소진 단독
     expect(screen.queryByText('3/0')).not.toBeInTheDocument()
   })
 
@@ -1549,7 +1767,7 @@ describe('PomoDots', () => {
 
 - [ ] **Step 2: 실행해 실패 확인** — FAIL
 
-- [ ] **Step 3: 구현** — 도트는 토큰 기반 커스텀(SVG/CSS), 초과 배지의 불꽃은 lucide `Flame` **컴포넌트**다. 이모지 금지. 채움 `--teal`, 미채움 `--ink-faint`, extra `--amber`. 숫자는 `--font-mono` + `tabular-nums`.
+- [ ] **Step 3: 구현** — 도트는 토큰 기반 커스텀(SVG/CSS), 초과 배지의 불꽃은 lucide `Flame` **컴포넌트**다. 채움 `--teal`, 미채움 `--ink-faint`, extra `--amber`. 숫자는 `--font-mono` + `tabular-nums`. 초과 글로우는 **정적**이다 — 무한 펄스 금지 (principles §4).
 
 `neutral` 변형이 존재하는 이유를 파일 주석에 남긴다: 기타 행은 est 가 0 이라 default 규칙을 그대로 적용하면 **모든 도트가 초과로 렌더된다** (§3.4).
 
@@ -1559,33 +1777,48 @@ describe('PomoDots', () => {
 
 ---
 
-### Task 8: 주간 카드 일반 뷰
+### Task 7: 주간 카드 일반 뷰 — 행 · 게이지 · 기타 행 · 완료 제안 · 빈 상태
 
 **Files:**
-- Create: `src/renderer/features/week/useWeek.ts`, `WeekCard.tsx`, `WeekItemRow.tsx`, `OtherRow.tsx`, `BudgetGauge.tsx`
+- Create: `src/renderer/features/week/{useWeek.ts,WeekCard.tsx,WeekItemRow.tsx,OtherRow.tsx,BudgetGauge.tsx}`
 - Modify: `src/renderer/app/App.tsx`
-- Test: `WeekCard.test.tsx`, `BudgetGauge.test.tsx`
+- Test: `WeekCard.test.tsx`, `BudgetGauge.test.tsx`, `WeekItemRow.test.tsx`
 
-**Interfaces:**
-- Consumes: `keys.week(weekKey)`, `useClock()`, `api.week.*`, `dispatchInvalidation`, `<PomoDots />`
-- Produces: `<WeekCard />`
+- [ ] **Step 1: 실패하는 테스트 작성** — 렌더 계약만 (도메인 로직은 main 테스트가 덮는다)
 
-- [ ] **Step 1: 실패하는 테스트 작성** — 렌더 계약만 (도메인 로직은 main 테스트가 덮는다):
-  - 항목 행에 제목·도트·조각 카운트·요일 핍 7개(월요일 시작)가 렌더된다
-  - `otherRow.visible` 이 true 면 `기타 — 계획에 없던 집중` 행이 **목록 맨 아래**에 렌더되고, `neutral` 도트를 쓴다
-  - 게이지: `budget === null` 이면 바가 없고 `<소진> / 미설정` + `예산을 정하면 예산 대비 소진이 보여요`
-  - 게이지: 소진 23 · 예산 20 이면 `+3` 배지가 있고 **`--danger` 클래스·lucide `AlertTriangle` 이 0개**
-  - 빈 상태(항목 0 · 세션 0): `이번 주 할당을 잡으면 뽀모 예산이 여기 보여요` + CTA
-  - 완료 항목: 제목 취소선, pull 버튼 자리에 `완료됨` 비활성 라벨
-  - 자식 조각 0개면 `· 조각 0/0` 표기를 **숨긴다** (§3.1)
+**항목 행**
+- 제목·도트·요일 핍 7개(월요일 시작)가 렌더된다
+- 자식 조각이 0개면 `· 조각 0/0` 표기를 **숨긴다** (§3.1)
+- 요일 핍: 배정됨은 `--teal` solid, 미배정은 `--ink-faint` 이면서 **지름이 다르다** — 색 클래스만 다르고 모양이 같은 구현은 실패해야 한다. 불투명도 클래스 0개 (principles §3.5)
+- **이월 배지**: `originWeek` 이 2주 전이면 `3주째` 가 렌더되고, 같은 주면 배지가 없다. 계산식은 `(week − originWeek)/7 + 1` 이며 **주 키 문자열 두 개의 차이로 구한다** — `originWeek` 과 `week` 둘 다 응답에 실려 오므로 renderer 날짜 계산이 아니다 (A14·A15 부분 검증)
+- **완료 제안** (§3.3·§4): `childTotal > 0 && childDone === childTotal && completedAt === null` 이면 `할 일을 다 끝냈어요 — 이 할당도 완료할까요?` + `완료로 표시` 버튼. 거절 버튼은 없다
+- 자식이 0개면 완료 제안이 뜨지 않는다 (§4)
+- **완료 상태**: 제목 취소선, pull 버튼 자리에 `완료됨` 비활성 라벨, `완료 해제` 액션
+- **완료 + 추가 소진**: `completedAt` 있고 `spent > est` 면 `+N` 을 **그대로 표시**하고 완료 제안은 **다시 뜨지 않는다** (R28·A37)
+- 모든 조작 요소의 최소 크기가 `--target-min` 이다 (캐럿·pull 버튼)
+
+**게이지** (§7)
+- `budget === null` → 바 없음 + `<소진> / 미설정` + `예산을 정하면 예산 대비 소진이 보여요`
+- **`budget === 0` 도 같은 처리** (A27) — `소진 / 0` 을 렌더하지 않고 0 으로 나누지 않는다
+- 예산 있음·여유 → `<소진> / <예산>` + `--teal` 바 + `예산은 추정치예요 — 넘어가도 괜찮아요`
+- 예산 20·소진 23 → `+3` 배지, 문구는 같음, **`--danger` 클래스 0개 · lucide `AlertTriangle` 0개**
+
+**기타 행** (§3.4)
+- `otherRow.visible` 이 true 면 목록 **맨 아래**에 `기타 — 계획에 없던 집중` 이 `neutral` 도트로 렌더된다
+- est·요일 핍·이월 배지·pull 버튼이 **없다**
+- 점선 테두리(`--glass-border-soft`)를 쓰되 `--ink-faint` 로 낮추지 않는다 — 실제로 한 집중이다
+
+**빈 상태** (§8)
+- 항목 0 · 세션 0 → `이번 주 할당을 잡으면 뽀모 예산이 여기 보여요` + `+ 이번 주 할당 잡기`
+- 항목 0 · 기타 행 있음 → 기타 행 + 그 아래 `계획이 없어도 기록은 남아요`
+- 활성 항목 0 · 전부 완료 → `이번 주 할당을 다 끝냈어요` + CTA `수정`
 
 - [ ] **Step 2: 실행해 실패 확인** — FAIL
 
 - [ ] **Step 3: 구현**
 
-`useWeek.ts`:
-
 ```ts
+// useWeek.ts
 export function useWeek() {
   const { weekKey, dayKey } = useClock()
   const qc = useQueryClient()
@@ -1600,51 +1833,54 @@ export function useWeek() {
       currentDayKey: dayKey
     })
   const pullNext = useMutation({ mutationFn: api.week.pullNext, onSuccess: invalidateItem })
-  const setCompleted = useMutation({
-    mutationFn: ({ id, done }: { id: string; done: boolean }) => api.week.setCompleted(id, done),
-    onSuccess: invalidateItem
-  })
+  const complete = useMutation({ mutationFn: api.week.complete, onSuccess: invalidateItem })
+  const uncomplete = useMutation({ mutationFn: api.week.uncomplete, onSuccess: invalidateItem })
   const drop = useMutation({ mutationFn: api.week.drop, onSuccess: invalidateItem })
-  return { weekKey, dayKey, query, pullNext, setCompleted, drop }
+  return { weekKey, dayKey, query, pullNext, complete, uncomplete, drop }
 }
 ```
 
-요일 핍은 **색과 모양 두 채널**로 구분한다 (§3.2, principles §3.5) — 미배정 solid 작게 / 지난 요일 **윤곽선만** / 오늘 **바깥 링** + `--amber` / 다가올 요일 solid `--teal`. **불투명도로 지난 요일을 표현하지 않는다.**
+이월 배지는 주 키 두 개의 **문자열 차이**로 구한다. `src/shared/time/` 에 순수 함수를 더한다 (renderer 가 아니라 shared 이므로 시간 초크포인트 규칙 안이다):
+
+```ts
+/** 이월 배지 `N주째` (week-plan R11). 두 주 키의 차이 ÷ 7 + 1. 사슬 길이로 세지 않는다. */
+export function weeksSince(originWeek: string, week: string): number
+```
 
 `App.tsx` 에 주간 카드를 더한다. **`ClockGate` 안쪽이다** — M2 의 콜드 스타트 크래시(`7e0d472`)가 같은 자리에서 났다. 반응형은 만들지 않는다.
 
-- [ ] **Step 4: 통과 확인** — `pnpm test` PASS. `pnpm dev`: 콘솔로 항목을 만들고 카드에 행이 보이는지, 타이머로 1뽀모 태우면 도트와 게이지가 함께 오르는지 확인.
+모션: 게이지 바 변화는 `prefers-reduced-motion: reduce` 시 전이 없이 즉시 반영한다. 전역 `transition: none !important` 킬은 **폐기된 패턴**이므로 쓰지 않는다 (principles §4).
 
-- [ ] **Step 5: 커밋** — `feat: add week card normal view with gauge and other row`
+- [ ] **Step 4: 통과 확인** — `pnpm test` PASS. `pnpm dev`: 콘솔로 항목을 만들고 카드에 행이 보이는지, **타이머로 1뽀모를 태우면 도트와 게이지가 함께 오르는지** 확인 (Task 5 의 키 정정이 실제로 동작하는지 여기서 드러난다).
+
+- [ ] **Step 5: 커밋** — `feat: add week card normal view with gauge, other row and completion`
 
 ---
 
-### Task 9: 항목 드로어
+### Task 8: 항목 드로어
 
 **Files:**
-- Create: `src/renderer/features/week/ItemDrawer.tsx`, `useDrawer.ts`
-- Modify: `src/renderer/features/week/WeekItemRow.tsx`, `src/shared/ipc/{channels,contracts,api}.ts`, `src/preload/index.ts`, `src/main/ipc/week.ts`
+- Create: `src/renderer/features/week/{ItemDrawer.tsx,useDrawer.ts}`
+- Modify: `WeekItemRow.tsx`
 - Test: `ItemDrawer.test.tsx`
 
-**Interfaces:**
-- Consumes: `api.week.drawer`, `api.week.pullFromDrawer`, `api.week.unplanned`
-- Produces: `<ItemDrawer itemId={...} />`
-
 - [ ] **Step 1: 실패하는 테스트 작성**
-  - 캐럿 클릭으로 인라인 펼침, **모달이 아니다** (`role="dialog"` 를 쓰지 않는다), 동시에 하나만 열린다
-  - 조각 0개: 목록 영역 없이 `오늘 할 몫을 쪼개서 적어요 — 이게 첫 조각이 돼요` 만
-  - 조각 ≥ 1: 라벨 `이 할당의 조각 — 오늘 할 것을 고르세요`, 새 입력 라벨 `또는 새 조각 추가`
-  - `inToday` 인 조각은 상태 라벨 `오늘 목록에` + 선택 불가
-  - 항목 완료 상태: `오늘로 가져오기` 비활성 + `완료된 할당이에요 — 해제하면 다시 가져올 수 있어요`
-  - `보내주기`는 확인 1회 (`이 할당을 보내줄까요? 지금까지 한 집중과 조각은 남아요.`), `--danger` 는 **hover 에만**
-  - 기타 행 드릴다운: 두 그룹(`이름을 남긴 것` / `이름 없는 집중`)이 **읽기 전용** — 생성·pull·완료·폐기 버튼 0개
-  - 원클릭 pull 이 `pulled === null` 로 오면 드로어가 열린다 (§3.1 폴백)
+- 캐럿 클릭으로 인라인 펼침. **모달이 아니다** — `role="dialog"` 를 쓰지 않는다. 동시에 하나만 열린다
+- 캐럿에 `aria-expanded` 와 `aria-controls` 가 있고 열림/닫힘에 따라 값이 바뀐다
+- 조각 0개: 목록 영역 없이 `오늘 할 몫을 쪼개서 적어요 — 이게 첫 조각이 돼요` 만
+- 조각 ≥ 1: 라벨 `이 할당의 조각 — 오늘 할 것을 고르세요`, 새 입력 라벨 `또는 새 조각 추가`
+- `inToday` 인 조각은 상태 라벨 `오늘 목록에` + 선택 불가, 완료된 조각은 상태 라벨 `완료` + 취소선 + 선택 불가
+- 항목 완료 상태: `오늘로 가져오기` 비활성 + `완료된 할당이에요 — 해제하면 다시 가져올 수 있어요`
+- 항목 완료 + 소진 > est: 도트에 `+N` 을 그대로 표시하고 `초과했어요` 류 문구를 붙이지 않는다 (§6.4)
+- 항목 액션 `완료로 표시` / `완료 해제` / `보내주기` 세 개가 있다 (§6.1)
+- `보내주기`: 확인 1회 `이 할당을 보내줄까요? 지금까지 한 집중과 조각은 남아요.` · `--danger` 는 **hover 에만** · 문구는 `버리기` 가 아니다
+- 원클릭 pull 이 `pulled === null` 로 오면 드로어가 열린다 (§3.1 폴백)
+- pull 성공 시 토스트 `오늘로 가져왔어요 — <조각 제목>`
+- 드로어가 닫힐 때 포커스가 캐럿으로 돌아온다 (PRODUCT.md 접근성 §4)
 
 - [ ] **Step 2: 실행해 실패 확인** — FAIL
 
-- [ ] **Step 3: 구현** — 기타 행 드릴다운용 채널 `week:unplanned` 를 추가한다 (req `[z.string()]`, res `strictObject({ named: array(strictObject({ title, spentPomos })), anonymousPomos })`). 채널 추가 4곳 규칙을 지킨다.
-
-  `이름 없는 집중` 문구는 `뽀모 N — 어떤 일에도 연결되지 않았어요` 한 줄이다.
+- [ ] **Step 3: 구현** — 기타 행의 캐럿은 M3a 에서 **렌더하지 않는다** (드릴다운을 뺐다).
 
 - [ ] **Step 4: 통과 확인** — `pnpm test` PASS. `pnpm dev`: 조각 0개 항목의 `+ 오늘로` → 드로어 열림 → 새 조각 적고 `오늘로 가져오기` → 오늘 목록에 등장.
 
@@ -1652,52 +1888,47 @@ export function useWeek() {
 
 ---
 
-### Task 10: 플래너 모드
+### Task 9: 플래너 모드 (이번 주 전용)
 
 **Files:**
-- Create: `src/renderer/features/week/Planner.tsx`, `usePlanner.ts`
-- Modify: `src/renderer/features/week/WeekCard.tsx`
+- Create: `src/renderer/features/week/{Planner.tsx,usePlanner.ts}`
+- Modify: `WeekCard.tsx`
 - Test: `Planner.test.tsx`
 
-**Interfaces:**
-- Consumes: `api.week.planDraft`, `api.week.confirmPlan`, `useClock()`
-- Produces: `<Planner />` — `WeekCard` 의 두 번째 모드
+**편집 대상 주 토글이 없다.** 항상 오늘이 속한 주를 편집한다 — `다음 주` 는 이번 마일스톤에서 뺐다. 헤더·확정 버튼 라벨은 `이번 주 계획` · `이번 주 시작` 으로 고정한다. 빈 상태 CTA 도 `+ 이번 주 할당 잡기` 고정이다.
 
 - [ ] **Step 1: 실패하는 테스트 작성**
-  - ⓞ 편집 대상 주: 2개 세그먼트(`이번 주`·`다음 주`)가 **항상** 렌더된다. 드롭다운으로 접지 않는다
-  - 기본 선택이 `week_of(오늘 + plan_lead_days)` 다 — 일요일 목킹이면 `다음 주`, 평일이면 `이번 주`
-  - **라벨 파생**: 선택이 `다음 주` 면 헤더·확정 버튼이 모두 "다음 주" (요일에서 직접 파생하지 않는다 — R5·A5)
-  - ① 예산: `prefill === null` 이면 입력이 비어 있고 `예산을 정하면 과적을 알려줘요` 가 뜬다
-  - ② 항목: est 스테퍼 하한 1 — 1에서 감소를 눌러도 0이 되지 않는다 (A6)
-  - ③ 요일 칩 7개가 **월요일부터** 배열된다
-  - ④ 과적: est 합 > 예산이면 `+N 과적이에요. 예상 뽀모를 줄일까요, 항목을 덜어낼까요?` 가 뜨고, **`--danger`·경고 아이콘 0개**이며 확정 버튼이 **활성**이다 (A29)
-  - ④ 과적 안내에 `다음 주` 라는 단어가 등장하지 않는다 (R22 — 이 화면에 없는 액션 금지)
-  - `×` 의 두 의미: 신규 초안 행은 확인 없이 사라지고, **기존 항목 행은 제거되지 않고 `보내줄 예정` 취소선 + 되돌리기 링크로 바뀐다** (§5.3.1)
-  - capacity 미설정: 부하 그래프의 **막대는 그려지고 기준선이 없다** (§5.5)
-  - 확정 후 편집 대상이 `다음 주` 였으면 안내 `다음 주 계획을 저장했어요 — 다음 주가 되면 여기에 보여요.`
+- ① 예산: `prefill === null` 이면 입력이 **비어 있고** `예산을 정하면 과적을 알려줘요` 가 뜬다. 라벨은 `이번 주 예산 (추정치)`
+- ② 항목: est 스테퍼 **하한 1** — 1에서 감소를 눌러도 0이 되지 않는다 (A6). 제목 최대 40자
+- ② `항목 추가` 후 **제목 입력 포커스가 유지**되고 요일 선택이 초기화된다 (§5.3)
+- ③ 요일 칩 7개가 **월요일부터** 배열되고, 라벨은 `언제 (선택)`. 미선택 초안 행에는 `미배치` 라고 적는다
+- ③ 요일 칩 토글 시 **제목 입력 포커스를 잃지 않는다** (§5.4)
+- ④ 과적: est 합 > 예산이면 `+N 과적이에요. 예상 뽀모를 줄일까요, 항목을 덜어낼까요?` 가 뜨고, **`--danger`·경고 아이콘 0개**이며 확정 버튼이 **활성**이다 (A29)
+- ④ 과적 안내에 `다음 주` 라는 단어가 등장하지 않는다 (R22 — 이 화면에 없는 액션 금지)
+- `×` 의 두 의미 (§5.3.1): 신규 초안 행은 확인 없이 사라진다. **기존 항목 행은 제거되지 않고 `보내줄 예정` 취소선 + 되돌리기 링크로 바뀌며**, 확인 1회 `이 할당을 보내줄까요? 지금까지 한 집중과 조각은 남아요.` 를 거친다
+- 되돌리기를 누르면 초안 행이 원래대로 복구된다
+- `취소` 는 확인 없이 초안 전체를 폐기한다 (`보내줄 예정` 표시도 함께)
+- 확정 후 일반 뷰로 복귀한다
+- 모든 조작 요소가 `--target-min` 하한을 지킨다 (요일 칩 7개·est 스테퍼 ±·초안 행 `×`)
 
 - [ ] **Step 2: 실행해 실패 확인** — FAIL
 
-- [ ] **Step 3: 구현** — 5단계를 한 화면에 위에서 아래로 쌓는다. 마법사·단계 전환 없음.
+- [ ] **Step 3: 구현** — 4단계(예산·항목·요일·경고)를 한 화면에 위에서 아래로 쌓는다. 마법사·단계 전환 없음. 확정은 `api.week.confirmPlan` 한 번이고 `onSuccess` 에서 `dispatchInvalidation({ type: 'plan-confirmed', payload: { week } })`.
 
-  편집 대상 주 전환 시 미저장 변경이 있으면 확인 1회: `고치던 내용이 있어요 — 저장하지 않고 다른 주로 갈까요?` (`--danger` 금지).
-
-  요일 칩 토글은 부분 갱신으로 처리해 **제목 입력 포커스를 잃지 않게** 한다 (§5.4).
-
-  부하 = `Σ(항목 est / 배정 요일 수)`, 배정된 요일에만 분산. **미배치 항목은 산입하지 않는다.**
+  요일 부하 그래프는 만들지 않는다 (범위 축소). 총량 과적 바만 그린다.
 
 - [ ] **Step 4: 통과 확인** — `pnpm test` PASS. `pnpm dev` 전 구간 수동 검증: 플래너 → 항목 2개 → 확정 → 일반 뷰에 등장 → `+ 오늘로` → 타이머 → 도트 상승.
 
-- [ ] **Step 5: 커밋** — `feat: add planner mode with week target toggle and non-blocking warnings`
+- [ ] **Step 5: 커밋** — `feat: add planner mode with non-blocking overload warning`
 
 ---
 
-### Task 11: 미결 종결 문서화 + 마무리 검증
+### Task 10: 문서 갱신 + 마무리 검증
 
 **Files:**
 - Modify: `docs/features/week-plan/prd.md`(R9 가정 블록), `PRODUCT.md`, `README.md`
 
-- [ ] **Step 1: R9 미결 종결 반영** — `docs/features/week-plan/prd.md` R9 의 `> ⚠️ 가정:` 블록을 결정으로 교체한다. 표시하지 않기로 한 이유(두 값이 독립적이라는 R9 자체의 정의 + 원칙 6)를 남기고, 근거로 이 계획서와 설계 스펙을 인용한다. **가정 블록을 조용히 지우지 않는다** — 결정으로 바뀌었음을 본문에 적는다.
+- [ ] **Step 1: R9 미결 종결 반영** — `week-plan/prd.md` R9 의 `> ⚠️ 가정:` 블록을 결정으로 교체한다. 드로어에서 "항목 est vs 자식 조각 est 합" 어긋남을 **표시하지 않는다.** 이유(두 값이 독립이라는 R9 자신의 정의 + 원칙 6)를 남기고 설계 스펙 §6 을 근거로 인용한다. **가정 블록을 조용히 지우지 않는다** — 결정으로 바뀌었음을 본문에 적는다.
 
 - [ ] **Step 2: 전체 검증 일괄 실행** — `pnpm test && pnpm lint && pnpm typecheck && pnpm format:check && pnpm build` 전부 0 에러.
 
@@ -1705,24 +1936,69 @@ export function useWeek() {
   - 계획 0개 상태에서 타이머·오늘 목록이 여전히 전부 동작한다 (원칙 1)
   - 플래너 확정 → 일반 뷰 → `+ 오늘로` → 재생 → 완료 → **항목 도트와 주간 게이지가 함께** 오른다
   - 조각 0개 항목의 `+ 오늘로` 가 드로어를 연다
-  - 항목을 초안에서 `×` 하고 확정 → 목록에서 사라지되 주간 총 소진은 그대로, 그 소진이 기타 행에 나타난다
-  - 일요일로 시스템 시계를 옮기고 플래너를 열면 `다음 주` 가 기본 선택이고, `이번 주` 로 바꾸면 이번 주 항목이 초안에 채워진다
+  - 자식 조각을 전부 완료하면 완료 제안이 뜨고, `완료로 표시` 를 눌러야 완료된다. 무시하면 active 로 남는다
+  - 완료 후 그 조각으로 세션을 더 태우면 소진과 `+N` 은 오르되 완료 제안이 다시 뜨지 않는다
+  - 항목을 초안에서 `×` 하고 확정 → 목록에서 사라지되 주간 총 소진은 그대로, **그 소진이 기타 행에 나타난다**
   - 예산 20 · 소진 23 상태에서 빨간색·경고 아이콘이 없다
+  - 예산을 비운 채 확정하면 게이지가 `미설정` 이고 `소진 / 0` 이 아니다
 
-- [ ] **Step 4: 문서 갱신** — PRODUCT.md·README 의 구현 현황을 M3a 상태로 갱신하고, README 계획 표에 이 계획서 행을 추가한다. 마일스톤 지도를 `M3a 완료 → M3b 정산(다음)` 으로 옮긴다.
+- [ ] **Step 4: 문서 갱신** — PRODUCT.md·README 의 구현 현황을 M3a 상태로 갱신하고, README 계획 표에 이 계획서 행을 추가한다. 마일스톤 지도를 `M3a 완료 → M3b 정산(다음)` 으로 옮긴다. **이번에 뺀 것들(요일 정보·부하 그래프·드릴다운)이 M3b 에서 살아난다는 사실을 함께 적는다.**
 
 - [ ] **Step 5: 커밋** — `docs: close the r9 open question and update status after m3a`
 
 ---
 
-## 자기 점검 (계획 작성 후 스펙 대조)
+## M3b 로 넘기는 메모
 
-- **스펙 §3(가용량 미설정 4경로)** → Task 1(프리필 null)·Task 8(게이지 `미설정`)·Task 10(예산 힌트·부하 기준선 없음)에 분산 반영.
-- **스펙 §4.1(술어 한 곳)** → Task 2 Step 3 의 `listForWeek` 안에만 존재. 다른 태스크가 세션을 세지 않는다.
-- **스펙 §4.2(차액)** → Task 2 의 `otherRowSpent` + Task 5 의 `weekSummary` 조립. 정의역 확정은 계획서 상단 별도 절.
-- **스펙 §5(선언형 확정)** → Task 3.
-- **스펙 §6(R9 종결)** → Task 11 Step 1 에서 문서 반영.
-- **스펙 §7(무효화)** → Task 6. 이벤트 채널을 추가하지 않는다는 사실을 파일 구조 절과 Task 6 머리에 두 번 적었다.
-- **스펙 §8(ClockGate)** → Task 8 Step 3.
-- **스펙 §10(함정 7개)** → 각각 Task 1(planned_at)·2(local_week)·3(ID 매칭·폐기≠삭제)·7(neutral 도트)·8(ClockGate)의 테스트로 내려갔다. 이월 배지 계산식은 M3a 가 표시만 하므로 Task 8 의 렌더 계약에서 `originWeek` 파생으로 확인한다.
-- **타입 일관성**: `WeekItemRow`(Task 2) → `weekItemRowSchema`(Task 5) 필드가 1:1 이다. `PlanDraftItem`(Task 3) → `planDraftItemSchema`(Task 5) 도 마찬가지. `itemWeek` 라는 이름을 Task 4·5·6 에서 동일하게 쓴다 (M2 의 `pull-changed` payload 와 같은 이름).
+정산 계획서를 쓸 때 반드시 확인할 것.
+
+1. **`confirmPlan` 을 이월에 재사용하지 말 것.** 신규 항목에 `originWeek: week` 를 무조건 박는다. R11 은 이월 항목이 원본의 `origin_week` 를 **승계**하라고 요구하므로, 재사용하면 배지가 영원히 `1주째` 로 리셋된다. R35 의 미완료 조각 재부모화도 이 메서드에 없다. 이월은 별도 생성 경로가 필요하다.
+2. **`weeks.ensure` 는 길이 3종만 박제한다.** weekly-review R37 은 capacity·예산까지 함께 요구한다. M3a 는 capacity 가 항상 NULL 이라 무해하지만, 정산이 capacity 편집 진입점을 들이는 순간(pomo-baseline R25) **플래너로 만든 주만 capacity 스냅샷이 비는 비대칭**이 생긴다.
+3. **선언형 확정의 동시성 약점.** 플래너를 열어둔 채 다른 경로로 항목이 생기면 확정 시 "목록에 없음 = 폐기"로 판정된다. M3a 는 항목 생성 경로가 플래너뿐이라 발생하지 않는다. 정산은 같은 문제를 **예외만 담고 서버가 재조회**하는 방식으로 닫았다(R29). M3b 에서 이 충돌이 실제로 나면 플래너도 그 방식으로 옮긴다.
+4. **`remainingPomos`(week-plan.ts)를 쓸 것.** 남은 몫 클램프는 M3a 가 만들어 뒀다. 정산이 자기 클램프를 다시 만들면 두 곳이 갈린다.
+5. **이번에 뺀 것들이 M3b 와 함께 살아난다** — 요일 정보(`clock.now` 응답 확장), 요일별 부하 그래프(capacity 편집 진입점이 생기면), 플래너의 `다음 주` 세그먼트.
+
+---
+
+## 자기 점검 (스펙·리뷰 대조)
+
+**스펙 대조**
+
+| 스펙 절 | 반영 위치 |
+|---|---|
+| §3 가용량 미설정 4경로 | Task 1(프리필 null) · Task 7(게이지 `미설정`) · Task 9(예산 힌트). 부하 그래프는 범위에서 뺐다 |
+| §4.1 술어 한 곳 | Task 2 Step 5 의 `listForWeek` 안. 세션을 세는 다른 곳은 `weekTotalSpent`·`childTasks` 이며 **주 조건이 붙는 것은 앞의 둘뿐**이다(`childTasks` 는 의도적으로 뺀다 — 다른 질문에 답한다) |
+| §4.2 차액 | Task 2 의 `otherRowSpent` + Task 4 의 `weekSummary`. 정의역은 ADR-027 인용 |
+| §4.3 포트 목록 | Task 1·2·3. `complete`/`uncomplete` 로 나눠 CRUD 금지 규칙 준수 |
+| §5 선언형 확정 | Task 2 |
+| §6 R9 종결 | Task 10 Step 1 |
+| §7 무효화 | Task 5 — **스펙 §7 의 "저절로 동작한다"는 틀렸다.** 키 방향이 반대라 연결되지 않았고 이 계획서가 정정한다 |
+| §8 ClockGate | Task 7 Step 3 |
+| §10 함정 7개 | Task 1(planned_at) · 2(local_week·ID 매칭·폐기≠삭제) · 6(neutral 도트) · 7(ClockGate·이월 배지 계산식) |
+| §11 테스트 전략 | Task 2·3·4 의 계약/서비스 테스트 + `remainingPomos`(Task 2) |
+
+**1판 리뷰가 잡은 15건의 처리**
+
+| 결함 | 처리 |
+|---|---|
+| `withTestUow` 부재 | Task 2 Step 1 에서 `testUow`·`ensureWeeks` 를 실제로 만든다 (시딩 포함) |
+| Task 2↔3 의존 역전 | 하나로 합쳤다 |
+| FK 위반 테스트 2건 | `ensureWeeks(uow, WEEK, NEXT)` 를 모든 세션 테스트에 넣었다 |
+| settings 시딩 누락 | `testUow` 가 `seedSettings` 를 부른다 |
+| `week:drawer` 유스케이스 부재 | Task 3 의 `itemDrawer` + 포트 `header` |
+| 다음 주 키 경로 부재 | 범위에서 뺐다 (사용자 결정) |
+| 무효화 키 방향 오류 | Task 5 |
+| 기타 행 표시 조건 불완전 | ADR-027 §3 + Task 4 의 세 번째 갈래 + 전용 테스트 2건 |
+| 완료 제안·확정 전면 누락 | Task 3(서비스) · Task 7(제안·행 상태) · Task 8(드로어 액션) |
+| 이월 배지 계산식 거처 미정 | Task 7 — `shared/time` 의 `weeksSince` |
+| `budget = 0` 분기 | Task 7 게이지 계약 |
+| 남은 몫 클램프 부재 | Task 2 의 `remainingPomos` |
+| 문구 13개 | Task 7·8·9 의 렌더 계약에 원문으로 박았다 |
+| 접근성 5건 | 요일 핍 2채널(Task 7) · `--target-min`(Task 7·9) · 포커스 유지·귀속(Task 8·9) · reduced-motion(Task 6·7) · `aria-expanded`(Task 8) |
+| CRUD 포트 | `complete`/`uncomplete` 분리 |
+| 계획서가 결정을 만듦 | ADR-027 로 옮기고 계획서는 인용만 한다 |
+| 채널 수 불일치 | 9종으로 통일 (드릴다운을 뺐으므로 Task 4 에서 끝난다) |
+| `nextPullable` 의 removed_at 분기 미검증 | Task 3 Step 1 에 focus 세션을 먼저 넣어 `'marked'` 경로를 강제한다 |
+| `sum()` NULL 타입 거짓말 | `sql<number \| null>` 로 선언하고 폴백을 둔다 (Task 2) |
+| `baseline.test.ts` basename 충돌 | `budget.test.ts` 로 |
+| 테스트 import 누락 | 모든 스니펫에 import 를 넣었다 |
