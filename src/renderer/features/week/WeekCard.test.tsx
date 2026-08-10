@@ -3,6 +3,7 @@ import type {} from '@testing-library/jest-dom/vitest'
 import { render, screen } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { describe, expect, it, vi } from 'vitest'
+import userEvent from '@testing-library/user-event'
 import type { Api } from '@shared/ipc/api'
 import { WeekCard } from './WeekCard'
 
@@ -38,19 +39,24 @@ function makeSummary(over: Partial<Summary> = {}): Summary {
   }
 }
 
-async function renderCard(summary: Summary) {
+type Drawer = Awaited<ReturnType<Api['week']['drawer']>>
+
+const emptyDrawer: Drawer = { itemWeek: WEEK, completedAt: null, tasks: [] }
+
+async function renderCard(summary: Summary, over: Partial<Api['week']> = {}) {
   window.api = {
     clock: { now: vi.fn().mockResolvedValue({ dayKey: DAY, weekKey: WEEK, monthKey: '2026-08' }) },
     week: {
       summary: vi.fn().mockResolvedValue(summary),
       planDraft: vi.fn(),
       confirmPlan: vi.fn(),
-      drawer: vi.fn(),
+      drawer: vi.fn().mockResolvedValue(emptyDrawer),
       pullNext: vi.fn().mockResolvedValue({ itemWeek: WEEK, pulled: null }),
-      pullFromDrawer: vi.fn(),
+      pullFromDrawer: vi.fn().mockResolvedValue({ itemWeek: WEEK }),
       complete: vi.fn().mockResolvedValue({ itemWeek: WEEK, completedAt: null }),
       uncomplete: vi.fn().mockResolvedValue({ itemWeek: WEEK, completedAt: null }),
-      drop: vi.fn().mockResolvedValue({ itemWeek: WEEK })
+      drop: vi.fn().mockResolvedValue({ itemWeek: WEEK }),
+      ...over
     }
   } as unknown as Api
 
@@ -164,5 +170,102 @@ describe('WeekCard — 빈 상태 (§8)', () => {
     await renderCard(makeSummary({ items: [makeItem()] }))
     expect(screen.queryByText(/이번 주 할당을/)).not.toBeInTheDocument()
     expect(screen.queryByText('계획이 없어도 기록은 남아요')).not.toBeInTheDocument()
+  })
+})
+
+describe('WeekCard — 드로어 배선 (§6·§3.1)', () => {
+  it('캐럿에 aria-expanded·aria-controls 가 있고 열림에 따라 바뀐다', async () => {
+    const user = userEvent.setup()
+    await renderCard(makeSummary({ items: [makeItem()] }))
+
+    const caret = screen.getByRole('button', { name: '드로어 열기' })
+    expect(caret).toHaveAttribute('aria-expanded', 'false')
+    const controls = caret.getAttribute('aria-controls')
+    expect(controls).not.toBeNull()
+
+    await user.click(caret)
+    expect(screen.getByRole('button', { name: '드로어 닫기' })).toHaveAttribute(
+      'aria-expanded',
+      'true'
+    )
+    expect(document.getElementById(controls as string)).not.toBeNull()
+  })
+
+  it('동시에 하나만 열린다', async () => {
+    const user = userEvent.setup()
+    await renderCard(makeSummary({ items: [makeItem(), makeItem({ id: 'i2', title: '두 번째' })] }))
+
+    const [first, second] = screen.getAllByRole('button', { name: '드로어 열기' })
+    await user.click(first)
+    expect(await screen.findByTestId('item-drawer')).toBeInTheDocument()
+
+    await user.click(second)
+    expect(screen.getAllByTestId('item-drawer')).toHaveLength(1)
+  })
+
+  it('드로어를 닫으면 포커스가 캐럿으로 돌아온다 (PRODUCT.md 접근성 §4)', async () => {
+    const user = userEvent.setup()
+    await renderCard(makeSummary({ items: [makeItem()] }))
+
+    const caret = screen.getByRole('button', { name: '드로어 열기' })
+    await user.click(caret)
+    await user.click(await screen.findByRole('button', { name: '닫기' }))
+
+    expect(screen.getByRole('button', { name: '드로어 열기' })).toHaveFocus()
+  })
+
+  it('원클릭 pull 이 pulled: null 로 오면 드로어가 열린다 (§3.1 폴백)', async () => {
+    const user = userEvent.setup()
+    await renderCard(makeSummary({ items: [makeItem()] }), {
+      pullNext: vi.fn().mockResolvedValue({ itemWeek: WEEK, pulled: null })
+    })
+
+    expect(screen.queryByTestId('item-drawer')).not.toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: '+ 오늘로' }))
+    expect(await screen.findByTestId('item-drawer')).toBeInTheDocument()
+  })
+
+  it('원클릭 pull 이 성공하면 토스트가 뜨고 드로어는 열리지 않는다', async () => {
+    const user = userEvent.setup()
+    await renderCard(makeSummary({ items: [makeItem()] }), {
+      pullNext: vi
+        .fn()
+        .mockResolvedValue({ itemWeek: WEEK, pulled: { taskId: 't1', title: '초안 쓰기' } })
+    })
+
+    await user.click(screen.getByRole('button', { name: '+ 오늘로' }))
+    expect(await screen.findByRole('status')).toHaveTextContent('오늘로 가져왔어요 — 초안 쓰기')
+    expect(screen.queryByTestId('item-drawer')).not.toBeInTheDocument()
+  })
+
+  it('완료 + 초과 항목의 드로어를 열어도 +N 은 그대로 보인다 (R28)', async () => {
+    const user = userEvent.setup()
+    await renderCard(
+      makeSummary({
+        items: [
+          makeItem({
+            completedAt: '2026-08-05T00:00:00.000Z',
+            estPomos: 2,
+            spentPomos: 5
+          })
+        ]
+      }),
+      {
+        drawer: vi
+          .fn()
+          .mockResolvedValue({ ...emptyDrawer, completedAt: '2026-08-05T00:00:00.000Z' })
+      }
+    )
+
+    await user.click(screen.getByRole('button', { name: '드로어 열기' }))
+    await screen.findByTestId('item-drawer')
+    expect(screen.getByText('+3')).toBeInTheDocument()
+    expect(screen.queryByText(/초과/)).not.toBeInTheDocument()
+  })
+
+  it('기타 행에는 캐럿이 없다 — 드릴다운은 이번 마일스톤에서 뺐다', async () => {
+    await renderCard(makeSummary({ totalSpent: 3, otherRow: { visible: true, spentPomos: 3 } }))
+    const other = screen.getByTestId('other-row')
+    expect(other.querySelectorAll('button')).toHaveLength(0)
   })
 })

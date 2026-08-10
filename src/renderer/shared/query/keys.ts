@@ -21,6 +21,13 @@ export const keys = {
    * 무효화는 "주어진 키를 접두사로 갖는 쿼리"를 잡으므로 방향이 반대다.
    */
   week: (weekKey: string) => ['week', weekKey] as const,
+  /**
+   * 열린 드로어 하나. **일부러 `week(weekKey)` 아래에 둔다** — 무효화는 접두사로 잡으므로
+   * `keys.week(w)` 한 번이 그 주의 카드와 열려 있는 드로어를 함께 턴다. 드로어를 별도
+   * 최상위 키로 두면 pull 후 카드만 갱신되고 드로어는 옛 목록을 보여준다.
+   */
+  weekItemDrawer: (weekKey: string, weekItemId: string) =>
+    ['week', weekKey, 'drawer', weekItemId] as const,
   monthCalendar: (monthKey: string) => ['month', monthKey, 'calendar'] as const,
   /** 캡처 바 대기 상태 (Task 10) — 이벤트 리스너가 쓰고 CaptureBar 가 읽는다. */
   capturePending: () => ['capture', 'pending'] as const,

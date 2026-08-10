@@ -1,4 +1,5 @@
-import { ChevronRight } from 'lucide-react'
+import type { ReactNode, Ref } from 'react'
+import { ChevronDown, ChevronRight } from 'lucide-react'
 import type { Api } from '@shared/ipc/api'
 import { weeksSince } from '@shared/time'
 import { Button } from '@renderer/shared/ui/button'
@@ -48,14 +49,23 @@ export function WeekItemRow({
   onPullNext,
   onComplete,
   onUncomplete,
-  onOpenDrawer
+  onToggleDrawer,
+  drawerOpen = false,
+  drawerId,
+  caretRef,
+  children
 }: {
   row: Item
   week: string
   onPullNext: (id: string) => void
   onComplete: (id: string) => void
   onUncomplete: (id: string) => void
-  onOpenDrawer?: (id: string) => void
+  onToggleDrawer?: (id: string) => void
+  drawerOpen?: boolean
+  drawerId?: string
+  caretRef?: Ref<HTMLButtonElement>
+  /** 열린 드로어. 행 아래 인라인으로 들어간다 — 모달이 아니다 (§6). */
+  children?: ReactNode
 }) {
   const done = row.completedAt !== null
   const carriedWeeks = weeksSince(row.originWeek, week)
@@ -67,13 +77,16 @@ export function WeekItemRow({
     <li data-testid="week-item-row" className="flex flex-col gap-1 rounded-md px-2 py-2">
       <div className="flex items-center gap-2">
         <Button
+          ref={caretRef}
           type="button"
           variant="ghost"
           size="icon-sm"
-          aria-label="드로어 열기"
-          onClick={() => onOpenDrawer?.(row.id)}
+          aria-label={drawerOpen ? '드로어 닫기' : '드로어 열기'}
+          aria-expanded={drawerOpen}
+          aria-controls={drawerId}
+          onClick={() => onToggleDrawer?.(row.id)}
         >
-          <ChevronRight />
+          {drawerOpen ? <ChevronDown /> : <ChevronRight />}
         </Button>
 
         <span
@@ -120,6 +133,8 @@ export function WeekItemRow({
           </Button>
         </div>
       ) : null}
+
+      {children}
     </li>
   )
 }

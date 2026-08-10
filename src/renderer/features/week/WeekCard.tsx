@@ -1,8 +1,12 @@
+import { useRef, useState } from 'react'
 import { weekRangeLabel } from '@shared/time'
 import { Button } from '@renderer/shared/ui/button'
+import { Toast } from '@renderer/shared/ui/Toast'
 import { BudgetGauge } from './BudgetGauge'
+import { ItemDrawer } from './ItemDrawer'
 import { OtherRow } from './OtherRow'
 import { WeekItemRow } from './WeekItemRow'
+import { useDrawer } from './useDrawer'
 import { useWeek } from './useWeek'
 
 /**
@@ -44,8 +48,30 @@ function EmptyState({
  * 예산 대비 소진은 이 화면이 존재하는 이유라 항상 보여야 한다.
  */
 export function WeekCard({ onOpenPlanner }: { onOpenPlanner?: () => void }) {
-  const { weekKey, query, pullNext, complete, uncomplete } = useWeek()
+  const { weekKey, query, pullNext, complete, uncomplete, drop } = useWeek()
+  // 동시에 하나만 열린다 (§6) — 열린 항목 id 하나로 표현한다.
+  const [openId, setOpenId] = useState<string | null>(null)
+  const [toast, setToast] = useState<string | null>(null)
+  const caretRefs = useRef(new Map<string, HTMLButtonElement | null>())
+  const drawer = useDrawer(weekKey, openId)
   const summary = query.data
+
+  /** 닫을 때 포커스를 캐럿으로 돌려준다 — 열었던 자리를 잃지 않게 (PRODUCT.md 접근성 §4). */
+  const closeDrawer = (id: string) => {
+    setOpenId(null)
+    caretRefs.current.get(id)?.focus()
+  }
+
+  /**
+   * 원클릭 pull (§3.1). 유자격 조각이 없으면 `pulled: null` 이 오고, 그때 드로어를 연다 —
+   * 첫 pull 은 고르는 게 아니라 쓰는 것이기 때문이다 (R12). 성공이면 토스트만 띄운다:
+   * 내로우에서 오늘 목록이 안 보여도 무슨 일이 일어났는지 알 수 있어야 한다.
+   */
+  const onPullNext = (id: string) =>
+    pullNext.mutate(id, {
+      onSuccess: (r) =>
+        r.pulled === null ? setOpenId(id) : setToast(`오늘로 가져왔어요 — ${r.pulled.title}`)
+    })
 
   if (summary === undefined) return null
 
@@ -70,16 +96,40 @@ export function WeekCard({ onOpenPlanner }: { onOpenPlanner?: () => void }) {
       </header>
 
       <ul data-testid="week-item-list" className="min-h-0 flex-1 overflow-y-auto px-2 py-2">
-        {items.map((row) => (
-          <WeekItemRow
-            key={row.id}
-            row={row}
-            week={weekKey}
-            onPullNext={(id) => pullNext.mutate(id)}
-            onComplete={(id) => complete.mutate(id)}
-            onUncomplete={(id) => uncomplete.mutate(id)}
-          />
-        ))}
+        {items.map((row) => {
+          const open = openId === row.id
+          const drawerId = `week-drawer-${row.id}`
+          return (
+            <WeekItemRow
+              key={row.id}
+              row={row}
+              week={weekKey}
+              onPullNext={onPullNext}
+              onComplete={(id) => complete.mutate(id)}
+              onUncomplete={(id) => uncomplete.mutate(id)}
+              onToggleDrawer={(id) => (open ? closeDrawer(id) : setOpenId(id))}
+              drawerOpen={open}
+              drawerId={drawerId}
+              caretRef={(el) => {
+                caretRefs.current.set(row.id, el)
+              }}
+            >
+              {open && drawer.query.data !== undefined ? (
+                <ItemDrawer
+                  id={drawerId}
+                  data={drawer.query.data}
+                  onPull={(input) =>
+                    drawer.pull.mutate(input, { onSuccess: () => closeDrawer(row.id) })
+                  }
+                  onClose={() => closeDrawer(row.id)}
+                  onComplete={() => complete.mutate(row.id)}
+                  onUncomplete={() => uncomplete.mutate(row.id)}
+                  onDrop={() => drop.mutate(row.id, { onSuccess: () => setOpenId(null) })}
+                />
+              ) : null}
+            </WeekItemRow>
+          )
+        })}
         {/* 기타 행은 항상 목록 맨 아래다 (§3.4). */}
         {otherRow.visible ? <OtherRow spentPomos={otherRow.spentPomos} /> : null}
         {emptyKind !== null ? (
@@ -92,6 +142,8 @@ export function WeekCard({ onOpenPlanner }: { onOpenPlanner?: () => void }) {
       <div data-testid="week-gauge-slot" className="shrink-0">
         <BudgetGauge budget={budget} spent={totalSpent} />
       </div>
+
+      {toast !== null ? <Toast message={toast} onDismiss={() => setToast(null)} /> : null}
     </div>
   )
 }
