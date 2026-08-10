@@ -1,6 +1,6 @@
 import { v7 as uuidv7 } from 'uuid'
 import { localKeys, now } from '../../shared/time'
-import { effectiveBaseline } from './baseline'
+import { budgetPrefill, effectiveBaseline, effectiveBudget } from './baseline'
 import type { ChildTaskRow, PlanDraftItem, UnitOfWork, WeekItemRow } from './ports'
 
 /**
@@ -48,6 +48,53 @@ export function confirmWeekPlan(
     const { droppedIds } = repos.weekItems.confirmPlan({ week: input.week, items: input.items })
     return { week: input.week, droppedCount: droppedIds.length }
   })
+}
+
+export type WeekSummary = {
+  week: string
+  budget: number | null
+  totalSpent: number
+  items: WeekItemRow[]
+  otherRow: { visible: boolean; spentPomos: number }
+}
+
+/** 일반 뷰 한 화면 = 응답 하나. 화면이 조각을 모아 조립하지 않게 한다. */
+export function weekSummary(uow: UnitOfWork, week: string): WeekSummary {
+  return uow.run((repos) => {
+    const items = repos.weekItems.listForWeek(week)
+    const totalSpent = repos.weekItems.weekTotalSpent(week)
+    const spentPomos = otherRowSpent(totalSpent, items)
+    return {
+      week,
+      budget: effectiveBudget(repos, week),
+      totalSpent,
+      items,
+      otherRow: {
+        // 표시 조건 세 갈래 (ADR-027 §3). 세 번째(`spentPomos > 0`)가 폐기·삭제로
+        // 흘러든 소진을 잡는다 — 앞의 두 갈래만 보면 A24 가 깨진다.
+        visible: repos.weekItems.hasUnplannedActivity(week) || spentPomos > 0,
+        spentPomos
+      }
+    }
+  })
+}
+
+/** 플래너 진입 시 초안 프리필. 기타 항목은 초안에 넣지 않는다 (R16). */
+export function planDraft(
+  uow: UnitOfWork,
+  week: string
+): { week: string; budget: number | null; prefill: number | null; items: PlanDraftItem[] } {
+  return uow.run((repos) => ({
+    week,
+    budget: effectiveBudget(repos, week),
+    prefill: budgetPrefill(repos),
+    items: repos.weekItems.listForWeek(week).map((i) => ({
+      id: i.id,
+      title: i.title,
+      estPomos: i.estPomos,
+      days: i.days
+    }))
+  }))
 }
 
 /** 드로어 한 화면 = 응답 하나. 폐기 항목도 열린다 (header 가 listForWeek 밖을 본다). */

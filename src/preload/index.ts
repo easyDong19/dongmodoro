@@ -50,6 +50,17 @@ const api: Api = {
   sessions: {
     capture: (sessionId, title) => ipcRenderer.invoke(CHANNELS.sessions.capture, sessionId, title)
   },
+  week: {
+    summary: (week) => ipcRenderer.invoke(CHANNELS.week.summary, week),
+    planDraft: (week) => ipcRenderer.invoke(CHANNELS.week.planDraft, week),
+    confirmPlan: (input) => ipcRenderer.invoke(CHANNELS.week.confirmPlan, input),
+    drawer: (weekItemId) => ipcRenderer.invoke(CHANNELS.week.drawer, weekItemId),
+    pullNext: (weekItemId) => ipcRenderer.invoke(CHANNELS.week.pullNext, weekItemId),
+    pullFromDrawer: (input) => ipcRenderer.invoke(CHANNELS.week.pullFromDrawer, input),
+    complete: (weekItemId) => ipcRenderer.invoke(CHANNELS.week.complete, weekItemId),
+    uncomplete: (weekItemId) => ipcRenderer.invoke(CHANNELS.week.uncomplete, weekItemId),
+    drop: (weekItemId) => ipcRenderer.invoke(CHANNELS.week.drop, weekItemId)
+  },
   events: {
     onTimerTransition: on(EVENT_CHANNELS.timerTransition),
     onSessionRecorded: on(EVENT_CHANNELS.sessionRecorded),

@@ -34,6 +34,37 @@ const todayRowSchema = z.strictObject({
   pulledAt: z.string()
 })
 
+/** `WeekItemRow`(main/services/ports.ts) 미러링 — 일반 뷰 한 행. */
+const weekItemRowSchema = z.strictObject({
+  id: z.string(),
+  title: z.string(),
+  estPomos: z.int(),
+  days: z.array(z.int().min(0).max(6)),
+  originWeek: z.string(),
+  completedAt: z.string().nullable(),
+  spentPomos: z.int(),
+  childTotal: z.int(),
+  childDone: z.int()
+})
+
+// 사용자가 만드는 항목의 est 하한은 1 이다 (R6). 기타 항목은 이 경로를 거치지 않는다.
+const planDraftItemSchema = z.strictObject({
+  id: z.string().nullable(),
+  title: z.string().min(1).max(40),
+  estPomos: z.int().min(1),
+  days: z.array(z.int().min(0).max(6))
+})
+
+/** `ChildTaskRow`(main/services/ports.ts) 미러링 — 드로어 한 행. */
+const childTaskSchema = z.strictObject({
+  taskId: z.string(),
+  title: z.string(),
+  estPomos: z.int().nullable(),
+  spentPomos: z.int(),
+  completedAt: z.string().nullable(),
+  inToday: z.boolean()
+})
+
 export const timerSnapshotSchema = z.strictObject({
   mode: z.enum(['focus', 'short', 'long']),
   phase: z.enum(['idle', 'running', 'paused']),
@@ -113,6 +144,77 @@ export const contracts = {
       req: z.tuple([z.string(), z.string()]),
       res: z.strictObject({ localDate: z.string(), localWeek: z.string() })
     }
+  },
+  /**
+   * 조작 응답이 하나같이 `itemWeek` 를 싣는 이유: 화면은 그 주의 캐시를 무효화해야 하는데,
+   * 항목이 어느 주 소속인지는 main 만 안다 (폐기·이월 항목은 보고 있는 주와 다를 수 있다).
+   */
+  week: {
+    summary: {
+      req: z.tuple([z.string()]),
+      res: z.strictObject({
+        week: z.string(),
+        budget: z.int().nullable(),
+        totalSpent: z.int(),
+        items: z.array(weekItemRowSchema),
+        otherRow: z.strictObject({ visible: z.boolean(), spentPomos: z.int() })
+      })
+    },
+    planDraft: {
+      req: z.tuple([z.string()]),
+      res: z.strictObject({
+        week: z.string(),
+        budget: z.int().nullable(),
+        prefill: z.int().nullable(),
+        items: z.array(planDraftItemSchema)
+      })
+    },
+    confirmPlan: {
+      req: z.tuple([
+        z.strictObject({
+          week: z.string(),
+          budget: z.int().min(0).nullable(),
+          items: z.array(planDraftItemSchema)
+        })
+      ]),
+      res: z.strictObject({ week: z.string(), droppedCount: z.int() })
+    },
+    drawer: {
+      req: z.tuple([z.string()]),
+      res: z.strictObject({
+        itemWeek: z.string(),
+        completedAt: z.string().nullable(),
+        tasks: z.array(childTaskSchema)
+      })
+    },
+    pullNext: {
+      req: z.tuple([z.string()]),
+      res: z.strictObject({
+        itemWeek: z.string(),
+        pulled: z.strictObject({ taskId: z.string(), title: z.string() }).nullable()
+      })
+    },
+    pullFromDrawer: {
+      req: z.tuple([
+        z.strictObject({
+          weekItemId: z.string(),
+          taskIds: z.array(z.string()),
+          newTask: z
+            .strictObject({ title: z.string().min(1).max(40), estPomos: z.int().min(1).nullable() })
+            .nullable()
+        })
+      ]),
+      res: z.strictObject({ itemWeek: z.string() })
+    },
+    complete: {
+      req: z.tuple([z.string()]),
+      res: z.strictObject({ itemWeek: z.string(), completedAt: z.string().nullable() })
+    },
+    uncomplete: {
+      req: z.tuple([z.string()]),
+      res: z.strictObject({ itemWeek: z.string(), completedAt: z.string().nullable() })
+    },
+    drop: { req: z.tuple([z.string()]), res: z.strictObject({ itemWeek: z.string() }) }
   }
 } as const
 

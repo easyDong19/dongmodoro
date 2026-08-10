@@ -7,6 +7,7 @@ import { registerSystemHandlers } from './ipc/system'
 import { registerClockHandlers } from './ipc/clock'
 import { registerTodayHandlers } from './ipc/today'
 import { registerTimerHandlers } from './ipc/timer'
+import { registerWeekHandlers } from './ipc/week'
 import { startClock } from './services/clock'
 import { startTimerHost } from './services/timer-host'
 import { openDb, closeDb } from './db/open'
@@ -78,6 +79,7 @@ app
     registerSystemHandlers(() => schemaVersion)
     registerClockHandlers()
     registerTodayHandlers(uow)
+    registerWeekHandlers(uow)
     // 타이머는 창보다 먼저 산다 — renderer 가 죽어도 main 의 타이머는 계속 돈다 (R12).
     const timerHost = startTimerHost(uow, () => mainWindow)
     stopTimerHost = timerHost.stop
