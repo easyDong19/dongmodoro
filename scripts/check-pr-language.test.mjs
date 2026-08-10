@@ -45,6 +45,20 @@ describe('findViolations — 본문은 백틱 밖의 한글만 잡는다', () =>
     expect(found[0].text).toBe('근거는 `docs/x.md` 를 본다') // 지운 줄이면 백틱 안이 비어 있다
   })
 
+  it('줄바꿈에 걸친 인용도 인용으로 읽는다 — GitHub 이 커밋 본문을 72자에서 접는다', () => {
+    // 이 규칙을 들여온 커밋(041b717)이 실제로 이 형태로 접혀서 걸렸다.
+    const body = [
+      'count renders alone, with no helper line. Reusing `예산을 정하면 예산 대비 소진이',
+      '보여요` would tell a user who did set a budget something false.'
+    ].join('\n')
+    expect(findViolations(body)).toEqual([])
+  })
+
+  it('두 줄 넘게 걸친 백틱은 인용으로 보지 않는다 — 짝 안 맞는 백틱이 검사를 삼키면 안 된다', () => {
+    const body = ['`열고 안 닫음', 'English line', '한국어 산문이 여기 있다', 'more'].join('\n')
+    expect(findViolations(body).length).toBeGreaterThan(0)
+  })
+
   it('빈 본문·null 을 통과시킨다 (본문 없는 PR 은 이 규칙의 관심사가 아니다)', () => {
     expect(findViolations('')).toEqual([])
     expect(findViolations(null)).toEqual([])
