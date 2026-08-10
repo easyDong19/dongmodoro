@@ -165,7 +165,7 @@ import type {} from '@testing-library/jest-dom/vitest'
 **Interfaces:**
 - Produces: `addWeeks(weekKey, n): string`, `weeksBetween(from, to): string[]`, `weekStartLabel(week): string`, `CalendarKeys.weekdayIndex: number` (0 = 월요일)
 
-- [ ] **Step 1: 실패하는 테스트 작성**
+- [x] **Step 1: 실패하는 테스트 작성**
 
 ```ts
 // src/shared/time/index.test.ts 에 추가
@@ -208,9 +208,9 @@ describe('calendarKeys.weekdayIndex — 0 = 월요일 (ADR-010 §1)', () => {
 })
 ```
 
-- [ ] **Step 2: 실행해 실패 확인** — FAIL
+- [x] **Step 2: 실행해 실패 확인** — FAIL
 
-- [ ] **Step 3: 구현**
+- [x] **Step 3: 구현**
 
 `addWeeks` 는 기존의 private `dayNumber()`/날짜 산술 위에 얹는다. 주 키는 항상 월요일이므로 `addDays(±7n)` 이면 다시 월요일이다.
 
@@ -236,9 +236,9 @@ export function weekStartLabel(week: string): string
 grep -rn "monthKey: '" src --include=*.test.ts --include=*.test.tsx
 ```
 
-- [ ] **Step 4: 통과 확인** — `pnpm test && pnpm typecheck` PASS
+- [x] **Step 4: 통과 확인** — `pnpm test && pnpm typecheck` PASS
 
-- [ ] **Step 5: 커밋** — `feat: add week arithmetic helpers and a weekday field to the clock payload`
+- [x] **Step 5: 커밋** — `feat: add week arithmetic helpers and a weekday field to the clock payload`
 
 ---
 
@@ -253,6 +253,7 @@ grep -rn "monthKey: '" src --include=*.test.ts --include=*.test.tsx
 
 **Interfaces:**
 - Produces: `evaluateSettlement(repos, todayKey): SettlementStatus` (**순수 — write 0**), `bootstrapWatermark(uow, todayKey): void`, `reviewStatus(uow, todayKey)`, 채널 `review:getStatus`
+- 시간 모듈에 `addDays(dayKey, n)`·`weekOfDay(dayKey)` 를 함께 넣었다 — 계획 대상 주가 `weekOf(오늘 + lead)` 라 **날짜** 산술이 필요한데 Task 1 은 주 키 산술만 만들었다
 - 포트 신규:
 
 ```ts
@@ -264,7 +265,7 @@ export interface ReviewRepository {
 }
 ```
 
-- [ ] **Step 1: 실패하는 테스트 작성** — technical-spec 의 **경계 시나리오 15행을 표 테스트로 그대로 옮긴다.** 이것이 이 태스크의 인수 기준이다.
+- [x] **Step 1: 실패하는 테스트 작성** — technical-spec 의 **경계 시나리오 15행을 표 테스트로 그대로 옮긴다.** 이것이 이 태스크의 인수 기준이다.
 
 ```ts
 // src/main/services/review.test.ts
@@ -298,9 +299,9 @@ describe('bootstrapWatermark', () => {
 })
 ```
 
-- [ ] **Step 2: 실행해 실패 확인** — FAIL
+- [x] **Step 2: 실행해 실패 확인** — FAIL
 
-- [ ] **Step 3: 구현** — `review.ts`
+- [x] **Step 3: 구현** — `review.ts`
 
 ```ts
 /**
@@ -333,9 +334,9 @@ getStatus: {
 
 > **`pendingItemCount` 가 0 이어도 배너는 뜬다** (R5) — 워터마크를 전진시키는 것 자체가 확정의 일이다. 이 필드로 배너 문구만 갈린다.
 
-- [ ] **Step 4: 통과 확인** — `pnpm test` PASS. `registration.test.ts` 가 새 채널을 요구하므로 `registerReviewHandlers(uow)` 를 `main/index.ts` 와 그 테스트 양쪽에 넣는다 (M3a 에서 같은 곳이 걸렸다)
+- [x] **Step 4: 통과 확인** — `pnpm test` PASS. `registration.test.ts` 가 새 채널을 요구하므로 `registerReviewHandlers(uow)` 를 `main/index.ts` 와 그 테스트 양쪽에 넣는다 (M3a 에서 같은 곳이 걸렸다)
 
-- [ ] **Step 5: 커밋** — `feat: derive settlement status from the watermark and bootstrap it once at startup`
+- [x] **Step 5: 커밋** — `feat: derive settlement status from the watermark and bootstrap it once at startup`
 
 ---
 
