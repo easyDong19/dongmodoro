@@ -8,7 +8,10 @@ import { registerClockHandlers } from './ipc/clock'
 import { registerTodayHandlers } from './ipc/today'
 import { registerTimerHandlers } from './ipc/timer'
 import { registerWeekHandlers } from './ipc/week'
+import { registerReviewHandlers } from './ipc/review'
 import { startClock } from './services/clock'
+import { bootstrapWatermark } from './services/review'
+import { calendarKeys, nowMs } from '@shared/time'
 import { startTimerHost } from './services/timer-host'
 import { openDb, closeDb } from './db/open'
 import { migrateDb } from './db/migrate'
@@ -67,6 +70,12 @@ function startDb(): { schemaVersion: number; uow: UnitOfWork } {
   const uow = makeDrizzleUow(db)
   // Seed static settings after migration — ADR-018 §4
   seedSettings(uow)
+  // The watermark is computed, not seeded, so it comes after seeding and before any
+  // window exists (weekly-review technical-spec 0.2). This is the ONLY write path into
+  // it besides confirming a settlement: the read path must never initialise it, or a
+  // lost key would be silently re-established on the next focus and quietly skip every
+  // unsettled past week.
+  bootstrapWatermark(uow, calendarKeys(nowMs()).dayKey)
   return { schemaVersion, uow }
 }
 
@@ -80,6 +89,7 @@ app
     registerClockHandlers()
     registerTodayHandlers(uow)
     registerWeekHandlers(uow)
+    registerReviewHandlers(uow)
     // 타이머는 창보다 먼저 산다 — renderer 가 죽어도 main 의 타이머는 계속 돈다 (R12).
     const timerHost = startTimerHost(uow, () => mainWindow)
     stopTimerHost = timerHost.stop

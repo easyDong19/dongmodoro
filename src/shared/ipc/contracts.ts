@@ -217,6 +217,32 @@ export const contracts = {
       res: z.strictObject({ itemWeek: z.string(), completedAt: z.string().nullable() })
     },
     drop: { req: z.tuple([z.string()]), res: z.strictObject({ itemWeek: z.string() }) }
+  },
+  review: {
+    /**
+     * 배너용 판정. 읽기 전용이며 어떤 저장값도 바꾸지 않는다 (weekly-review R27).
+     *
+     * `discriminatedUnion` 인 이유: 빈 범위에는 `from`·`to` 가 **없다.** 두 필드를
+     * nullable 로 두면 "정산 대기인데 범위가 null" 이라는 표현 불가능한 상태가 계약에
+     * 생기고, 화면이 매번 그것을 방어해야 한다.
+     *
+     * `pendingItemCount` 는 0 일 수 있고 그래도 `needed` 는 참이다 — 워터마크를
+     * 전진시키는 것 자체가 확정의 일이다 (R5). 이 값은 배너 문구만 가른다.
+     */
+    getStatus: {
+      req: z.tuple([]),
+      res: z.discriminatedUnion('needed', [
+        z.strictObject({ needed: z.literal(false), targetWeek: z.string() }),
+        z.strictObject({
+          needed: z.literal(true),
+          targetWeek: z.string(),
+          from: z.string(),
+          to: z.string(),
+          weekCount: z.int().min(1),
+          pendingItemCount: z.int().min(0)
+        })
+      ])
+    }
   }
 } as const
 

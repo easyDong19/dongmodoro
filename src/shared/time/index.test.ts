@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, afterEach } from 'vitest'
 import {
   now,
+  addDays,
   addWeeks,
   calendarKeys,
   dayKey,
@@ -9,6 +10,7 @@ import {
   localKeys,
   weekRangeLabel,
   weekStartLabel,
+  weekOfDay,
   weeksBetween,
   weeksSince
 } from './index'
@@ -141,6 +143,30 @@ describe('addWeeks — 날짜 산술 (ADR-010 §2)', () => {
 
   it('여러 주를 한 번에 움직여도 월요일이 유지된다', () => {
     expect(addWeeks('2026-08-03', 5)).toBe('2026-09-07')
+  })
+})
+
+describe('addDays · weekOfDay — 계획 대상 주 계산의 재료 (technical-spec §0)', () => {
+  it('날짜 키를 하루씩 움직인다', () => {
+    expect(addDays('2026-08-09', 1)).toBe('2026-08-10')
+    expect(addDays('2026-08-01', -1)).toBe('2026-07-31')
+  })
+
+  it('DST 전환일을 지나도 하루가 정확히 하루다', () => {
+    // 대한민국은 DST 가 없지만 이 함수는 UTC 로만 세므로 어느 지역에서 돌려도 같다.
+    expect(addDays('2026-03-08', 1)).toBe('2026-03-09')
+    expect(addDays('2026-11-01', 1)).toBe('2026-11-02')
+  })
+
+  it('날짜가 속한 주의 월요일을 준다 — 월요일은 자기 자신이다', () => {
+    expect(weekOfDay('2026-08-03')).toBe('2026-08-03') // 월
+    expect(weekOfDay('2026-08-06')).toBe('2026-08-03') // 목
+    expect(weekOfDay('2026-08-09')).toBe('2026-08-03') // 일
+    expect(weekOfDay('2026-08-10')).toBe('2026-08-10') // 다음 월
+  })
+
+  it('일요일에 하루를 더하면 다음 주가 된다 — 정시 정산이 서는 자리다', () => {
+    expect(weekOfDay(addDays('2026-09-06', 1))).toBe('2026-09-07')
   })
 })
 

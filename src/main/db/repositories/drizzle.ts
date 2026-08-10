@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, gt, isNull, sql } from 'drizzle-orm'
+import { and, asc, desc, eq, gt, gte, isNull, lte, sql } from 'drizzle-orm'
 import type { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3'
 import { v7 as uuidv7 } from 'uuid'
 import { settings, weeks, weekItems, tasks, taskPulls, sessions } from '../schema'
@@ -561,8 +561,75 @@ function makeRepos(tx: Tx): Repositories {
             .get()?.n ?? 0
         )
       }
+    },
+
+    review: {
+      /**
+       * 세 테이블의 최소 주 키. 달력 키는 사전순 = 시간순이라 `MIN()` 이 곧 가장 이른
+       * 주다 (ADR-009 §1). UNION 이 아니라 스칼라 3개의 최소를 쓰는 이유는, 세 컬럼의
+       * 의미가 서로 다르고("세션이 있었다"·"계획이 있었다"·"주 행이 생겼다") 어느
+       * 하나만 있어도 "기록이 있다"로 쳐야 하기 때문이다 (R28).
+       *
+       * `week_items` 는 삭제된 행을 빼지 않는다 — 삭제됐어도 **그 주에 무언가 있었다는
+       * 사실**은 남고, 폴백은 정산 범위를 넓히는 쪽이 안전하다.
+       */
+      earliestRecordedWeek: () => {
+        const min = (value: string | null | undefined): string | null => value ?? null
+        const candidates = [
+          min(
+            tx
+              .select({ w: sql<string | null>`min(${sessions.localWeek})` })
+              .from(sessions)
+              .get()?.w
+          ),
+          min(
+            tx
+              .select({ w: sql<string | null>`min(${weekItems.week})` })
+              .from(weekItems)
+              .get()?.w
+          ),
+          min(
+            tx
+              .select({ w: sql<string | null>`min(${weeks.week})` })
+              .from(weeks)
+              .get()?.w
+          )
+        ].filter((w): w is string => w !== null)
+
+        return candidates.length === 0 ? null : candidates.reduce((a, b) => (a < b ? a : b))
+      },
+
+      /**
+       * 술어는 `listPending` 과 **한 글자도 다르면 안 된다** — 배너가 말한 건수와 패널이
+       * 보여주는 목록이 갈리기 때문이다. 그래서 조건을 아래 `pendingPredicate` 하나로
+       * 뽑아 두 곳이 같은 것을 쓴다.
+       */
+      countPending: (from, to) =>
+        tx
+          .select({ n: sql<number>`count(*)` })
+          .from(weekItems)
+          .where(pendingPredicate(from, to))
+          .get()?.n ?? 0
     }
   }
+}
+
+/**
+ * 정산 3택 대상의 술어 (technical-spec "3택 대상 조회 조건").
+ *
+ * 완료는 3택 대상이 아니고(Q14), 폐기·삭제된 항목은 이미 처분됐으며(ADR-014 §1),
+ * 시스템 "기타" 항목은 제외된다(Q7). 주 범위 비교가 문자열 비교인 것은 달력 키가
+ * 사전순 = 시간순이기 때문이다 (ADR-009 §1).
+ */
+function pendingPredicate(from: string, to: string) {
+  return and(
+    gte(weekItems.week, from),
+    lte(weekItems.week, to),
+    isNull(weekItems.completedAt),
+    isNull(weekItems.droppedAt),
+    isNull(weekItems.deletedAt),
+    eq(weekItems.isSystem, 0)
+  )
 }
 
 /**

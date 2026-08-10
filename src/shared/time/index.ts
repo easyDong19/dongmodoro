@@ -105,6 +105,34 @@ function dayNumber(calendarKey: string): number {
   return Date.UTC(y, m - 1, d) / 86_400_000
 }
 
+/** epoch day → 달력 키. `dayNumber` 의 역. */
+function fromDayNumber(n: number): string {
+  const at = new Date(n * 86_400_000)
+  return `${at.getUTCFullYear()}-${pad(at.getUTCMonth() + 1)}-${pad(at.getUTCDate())}`
+}
+
+/**
+ * 날짜 달력 키 + n 일 (`n` 은 음수 가능). 정산의 계획 대상 주 계산이 쓴다 —
+ * `weekOf(오늘 + plan_lead_days)` (weekly-review technical-spec §0).
+ *
+ * `startOfNextLocalDayMs` 와 달리 **로컬 시각을 만들지 않는다.** 이미 고정된 달력 키끼리의
+ * 산술을 UTC 로만 하므로 DST 전환일에도 하루가 정확히 하루다.
+ */
+export function addDays(dayKeyValue: string, n: number): string {
+  return fromDayNumber(dayNumber(dayKeyValue) + n)
+}
+
+/**
+ * 날짜 달력 키가 속한 주의 월요일 키. `weekKey(Date)` 의 문자열 판이다 —
+ * 순간이 아니라 **이미 고정된 날짜 키**에서 주를 얻을 때 쓴다.
+ *
+ * epoch day 0(1970-01-01)이 목요일이라 `(dn + 3) % 7` 이 월요일 기준 요일 인덱스가 된다.
+ */
+export function weekOfDay(dayKeyValue: string): string {
+  const dn = dayNumber(dayKeyValue)
+  return fromDayNumber(dn - ((dn + 3) % 7))
+}
+
 /**
  * 이월 배지 `N주째` (week-plan R11). 두 주 키의 차이 ÷ 7 + 1.
  * 항목이 만들어진 주가 곧 1주째다 — 0 주째는 없다. 이월 **사슬 길이로 세지 않는다**
@@ -145,8 +173,7 @@ export function weekStartLabel(week: string): string {
  * ±7n 일을 더해도 월요일이 유지된다.
  */
 export function addWeeks(weekKeyValue: string, n: number): string {
-  const at = new Date((dayNumber(weekKeyValue) + n * 7) * 86_400_000)
-  return `${at.getUTCFullYear()}-${pad(at.getUTCMonth() + 1)}-${pad(at.getUTCDate())}`
+  return fromDayNumber(dayNumber(weekKeyValue) + n * 7)
 }
 
 /**

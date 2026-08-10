@@ -34,6 +34,9 @@ export const CHANNELS = {
     complete: 'week:complete',
     uncomplete: 'week:uncomplete',
     drop: 'week:drop'
+  },
+  review: {
+    getStatus: 'review:getStatus'
   }
 } as const
 

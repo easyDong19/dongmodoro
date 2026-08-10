@@ -178,6 +178,23 @@ export interface SessionsRepository {
   focusCountSinceLastLong(): number
 }
 
+export interface ReviewRepository {
+  /**
+   * 기록이 있는 가장 이른 주 = `min(sessions.local_week, week_items.week, weeks.week)`.
+   * 아무 기록도 없으면 `null`.
+   *
+   * 워터마크 부트스트랩의 **유실 폴백**에만 쓴다 (weekly-review R28). 키가 없는데 기록이
+   * 이미 있다는 것은 유실·복구된 DB 라는 뜻이고, 그때 `targetWeek − 1주` 로 초기화하면
+   * 정산하지 않은 과거 주가 조용히 영구 스킵된다.
+   */
+  earliestRecordedWeek(): string | null
+  /**
+   * 3택 대상 건수 (배너 문구용 스칼라). 조회 조건은 `listPending` 과 **같아야 한다** —
+   * 갈리면 배너가 말한 건수와 패널이 보여주는 목록이 어긋난다.
+   */
+  countPending(from: string, to: string): number
+}
+
 export interface Repositories {
   settings: SettingsRepository
   weeks: WeeksRepository
@@ -185,6 +202,7 @@ export interface Repositories {
   today: TodayRepository
   tasks: TasksRepository
   sessions: SessionsRepository
+  review: ReviewRepository
 }
 
 /**
