@@ -88,6 +88,7 @@ src/
 │   │   ├── baseline.ts          # (수정) effectiveBudget · budgetPrefill
 │   │   └── week-plan.ts         # 신규 — 유스케이스 + 순수 함수 2종
 │   ├── ipc/week.ts              # 신규 — week.* 핸들러
+│   ├── ipc/week-contract.test.ts # 신규 — 서비스 반환값 × 계약 왕복 (Task 10)
 │   ├── index.ts                 # (수정) week 핸들러 등록
 │   └── db/
 │       └── repositories/
@@ -2313,6 +2314,7 @@ const confirm = useMutation({
 
 **Files:**
 - Modify: `docs/features/week-plan/prd.md`(R9 가정 블록), `PRODUCT.md`, `README.md`
+- Create: `src/main/ipc/week-contract.test.ts` (Step 2)
 
 > **`budget = 0` 은 여기서 정하지 않는다 — 이미 닫혔다.** ux-spec §7 의 TBD 와 PRD R20 의
 > `⚠️ 가정` 블록은 이 계획서와 **같은 PR** 에서 결정으로 교체됐다(2026-08-10): 바를 숨기고
@@ -2322,9 +2324,126 @@ const confirm = useMutation({
 
 - [ ] **Step 1: R9 미결 종결 반영** — `week-plan/prd.md` R9 의 `> ⚠️ 가정:` 블록을 결정으로 교체한다. 드로어에서 "항목 est vs 자식 조각 est 합" 어긋남을 **표시하지 않는다.** 이유(두 값이 독립이라는 R9 자신의 정의 + 원칙 6)를 남기고 설계 스펙 §6 을 근거로 인용한다. **가정 블록을 조용히 지우지 않는다** — 결정으로 바뀌었음을 본문에 적는다.
 
-- [ ] **Step 2: 전체 검증 일괄 실행** — `pnpm test && pnpm lint && pnpm typecheck && pnpm format:check && pnpm build` 전부 0 에러.
+- [ ] **Step 2: 계약 왕복 테스트 추가** (Task 4 검증에서 발견한 공백 · 2026-08-10 사용자 결정)
 
-- [ ] **Step 3: 코어 루프 수동 검증 체크리스트**
+  **Create: `src/main/ipc/week-contract.test.ts`**
+
+  Task 4 의 테스트 25건은 전부 **서비스 함수를 직접** 부른다. 그래서 서비스 반환값이
+  `contracts.week.*.res` 의 `strictObject` 를 실제로 통과하는지는 **어느 테스트도 보지 않는다.**
+  `WeekItemRow`(ports.ts)에 필드가 하나 붙고 스키마가 안 따라오면 `handle.ts:47` 이
+  `IPC response rejected` 로 던지는데, 그 순간이 **앱을 켜서 그 화면을 눌렀을 때**다.
+  타입 검사는 못 잡는다 — 스키마는 런타임 값이지 `WeekItemRow` 의 구조적 부분집합이 아니다.
+
+  Task 4 완료 시점에 임시 스크립트로 9종 전부 통과를 실측했고(어긋남 0건), 그 스크립트를
+  정식 테스트로 승격하는 것이 이 스텝이다. **새 결정이 아니라 기존 사실의 고정이다.**
+
+```ts
+import { describe, expect, it } from 'vitest'
+import { contracts } from '@shared/ipc/contracts'
+import { ensureWeeks, testUow } from '../db/repositories/test-helpers'
+import {
+  confirmWeekPlan,
+  dropItem,
+  itemDrawer,
+  planDraft,
+  pullFromDrawer,
+  pullNextFromItem,
+  setItemCompleted,
+  weekSummary
+} from '../services/week-plan'
+
+const WEEK = '2026-08-03'
+
+/**
+ * 서비스 반환값이 IPC 계약을 실제로 통과하는지 본다. week-plan.test.ts 는 서비스를
+ * 직접 부르므로 이 경계를 건드리지 않는다 — 어긋남은 여기서만 드러난다.
+ */
+describe('week 계약 왕복', () => {
+  it('응답 9종이 전부 계약을 통과한다', () => {
+    const { uow } = testUow()
+    ensureWeeks(uow, WEEK)
+
+    const confirmed = confirmWeekPlan(uow, {
+      week: WEEK,
+      budget: 20,
+      items: [
+        { id: null, title: '항목 A', estPomos: 4, days: [1, 3] },
+        { id: null, title: '항목 B', estPomos: 2, days: [] }
+      ]
+    })
+    expect(contracts.week.confirmPlan.res.parse(confirmed)).toBeTruthy()
+
+    const [idA, idB] = uow.run((r) => r.weekItems.listForWeek(WEEK).map((i) => i.id))
+
+    // 분류 세션 1 + 미분류 1 — 기타 행이 보이는 상태를 만든다
+    uow.run((r) => {
+      r.tasks.create({ id: 't1', weekItemId: idA, title: '조각 1' })
+      r.tasks.create({ id: 't2', weekItemId: idA, title: '조각 2' })
+      const s = (id: string, taskId: string | null) => ({
+        id,
+        startedAt: '2026-08-04T01:00:00.000Z',
+        endedAt: '2026-08-04T01:25:00.000Z',
+        durationSec: 1500,
+        kind: 'focus' as const,
+        taskId,
+        localDate: '2026-08-04',
+        localWeek: WEEK
+      })
+      r.sessions.insert(s('s1', 't1'))
+      r.sessions.insert(s('s2', null))
+    })
+
+    const summary = contracts.week.summary.res.parse(weekSummary(uow, WEEK))
+    expect(summary.items).toHaveLength(2)
+    expect(summary.otherRow.visible).toBe(true)
+
+    expect(contracts.week.planDraft.res.parse(planDraft(uow, WEEK)).items).toHaveLength(2)
+    expect(contracts.week.drawer.res.parse(itemDrawer(uow, idA))).toBeTruthy()
+
+    // pulled 는 nullable 이다 — 값 있는 갈래와 null 갈래를 모두 통과시킨다
+    expect(contracts.week.pullNext.res.parse(pullNextFromItem(uow, idA))).toBeTruthy()
+    pullNextFromItem(uow, idA)
+    expect(contracts.week.pullNext.res.parse(pullNextFromItem(uow, idA)).pulled).toBeNull()
+
+    expect(
+      contracts.week.pullFromDrawer.res.parse(
+        pullFromDrawer(uow, {
+          weekItemId: idB,
+          taskIds: [],
+          newTask: { title: '새 조각', estPomos: 2 }
+        })
+      )
+    ).toBeTruthy()
+
+    expect(contracts.week.complete.res.parse(setItemCompleted(uow, idA, true))).toBeTruthy()
+    expect(contracts.week.uncomplete.res.parse(setItemCompleted(uow, idA, false))).toBeTruthy()
+    expect(contracts.week.drop.res.parse(dropItem(uow, idB))).toBeTruthy()
+  })
+
+  it('요청 스키마가 실제 invoke 인자를 받고 범위 밖을 거부한다', () => {
+    expect(contracts.week.summary.req.parse([WEEK])).toBeTruthy()
+    expect(
+      contracts.week.pullFromDrawer.req.parse([
+        { weekItemId: 'x', taskIds: ['a'], newTask: { title: 'n', estPomos: null } }
+      ])
+    ).toBeTruthy()
+
+    const draft = (estPomos: number, days: number[]) => [
+      { week: WEEK, budget: null, items: [{ id: null, title: 'A', estPomos, days }] }
+    ]
+    expect(contracts.week.confirmPlan.req.safeParse(draft(1, [0, 6])).success).toBe(true)
+    expect(contracts.week.confirmPlan.req.safeParse(draft(0, [])).success).toBe(false) // est 하한 1 (R6)
+    expect(contracts.week.confirmPlan.req.safeParse(draft(1, [7])).success).toBe(false) // 요일 0~6
+  })
+})
+```
+
+  이 스텝은 **Step 6 과 커밋을 분리한다** — 코드 변경이 섞이면 Step 6 의 `docs:` 제목이 거짓이 된다:
+  `test: verify week ipc contracts accept real service output`
+
+- [ ] **Step 3: 전체 검증 일괄 실행** — `pnpm test && pnpm lint && pnpm typecheck && pnpm format:check && pnpm build` 전부 0 에러. **Step 2 뒤에 둔 이유**: 마지막 일괄 검증이 새로 든 테스트를 포함해야 한다.
+
+- [ ] **Step 4: 코어 루프 수동 검증 체크리스트**
   - 계획 0개 상태에서 타이머·오늘 목록이 여전히 전부 동작한다 (원칙 1)
   - 플래너 확정 → 일반 뷰 → `+ 오늘로` → 재생 → 완료 → **항목 도트와 주간 게이지가 함께** 오른다
   - 조각 0개 항목의 `+ 오늘로` 가 드로어를 연다
@@ -2336,9 +2455,9 @@ const confirm = useMutation({
   - 예산을 **0 으로** 확정하면 소진 숫자만 보이고 `/ 미설정` 도 `예산을 정하면 …` 도 **없다** (ux-spec §7 · A27)
   - 항목을 20개 만들어도 게이지가 카드 하단에 남아 있다 — 목록만 스크롤한다 (§2)
 
-- [ ] **Step 4: 문서 갱신** — PRODUCT.md·README 의 구현 현황을 M3a 상태로 갱신하고, README 계획 표에 이 계획서 행을 추가한다. 마일스톤 지도를 `M3a 완료 → M3b 정산(다음)` 으로 옮긴다. **이번에 뺀 것들(요일 정보·부하 그래프·드릴다운)이 M3b 에서 살아난다는 사실을 함께 적는다.**
+- [ ] **Step 5: 문서 갱신** — PRODUCT.md·README 의 구현 현황을 M3a 상태로 갱신하고, README 계획 표에 이 계획서 행을 추가한다. 마일스톤 지도를 `M3a 완료 → M3b 정산(다음)` 으로 옮긴다. **이번에 뺀 것들(요일 정보·부하 그래프·드릴다운)이 M3b 에서 살아난다는 사실을 함께 적는다.**
 
-- [ ] **Step 5: 커밋** — `docs: close the r9 open question and update status after m3a`
+- [ ] **Step 6: 커밋** — `docs: close the r9 open question and update status after m3a`
 
 ---
 
