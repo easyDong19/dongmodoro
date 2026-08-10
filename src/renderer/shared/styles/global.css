@@ -50,6 +50,90 @@ body {
   font-family: var(--font-sans);
 }
 
+/* 배경 라디얼 광원 (tokens.md §1.1). 별도 레이어로 깔아야 하는 이유는 **실효 알파** 때문이다 —
+   상한(다크 0.20 / 라이트 0.10)은 "토큰 알파 × 렌더 opacity" 로 정의되므로, 그라디언트에
+   opacity 를 걸 자리가 필요하다. body 배경에 직접 얹으면 그 곱셈을 할 수 없다.
+
+   고대비 모드에서 광원을 끄는 스위치도 이 opacity 다 — tokens.css 의
+   `@media (forced-colors: active)` 가 `--glow-opacity: 0` 으로 재정의한다. 여기에 따로
+   미디어 쿼리를 두지 않는 이유가 그것이다.
+
+   **뒤로 보내는 데 음수 z-index 를 쓰지 않는다.** 레이어 스케일은 base(0)~toast(40)
+   다섯 단계뿐이고 base 아래가 없어서(tokens.md §7), `-1` 은 토큰에 없는 값을 지어내는
+   것이 된다(§10 은 그런 값에 ADR 을 먼저 요구한다). 대신 페인트 순서로 푼다 — 이 광원이
+   DOM 에서 먼저 오고, 아래 `main` 이 `--layer-base` 로 같은 스택 컨텍스트에 참여하므로
+   둘 다 positioned 인 채 DOM 순서대로 칠해진다.
+
+   정적이다. 장식성 무한 애니메이션은 금지다 (principles §4). */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(60% 50% at 15% 10%, var(--glow-teal), transparent 70%),
+    radial-gradient(50% 40% at 85% 15%, var(--glow-amber), transparent 70%),
+    radial-gradient(60% 50% at 50% 100%, var(--glow-moss), transparent 70%);
+  opacity: var(--glow-opacity);
+}
+
+/* 유리 카드 표면 (design-system ADR-002 §1). 클래스 이름이 `.card` 인 것은 임의 선택이
+   아니다 — tokens.css 의 `@media (forced-colors: active)` 블록이 이미 `.card` 를 골라
+   backdrop 을 끄고 시스템 테두리를 준다. 그쪽이 먼저 이 이름을 약속했다.
+
+   backdrop 은 반경이 아니라 filter 값 전체가 토큰이고, 하이라이트와 그림자는 한
+   `box-shadow` 에 나열한다 (ADR-002 §2). 쪼개면 소비처마다 조합이 갈린다.
+
+   **레이아웃은 넣지 않는다.** 시안의 `.card` 는 padding·flex 까지 묶었지만, 세 카드가
+   내부 여백을 각자 다르게 쓰고 있어(주간 카드는 헤더·목록·게이지가 각자 패딩을 가진다)
+   여기서 강제하면 그쪽을 다시 짜야 한다. 이 클래스는 표면만 소유한다. */
+.card {
+  background: var(--glass);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-lg);
+  backdrop-filter: var(--glass-backdrop);
+  box-shadow: var(--glass-highlight), var(--glass-shadow);
+}
+
+/* 콘텐츠가 광원 위에 오게 하는 유일한 장치다. positioned 이고 z-index 가 auto/0 인
+   형제끼리는 DOM 순서대로 칠해지므로, `body::before` 다음에 오는 이 요소가 위로 온다.
+   `--layer-base` 는 tokens.md §7 이 "카드·컬럼" 용으로 정한 값 그대로다. */
+main {
+  position: relative;
+  z-index: var(--layer-base);
+}
+
+/* 카드 머리의 두 층 (시안 `.card-head`). 유틸리티로 흩뿌리지 않고 클래스로 묶는 이유는
+   세 카드가 같은 위계를 써야 하기 때문이다 — 한 카드만 제목이 커지면 그건 위계가 아니라
+   불일치다.
+
+   eyebrow 가 `--ink-faint` 가 아닌 것에 근거가 있다: 그 컬럼이 어느 레이어(WEEK/TODAY)인지
+   알리는 **유일한 표지**라 읽어야 하는 텍스트다 (design-system ADR-003 §3). */
+.eyebrow {
+  font-size: var(--text-2xs);
+  letter-spacing: var(--tracking-wider);
+  color: var(--ink-dim);
+}
+
+.card-title {
+  font-size: var(--text-lg);
+  font-weight: var(--weight-semibold);
+}
+
+/* 컨트롤 표면 (design-system ADR-002 §1) — 카드보다 얕은 두 번째 레벨이다. 버튼·칩·
+   세그먼트 토글·스테퍼가 쓴다. 카드의 `blur(24px)` 를 컨트롤에 그대로 쓰면 카드 위에
+   또 하나의 유리판이 얹혀 깊이가 두 겹으로 읽히므로, 반경이 절반 이하인 별도 토큰이다.
+
+   `.control-raised` 는 눌러야 하는 것에만 붙인다 — 모든 컨트롤이 떠 있으면 무엇이 주
+   액션인지 사라진다. */
+.control {
+  backdrop-filter: var(--control-backdrop);
+}
+
+.control-raised {
+  box-shadow: var(--control-highlight), var(--control-shadow);
+}
+
 /* :focus-visible 에서만 링을 그린다 — 마우스 클릭에 링이 뜨지 않게 (design-system ADR-004).
    outline 을 대체 표시 없이 지우지 않는다. */
 :focus-visible {

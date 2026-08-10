@@ -332,3 +332,26 @@ describe('WeekCard — 플래너 진입과 복귀 (§5.6)', () => {
     expect(screen.queryByText('이번 주 계획')).not.toBeInTheDocument()
   })
 })
+
+describe('WeekCard — 타이포와 빈 공간', () => {
+  it('eyebrow 와 카드 제목이 공용 타이포 클래스를 쓴다', async () => {
+    await renderCard(makeSummary())
+    expect(screen.getByText('WEEK').className).toContain('eyebrow')
+    expect(screen.getByText('이번 주 할당').className).toContain('card-title')
+  })
+
+  it('보여줄 행이 하나도 없으면 안내를 세로 가운데에 둔다', async () => {
+    await renderCard(makeSummary())
+    expect(screen.getByTestId('week-item-list').className).toContain('justify-center')
+  })
+
+  it('행이 있으면 위에서부터 쌓는다 — 가운데로 몰지 않는다', async () => {
+    await renderCard(makeSummary({ items: [makeItem()] }))
+    expect(screen.getByTestId('week-item-list').className).not.toContain('justify-center')
+  })
+
+  it('기타 행만 있는 주도 위에서부터 쌓는다 — 보여줄 기록이 있다', async () => {
+    await renderCard(makeSummary({ totalSpent: 2, otherRow: { visible: true, spentPomos: 2 } }))
+    expect(screen.getByTestId('week-item-list').className).not.toContain('justify-center')
+  })
+})

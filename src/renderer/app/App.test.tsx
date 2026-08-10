@@ -109,3 +109,17 @@ describe('App — clock 게이트 (콜드 스타트 크래시 회귀)', () => {
     expect(screen.queryByLabelText('오늘 목록')).not.toBeInTheDocument()
   })
 })
+
+describe('App — 카드 표면 (design-system ADR-002)', () => {
+  it('세 카드가 유리 표면 클래스를 쓴다 — 인라인 배경으로 때우지 않는다', async () => {
+    setup({ clockNow: () => Promise.resolve(clock) })
+    await screen.findByLabelText('타이머')
+
+    for (const label of ['타이머', '주간 계획', '오늘 목록']) {
+      const section = screen.getByLabelText(label)
+      expect(section.className).toContain('card')
+      // 인라인 background 는 backdrop-filter·shadow 를 못 데려온다. 그래서 이 검사가 있다.
+      expect(section.getAttribute('style') ?? '').not.toContain('background')
+    }
+  })
+})
