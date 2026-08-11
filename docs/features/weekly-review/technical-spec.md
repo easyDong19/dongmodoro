@@ -137,9 +137,15 @@ output: z.discriminatedUnion('needed', [
 
 ### `review.getPending()` — 정산 패널 데이터
 
+**`getStatus` 와 같은 판별 유니온이다.** 패널은 배너에서만 열리지만, `STALE_RANGE` 후
+재조회하면 범위가 사라져 있을 수 있다 (다른 창에서 확정했거나 자정을 넘겼거나). 그때
+던지거나 빈 목록으로 답하는 대신 `{ needed: false, targetWeek }` 를 돌려 화면이
+"지금 정산할 주가 없어요" 로 갈 수 있게 한다 (ux-spec §8). 아래는 `needed: true` 가지다.
+
 ```ts
 input:  z.void()
 output: z.object({
+  needed: z.literal(true),
   targetWeek: WeekKey,
   targetWeekIsCurrent: z.boolean(),   // 확정 버튼 라벨 분기용 (ux-spec §7.1)
   from: WeekKey, to: WeekKey,
@@ -165,7 +171,7 @@ output: z.object({
     remaining: z.number().int().min(0),   // 파생식 표. 측정값이므로 0 가능 (ADR-019 §1)
     carryWeeks: z.number().int().min(1),  // 파생식 표 (Q12)
   })),
-  targetWeekBudget: z.number().int(),  // 확정 섹션 중립 사실용 (ux-spec §7.2). 스냅샷 없으면 기본 예산
+  targetWeekBudget: z.number().int().nullable(),  // 확정 섹션 중립 사실용 (ux-spec §7.2). **nullable**
   baseline: z.object({                 // 뽀모 길이 진입점의 **현재 유효 설정값** 표시용
     focusMin: z.number().int(), shortBreakMin: z.number().int(), longBreakMin: z.number().int(),
   }),
@@ -182,7 +188,12 @@ output: z.object({
   포함한다("그 주의 계획이었는가"가 기준). `is_system = 1` 항목은 제외한다.
 - `pending` 은 `is_system = 1` 항목(기타)을 제외한다 (Q7).
 - `baseline` 은 표시 전용이다. 이 값을 바꾸는 것은 `review.settle` 이 아니라
-  독립 명령이다 (아래 참고).
+  독립 명령이다 (아래 참고). **전역 설정값을 준다** — 계획 대상 주의 스냅샷이 아니다.
+  그 자리는 "앞으로 적용될 값"을 말하는 자리이기 때문이다 (ADR-013 §3).
+- **`targetWeekBudget` 은 nullable 이다.** 초판은 "스냅샷이 없으면 기본 예산(가용량 합)"
+  이라고 적었으나, `weekly_capacity` 를 시딩하지 않기로 한 이상(ADR-018 §4) 그 기본값이
+  존재하지 않는다. 0 을 채우면 ADR-018 §1 이 구분하려던 "기록 없음"과 "예산 0"이 뭉개지므로
+  `null` 을 그대로 올려 보내고, 화면은 그때 예산을 말하지 않는다 (ux-spec §7.2).
 
 ### `review.settle(input)` — 확정 (트랜잭션 1개)
 
