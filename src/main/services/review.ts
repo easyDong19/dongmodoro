@@ -1,4 +1,5 @@
 import { addDays, addWeeks, weekOfDay, weeksBetween, weeksSince } from '@shared/time'
+import { STALE_RANGE } from '@shared/ipc/contracts'
 import { effectiveBudget, globalBaseline, weekSnapshot } from './baseline'
 import { remainingPomos } from './week-plan'
 import type { Baseline, CompletedItemRow, Repositories, ReviewWeekFact, UnitOfWork } from './ports'
@@ -203,15 +204,9 @@ export function reviewPending(uow: UnitOfWork, todayKey: string): ReviewPending 
   })
 }
 
-/**
- * 확정이 실패할 수 있는 **유일한 정상 경로** — 보고 있던 범위가 실제로 달라졌다.
- *
- * 남는 에러가 하나뿐인 것은 의도된 결과다. 이전 판의 `DECISION_MISSING`·
- * `DECISION_UNKNOWN`·`REDUCED_OUT_OF_RANGE` 는 각각 "결정 없음 = 이월"·"무시"·"클램프"로
- * 흡수돼 사라졌다.
- */
-export const STALE_RANGE = 'STALE_RANGE'
-
+// 남는 에러가 하나뿐인 것은 의도된 결과다. 이전 판의 `DECISION_MISSING`·
+// `DECISION_UNKNOWN`·`REDUCED_OUT_OF_RANGE` 는 각각 "결정 없음 = 이월"·"무시"·"클램프"로
+// 흡수돼 사라졌다. 문자열은 renderer 와 공유한다 (shared/ipc/contracts.ts).
 export type SettleException =
   { kind: 'carry_reduced'; itemId: string; estPomos: number } | { kind: 'drop'; itemId: string }
 

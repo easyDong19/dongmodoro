@@ -131,8 +131,22 @@ export function WeekCard() {
 
   // 정산 패널도 카드를 통째로 대신한다 (weekly-review 계획서 정정 ③). 플래너와 같은 자리라
   // 둘이 동시에 열리지 않는다 — 배너는 일반 뷰에만 있으므로 구조적으로 배타적이다.
-  if (reviewing && review.data !== undefined) {
-    return <ReviewPanel data={review.data} currentWeek={weekKey} onClose={leaveReview} />
+  if (reviewing && review.query.data !== undefined) {
+    return (
+      <ReviewPanel
+        data={review.query.data}
+        currentWeek={weekKey}
+        settle={review.settle}
+        error={review.error}
+        // 확정 후 패널이 닫히고 배너가 사라진다. **플래너를 자동으로 열지 않는다** —
+        // 정산과 플래닝은 분리된 단계다 (ux-spec §7.3).
+        onSettled={(message) => {
+          leaveReview()
+          setToast(message)
+        }}
+        onClose={leaveReview}
+      />
+    )
   }
 
   // 플래너는 카드를 통째로 대신한다 — 일반 뷰와 나란히 두지 않는다 (§5.1).

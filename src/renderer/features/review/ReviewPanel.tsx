@@ -1,10 +1,27 @@
 import { weekRangeLabel, weekStartLabel } from '@shared/time'
 import { Button } from '@renderer/shared/ui/button'
 import { CompletedSection } from './CompletedSection'
+import { ConfirmSection } from './ConfirmSection'
 import { PendingSection } from './PendingSection'
 import { SummarySection } from './SummarySection'
 import { useDecisions } from './useDecisions'
-import type { ReviewPending } from './useReview'
+import type { ReviewError, ReviewPending, SettleInput, SettleResult } from './useReview'
+
+/**
+ * 확정 결과 토스트 (ux-spec §7.3). **사실만 적는다** — 축하·칭찬 문구를 쓰지 않는다.
+ *
+ * `autoCarried` 는 예외로 지정되지 않은 이월 **전부**라, 아무것도 건드리지 않은 흔한
+ * 경우에는 목록 전체가 들어 있다. 그러므로 그대로 "그 사이 추가됐다"고 말하면 거짓이 된다 —
+ * **화면이 그리고 있던 항목을 빼야** 진짜로 몰랐던 것만 남는다 (R30).
+ */
+function toastFor(result: SettleResult, data: Extract<ReviewPending, { needed: true }>): string {
+  const shown = new Set(data.pending.map((row) => row.id))
+  const unknown = result.autoCarried.filter((c) => !shown.has(c.sourceItemId)).length
+  const weekWord = data.targetWeekIsCurrent ? '이번 주' : '다음 주'
+  const head = `${weekWord}로 ${result.carriedItemIds.length}건 넘어갔어요`
+  // 사과·경고 없이 사실 한 줄만 덧붙인다.
+  return unknown > 0 ? `${head} · 그 사이 추가된 ${unknown}건도 함께 넘어갔어요` : head
+}
 
 /**
  * 정산 패널 (weekly-review ux-spec §1). 섹션 순서는 요약 → 끝낸 것들 → 남은 것들 →
@@ -20,16 +37,38 @@ import type { ReviewPending } from './useReview'
 export function ReviewPanel({
   data,
   currentWeek,
+  settle,
+  error,
+  onSettled,
   onClose
 }: {
   data: ReviewPending
   /** 오늘이 속한 주. 요약의 "이번 주 마감"과 "지난 주"를 가른다. */
   currentWeek: string
+  settle: {
+    mutate: (input: SettleInput, options: { onSuccess: (r: SettleResult) => void }) => void
+    isPending: boolean
+  }
+  error: ReviewError | null
+  /** 확정 성공. 토스트 문구를 함께 넘긴다 — 결과를 아는 것은 여기뿐이다. */
+  onSettled: (message: string) => void
   onClose: () => void
 }) {
   // 3택 상태는 패널이 산다 — 확정 섹션이 같은 상태에서 이월 뽀모 합을 읽어야 하고,
   // 목록 컴포넌트가 갖고 있으면 그 값을 형제에게 넘길 길이 없다.
   const decisions = useDecisions()
+
+  const onConfirm = (): void => {
+    if (!data.needed) return
+    settle.mutate(
+      {
+        expectedRange: { from: data.from, to: data.to },
+        targetWeek: data.targetWeek,
+        exceptions: decisions.exceptionsFor(data.pending)
+      },
+      { onSuccess: (result) => onSettled(toastFor(result, data)) }
+    )
+  }
 
   if (!data.needed) {
     // 배너에서만 열리지만, 재조회 사이에 범위가 사라질 수 있다 — 다른 창에서 확정했거나
@@ -83,6 +122,13 @@ export function ReviewPanel({
           reduceValueOf={decisions.reduceValueOf}
           onPick={decisions.pick}
           onReduce={decisions.setReduceValue}
+        />
+        <ConfirmSection
+          data={data}
+          carriedPomos={decisions.carriedPomosOf(data.pending)}
+          pending={settle.isPending}
+          error={error}
+          onConfirm={onConfirm}
         />
       </div>
 

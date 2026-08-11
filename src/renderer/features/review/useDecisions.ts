@@ -38,9 +38,18 @@ export function useDecisions() {
 
   const choiceOf = (row: PendingRow): Choice => decisions[row.id]?.choice ?? 'carry'
 
-  /** 축소 스테퍼의 현재 값. 축소가 아니면 기본 제안값을 보여줄 자리가 없으므로 계산만 한다. */
-  const reduceValueOf = (row: PendingRow): number =>
-    decisions[row.id]?.estPomos ?? reduceDefault(row)
+  /**
+   * 축소 스테퍼의 표시값.
+   *
+   * **저장해 둔 값도 지금의 상한으로 자른다.** 패널을 열어둔 채 세션이 돌면 남은 몫이
+   * 줄어드는데, 그때 화면이 옛 값을 계속 보여주면 사용자가 보는 숫자와 확정이 보낼
+   * 숫자가 달라진다 (ux-spec §8.1 — 새 remaining 이 더 작아졌으면 상한으로 클램프).
+   */
+  const reduceValueOf = (row: PendingRow): number => {
+    const stored = decisions[row.id]?.estPomos
+    if (stored === undefined) return reduceDefault(row)
+    return Math.min(carryEstOf(row), Math.max(1, stored))
+  }
 
   const pick = (row: PendingRow, choice: Choice): void =>
     setDecisions((prev) => {
