@@ -207,6 +207,53 @@ describe('WeekCard — 빈 상태 (§8)', () => {
   })
 })
 
+describe('WeekCard — 헤더 `수정` 진입 (§2)', () => {
+  const draft = {
+    week: WEEK,
+    budget: null,
+    prefill: null,
+    items: [{ id: 'i1', title: '설계 문서', estPomos: 4, days: [], milestoneId: null }]
+  }
+
+  /**
+   * 진입점이 빈 상태에만 있으면 **활성 항목이 하나라도 있는 순간 플래너가 닫힌다** —
+   * 주중 재수정(PRD R23)과 일요일의 다음 주 계획이 전부 그 뒤에 있다. 실물 앱에서
+   * 항목 1개를 만든 뒤 카드에 남은 버튼이 드로어와 pull 둘뿐인 것을 실측했다.
+   */
+  it('활성 항목이 있으면 헤더에 `수정` 이 있고 눌러 플래너로 간다', async () => {
+    const user = userEvent.setup()
+    await renderCard(makeSummary({ items: [makeItem()] }), {
+      planDraft: vi.fn().mockResolvedValue(draft)
+    })
+
+    await user.click(screen.getByRole('button', { name: '수정' }))
+    // 기존 항목이 채워진 채 열려야 한다 (§5.3 — 재수정은 새 계획이 아니다).
+    expect(await screen.findByLabelText('할당 제목')).toBeInTheDocument()
+    expect(screen.getByText('설계 문서')).toBeInTheDocument()
+  })
+
+  /** 진입은 한 번에 하나다 — 빈 상태에는 본문 CTA 가 이미 있다. */
+  it('빈 상태에서는 헤더 `수정` 을 그리지 않는다', async () => {
+    await renderCard(makeSummary())
+    expect(screen.getByRole('button', { name: '+ 이번 주 할당 잡기' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: '수정' })).not.toBeInTheDocument()
+  })
+
+  it('플래너를 닫으면 포커스가 헤더 `수정` 으로 돌아온다', async () => {
+    const user = userEvent.setup()
+    await renderCard(makeSummary({ items: [makeItem()] }), {
+      planDraft: vi.fn().mockResolvedValue(draft)
+    })
+
+    await user.click(screen.getByRole('button', { name: '수정' }))
+    await screen.findByLabelText('할당 제목')
+    await user.click(screen.getByRole('button', { name: '취소' }))
+
+    const back = await screen.findByRole('button', { name: '수정' })
+    expect(back).toHaveFocus()
+  })
+})
+
 describe('WeekCard — 드로어 배선 (§6·§3.1)', () => {
   it('캐럿에 aria-expanded·aria-controls 가 있고 열림에 따라 바뀐다', async () => {
     const user = userEvent.setup()
