@@ -175,6 +175,23 @@ describe('WeekCard — 빈 상태 (§8)', () => {
     ).not.toBeInTheDocument()
   })
 
+  /**
+   * §8 의 빈 상태 표는 이 칸에도 CTA 를 요구한다. 문구만 그리고 CTA 를 빼면 **계획 없이
+   * 집중 한 번만 해도 그 주에는 플래너로 들어갈 길이 없어진다** — 앱을 처음 열고 타이머부터
+   * 눌러 본 사용자가 정확히 밟는 경로다 (실물 앱에서 실측).
+   */
+  it('항목 0 · 기타 행 있음 → 그래도 할당 잡기 CTA 가 있다', async () => {
+    const user = userEvent.setup()
+    await renderCard(makeSummary({ totalSpent: 2, otherRow: { visible: true, spentPomos: 2 } }), {
+      planDraft: vi.fn().mockResolvedValue({ week: WEEK, budget: null, prefill: null, items: [] })
+    })
+
+    const cta = screen.getByRole('button', { name: '+ 이번 주 할당 잡기' })
+    await user.click(cta)
+    // 실제로 플래너가 열려야 한다 — 버튼만 있고 아무 데도 안 가면 고친 것이 아니다.
+    expect(await screen.findByLabelText('할당 제목')).toBeInTheDocument()
+  })
+
   it('활성 항목이 전부 완료 → 사실만 적고 CTA 는 `수정` 이다', async () => {
     await renderCard(
       makeSummary({ items: [makeItem({ completedAt: '2026-08-05T00:00:00.000Z' })] })

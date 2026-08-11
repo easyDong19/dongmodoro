@@ -34,15 +34,23 @@ function EmptyState({
   onOpenPlanner: () => void
   ctaRef: Ref<HTMLButtonElement>
 }) {
-  if (kind === 'unplanned-only') {
-    return <p className="px-2 py-2 text-xs text-ink-dim">계획이 없어도 기록은 남아요</p>
-  }
+  /**
+   * 세 갈래가 문구만 다르고 **CTA 는 셋 다 있다** (§8 표). 기록만 있는 주에서 CTA 를 빼면
+   * 계획 없이 집중 한 번만 해도 그 주에는 플래너로 들어갈 길이 사라진다 — 앱을 처음 열고
+   * 타이머부터 눌러 본 사용자가 밟는 경로라, 그 주 내내 계획을 못 세우게 된다.
+   *
+   * 기록만 있는 주는 위쪽에 기타 행이 이미 있으므로 문구를 작게 두고 여백도 줄인다.
+   * 문구가 다른 이유는 §8 이 정한 그대로다 — 이미 보이고 있는 기록을 "없는 셈" 치지 않는다.
+   */
+  const unplannedOnly = kind === 'unplanned-only'
   return (
-    <div className="flex flex-col items-start gap-2 px-2 py-4">
-      <p className="text-sm text-ink-dim">
+    <div className={`flex flex-col items-start gap-2 px-2 ${unplannedOnly ? 'py-2' : 'py-4'}`}>
+      <p className={unplannedOnly ? 'text-xs text-ink-dim' : 'text-sm text-ink-dim'}>
         {kind === 'all-done'
           ? '이번 주 할당을 다 끝냈어요'
-          : `${targetLabel} 할당을 잡으면 뽀모 예산이 여기 보여요`}
+          : unplannedOnly
+            ? '계획이 없어도 기록은 남아요'
+            : `${targetLabel} 할당을 잡으면 뽀모 예산이 여기 보여요`}
       </p>
       <Button ref={ctaRef} type="button" variant="secondary" size="sm" onClick={onOpenPlanner}>
         {kind === 'all-done' ? '수정' : `+ ${targetLabel} 할당 잡기`}
