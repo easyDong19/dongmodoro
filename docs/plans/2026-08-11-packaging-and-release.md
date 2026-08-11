@@ -139,6 +139,14 @@ src/main/index.ts                  # (수정) 단일 인스턴스 잠금 · MIGR
 
 **검증:** `workflow_dispatch` 로 한 번 돌려 `.dmg` 아티팩트가 생성된다. **이 검증 없이 Task 8 로 넘어가지 않는다.** — 워크플로가 머지되어야 실행할 수 있으므로 이 PR 이 머지된 뒤에 돌린다.
 
+> **갱신 (리허설이 잡은 것):** 첫 실행이 **실패했고, 그것이 이 스텝을 넣은 이유 전부다.**
+> `.dmg` 는 정상적으로 만들어졌는데(아티팩트 217MB) electron-builder 가 **CI 를 감지해
+> 스스로 배포를 시도**했다 — `Implicit publishing triggered by CI detection` — 토큰이 없어
+> `GitHub Personal Access Token is not set` 으로 잡이 죽었다.
+>
+> 태그로 먼저 돌렸다면 이미 밀어 버린 태그를 어떻게 할지부터 정해야 했다. `dist` 스크립트에
+> `--publish never` 를 달아 배포자를 워크플로의 마지막 스텝 하나로 못박았다.
+
 ---
 
 ### Task 6: 패키징된 앱 수동 검증

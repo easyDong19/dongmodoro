@@ -43,8 +43,12 @@ jobs:
       - name: Unit tests
         run: pnpm test
 
-      # 서명하지 않는다 (ADR-028). `CSC_*` 시크릿이 없으므로 electron-builder 가
-      # 서명을 건너뛰며, 그 판단은 electron-builder.yml 의 `identity: null` 이 못박는다.
+      # 애드혹 서명이며 공증하지 않는다 (ADR-028) — electron-builder.yml 의 `identity: '-'`.
+      #
+      # `pnpm dist` 는 `--publish never` 를 달고 있다. electron-builder 는 **CI 를 감지하면
+      # 스스로 배포를 시도하고**, 토큰이 없으면 `.dmg` 를 다 만들어 놓고 마지막에
+      # `GitHub Personal Access Token is not set` 으로 잡을 죽인다. 리허설이 이걸 잡았다.
+      # 배포자는 아래 한 스텝뿐이어야 한다 — 둘이면 어느 쪽이 올렸는지 알 수 없어진다.
       - name: Build dmg
         run: pnpm dist
 
