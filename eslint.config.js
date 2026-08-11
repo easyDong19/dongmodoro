@@ -158,6 +158,18 @@ export default tseslint.config(
     languageOptions: { globals: { process: 'readonly', console: 'readonly' } }
   },
 
+  // e2e/ 는 앱 코드가 아니라 빌드된 앱을 밖에서 조작하는 테스트다. 그래서 아래 프로세스별
+  // import 제약(src/** 스코프)이 걸리지 않는다.
+  //
+  // no-empty-pattern 을 끄는 것은 **Playwright 의 API 요구사항** 때문이다. 의존 픽스처가
+  // 없는 픽스처도 첫 인자가 구조분해 패턴이어야 하고(`async ({}, use)`), 이름을 주면
+  // `First argument must use the object destructuring pattern` 으로 기동이 실패한다.
+  // 피할 수 있는 형태가 없으므로 규칙 쪽을 스코프 한정으로 끈다.
+  {
+    files: ['e2e/**/*.ts'],
+    rules: { 'no-empty-pattern': 'off' }
+  },
+
   // ── import 제약 ─────────────────────────────────────────────────────────
   // 프로세스 폴더마다 전체 옵션을 한 번에 준다 (flat config 덮어쓰기 함정 — 상단 주석).
   // (A) src/shared/ — 순수성(ADR-008) + DB 격리(ADR-015) + 프로세스 경계
