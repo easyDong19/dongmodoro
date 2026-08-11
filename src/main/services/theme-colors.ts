@@ -21,13 +21,30 @@ import type { Theme } from '@shared/ipc/contracts'
  * `--bg-deep` 이다. Windows·Linux 에서 창 컨트롤 주변에 미세한 색 이음매가 보이며,
  * 오버레이 영역을 투명하게 만들 방법이 없다.
  */
+/**
+ * `--bg-deep` 두 테마 값 — **창 자체의 배경색이다.**
+ *
+ * 이 색이 따로 필요한 이유는 첫 페인트 이전에 존재하는 시간이 있기 때문이다. 창은
+ * 만들어지는 즉시 화면에 나오지만 렌더러가 처음 칠하기까지는 100ms 안팎이 걸리고, 그
+ * 사이에 보이는 것은 CSS 가 아니라 **창의 배경색**이다. 지정하지 않으면 Electron 기본값인
+ * 흰색이 나간다 (실측: 30fps 녹화에서 다크 기동 시 순백 프레임 2장 ≈ 66ms).
+ *
+ * 오버레이 색과 값이 같지만 묻는 질문이 다르다 — 저쪽은 "OS 가 그리는 창 컨트롤의 배경",
+ * 이쪽은 "아무것도 그려지지 않은 창의 바닥"이다. 값의 원본이 같은 토큰이므로 여기서
+ * 한 번만 정의하고 오버레이가 이것을 참조한다.
+ */
+export const BG_DEEP: Record<Theme, string> = {
+  dark: '#0c1a16', // --bg-deep
+  light: '#e7eeec' // --light-bg-deep
+}
+
 export const OVERLAY_COLORS: Record<Theme, { color: string; symbolColor: string }> = {
   dark: {
-    color: '#0c1a16', // --bg-deep
+    color: BG_DEEP.dark,
     symbolColor: '#eef4ef' // --ink
   },
   light: {
-    color: '#e7eeec', // --light-bg-deep
+    color: BG_DEEP.light,
     symbolColor: '#0c1a16' // --light-ink
   }
 }
