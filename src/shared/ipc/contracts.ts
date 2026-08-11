@@ -23,6 +23,16 @@ const clockBoundarySchema = z.strictObject({
   weekdayIndex: z.int().min(0).max(6)
 })
 
+/**
+ * 테마 저장값 (design-system ADR-010 §1). **`system` 은 없다** — 앱이 테마를 소유하고
+ * OS 선호를 따르지 않는다. 기본값 `dark` 는 시딩이 정한다 (architecture ADR-018 §4).
+ *
+ * 범용 key-value 채널(`settings.get(key)`)을 만들지 않은 이유가 이 스키마다. 값이
+ * `string` 이면 `theme` 에 `'purple'` 이 들어가도 계약을 통과해, 그 채널에서만
+ * ADR-007 의 규율이 무력해진다.
+ */
+const themeSchema = z.enum(['light', 'dark'])
+
 /** `TodayRow`(main/services/ports.ts) 를 그대로 미러링한다 — 필드·nullable 이 어긋나면
  * 여기가 먼저 깨져야 한다 (choke-point payload, ADR-025 §3). */
 const todayRowSchema = z.strictObject({
@@ -363,6 +373,21 @@ export const contracts = {
         clampedExceptionIds: z.array(z.string())
       })
     }
+  },
+  settings: {
+    /**
+     * 렌더러가 물어보는 것은 **사용자가 고른 값** 하나뿐이다. 해석된 결과(실제로 밝은지
+     * 어두운지)는 CSS 가 이미 알고 있어 물어볼 필요가 없다 — main 이
+     * `nativeTheme.themeSource` 를 설정하면 그것이 렌더러의 `prefers-color-scheme` 까지
+     * 움직인다 (design-system ADR-010 §3).
+     */
+    getTheme: { req: z.tuple([]), res: z.strictObject({ theme: themeSchema }) },
+    /**
+     * 응답이 `void` 가 아니라 **저장된 값**인 이유: 화면이 낙관적 추측이 아니라 사실로
+     * 갱신하게 하려는 것이다. 값 정규화가 main 에 있으므로(레거시 `system` → `dark`)
+     * 보낸 값과 저장된 값이 다를 수 있는 경로가 실제로 존재한다.
+     */
+    setTheme: { req: z.tuple([themeSchema]), res: z.strictObject({ theme: themeSchema }) }
   }
 } as const
 
@@ -387,6 +412,9 @@ export const eventContracts = {
   /** 전이 후 값. 자정 정각 알람 + powerMonitor resume 보정 (ADR-026 §1). */
   clockBoundary: clockBoundarySchema
 } as const
+
+/** `'light' | 'dark'`. 스키마에서 파생하므로 둘이 어긋날 수 없다. */
+export type Theme = z.infer<typeof themeSchema>
 
 export type TimerSnapshotWire = z.infer<typeof timerSnapshotSchema>
 export type SessionRecorded = z.infer<typeof eventContracts.sessionRecorded>

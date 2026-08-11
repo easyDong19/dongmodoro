@@ -39,6 +39,15 @@ export const CHANNELS = {
     getStatus: 'review:getStatus',
     getPending: 'review:getPending',
     settle: 'review:settle'
+  },
+  /**
+   * 설정 도메인. 키마다 전용 채널을 두고 **범용 `get(key)`/`set(key, value)` 를 만들지
+   * 않는다** — 값이 `string` 이 되면 `theme` 에 `'purple'` 이 들어가도 계약을 통과해,
+   * 그 채널에서만 ADR-007 의 규율이 무력해진다. 설정이 늘면 쌍이 늘어나는 비용은 수용한다.
+   */
+  settings: {
+    getTheme: 'settings:getTheme',
+    setTheme: 'settings:setTheme'
   }
 } as const
 
