@@ -234,13 +234,13 @@ reserve virtual memory for CodeRange`. 기본값에 있던 JIT 권한 셋(`allow
 
 - [x] **Step 1:** `package.json` 의 `version` 을 `0.1.0` → `1.0.0` 으로 올린다. 여기까지가 `feature/packaging` 브랜치의 마지막 커밋이다.
 - [x] **Step 2:** 자동 검증 5종 + `pnpm test:e2e` 통과 확인 후 PR 생성 (제목·본문 **영어**). 제목 안: `build: package the app with electron-builder and add the release workflow`
-- [ ] **Step 3:** 머지 후 **사용자에게 보고하고 확인을 받는다.** 아래 셋은 사람이 판단한다.
+- [x] **Step 3:** 머지 후 **사용자에게 보고하고 확인을 받는다.** 아래 셋은 사람이 판단한다.
   - `release/1.0` 브랜치를 만들 것인가
   - `v1.0.0` 태그를 만들 것인가
   - **태그를 push 할 것인가** — push 는 배포 트리거다 (CONTRIBUTING.md · ADR-004)
-- [ ] **Step 4:** 확인을 받으면 main 에서 `release/1.0` 을 만들고, **그 브랜치에서** `v1.0.0` 태그를 만든다. main 에 태그를 달지 않는다.
-- [ ] **Step 5:** 태그 push → 릴리스 워크플로가 도는 것을 확인한다. 실패하면 **태그를 지우지 말고** 원인을 고쳐 `v1.0.1` 로 낸다 — 이미 push 된 태그를 옮기는 것은 받은 사람의 이력을 깬다.
-- [ ] **Step 6:** GitHub Releases 의 릴리스 노트를 **영어로** 작성한다. 무엇을 할 수 있는 앱인지와 미서명 설치 절차를 적는다.
+- [x] **Step 4:** 확인을 받으면 main 에서 `release/1.0` 을 만들고, **그 브랜치에서** `v1.0.0` 태그를 만든다. main 에 태그를 달지 않는다.
+- [x] **Step 5:** 태그 push → 릴리스 워크플로가 도는 것을 확인한다. 실패하면 **태그를 지우지 말고** 원인을 고쳐 `v1.0.1` 로 낸다 — 이미 push 된 태그를 옮기는 것은 받은 사람의 이력을 깬다.
+- [x] **Step 6:** GitHub Releases 의 릴리스 노트를 **영어로** 작성한다. 무엇을 할 수 있는 앱인지와 미서명 설치 절차를 적는다.
 
 **검증:** Releases 페이지에서 `.dmg` 를 내려받아 **다른 경로에 설치했을 때** Task 6 의 Step 2~6 이 재현된다.
 
@@ -253,3 +253,19 @@ reserve virtual memory for CodeRange`. 기본값에 있던 JIT 권한 셋(`allow
 1. **better-sqlite3 의 네이티브 바이너리.** Electron 용으로 다시 빌드되지 않았거나 `asar` 안에 갇히면 앱이 DB 를 열지 못하고, [index.ts](../../src/main/index.ts) 의 시작 실패 경로로 빠진다. 증상은 "창이 안 뜨고 오류 상자만 뜬다"이다.
 2. **마이그레이션 디렉토리 경로.** Task 3 에서 고치지만, `extraResources` 의 대상 경로와 `process.resourcesPath` 아래의 실제 위치가 한 칸 어긋나는 일이 흔하다. 증상은 1번과 같아서 **두 원인을 구분하려면 오류 메시지를 끝까지 읽어야 한다.**
 3. **첫 릴리스 워크플로 실행.** CI 러너의 macOS 환경은 로컬과 다르다. Task 5 의 `workflow_dispatch` 리허설이 이것을 태그 전에 드러내라고 있는 장치다.
+
+#### 릴리스 실측 기록 (2026-08-11)
+
+- **리허설이 결함 하나를 잡았다.** 첫 `workflow_dispatch` 실행에서 `.dmg` 는 만들어졌는데
+  electron-builder 가 CI 를 감지해 스스로 배포를 시도하고 토큰이 없어 죽었다. 태그로 먼저
+  갔다면 이미 밀린 태그부터 처리해야 했다. `--publish never` 로 배포자를 하나로 못박았다.
+- 고친 뒤 리허설이 **3분 1초**에 성공했다.
+- `release/1.0` 을 main(`6f89398`)에서 만들고 그 브랜치에서 `v1.0.0` 태그를 만들어 push 했다.
+  **push 전에 사용자 확인을 받았다.** `pre-push` 훅이 release 브랜치 push 를 막고 의도한
+  경우 `--no-verify` 로 진행하라고 안내하므로 그 경로를 썼다.
+- 태그 실행이 성공했고 **draft 릴리스**에 `dongmodoro-1.0.0-arm64.dmg`(218MB)가 붙었다.
+- **릴리스에서 내려받은 `.dmg` 로 다시 검증했다** — 서명 유효(`com.easydong.dongmodoro`,
+  adhoc), 버전 `1.0.0`, 빈 데이터 폴더에서 부팅해 테이블 7개·설정 6개 생성, 두 번째 실행
+  즉시 종료, 종료 1초에 WAL 제거, 무결성 `ok`.
+- 릴리스 노트를 영어로 작성했다. **publish 는 하지 않았다** — draft 로 두고 사람이 누른다.
+
