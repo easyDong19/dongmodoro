@@ -1,0 +1,551 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>의사결정 플로우 — 2026-08-11 테마 전환 설계 세션</title>
+<style>
+  :root {
+    --bg: #ffffff; --surface: #f7f8f8; --line: #d8dcda; --line-strong: #9aa3a0;
+    --text: #14201c; --muted: #6b7873;
+    --teal: #0f8a6d; --teal-soft: rgba(15,138,109,0.10);
+    --amber: #a76a12; --amber-soft: rgba(167,106,18,0.12);
+    --violet: #7c4fc4; --violet-soft: rgba(124,79,196,0.10);
+    --danger: #b3543f;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0c1a16; --surface: rgba(255,255,255,0.045); --line: rgba(255,255,255,0.14);
+      --line-strong: rgba(255,255,255,0.4); --text: #e8f0ec; --muted: #8fa39b;
+      --teal: #6fd4b8; --teal-soft: rgba(111,212,184,0.12);
+      --amber: #f0b671; --amber-soft: rgba(240,182,113,0.14);
+      --violet: #b795e8; --violet-soft: rgba(183,149,232,0.12);
+      --danger: #e8907e;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { background: var(--bg); color: var(--text); margin: 0;
+         padding: 32px 20px 64px;
+         font-family: ui-sans-serif, -apple-system, "Segoe UI", Roboto, sans-serif;
+         line-height: 1.6; }
+  .wrap { max-width: 800px; margin: 0 auto; }
+  h1 { font-size: 22px; margin: 0 0 6px; letter-spacing: -0.01em; }
+  .sub { color: var(--muted); font-size: 13px; margin: 0 0 8px; }
+  .sub a { color: var(--teal); }
+  .intro { font-size: 14px; background: var(--surface); border: 1px solid var(--line);
+           border-radius: 12px; padding: 14px 18px; margin: 18px 0 0; }
+  .intro b { color: var(--teal); }
+
+  .legend { display: flex; gap: 14px; flex-wrap: wrap; font-size: 12px; color: var(--muted);
+            margin: 14px 0 0; padding: 12px 0; border-bottom: 1px solid var(--line); }
+  .chip { display: inline-block; padding: 1px 8px; border-radius: 999px; font-size: 11px;
+          font-weight: 600; letter-spacing: 0.02em; vertical-align: 1px; }
+  .chip.rev { background: var(--amber-soft); color: var(--amber); }
+  .chip.exp { background: var(--violet-soft); color: var(--violet); }
+  .chip.sys { background: var(--teal-soft); color: var(--teal); }
+
+  .phase { margin-top: 40px; }
+  .phase-title { font-size: 12px; font-weight: 700; letter-spacing: 0.1em;
+                 color: var(--muted); text-transform: uppercase; margin: 0 0 4px 46px; }
+  .phase-desc { font-size: 13px; color: var(--muted); margin: 0 0 8px 46px; }
+
+  .node { display: flex; gap: 16px; }
+  .rail { width: 30px; flex-shrink: 0; display: flex; flex-direction: column; align-items: center; }
+  .dot { width: 12px; height: 12px; border-radius: 50%; background: var(--teal);
+         border: 2px solid var(--bg); box-shadow: 0 0 0 1.5px var(--teal); margin-top: 22px;
+         flex-shrink: 0; }
+  .dot.sys { background: var(--bg); box-shadow: 0 0 0 1.5px var(--line-strong); }
+  .dot.rev { background: var(--amber); box-shadow: 0 0 0 1.5px var(--amber); }
+  .rail .cont { width: 2px; flex: 1; background: var(--line); margin-top: 4px; }
+  .node:last-child .rail .cont { background: linear-gradient(var(--line), transparent); }
+
+  .card { flex: 1; background: var(--surface); border: 1px solid var(--line);
+          border-radius: 12px; padding: 16px 20px; margin: 8px 0; min-width: 0; }
+  .card.sys { background: transparent; border-style: dashed; }
+  .qid { font: 700 11px ui-monospace, Menlo, monospace; color: var(--muted);
+         letter-spacing: 0.06em; }
+  .qtitle { font-size: 15px; font-weight: 650; margin: 2px 0 10px; }
+
+  .sec-label { display: block; font-size: 11px; font-weight: 700; letter-spacing: 0.08em;
+               color: var(--muted); text-transform: uppercase; margin: 12px 0 3px; }
+  .problem { font-size: 13.5px; margin: 0; }
+  .problem em { font-style: normal; color: var(--danger); }
+
+  ul.options { list-style: none; padding: 0; margin: 4px 0 0; }
+  ul.options li { font-size: 13px; padding: 7px 10px 7px 30px; position: relative;
+                  border-radius: 8px; margin: 3px 0; color: var(--muted); }
+  ul.options li::before { content: "○"; position: absolute; left: 10px; color: var(--line-strong); }
+  ul.options li.chosen { background: var(--teal-soft); color: var(--text); }
+  ul.options li.chosen::before { content: "●"; color: var(--teal); }
+  ul.options li b { font-weight: 650; }
+  ul.options li .tr { color: var(--muted); }
+
+  .decision { font-size: 13.5px; margin: 4px 0 0; }
+  .decision b { color: var(--teal); }
+  .why { font-size: 13px; margin: 4px 0 0; padding: 8px 12px; border-left: 3px solid var(--amber);
+         background: var(--amber-soft); border-radius: 0 8px 8px 0; }
+  .why q { font-style: normal; }
+  .dep { font-size: 12.5px; color: var(--muted); margin-top: 12px; padding-top: 10px;
+         border-top: 1px dashed var(--line); }
+  .dep code, .problem code, .decision code {
+    font-family: ui-monospace, Menlo, monospace; font-size: 12px;
+    background: none; color: var(--teal); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>의사결정 플로우</h1>
+  <p class="sub">2026-08-11 테마 전환 설계 세션 · 시간순 · 결정 원문 기록: <a href="./2026-08-11-theme-session.md">2026-08-11-theme-session.md</a></p>
+
+  <div class="intro">
+    <b>이 문서가 다루는 것:</b> dongmodoro(1인용 뽀모도로 Electron 앱)의 구현된 화면이
+    와이어프레임과 다르다는 문제 제기에서 시작해, 원인을 진단하고 <b>다크·라이트 테마 전환</b>을
+    어떻게 만들지 결정한 기록이다. 각 카드는 <b>문제(무엇이 비어 있거나 모순이었나) → 고민(어떤
+    선택지와 트레이드오프가 있었나) → 결정(무엇을 골랐고 왜)</b> 순서로 읽으면 된다.
+    ● 표시가 최종 선택이다.
+  </div>
+
+  <div class="legend">
+    <span><span class="chip rev">반전</span> AI 추천을 기각했거나 선택을 번복한 지점</span>
+    <span><span class="chip exp">재설명</span> 결정 전에 상세 설명·분석을 요구한 지점</span>
+    <span><span class="chip sys">검증</span> 코드 실행·타입 정의 확인으로 사실을 확인한 지점</span>
+    <span>점선 카드 = 질문이 아닌 이벤트</span>
+  </div>
+
+  <!-- ══════════ 1. 진단 ══════════ -->
+  <div class="phase">
+    <p class="phase-title">1 · 진단 — 왜 시안과 다른가</p>
+    <p class="phase-desc">결정을 시작하기 전에, "디자인이 완전히 다르다"는 문제 제기의 실제 원인을 코드로 확인했다.</p>
+
+    <div class="node">
+      <div class="rail"><div class="dot sys"></div><div class="cont"></div></div>
+      <div class="card sys">
+        <span class="qid">START</span>
+        <p class="qtitle">와이어프레임 대 구현 코드 전수 대조 <span class="chip sys">검증</span></p>
+        <span class="sec-label">확인한 것</span>
+        <p class="problem">색·폰트·radius·유리 표면 <b>토큰은 시안과 정확히 일치</b>했다.
+          렌더러의 raw hex·rgb 사용은 <b>0건</b>이고 색은 전부 토큰 매핑 유틸이었다.
+          어긋난 것은 <em>형태</em>였다 — 3컬럼 그리드 대신 flex 3장, 타이틀바 없음,
+          MONTH 컬럼(마일스톤·캘린더) 통째로 없음, 카드 내부 스크롤 영역 없음.</p>
+        <span class="sec-label">원인 3</span>
+        <ul class="options">
+          <li><b>① app-shell 기능 미구현</b> — M1~M3b 계획 어디에도 태스크가 없고, M2 계획서가 명시적으로 제외했다</li>
+          <li><b>② 테마 토글은 배선이 끊긴 게 아니라 처음부터 없다</b> — <code>data-theme</code> 설정 코드 0건, theme IPC 0건, Tray 0건</li>
+          <li><b>③ 컴포넌트 시각 어휘 미이식</b> — 시안 40여 클래스 중 <code>global.css</code> 에 넘어온 것은 5개</li>
+        </ul>
+        <span class="sec-label">구조적 뿌리</span>
+        <p class="problem"><code>docs/CLAUDE.md</code> 는 토큰을 훅으로까지 강제하지만
+          와이어프레임에 대해서는 <b>"명세가 아니다 · 구속력 없음"</b> 이라고 명시한다.
+          그리고 각 마일스톤의 검증 기준은 전부 "동작한다"였다.
+          <em>값은 강제되고 형태는 아무도 강제하지 않는 규칙</em>이 만든 결과다.</p>
+        <p class="dep">→ 이 진단이 <b>Q9</b>(검증 방법)에서 E2E 도입으로 이어진다</p>
+      </div>
+    </div>
+
+    <div class="node">
+      <div class="rail"><div class="dot sys"></div><div class="cont"></div></div>
+      <div class="card sys">
+        <span class="qid">발견</span>
+        <p class="qtitle">"다크가 디폴트"가 코드에서는 사실이 아니었다</p>
+        <p class="problem">현재 코드에서 <b>OS 가 라이트면 앱도 라이트로 뜬다.</b>
+          <code>tokens.css</code> 의 <code>@media (prefers-color-scheme: light)</code> 가 살아 있고
+          그것을 덮을 <code>data-theme='dark'</code> 를 아무도 붙이지 않기 때문이다.
+          사용자가 말한 "다크가 디폴트"와 문서(ADR-008 §4 "OS 선호를 따른다")가
+          이미 어긋나 있었다.</p>
+        <p class="dep">→ <b>Q5·Q6</b> 에서 이 어긋남이 정면으로 다뤄진다</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════ 2. 경로와 범위 ══════════ -->
+  <div class="phase">
+    <p class="phase-title">2 · 전환 경로와 범위</p>
+    <p class="phase-desc">"토글 버튼을 어디에 놓느냐"가 이 세션에서 가장 결과가 크게 갈린 결정이었다 — 딸려오는 작업의 크기가 안마다 완전히 달랐다.</p>
+
+    <div class="node">
+      <div class="rail"><div class="dot rev"></div><div class="cont"></div></div>
+      <div class="card">
+        <span class="qid">Q1</span>
+        <p class="qtitle">테마 토글을 어디에 놓나 <span class="chip rev">반전</span> <span class="chip exp">재설명</span></p>
+        <span class="sec-label">문제</span>
+        <p class="problem">ADR-008 §4 가 수동 전환 경로를 <b>트레이 서브메뉴 하나로</b> 못박았다.
+          그런데 app-shell PRD R25 가 <em>"창 닫기=숨김과 트레이 상주는 분리 배포할 수 없다"</em> 고
+          정해, 트레이를 만들면 창 수명주기·복귀 4경로·종료 경로가 통째로 딸려온다.
+          타이틀바도 없다 — <code>window.ts</code> 에 <code>frame</code> 옵션 자체가 없어 OS 기본 프레임이다.</p>
+        <span class="sec-label">고민한 선택지</span>
+        <ul class="options">
+          <li>A 트레이 서브메뉴 — ADR 을 안 뒤집는다. <span class="tr">대신 app-shell 마일스톤이 통째로 딸려온다</span></li>
+          <li class="chosen"><b>B 커스텀 프레임리스 타이틀바</b> — 시안의 최종 자리. 버려지는 코드 0. <span class="tr">프레임리스 창·플랫폼 슬롯·드래그 핸들이 딸려온다</span></li>
+          <li>C 카드 밖 임시 토글 — 딸려오는 것 0. <span class="tr">대신 버려질 코드이고 임시 티가 난다</span></li>
+        </ul>
+        <span class="sec-label">경과 — 추천이 두 번 움직였다</span>
+        <p class="problem">AI 는 처음 <b>C</b> 를 추천했고 사용자도 "C로 가보자"로 동의했다.
+          그런데 사용자가 즉시 중단하고 <b>목업을 요구</b>했다. 그리는 과정에서
+          <em>C1(떠 있는 버튼)이 오늘 목록 카드의 우상단을 덮는다</em>는 것이 드러나
+          AI 추천이 C1 → C2 로 바뀌었고, 사용자는 그 그림을 보고 <b>B</b> 를 골랐다.</p>
+        <span class="sec-label">결정</span>
+        <p class="decision"><b>B — 커스텀 프레임리스 타이틀바.</b></p>
+        <p class="why"><q>B가 내가원하는바야</q></p>
+        <p class="why"><q>각각 어디에 위치하는지 html으로 만들어줘 보고 결정하게</q> — 표로만 비교했으면 그대로 갔을 결정이었다</p>
+        <p class="dep">→ <b>Q2</b> 이 계획서가 "테마"가 아니라 "테마 + 타이틀바"가 된다<br>
+          → <b>Q3</b> 프레임리스면 창 컨트롤은 OS 가 그리는데 <b>그 색은 CSS 를 안 따라온다</b> — main 이 테마를 알아야 한다</p>
+      </div>
+    </div>
+
+    <div class="node">
+      <div class="rail"><div class="dot"></div><div class="cont"></div></div>
+      <div class="card">
+        <span class="qid">Q2</span>
+        <p class="qtitle">타이틀바를 어디까지 짓나</p>
+        <span class="sec-label">문제</span>
+        <p class="problem">ux-spec 이 타이틀바에 넣기로 한 것은 넷(앱 이름 · MONTH 토글 ·
+          날짜 라벨 · 창 컨트롤 폭 예약)이고 테마 컨트롤이 다섯 번째다.
+          전부 지으면 app-shell 마일스톤이 되고, 다 빼면 <em>테마 버튼 하나 얹은 빈 바</em>가 된다.</p>
+        <span class="sec-label">고민한 선택지</span>
+        <ul class="options">
+          <li>B-min 프레임리스 + 앱 이름 + 테마 — <span class="tr">정보가 0이라 "왜 있는지" 설명이 안 된다</span></li>
+          <li class="chosen"><b>B-mid</b> + 날짜 라벨 — 시안 타이틀바의 실제 모습</li>
+          <li>B-full + 반응형 포맷 + MONTH 토글 — <span class="tr">ux-spec 전량. 열 MONTH 컬럼이 없다</span></li>
+        </ul>
+        <span class="sec-label">결정</span>
+        <p class="decision"><b>B-mid.</b> 날짜 라벨은 넣고, MONTH 토글과 반응형 축약은 뺀다.</p>
+        <p class="why"><q>B-mid로 가자</q></p>
+        <span class="sec-label">근거</span>
+        <p class="problem">날짜는 <code>useClock()</code> 이 이미 전역 "오늘" 단일 출처로 돌고
+          자정 넘어감도 <code>clock:boundary</code> 로 처리되므로 비용이 라벨 하나다.
+          반대로 <b>MONTH 토글은 열 MONTH 컬럼(마일스톤·캘린더)이 미구현이라
+          아무것도 열지 않는 버튼</b>이 된다.</p>
+        <p class="dep">→ <code>src/shared/time/</code> 에 <code>dayLabel</code> 포맷터가 새로 필요하다 (ADR-009 초크포인트)</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════ 3. 소유권과 계약 ══════════ -->
+  <div class="phase">
+    <p class="phase-title">3 · 소유권과 계약</p>
+    <p class="phase-desc">Q1 이 만든 제약("main 도 테마를 알아야 한다") 때문에, 순진하게 짜면 해석 로직이 두 벌이 되는 상황이었다.</p>
+
+    <div class="node">
+      <div class="rail"><div class="dot"></div><div class="cont"></div></div>
+      <div class="card">
+        <span class="qid">Q3</span>
+        <p class="qtitle">테마 상태를 누가 소유하나 <span class="chip sys">검증</span></p>
+        <span class="sec-label">문제</span>
+        <p class="problem">렌더러의 CSS 와 main 의 창 컨트롤 색이 각자 테마를 해석하면
+          <em>두 벌이 되어 반드시 어긋난다.</em> 한 곳으로 모을 장치가 필요했다.</p>
+        <span class="sec-label">확인한 사실</span>
+        <p class="problem">Electron 의 <code>nativeTheme.themeSource</code> 를 설정하면
+          <b>렌더러의 <code>prefers-color-scheme</code> 미디어 쿼리까지 함께 움직인다.</b>
+          main 이 한 줄 설정하면 CSS 와 창 컨트롤이 같은 출처에서 나온다.</p>
+        <span class="sec-label">고민한 선택지</span>
+        <ul class="options">
+          <li class="chosen"><b>① main <code>nativeTheme.themeSource</code></b> — 첫 페인트 깜빡임 0, <code>tokens.css</code> 수정 0, 해석 한 곳</li>
+          <li>② renderer <code>data-theme</code> 속성 — <span class="tr">IPC 왕복 후 적용이라 깜빡임이 구조적으로 발생. 해석 두 곳</span></li>
+          <li>③ 둘 다 — <span class="tr">해석 세 곳. 어긋남 보장</span></li>
+        </ul>
+        <span class="sec-label">결정</span>
+        <p class="decision"><b>① main 소유.</b> <code>main/index.ts</code> 에서 <code>seedSettings</code> 가
+          <code>createWindow()</code> 보다 먼저 돌므로, 그 사이에 읽어 넣으면
+          <b>창이 태어나는 순간 이미 올바른 테마</b>다.</p>
+        <p class="why"><q>1로 가고, 가로 가자</q></p>
+      </div>
+    </div>
+
+    <div class="node">
+      <div class="rail"><div class="dot"></div><div class="cont"></div></div>
+      <div class="card">
+        <span class="qid">Q3-1</span>
+        <p class="qtitle"><code>[data-theme]</code> 선택자를 어떻게 하나</p>
+        <span class="sec-label">문제</span>
+        <p class="problem">①을 고르면 OS 를 덮어쓰는 채널이 <code>data-theme</code> 이 아니라
+          <code>themeSource</code> 가 되므로, ADR-008 §1 이 명시한 선택자가
+          <em>쓰이지 않는 가지</em>가 된다.</p>
+        <span class="sec-label">고민한 선택지</span>
+        <ul class="options">
+          <li class="chosen"><b>(가) 남긴다</b> — 테스트·문서에서 브라우저만으로 라이트를 강제할 통로</li>
+          <li>(나) 지운다 — <span class="tr">죽은 코드를 안 남긴다. 대신 와이어프레임 문서와 코드 구조가 갈린다</span></li>
+        </ul>
+        <span class="sec-label">결정</span>
+        <p class="decision"><b>(가) 존치.</b> "런타임은 <code>themeSource</code>,
+          <code>data-theme</code> 은 테스트·문서 전용"을 ADR 에 못박는다 —
+          죽은 코드가 아니라 <b>용도가 다른 두 번째 진입점</b>이다.</p>
+      </div>
+    </div>
+
+    <div class="node">
+      <div class="rail"><div class="dot"></div><div class="cont"></div></div>
+      <div class="card">
+        <span class="qid">Q4</span>
+        <p class="qtitle">IPC 표면을 어떻게 자르나 <span class="chip sys">검증</span></p>
+        <span class="sec-label">문제</span>
+        <p class="problem">렌더러가 물어볼 것은 하나뿐이다 — "사용자가 고른 값이 무엇인가".
+          해석된 결과는 CSS 가 이미 안다. 확인해 보니
+          <code>keys.ts</code> 에 <code>settings: () =&gt; ['settings']</code> 쿼리 키가
+          <b>이미 예약돼 있고 아무도 안 쓰고 있었다.</b></p>
+        <span class="sec-label">고민한 선택지</span>
+        <ul class="options">
+          <li>(a) <code>theme: { get, set }</code> 전용 도메인 — <span class="tr">예약된 쿼리 키 이름과 갈린다</span></li>
+          <li class="chosen"><b>(b) <code>settings: { getTheme, setTheme }</code></b> — 예약된 키와 이름이 맞고, 앞으로 올 설정이 한 도메인에 모인다</li>
+          <li>(c) 범용 key-value <code>settings: { get, set }</code> — <span class="tr">값이 string 이라 <code>theme</code> 에 <code>'purple'</code> 이 들어가도 통과한다</span></li>
+        </ul>
+        <span class="sec-label">결정</span>
+        <p class="decision"><b>(b).</b> (c) 는 이 채널에서만 ADR-007 의 계약 규율을 무력화한다.</p>
+        <p class="why"><q>b로 가</q></p>
+        <p class="dep">→ <b>Q6-1</b> <code>settings:changed</code> 이벤트가 지금 필요한지로 이어진다</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════ 4. system 제거 ══════════ -->
+  <div class="phase">
+    <p class="phase-title">4 · <code>system</code> 제거 — 사용자가 전제를 뒤집은 지점</p>
+    <p class="phase-desc">AI 는 선택지의 우열을 따지고 있었는데, 사용자는 선택지가 서 있는 전제를 없앴다.</p>
+
+    <div class="node">
+      <div class="rail"><div class="dot rev"></div><div class="cont"></div></div>
+      <div class="card">
+        <span class="qid">Q5</span>
+        <p class="qtitle">컨트롤을 몇 택, 어떤 형태로 <span class="chip rev">반전</span></p>
+        <span class="sec-label">문제</span>
+        <p class="problem">저장값은 <code>system</code>/<code>light</code>/<code>dark</code> 3택인데
+          사용자가 처음 말한 표현은 "토글 버튼"이었다. 그 둘이 어긋난다.</p>
+        <span class="sec-label">고민한 선택지</span>
+        <ul class="options">
+          <li class="chosen"><b>A 2택 토글</b> — 최소. <span class="tr">단, <code>system</code> 이 남아 있는 한 "되돌아갈 수 없는 문"이 된다</span></li>
+          <li>B 3택 세그먼트 (AI 추천) — 상태가 한눈에. <span class="tr">타이틀바가 붐빔</span></li>
+          <li>C 순환 버튼 1개 — 최소. <span class="tr">다음 상태를 예측 못 하고 목표까지 2클릭</span></li>
+        </ul>
+        <span class="sec-label">결정 — 선택지가 아니라 전제를 바꿨다</span>
+        <p class="decision"><b>A. 단 <code>system</code> 이라는 선택지 자체를 없앤다.</b>
+          AI 가 B 를 추천한 <b>유일한 근거</b>가 "<code>system</code> 이 있으니 2택은 되돌아갈 수
+          없는 문"이었는데, <code>system</code> 이 사라지면서 그 근거가 통째로 무력화됐다.</p>
+        <p class="why"><q>A로 가는게 맞지 않나, 그리고 현재 OS단에 맞게 했는데, 그냥 OS단에서 따라간다는 ADR을 수정하고 기획서도 수정하는게 어떨까 앱내에서만 수정가능하게 설정하는게 관리하기도 쉬울꺼같아서 그래</q></p>
+        <p class="dep">→ <b>Q6</b> ADR-008 §4 를 부분 supersede 하는 새 ADR 이 필요해진다</p>
+      </div>
+    </div>
+
+    <div class="node">
+      <div class="rail"><div class="dot"></div><div class="cont"></div></div>
+      <div class="card">
+        <span class="qid">Q6</span>
+        <p class="qtitle"><code>system</code> 제거를 확정하나</p>
+        <span class="sec-label">얻는 것</span>
+        <p class="problem"><code>system</code> 은 <b>값이 값을 가리키는 간접 상태</b>다 —
+          화면이 어두운 이유가 저장값과 OS 둘로 갈린다. 없애면 상태 공간이 3 → 2 가 되고
+          <code>nativeTheme.on('updated')</code> 구독도 불필요해진다.
+          그리고 <b><code>tokens.css</code> 는 여전히 수정 0</b> 이다 —
+          <code>themeSource</code> 가 명시값이면 <code>prefers-color-scheme</code> 도 그 값으로
+          강제되므로 기존 미디어 쿼리가 그대로 맞는다.</p>
+        <span class="sec-label">치르는 대가</span>
+        <p class="problem">macOS·Windows 둘 다 <em>일몰 자동 다크 전환</em> 기능이 있다.
+          그걸 켜 둔 사용자는 낮에 다른 앱이 전부 밝아져도 이 앱만 선택한 채로 남는다.
+          <b>이 대가를 명시적으로 수용</b>하기로 했다.</p>
+        <span class="sec-label">안 바뀌는 것</span>
+        <p class="problem">고대비 모드(<code>forced-colors: active</code>)는 <b>여전히 OS 가 이긴다.</b>
+          "앱 안에서만 결정"이 그것까지 뒤집으면 접근성 회귀다.</p>
+        <span class="sec-label">결정</span>
+        <p class="decision"><b>저장값 <code>light</code>/<code>dark</code>, 기본 <code>dark</code>.</b>
+          문서 5곳(adr-008 상태 줄 · tokens.md §9 · app-shell prd R42 재작성 + <b>A34 삭제</b> ·
+          ux-spec §6.5 · adr-018 시딩 표)과 코드 2곳을 같은 PR 에서 고친다.</p>
+        <p class="dep">→ 계획서 작성 단계에서 발견: <b>기존 개발 DB 에 <code>"system"</code> 이 남는다</b>.
+          <code>seed.ts</code> 가 멱등이라 값을 안 덮으므로 읽을 때 정규화 + 되쓰기 경로가 필요하다</p>
+      </div>
+    </div>
+
+    <div class="node">
+      <div class="rail"><div class="dot"></div><div class="cont"></div></div>
+      <div class="card">
+        <span class="qid">Q6-1</span>
+        <p class="qtitle"><code>settings:changed</code> 이벤트를 지금 넣나</p>
+        <span class="sec-label">문제</span>
+        <p class="problem"><code>system</code> 이 없어져도 <b>트레이가 생기면 같은 설정의 입구가 둘</b>이 된다.
+          그 순간 이벤트가 필수가 된다 — 트레이(main)가 바꾼 값을 타이틀바가 모른다.</p>
+        <span class="sec-label">고민한 선택지</span>
+        <ul class="options">
+          <li class="chosen"><b>(가) 트레이 때 추가한다</b> — ADR-026 이 이벤트 추가 절차를 4단계로 정형화해 둬서 나중 비용이 예측 가능</li>
+          <li>(나) 지금 깔아 둔다 — <span class="tr">아무도 발송하지 않는 채널 = 죽은 계약</span></li>
+        </ul>
+        <span class="sec-label">결정</span>
+        <p class="decision"><b>(가).</b> 지금 쓰는 쪽은 렌더러 버튼 하나뿐이라
+          무효화 초크포인트(ADR-025)로 충분하다.</p>
+        <p class="why"><q>(가)로 시작하자</q></p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════ 5. 검증 체계 ══════════ -->
+  <div class="phase">
+    <p class="phase-title">5 · 검증 체계 — 진단 원인으로 돌아오다</p>
+    <p class="phase-desc">"검증 기준이 동작이었지 시안 대조가 아니었다"는 진단이 여기서 실제 장치로 바뀐다.</p>
+
+    <div class="node">
+      <div class="rail"><div class="dot"></div><div class="cont"></div></div>
+      <div class="card">
+        <span class="qid">Q7</span>
+        <p class="qtitle">3 OS 중 어디까지 책임지나 <span class="chip sys">검증</span></p>
+        <span class="sec-label">문제</span>
+        <p class="problem">PRODUCT.md 가 대상 OS 를 셋으로 확정했고 app-shell PRD <b>A17</b> 이
+          "Win·Linux 에서 창 컨트롤과 겹치지 않는다"를 인수 기준으로 걸었다.
+          그런데 <em>개발 환경이 macOS 하나</em>다.</p>
+        <span class="sec-label">Electron 43 타입 정의에서 확인한 것</span>
+        <p class="problem"><code>titleBarOverlay</code> 의 색 옵션은 <code>@platform win32,linux</code> —
+          <b>Linux 도 지원</b>하고 Linux 는 <code>symbolColor</code> 생략 시 접근성 대비를 자동 계산한다.
+          그리고 이걸 켜면 <b>Window Controls Overlay CSS 환경 변수</b>가 활성화된다.</p>
+        <span class="sec-label">고민한 선택지</span>
+        <ul class="options">
+          <li>(가) 3 OS 코드 + macOS 만 검증 — <span class="tr">검증 안 된 코드가 "됐다"로 읽힌다</span></li>
+          <li>(나) macOS 만 구현 — <span class="tr">Win·Linux 에서 컨트롤이 타이틀바 위에 겹쳐 못 쓰는 앱이 된다</span></li>
+          <li class="chosen"><b>(다) 3 OS 코드 + macOS 검증 + 미검증을 계획서에 명시</b> — (가)와 코드는 같고 <b>기록만 다르다</b></li>
+        </ul>
+        <span class="sec-label">결정</span>
+        <p class="decision"><b>(다).</b> <b>A17 은 이번에 안 닫힌다</b>를 계획서에 못박는다.</p>
+        <p class="why"><q>다로 가자</q></p>
+        <span class="sec-label">부수 성과</span>
+        <p class="problem">ux-spec §1.1 의 <em>"창 컨트롤 폭은 플랫폼별 상수로 예약한다"</em> 가
+          불필요해졌다. CSS 환경 변수가 실제 폭을 런타임에 알려주므로 하드코딩한 숫자가
+          OS 업데이트로 어긋날 일이 없다 — <b>ux-spec 을 개선하는 방향의 정정</b>이다.</p>
+      </div>
+    </div>
+
+    <div class="node">
+      <div class="rail"><div class="dot"></div><div class="cont"></div></div>
+      <div class="card">
+        <span class="qid">Q8</span>
+        <p class="qtitle">토글의 모양과 스타일 소유 — 진단 원인 ③과 만나다</p>
+        <span class="sec-label">문제</span>
+        <p class="problem">"2택 토글"에 두 해석이 있었다. ① 단일 버튼이면
+          <em>아이콘이 "현재 상태"인지 "누르면 될 것"인지</em>가 정해져야 하는데 둘 다 관용적이고
+          둘 다 헷갈린다. 그리고 이 버튼을 어떻게 스타일링하느냐가 진단 원인 ③과 직결된다.</p>
+        <span class="sec-label">고민한 선택지 (스타일 소유)</span>
+        <ul class="options">
+          <li>(가) 이 버튼만 Tailwind 유틸 + 인라인 style — <span class="tr">방금 원인으로 지목한 것을 그대로 재생산</span></li>
+          <li class="chosen"><b>(나) <code>.seg</code> 하나만 <code>global.css</code> 로 이식</b> — 첫 이식 사례. 다음 컴포넌트가 따라올 자리가 생긴다</li>
+          <li>(다) 컨트롤 클래스 전량 이식 — <span class="tr">기존 컴포넌트 전부 재작성. 별도 계획서 감</span></li>
+        </ul>
+        <span class="sec-label">결정</span>
+        <p class="decision"><b>② 2세그먼트 + (나) <code>.seg</code> 만 이식.</b>
+          ②는 "지금"과 "누르면"이 동시에 읽혀 모호성이 사라지고,
+          design-system ADR-006 §3 의 <b>"선택 상태에 보더"</b> 규칙(고대비에서 배경이 사라짐)을
+          이미 만족한다.</p>
+        <p class="why"><q>(나)로 가자</q></p>
+      </div>
+    </div>
+
+    <div class="node">
+      <div class="rail"><div class="dot rev"></div><div class="cont"></div></div>
+      <div class="card">
+        <span class="qid">Q9</span>
+        <p class="qtitle">검증을 어떻게 하나 — E2E 도입 <span class="chip rev">반전</span></p>
+        <span class="sec-label">문제</span>
+        <p class="problem">지금까지 계획서의 검증 기준이 전부 "동작한다"였고
+          그것이 진단한 원인의 구조적 뿌리였다. 여기에 더해
+          <b>ADR-008 이 라이트 테마의 대비 판정 지점을 "타이틀바"로 지정</b>하고 그 때문에
+          <code>--ink-dim</code> 알파를 0.60 → 0.65 로 올렸는데,
+          <em>타이틀바가 없어서 그 판정을 한 번도 실측한 적이 없다.</em>
+          이번 작업이 그 지점을 처음 만든다.</p>
+        <span class="sec-label">고민한 선택지</span>
+        <ul class="options">
+          <li>(가) 단위 테스트만 — <span class="tr">"저장된다"까지만. 화면이 뒤집히는지는 못 본다</span></li>
+          <li>(나) 단위 + 수동 체크리스트 (AI 추천) — <span class="tr">낮은 비용. 대비 수치는 사람이 재야 한다</span></li>
+          <li class="chosen"><b>(다) 단위 + Electron E2E</b> — 새 의존성·CI·실행시간을 감수</li>
+        </ul>
+        <span class="sec-label">결정</span>
+        <p class="decision"><b>(다) E2E 도입.</b> AI 는 "테마 계획서가 감당할 크기가 아니다"라며
+          (나)를 추천했으나 기각됐다.</p>
+        <p class="why"><q>(다)로 하는게 맞는거 같아 이왕하는김에 e2e테스트 기능도 깔자</q></p>
+        <span class="sec-label">결과적으로 얻은 것</span>
+        <p class="problem">E2E 는 <code>getComputedStyle</code> 로 <b>대비 수치를 자동 계산</b>할 수 있다.
+          ADR-008 이 계산으로만 통과시킨 <b>4.97:1</b> 을 기계가 실측하게 됐다 —
+          수동 체크리스트로는 불가능한 검증이다.</p>
+        <p class="dep">→ <b>Q10</b> 작업 덩어리가 셋(E2E 하네스 · 타이틀바 · 테마)이 된다</p>
+      </div>
+    </div>
+
+    <div class="node">
+      <div class="rail"><div class="dot sys"></div><div class="cont"></div></div>
+      <div class="card sys">
+        <span class="qid">검증</span>
+        <p class="qtitle">DB 격리가 공짜라는 것을 확인 <span class="chip sys">검증</span></p>
+        <p class="problem">Electron 이 Chromium 의 <code>--user-data-dir</code> 스위치를 존중하므로
+          <code>app.getPath('userData')</code> 가 임시 디렉토리를 가리킨다.
+          <b>main 코드를 한 줄도 안 고치고</b> 매 테스트가 순정 첫 실행이 되고 개발 DB 도 오염되지 않는다.
+          이것이 <em>"첫 실행이 다크인가"</em> 케이스의 전제가 됐다.</p>
+      </div>
+    </div>
+
+    <div class="node">
+      <div class="rail"><div class="dot"></div><div class="cont"></div></div>
+      <div class="card">
+        <span class="qid">Q10</span>
+        <p class="qtitle">계획서를 하나로 가나 나누나</p>
+        <span class="sec-label">문제</span>
+        <p class="problem"><code>CONTRIBUTING.md</code> 가 스쿼시 머지를 강제하므로
+          <b>PR 제목 한 줄이 main 커밋</b>이 된다.
+          "Playwright 도입 + 프레임리스 창 + 테마"를 한 줄 Conventional Commits 로 쓸 방법이 없다 —
+          <em><code>feat:</code> 인지 <code>test:</code> 인지부터 안 정해진다.</em></p>
+        <span class="sec-label">고민한 선택지</span>
+        <ul class="options">
+          <li>(가) 1개 — <span class="tr">리뷰 불가능한 diff</span></li>
+          <li class="chosen"><b>(나) 2개 — E2E 하네스 → 타이틀바+테마</b>. E2E 가 먼저다</li>
+          <li>(다) 3개 — <span class="tr">과분할. 타이틀바 없이는 테마 버튼을 놓을 자리가 없고 창 컨트롤 색이 테마를 따라야 해서 둘은 분리 불가 — 쪼개면 중간 상태가 "빈 타이틀바"</span></li>
+        </ul>
+        <span class="sec-label">결정</span>
+        <p class="decision"><b>(나) 2개, E2E 가 선행.</b> 하네스를 나중에 만들면 테마를 수동 검증한 뒤
+          다시 자동화하게 되어 같은 검증을 두 번 한다.</p>
+        <p class="why"><q>(나) ㄱㄱ</q></p>
+      </div>
+    </div>
+
+    <div class="node">
+      <div class="rail"><div class="dot"></div><div class="cont"></div></div>
+      <div class="card">
+        <span class="qid">Q11</span>
+        <p class="qtitle">E2E 를 어디서 돌리나 <span class="chip sys">검증</span></p>
+        <span class="sec-label">문제 — CI 를 열어 보고 발견</span>
+        <p class="problem"><b><code>pnpm test</code> 가 어디서도 자동 실행되지 않는다.</b>
+          CI 는 <code>pr-language.yml</code>(PR 언어 검사) 하나뿐이고,
+          husky 는 <code>pre-commit</code>=lint-staged, <code>pre-push</code>=브랜치 보호,
+          <code>commit-msg</code>=commitlint 가 전부다. <em>타입체크도 단위 테스트도 자동 실행 지점이 없다.</em></p>
+        <span class="sec-label">고민한 선택지</span>
+        <ul class="options">
+          <li>(가) 로컬 전용 — <span class="tr">안 돌리면 없는 것과 같다</span></li>
+          <li>(나) CI 에 E2E 만 추가 — <span class="tr">단위 테스트는 여전히 안 돈다. 지붕부터 얹는 격</span></li>
+          <li class="chosen"><b>(다) CI 파이프라인 신설</b> — typecheck · lint · format · test · build · e2e. (나)와 비용이 거의 같다</li>
+        </ul>
+        <span class="sec-label">결정</span>
+        <p class="decision"><b>(다).</b> 함께: <b>스크린샷 회귀는 넣지 않는다</b> —
+          폰트 렌더링이 OS 마다 달라 macOS 로컬과 ubuntu CI 의 베이스라인이 일치하지 않고,
+          <em>상시 실패하는 테스트는 곧 무시된다.</em>
+          대신 <b>스크린샷을 아티팩트로 올리고 비교는 사람이 한다.</b></p>
+        <p class="why"><q>다로 가자</q></p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════ 6. 종결 ══════════ -->
+  <div class="phase">
+    <p class="phase-title">6 · 종결 — 계획서 2건</p>
+    <p class="phase-desc">설계 합의가 끝난 뒤 계획서를 구체화하는 단계에서 세 가지 문제가 추가로 드러났다. 대화만으로는 안 보이고 태스크를 쪼개야 보이는 것들이었다.</p>
+
+    <div class="node">
+      <div class="rail"><div class="dot sys"></div><div class="cont"></div></div>
+      <div class="card sys">
+        <span class="qid">END</span>
+        <p class="qtitle">계획서 작성 중 새로 나온 문제 3건</p>
+        <ul class="options">
+          <li><b>① 기존 개발 DB 에 <code>"system"</code> 이 남는다</b> — <code>seed.ts</code> 가 멱등("키가 없을 때만")이라 기본값을 바꿔도 기존 DB 는 안 바뀌고, 그 값은 새 계약을 통과하지 못한다. <span class="tr">읽을 때 정규화 + 저장값 되쓰기를 태스크로</span></li>
+          <li><b>② 색 값 4개가 CSS 밖으로 샌다</b> — main 은 CSS 변수를 못 읽는데 Win·Linux 창 컨트롤 색은 JS 로 줘야 한다. <span class="tr">한 파일에 가두고 <code>tokens.css</code> 를 직접 읽어 값 일치를 검사하는 테스트를 붙였다</span></li>
+          <li><b>③ OS 오버레이 영역은 투명할 수 없다</b> — 앱 타이틀바는 광원 위에 투명하지만 OS 컨트롤 영역은 불투명이라 Win·Linux 에서 미세한 색 이음매가 보인다. <span class="tr">해결 방법이 없어 알려진 한계로 기록</span></li>
+        </ul>
+        <span class="sec-label">산출물</span>
+        <p class="decision">
+          <a href="../plans/2026-08-11-e2e-harness.md">2026-08-11-e2e-harness.md</a> (Task 5) ·
+          <a href="../plans/2026-08-11-theme-and-titlebar.md">2026-08-11-theme-and-titlebar.md</a> (Task 10)</p>
+        <p class="dep">아직 없는 것: <code>design-system ADR-010</code> — 계획서 ② Task 1 이 작성한다.
+          decision-log 는 과정을, ADR 은 결론을 갖는다.</p>
+      </div>
+    </div>
+  </div>
+</div>
+</body>
+</html>
