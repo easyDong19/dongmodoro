@@ -24,10 +24,19 @@
 
 ### 2. 릴리즈
 
+0. **리허설을 먼저 돌린다.** [release.yml](.github/workflows/release.yml) 을 GitHub Actions
+   에서 `workflow_dispatch` 로 실행해 `.dmg` 가 만들어지는 것을 확인한다.
+   이 단계를 건너뛰면 첫 릴리스를 검증하는 방법이 **"태그를 달아 보는 것"** 뿐이고,
+   실패하면 이미 밀어 버린 태그를 지우는 일부터 하게 된다. 리허설은 업로드하지 않고
+   아티팩트만 남긴다.
 1. main이 배포 가능한 상태일 때 `release/X.Y` 브랜치를 main에서 생성
 2. `vX.Y.0` 태그를 release 브랜치에서 생성 후 push
    - `git push origin release/X.Y --tags`
 3. 태그 push가 GitHub Actions 릴리즈 워크플로우를 트리거함
+4. 워크플로가 릴리스를 **draft 로** 만든다. 산출물과 노트를 확인한 뒤 사람이 publish 한다 —
+   태그를 미는 것과 남에게 보이는 것 사이에 한 칸을 둔다.
+5. 태그를 이미 밀었는데 빌드가 깨졌다면 **태그를 옮기지 않는다.** 받은 사람의 이력이
+   깨진다. 고쳐서 다음 패치 버전으로 낸다.
 
 ### 3. 핫픽스 (upstream first 원칙)
 
@@ -84,6 +93,41 @@
 - 사용자 확인 없이 태그 push (태그 push = 배포 트리거이므로)
 
 ---
+
+## 패키징
+
+배포본은 macOS `.dmg` 하나다 (ADR-004 · [ADR-028](docs/architecture/decisions/adr-028-code-signing.md)).
+
+| 명령 | 무엇 | 언제 |
+|---|---|---|
+| `pnpm build` | `out/` 에 번들만 | 개발·E2E |
+| `pnpm dist:dir` | 앱 디렉토리까지 (포장 없음) | 패키징 설정이 맞는지 볼 때. 빠르다 |
+| `pnpm dist` | `.dmg` | 릴리스 직전 손 검증 |
+
+산출물은 `release/` 에 생기고 추적하지 않는다.
+
+**개발 모드에서 통과하는 것은 증거가 아니다.** 아래 둘은 asar 아카이브 안으로 들어가는
+순간 각자 다른 이유로 깨지며, `pnpm dev` 로는 영영 재현되지 않는다.
+
+- 마이그레이션 `.sql` — Drizzle 마이그레이터가 **실제 디렉토리**를 읽고, `migrate.ts` 가
+  그 안의 파일 개수로 스키마 세대를 판정한다. `extraResources` 로 아카이브 밖에 싣고
+  앱은 `process.resourcesPath` 로 푼다.
+- better-sqlite3 의 `.node` — `dlopen` 은 아카이브 안의 경로를 열지 못한다. `asarUnpack`
+  이 밖에 남긴다.
+
+둘 중 하나라도 빠지면 증상이 **똑같다**: 창이 뜨지 않고 시작 실패 대화상자만 뜬다.
+구분하려면 대화상자의 메시지를 끝까지 읽어야 한다.
+
+### 앱 아이콘
+
+원본은 `build/icon.png` 다 — **1024×1024, 알파 있음, 아트는 가운데 824×824** 이고 나머지는
+투명 여백이다. 꽉 채우면 Dock 에서 이웃 아이콘보다 커 보인다.
+
+`.icns` 는 파생물이라 원본을 바꾼 뒤 다시 만든다.
+
+```bash
+./scripts/make-icon.sh
+```
 
 ## 테스트
 

@@ -20,21 +20,26 @@ import { migrateDb } from './db/migrate'
 import { makeDrizzleUow } from './db/repositories/drizzle'
 import { seedSettings } from './services/seed'
 import { CorruptError, DowngradeError, MigrationError } from './db/errors'
+import { acquireSingleInstanceLock, focusExistingWindow } from './single-instance'
 import type { UnitOfWork } from './services/ports'
 
 /**
- * 마이그레이션 폴더는 **번들 산출물 기준**으로 푼다.
+ * 마이그레이션 폴더의 자리는 **패키징 여부로 갈린다.** 한 경로로는 둘 다 맞출 수 없다.
  *
- * 이 파일은 `out/main/index.js` 한 덩어리로 번들되므로 여기서의 `../../` 가 저장소
- * 루트다. `migrate.ts` 가 자기 위치에서 유도하지 않고 인자로 받는 이유가 이것이다 —
- * 소스(`src/main/db/`)와 산출물(`out/main/`)의 깊이가 달라 한 상대 경로로는 둘 다
- * 맞출 수 없다. `import.meta.url` 을 쓰는 것은 `"type": "module"` 이라 `__dirname` 이
- * 없기 때문이다.
+ * - 개발·`out/` 실행: 이 파일은 `out/main/index.js` 한 덩어리로 번들되므로 `../../` 가
+ *   저장소 루트다. `migrate.ts` 가 자기 위치에서 유도하지 않고 인자로 받는 이유가 이것이다 —
+ *   소스(`src/main/db/`)와 산출물(`out/main/`)의 깊이가 다르다. `import.meta.url` 을 쓰는
+ *   것은 `"type": "module"` 이라 `__dirname` 이 없기 때문이다.
+ * - 패키징: 코드가 asar 아카이브 안으로 들어가므로 같은 상대 경로가 **아카이브 내부의
+ *   존재하지 않는 자리**를 가리킨다. `.sql` 은 `extraResources` 로 아카이브 밖에 실려
+ *   있고(electron-builder.yml), 그 자리는 `process.resourcesPath` 아래다.
  *
- * TODO(M4 패키징, ADR-004): asar 안에서는 이 경로가 성립하지 않는다. electron-builder
- * 의 `extraResources` 로 `drizzle/` 을 함께 실어 `process.resourcesPath` 로 풀어야 한다.
+ * 이 분기가 없으면 설치본이 **첫 실행에서만** 죽는다 — 개발 모드에서는 영영 재현되지
+ * 않으므로, 검증은 반드시 설치본으로 해야 한다.
  */
-const MIGRATIONS_DIR = join(dirname(fileURLToPath(import.meta.url)), '../../drizzle')
+const MIGRATIONS_DIR = app.isPackaged
+  ? join(process.resourcesPath, 'drizzle')
+  : join(dirname(fileURLToPath(import.meta.url)), '../../drizzle')
 
 let closeDatabase: (() => void) | undefined
 let mainWindow: BrowserWindow | null = null
@@ -81,71 +86,82 @@ function startDb(): { schemaVersion: number; uow: UnitOfWork } {
   return { schemaVersion, uow }
 }
 
-app
-  .whenReady()
-  .then(() => {
-    // DB 가 먼저다 — 열지 못하면 창을 띄우지 않는다.
-    const { schemaVersion, uow } = startDb()
-    /**
-     * **창보다 먼저 테마를 적용한다** (design-system ADR-010 §3).
-     *
-     * 이 순서가 "첫 페인트 깜빡임 0" 의 근거 전부다. `nativeTheme.themeSource` 는 렌더러의
-     * `prefers-color-scheme` 까지 결정하므로, 창이 만들어지기 전에 값을 넣어 두면 첫 프레임이
-     * 이미 올바른 테마다. 렌더러가 뜬 뒤 IPC 로 물어보는 구조였다면 왕복하는 동안 반대 테마가
-     * 한 번 그려지고, 그 깜빡임은 배선으로 없앨 수 없다.
-     *
-     * `readTheme` 은 계약 밖의 저장값(기존 DB 의 `"system"`)을 여기서 정규화하고 되쓴다.
-     */
-    const initialTheme = readTheme(uow)
-    applyTheme(initialTheme)
-    // 핸들러를 창보다 먼저 등록한다 — renderer 가 뜨자마자 호출해도 받을 사람이 있어야 한다.
-    registerSystemHandlers(() => schemaVersion)
-    registerClockHandlers()
-    registerTodayHandlers(uow)
-    registerWeekHandlers(uow)
-    registerReviewHandlers(uow)
-    registerSettingsHandlers(uow, () => mainWindow)
-    // 타이머는 창보다 먼저 산다 — renderer 가 죽어도 main 의 타이머는 계속 돈다 (R12).
-    const timerHost = startTimerHost(uow, () => mainWindow)
-    stopTimerHost = timerHost.stop
-    registerTimerHandlers(timerHost.engine, uow)
-    // 종료 확인 조건 (timer R13): focus 가 running/paused 일 때만 묻는다.
-    mainWindow = createWindow(initialTheme, () => {
-      const snap = timerHost.engine.getSnapshot()
-      return snap.mode === 'focus' && (snap.phase === 'running' || snap.phase === 'paused')
+/**
+ * 잠금이 **DB 열기보다 먼저다** (app-shell PRD R19). 이 순서가 규칙의 전부다 —
+ * 뒤집으면 두 번째 프로세스가 이미 `app.db` 를 만진 뒤에 물러난다.
+ */
+if (acquireSingleInstanceLock()) {
+  app.on('second-instance', () => focusExistingWindow(mainWindow))
+  boot()
+}
+
+function boot(): void {
+  app
+    .whenReady()
+    .then(() => {
+      // DB 가 먼저다 — 열지 못하면 창을 띄우지 않는다.
+      const { schemaVersion, uow } = startDb()
+      /**
+       * **창보다 먼저 테마를 적용한다** (design-system ADR-010 §3).
+       *
+       * 이 순서가 "첫 페인트 깜빡임 0" 의 근거 전부다. `nativeTheme.themeSource` 는 렌더러의
+       * `prefers-color-scheme` 까지 결정하므로, 창이 만들어지기 전에 값을 넣어 두면 첫 프레임이
+       * 이미 올바른 테마다. 렌더러가 뜬 뒤 IPC 로 물어보는 구조였다면 왕복하는 동안 반대 테마가
+       * 한 번 그려지고, 그 깜빡임은 배선으로 없앨 수 없다.
+       *
+       * `readTheme` 은 계약 밖의 저장값(기존 DB 의 `"system"`)을 여기서 정규화하고 되쓴다.
+       */
+      const initialTheme = readTheme(uow)
+      applyTheme(initialTheme)
+      // 핸들러를 창보다 먼저 등록한다 — renderer 가 뜨자마자 호출해도 받을 사람이 있어야 한다.
+      registerSystemHandlers(() => schemaVersion)
+      registerClockHandlers()
+      registerTodayHandlers(uow)
+      registerWeekHandlers(uow)
+      registerReviewHandlers(uow)
+      registerSettingsHandlers(uow, () => mainWindow)
+      // 타이머는 창보다 먼저 산다 — renderer 가 죽어도 main 의 타이머는 계속 돈다 (R12).
+      const timerHost = startTimerHost(uow, () => mainWindow)
+      stopTimerHost = timerHost.stop
+      registerTimerHandlers(timerHost.engine, uow)
+      // 종료 확인 조건 (timer R13): focus 가 running/paused 일 때만 묻는다.
+      mainWindow = createWindow(initialTheme, () => {
+        const snap = timerHost.engine.getSnapshot()
+        return snap.mode === 'focus' && (snap.phase === 'running' || snap.phase === 'paused')
+      })
+      // 자정 알람은 창이 있어야 보낼 대상이 있다 — 창 생성 후에 시작한다.
+      stopClock = startClock(() => mainWindow)
     })
-    // 자정 알람은 창이 있어야 보낼 대상이 있다 — 창 생성 후에 시작한다.
-    stopClock = startClock(() => mainWindow)
-  })
-  .catch((e: unknown) => {
-    // 예상 못한 실패도 같은 경로로 보낸다 — 조용한 unhandled rejection 을 남기지 않는다.
-    const backupDir = app.getPath('userData')
-    const message = e instanceof Error ? e.message : String(e)
-    if (e instanceof DowngradeError) {
-      failStart(
-        '더 새로운 버전에서 만든 데이터입니다',
-        '이 앱보다 최신 버전이 만든 데이터라 열지 않았습니다. 데이터를 지키기 위해서입니다.\n' +
-          `최신 버전을 다시 설치하거나 백업을 복원해 주세요.\n\n${message}`,
-        backupDir
-      )
-    } else if (e instanceof CorruptError) {
-      failStart(
-        '데이터 파일이 손상되었습니다',
-        '자동으로 되돌리지 않았습니다. 백업 파일을 직접 확인해 주세요.\n' +
-          `백업 위치: ${backupDir}\n\n${message}`,
-        backupDir
-      )
-    } else if (e instanceof MigrationError) {
-      failStart(
-        '데이터 구조를 갱신하지 못했습니다',
-        '기존 데이터는 갱신 전 상태로 남아 있습니다. 자동으로 백업을 되돌리지 않았습니다.\n' +
-          `백업 위치: ${backupDir}\n\n${message}`,
-        backupDir
-      )
-    } else {
-      failStart('앱을 시작하지 못했습니다', message, backupDir)
-    }
-  })
+    .catch((e: unknown) => {
+      // 예상 못한 실패도 같은 경로로 보낸다 — 조용한 unhandled rejection 을 남기지 않는다.
+      const backupDir = app.getPath('userData')
+      const message = e instanceof Error ? e.message : String(e)
+      if (e instanceof DowngradeError) {
+        failStart(
+          '더 새로운 버전에서 만든 데이터입니다',
+          '이 앱보다 최신 버전이 만든 데이터라 열지 않았습니다. 데이터를 지키기 위해서입니다.\n' +
+            `최신 버전을 다시 설치하거나 백업을 복원해 주세요.\n\n${message}`,
+          backupDir
+        )
+      } else if (e instanceof CorruptError) {
+        failStart(
+          '데이터 파일이 손상되었습니다',
+          '자동으로 되돌리지 않았습니다. 백업 파일을 직접 확인해 주세요.\n' +
+            `백업 위치: ${backupDir}\n\n${message}`,
+          backupDir
+        )
+      } else if (e instanceof MigrationError) {
+        failStart(
+          '데이터 구조를 갱신하지 못했습니다',
+          '기존 데이터는 갱신 전 상태로 남아 있습니다. 자동으로 백업을 되돌리지 않았습니다.\n' +
+            `백업 위치: ${backupDir}\n\n${message}`,
+          backupDir
+        )
+      } else {
+        failStart('앱을 시작하지 못했습니다', message, backupDir)
+      }
+    })
+}
 
 /**
  * 정상 종료 경로에서 WAL 을 접는다 (ADR-020 §5). 강제 종료는 막지 않는다 —
