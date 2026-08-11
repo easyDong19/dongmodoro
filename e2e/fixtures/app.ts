@@ -71,6 +71,27 @@ export async function launchApp(userDataDir: string): Promise<ElectronApplicatio
   return app
 }
 
+/**
+ * 앱을 닫는다 — **프로세스가 실제로 죽는 것**과 `close()` 가 응답하는 것 중 먼저 오는 쪽을 취한다.
+ *
+ * `close()` 단독으로는 Linux 에서 멈춘다. Playwright 는 CDP 로 `app.quit()` 을 보내고 그
+ * 응답을 기다리는데, 그 응답이 돌아오기 전에 앱이 죽어버리면 기다리던 프로미스가 영원히
+ * 풀리지 않는다. macOS 는 종료가 느려 응답이 먼저 통과하므로 이 현상이 안 보인다.
+ *
+ * **진짜 멈춤을 숨기지 않는다.** 프로세스가 정말로 안 죽으면 `exited` 도 안 풀리고
+ * `close()` 도 안 풀려서 예전처럼 teardown 타임아웃으로 실패한다. 여기서 통과하는 경우는
+ * "앱이 정상 종료했다"뿐이며, 그것이 우리가 원하는 결과다.
+ */
+async function closeApp(app: ElectronApplication): Promise<void> {
+  const proc = app.process()
+  const exited =
+    proc.exitCode !== null
+      ? Promise.resolve()
+      : new Promise<void>((resolve) => proc.once('exit', () => resolve()))
+
+  await Promise.race([app.close(), exited])
+}
+
 type AppFixtures = {
   /** 이 테스트 전용 임시 프로필 경로. 테스트가 끝나면 지워진다. */
   userDataDir: string
@@ -93,7 +114,7 @@ export const test = base.extend<AppFixtures>({
     const app = await launchApp(userDataDir)
     await use(app)
     // 실패한 테스트에서도 반드시 돌아야 하므로 정리 구간에 둔다.
-    await app.close()
+    await closeApp(app)
   },
 
   appWindow: async ({ electronApp }, use) => {
