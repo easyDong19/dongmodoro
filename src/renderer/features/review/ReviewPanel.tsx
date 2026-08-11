@@ -1,7 +1,9 @@
 import { weekRangeLabel, weekStartLabel } from '@shared/time'
 import { Button } from '@renderer/shared/ui/button'
 import { CompletedSection } from './CompletedSection'
+import { PendingSection } from './PendingSection'
 import { SummarySection } from './SummarySection'
+import { useDecisions } from './useDecisions'
 import type { ReviewPending } from './useReview'
 
 /**
@@ -25,6 +27,10 @@ export function ReviewPanel({
   currentWeek: string
   onClose: () => void
 }) {
+  // 3택 상태는 패널이 산다 — 확정 섹션이 같은 상태에서 이월 뽀모 합을 읽어야 하고,
+  // 목록 컴포넌트가 갖고 있으면 그 값을 형제에게 넘길 길이 없다.
+  const decisions = useDecisions()
+
   if (!data.needed) {
     // 배너에서만 열리지만, 재조회 사이에 범위가 사라질 수 있다 — 다른 창에서 확정했거나
     // 자정을 넘겼거나. 빈 목록으로 거짓말하지 않고 사실을 적는다 (§8).
@@ -70,6 +76,14 @@ export function ReviewPanel({
           currentWeek={currentWeek}
         />
         <CompletedSection rows={data.completed} />
+        <PendingSection
+          rows={data.pending}
+          merged={data.from !== data.to}
+          choiceOf={decisions.choiceOf}
+          reduceValueOf={decisions.reduceValueOf}
+          onPick={decisions.pick}
+          onReduce={decisions.setReduceValue}
+        />
       </div>
 
       <div className="shrink-0 px-4 py-3">
