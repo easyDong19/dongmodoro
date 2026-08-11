@@ -126,10 +126,25 @@ pnpm test:e2e:build
 
 ### 스크린샷은 비교하지 않는다
 
-E2E 는 스크린샷을 `e2e-artifacts/` 에 남기고 CI 가 그것을 아티팩트로 올리지만,
-**자동 비교(`toHaveScreenshot`)는 하지 않는다.** 폰트 렌더링이 OS 마다 달라 macOS 로컬
-베이스라인과 ubuntu CI 결과가 일치하지 않고, 상시 실패하는 테스트는 곧 무시된다.
-비교는 사람이 한다.
+E2E 는 스크린샷을 `e2e-artifacts/` 에 남기지만 **자동 비교(`toHaveScreenshot`)는 하지 않는다.**
+폰트 렌더링이 OS 마다 달라 macOS 로컬 베이스라인과 ubuntu 결과가 일치하지 않고,
+상시 실패하는 테스트는 곧 무시된다. 비교는 사람이 한다.
+
+### E2E 는 아직 CI 에서 돌지 않는다 (보류)
+
+**로컬 전용이다.** 커밋 전에 직접 돌려야 한다.
+
+이유는 하네스가 아니라 **앱이 Linux 에서 종료되지 않는 것**이다. 러너에서도 단언은 전부
+통과한다 — 앱이 뜨고 카드 3장이 렌더된다. 그 다음 `app.quit()` 에 프로세스가 반응하지 않고
+`exit` 이벤트조차 오지 않아 teardown 이 30초를 넘긴다. macOS 에서는 1초 안에 죽는다.
+
+세션 버스 부재(`dbus-run-session` 으로 오류는 사라졌으나 멈춤은 그대로), 실행 중 Electron
+바이너리 다운로드(정상 동작이다), CDP 응답 유실(종료와 경쟁시켜도 동일) 세 가지를 실측으로
+기각했다. 상세는 [ci.yml](.github/workflows/ci.yml) 의 보류 주석에 있다.
+
+**강제 kill 로 초록을 만들지 않는다.** Linux 는 배포 대상 OS 이고(PRODUCT.md), 거기서 앱이
+안 죽는다는 사실을 CI 초록으로 덮는 것이 된다. 종료 경로를 고치면 ci.yml 의 주석 처리된
+세 스텝을 되살린다.
 
 ## 강제화 계층 (이 규칙이 실제로 막히는 위치)
 
@@ -138,7 +153,8 @@ E2E 는 스크린샷을 `e2e-artifacts/` 에 남기고 CI 가 그것을 아티�
 | Claude 하네스 | Claude 의 git/gh 명령 | [.claude/hooks/protect-git-flow.sh](.claude/hooks/protect-git-flow.sh) (PreToolUse) | ✅ 적용됨 |
 | 로컬 git | 사람이 치는 commit/push | husky + commitlint + ESLint | ✅ 적용됨 ([ADR-016](docs/architecture/decisions/adr-016-lint-and-git-hooks.md)) |
 | GitHub Actions | **PR 제목·본문의 언어** | [pr-language.yml](.github/workflows/pr-language.yml) → [scripts/check-pr-language.mjs](scripts/check-pr-language.mjs) | ✅ 적용됨 |
-| GitHub Actions | **타입체크·린트·서식·단위 테스트·빌드·E2E** | [ci.yml](.github/workflows/ci.yml) | ✅ 적용됨 |
+| GitHub Actions | **타입체크·린트·서식·단위 테스트·빌드** | [ci.yml](.github/workflows/ci.yml) | ✅ 적용됨 |
+| GitHub Actions | E2E | [ci.yml](.github/workflows/ci.yml) (주석 처리됨) | ⏸ 보류 — 아래 사유 |
 | GitHub 서버 | 모든 클라이언트 (최종 방어선) | branch ruleset + squash-only | ⏸ 설정 명령은 아래 |
 
 **CI 층이 따로 필요한 이유** — `commit-msg` 훅은 **로컬 커밋만** 본다. 스쿼시 머지 커밋의
