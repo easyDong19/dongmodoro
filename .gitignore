@@ -8,6 +8,12 @@ dist/
 # Obsidian vault settings (local editor state)
 .obsidian/
 
+# E2E 산출물. 스크린샷은 CI 아티팩트로만 남기고 저장소에 커밋하지 않는다 —
+# 스크린샷 회귀 비교를 하지 않으므로 베이스라인으로 추적할 이유가 없다.
+playwright-report/
+test-results/
+e2e-artifacts/
+
 # Impeccable critique snapshots (session archives). ignore.md carries decisions and is tracked.
 .impeccable/critique/*.md
 !.impeccable/critique/ignore.md
