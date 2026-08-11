@@ -24,10 +24,19 @@
 
 ### 2. 릴리즈
 
+0. **리허설을 먼저 돌린다.** [release.yml](.github/workflows/release.yml) 을 GitHub Actions
+   에서 `workflow_dispatch` 로 실행해 `.dmg` 가 만들어지는 것을 확인한다.
+   이 단계를 건너뛰면 첫 릴리스를 검증하는 방법이 **"태그를 달아 보는 것"** 뿐이고,
+   실패하면 이미 밀어 버린 태그를 지우는 일부터 하게 된다. 리허설은 업로드하지 않고
+   아티팩트만 남긴다.
 1. main이 배포 가능한 상태일 때 `release/X.Y` 브랜치를 main에서 생성
 2. `vX.Y.0` 태그를 release 브랜치에서 생성 후 push
    - `git push origin release/X.Y --tags`
 3. 태그 push가 GitHub Actions 릴리즈 워크플로우를 트리거함
+4. 워크플로가 릴리스를 **draft 로** 만든다. 산출물과 노트를 확인한 뒤 사람이 publish 한다 —
+   태그를 미는 것과 남에게 보이는 것 사이에 한 칸을 둔다.
+5. 태그를 이미 밀었는데 빌드가 깨졌다면 **태그를 옮기지 않는다.** 받은 사람의 이력이
+   깨진다. 고쳐서 다음 패치 버전으로 낸다.
 
 ### 3. 핫픽스 (upstream first 원칙)
 

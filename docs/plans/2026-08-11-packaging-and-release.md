@@ -128,16 +128,16 @@ src/main/index.ts                  # (수정) 단일 인스턴스 잠금 · MIGR
 
 ### Task 5: 릴리스 워크플로
 
-- [ ] **Step 1:** `.github/workflows/release.yml` 을 만든다. 트리거는 **둘**이다.
+- [x] **Step 1:** `.github/workflows/release.yml` 을 만든다. 트리거는 **둘**이다.
   - `push: tags: ['v*']` — 실제 릴리스
   - `workflow_dispatch` — **리허설.** 태그를 만들기 전에 빌드가 통과하는지 확인할 수 있어야 한다. 이것이 없으면 첫 릴리스의 검증 방법이 "태그를 달아 보는 것"뿐이고, 실패하면 태그를 지우는 일부터 하게 된다.
-- [ ] **Step 2:** 러너는 `macos-latest`. `permissions: contents: write` 를 준다 — Releases 업로드에 필요하다.
-- [ ] **Step 3:** 설치 단계는 [ci.yml](../../.github/workflows/ci.yml) 과 같은 형태다 (`pnpm/action-setup` → `setup-node` with `cache: pnpm` → `install --frozen-lockfile`). **복사하되 CI 를 재사용하려 하지 않는다** — 두 워크플로의 실패가 서로를 가리면 안 된다는 것이 `pr-language.yml` 을 흡수하지 않은 이유와 같다.
-- [ ] **Step 4:** 빌드 → `.dmg` 생성 → 태그 트리거일 때만 Releases 업로드. `workflow_dispatch` 실행은 **업로드하지 않고 아티팩트로만** 남긴다.
-- [ ] **Step 5:** 서명 관련 환경 변수를 넣지 않는다. 미서명 빌드이므로 `CSC_*` 시크릿이 없고, electron-builder 가 서명을 건너뛰도록 둔다.
-- [ ] **Step 6:** [CONTRIBUTING.md](../../CONTRIBUTING.md) 의 릴리스 절에 **리허설 단계를 추가한다** — "태그 전에 `workflow_dispatch` 로 한 번 돌린다". 현재 문서는 워크플로가 있다고 전제하지만 실물이 없었다.
+- [x] **Step 2:** 러너는 `macos-latest`. `permissions: contents: write` 를 준다 — Releases 업로드에 필요하다.
+- [x] **Step 3:** 설치 단계는 [ci.yml](../../.github/workflows/ci.yml) 과 같은 형태다 (`pnpm/action-setup` → `setup-node` with `cache: pnpm` → `install --frozen-lockfile`). **복사하되 CI 를 재사용하려 하지 않는다** — 두 워크플로의 실패가 서로를 가리면 안 된다는 것이 `pr-language.yml` 을 흡수하지 않은 이유와 같다.
+- [x] **Step 4:** 빌드 → `.dmg` 생성 → 태그 트리거일 때만 Releases 업로드. `workflow_dispatch` 실행은 **업로드하지 않고 아티팩트로만** 남긴다.
+- [x] **Step 5:** 서명 관련 환경 변수를 넣지 않는다. 미서명 빌드이므로 `CSC_*` 시크릿이 없고, electron-builder 가 서명을 건너뛰도록 둔다.
+- [x] **Step 6:** [CONTRIBUTING.md](../../CONTRIBUTING.md) 의 릴리스 절에 **리허설 단계를 추가한다** — "태그 전에 `workflow_dispatch` 로 한 번 돌린다". 현재 문서는 워크플로가 있다고 전제하지만 실물이 없었다.
 
-**검증:** `workflow_dispatch` 로 한 번 돌려 `.dmg` 아티팩트가 생성된다. **이 검증 없이 Task 8 로 넘어가지 않는다.**
+**검증:** `workflow_dispatch` 로 한 번 돌려 `.dmg` 아티팩트가 생성된다. **이 검증 없이 Task 8 로 넘어가지 않는다.** — 워크플로가 머지되어야 실행할 수 있으므로 이 PR 이 머지된 뒤에 돌린다.
 
 ---
 
