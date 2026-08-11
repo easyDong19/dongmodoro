@@ -1,0 +1,24 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    /* DOM 이 필요한 이유는 E2E 가 브라우저 코드이기 때문이 아니라, `page.evaluate` 의
+       콜백이 **렌더러 안에서 실행되기 때문**이다. 그 콜백은 이 파일에 쓰이지만 도는 곳은
+       Chromium 이라 document·getComputedStyle 을 쓴다.
+
+       그래서 tsconfig.node.json 에 DOM 을 더하지 않고 여기로 분리했다 — 그쪽에 DOM 을
+       켜면 main·preload 코드가 실수로 브라우저 전역을 참조해도 컴파일러가 통과시킨다
+       (ADR-008 의 프로세스 경계가 타입 수준에서 느슨해진다). */
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "types": ["node"],
+    "strict": true,
+    "noEmit": true,
+    "skipLibCheck": true,
+    "esModuleInterop": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "verbatimModuleSyntax": true
+  },
+  "include": ["e2e/**/*.ts", "playwright.config.ts"]
+}

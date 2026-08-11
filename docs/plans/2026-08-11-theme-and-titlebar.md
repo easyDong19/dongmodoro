@@ -1,5 +1,36 @@
 # 테마 전환 + 커스텀 타이틀바 구현 계획
 
+> **상태: 실행 완료** (2026-08-11). Task 1~10 전부 구현했고 macOS 로컬에서 자동 검증 5종
+> (타입체크·린트·서식·단위 574개·빌드)과 E2E 5종이 통과한다.
+>
+> **계획서가 놓쳤던 것 3건** — 실행 중 드러나 함께 고쳤다:
+>
+> 1. **Task 4 의 위치가 틀렸다.** 오버레이 색 모듈을 `src/shared/theme/` 에 두라고 했는데,
+>    그 대조 테스트는 `tokens.css` 를 읽어야 하고 eslint 가 `src/shared/` 에서 `node:*`
+>    import 을 금지한다 (ADR-008 순수성). 렌더러가 쓰지 않는 값이므로 `src/main/services/`
+>    로 옮겼다. `Theme` 타입은 계약의 zod enum 에서 파생해 별도 파일이 필요 없었다.
+> 2. **E2E 에 DOM 타입이 필요했다.** `page.evaluate` 콜백은 렌더러에서 도는데
+>    `tsconfig.node.json` 에는 DOM 이 없다. `tsconfig.node.json` 에 DOM 을 켜면 main·preload
+>    가 브라우저 전역을 참조해도 통과하므로, `tsconfig.e2e.json` 을 분리하고 `typecheck`
+>    스크립트에 추가했다.
+> 3. **인수 기준 A32·A33 도 거짓이 됐다.** 계획서는 A34 삭제만 짚었는데, A32(`OS 를 라이트로
+>    바꾸면 앱이 라이트로 렌더된다`)와 A33(트레이 경로)도 새 결정과 충돌해 함께 고쳤다.
+>
+> **하네스가 거짓말할 뻔했다.** Playwright 는 `colorScheme` 을 지정하지 않으면
+> `'light'` 로 **에뮬레이션한다**(기본값). 그 상태에서 측정하면 앱이 무엇을 하든 렌더러의
+> `prefers-color-scheme` 이 light 로 고정되어, **테마 테스트 4종이 전부 통과하면서 아무것도
+> 보장하지 못한다.** 픽스처에 `colorScheme: null` 을 넣어 막았다.
+>
+> **성과 하나** — Task 9 의 대비 실측이 **4.97:1** 로 나왔다. ADR-008 이 계산으로만 통과시킨
+> 예측값과 정확히 일치한다. 최악 조건은 teal 광원 위였고 광원 없는 자리는 5.21:1 이다.
+>
+> **미검증으로 남기는 것:**
+> - Windows·Linux 실기 0회 → **app-shell A17 은 이번에 닫히지 않는다**
+> - macOS `titleBarOverlay` 의 CSS 환경 변수 활성화 여부는 폴백에 가려 단정할 수 없다
+> - **E2E teardown 이 간헐적으로 30초를 넘긴다** — 앱이 종료 요청에 반응하지 않는 기존 결함
+>   이며, 이 계획서 범위 밖이다(별도 작업으로 넘김). Linux 전용인 줄 알았으나 macOS 에서도
+>   재현됐다.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) 문법으로 진행을 추적한다.
 >
 > **선행 계획서:** [2026-08-11-e2e-harness.md](./2026-08-11-e2e-harness.md) 가 먼저 머지되어야 한다. 이 계획서의 Task 9 가 그 하네스 위에 케이스를 얹는다.
