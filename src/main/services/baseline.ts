@@ -54,8 +54,10 @@ export function effectiveBudget(repos: Repositories, week: string): number | nul
 
 /**
  * 예산 입력의 기본값 프리필 (pomo-baseline R12). **조회 계약이 아니라 입력 UI 의
- * 관심사다.** `weekly_capacity` 미설정이면 `null` 을 돌려 필드를 빈 채로 둔다 —
- * M3a 에는 capacity 편집 UI 가 없으므로 항상 이 경로다.
+ * 관심사다.** `weekly_capacity` 미설정이면 `null` 을 돌려 필드를 빈 채로 둔다.
+ *
+ * 두 경로가 이제 **둘 다 실재한다.** M3a 까지는 가용량을 정할 화면이 없어 미설정 경로만
+ * 돌았지만, 정산 패널의 `조정` 폼이 생기면서 프리필이 실제로 채워지는 경우가 열렸다.
  */
 export function budgetPrefill(repos: Repositories): number | null {
   const capacity = capacitySetting(repos)

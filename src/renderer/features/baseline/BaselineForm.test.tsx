@@ -101,6 +101,23 @@ describe('BaselineForm — 총 집중 시간 비교 (pomo-baseline R26 · A23)',
     )
   })
 
+  /**
+   * 실물 검증에서 놓쳤던 자리다. 가용량을 **처음** 정하면서 길이도 함께 바꾸면 서버가 열 때
+   * 준 출처는 아직 없지만(`basisSource: null`) 폼 안에는 두 값이 다 있다. 비교를 생략하면
+   * 사용자는 예산을 그대로 둔 채 두 배의 시간을 계획하게 된다 — R26 이 막으려던 장면이다.
+   */
+  it('열 때 미설정이던 가용량을 지금 채우면 그 합이 기준이 된다', async () => {
+    renderForm(view())
+    const focus = screen.getByLabelText('집중 길이 (분)')
+    await userEvent.clear(focus)
+    await userEvent.type(focus, '50')
+    await userEvent.type(screen.getByLabelText('월요일 가용 뽀모'), '6')
+
+    expect(screen.getByTestId('baseline-hours')).toHaveTextContent(
+      '주 6개 · 지금 2.5시간 → 바꾸면 5시간'
+    )
+  })
+
   /** A25. 기준이 없는 것은 오류가 아니다 — 비교가 없을 뿐 저장은 그대로 된다. */
   it('기준 개수가 없으면 비교 줄이 아예 없고 저장은 가능하다', async () => {
     const onSave = renderForm(view())

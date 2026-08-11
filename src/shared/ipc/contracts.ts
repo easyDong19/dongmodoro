@@ -337,7 +337,12 @@ export const contracts = {
            * 0 을 채우면 ADR-018 §1 이 구분하려던 "기록 없음"과 "예산 0"이 뭉개진다.
            */
           targetWeekBudget: z.int().nullable(),
-          /** 표시 전용. 편집 진입점은 pomo-baseline 마일스톤 소관이다. */
+          /**
+           * 패널이 현재 값을 적는 **표시의 유일한 출처**다. 편집은 `settings.getBaseline`
+           * 이 따로 읽는다 — 같은 사실을 두 경로로 그리면 저장 직후 한쪽만 갱신된
+           * 순간이 화면에 보인다. 저장 후 이 값을 갱신하는 것은 `baseline-changed`
+           * 무효화의 몫이다.
+           */
           baseline: z.strictObject({
             focusMin: z.int(),
             shortBreakMin: z.int(),

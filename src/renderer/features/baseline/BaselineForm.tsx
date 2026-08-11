@@ -73,13 +73,17 @@ export function BaselineForm({
     [focusMin, shortBreakMin, longBreakMin].every((n) => Number.isInteger(n) && n >= MIN_LENGTH)
 
   /**
-   * R26 의 기준 개수. 출처가 가용량이면 **지금 편집 중인 값**으로 다시 합산한다 — 서버가
-   * 열 때 준 숫자를 고집하면, 가용량을 24 → 10 으로 고친 사용자에게 24 기준 비교가 남는다.
+   * R26 의 기준 개수. 결정 **순서**는 서버가 갖고(`basisSource`), 여기서는 그 순서가
+   * 가용량을 가리킬 때 **지금 편집 중인 값**으로 다시 합산할 뿐이다.
+   *
+   * 예산이 출처면 폼이 그 값을 건드리지 못하므로 서버가 준 숫자를 그대로 쓴다. 그 외에는
+   * 편집 중인 가용량 합이 곧 R26 ②다 — **열었을 때 미설정이었더라도** 그렇다. 실물에서
+   * 이 경우를 놓쳤었다: 가용량을 처음 정하면서 길이도 함께 바꾸면 두 값이 다 있는데도
+   * 비교가 뜨지 않았고, 사용자는 예산을 그대로 둔 채 두 배의 시간을 계획하게 된다 —
+   * R26 이 막으려던 바로 그 장면이다.
    */
-  const basisPomos =
-    data.basisSource === 'capacity'
-      ? (capacity?.reduce((sum, n) => sum + n, 0) ?? null)
-      : data.basisPomos
+  const editedCapacitySum = capacity?.reduce((sum, n) => sum + n, 0) ?? null
+  const basisPomos = data.basisSource === 'budget' ? data.basisPomos : editedCapacitySum
 
   /** 비교를 보여줄 이유는 길이가 실제로 달라질 때뿐이다. 기준이 없으면 생략한다 (A25). */
   const showComparison =
