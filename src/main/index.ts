@@ -147,9 +147,28 @@ app
     }
   })
 
-// 정상 종료 경로에서 WAL 을 접는다 (ADR-020 §5). 강제 종료는 막지 않는다 —
-// WAL 저널이 그 경우를 위해 존재하며 다음 시작 시 SQLite 가 복구한다.
-app.on('before-quit', () => {
+/**
+ * 정상 종료 경로에서 WAL 을 접는다 (ADR-020 §5). 강제 종료는 막지 않는다 —
+ * WAL 저널이 그 경우를 위해 존재하며 다음 시작 시 SQLite 가 복구한다.
+ *
+ * **`before-quit` 이 아니라 `will-quit` 이다.** 두 종료 경로의 이벤트 순서가 반대이기
+ * 때문이다:
+ *
+ * - 창을 닫아서 끄면 `close` → `window-all-closed` → `quit()` → `before-quit` → `will-quit`
+ * - `app.quit()` 으로 끄면(Cmd+Q·자동화) `before-quit` 이 **먼저**, 그 다음 창이 닫힌다
+ *
+ * `before-quit` 에서 DB 를 닫으면 두 번째 경로에서 **닫힌 DB 를 창의 close 핸들러가 읽는다** —
+ * 종료 확인 조건이 타이머 스냅샷을 읽고(index.ts 의 `createWindow` 인자), 그 스냅샷이
+ * `getFocusCountToday()` 로 DB 를 친다. 실측된 예외가
+ * `TypeError: The database connection is not open` 이고, main 의 예외는 Electron 이
+ * **에러 박스**로 띄우므로 그 모달이 종료를 붙잡아 앱이 죽지 않는다.
+ *
+ * `will-quit` 은 **창이 모두 닫힌 뒤**에만 오고, 종료가 취소되면(사용자가 `계속 집중` 을
+ * 골라 close 를 preventDefault 하면) **아예 오지 않는다.** 그래서 이 자리는 두 가지를
+ * 동시에 고친다 — 닫힌 DB 를 읽는 일이 없고, 취소된 종료가 시계·타이머·DB 를 꺼 놓은 채
+ * 앱을 반쯤 죽은 상태로 남기지도 않는다.
+ */
+app.on('will-quit', () => {
   stopClock?.()
   stopClock = undefined
   stopTimerHost?.()

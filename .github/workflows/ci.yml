@@ -56,36 +56,31 @@ jobs:
       - name: Build
         run: pnpm build
 
-      # ── E2E 는 아직 여기서 돌지 않는다 (보류) ────────────────────────────────
+      # ── E2E ────────────────────────────────────────────────────────────────
       #
-      # 하네스는 완성돼 있고 macOS 로컬에서 통과한다(`pnpm test:e2e:build`). CI 에 넣지
-      # 못하는 이유는 하네스가 아니라 **앱이 Linux 에서 종료되지 않기 때문**이다.
+      # 한동안 여기서 돌지 못했다. 러너에서 단언은 전부 통과하는데 `app.quit()` 에 앱이
+      # 반응하지 않아 teardown 이 30초를 넘겼고, 원인을 Linux 쪽(세션 버스·런타임 다운로드·
+      # CDP ack 유실)에서 찾다가 셋 다 기각한 채 보류했다.
       #
-      # 실측: 단언은 러너에서도 전부 통과한다 — 앱이 뜨고 카드 3장이 렌더된다. 그 다음
-      # `app.quit()` 에 프로세스가 반응하지 않고 `exit` 이벤트조차 오지 않아 teardown 이
-      # 30초를 넘긴다. macOS 에서는 1초 안에 죽는다. 세 가설을 세워 셋 다 기각했다.
-      #
-      #   1. 세션 버스 부재       → dbus-run-session 으로 오류는 사라졌으나 멈춤은 그대로
-      #   2. 실행 중 Electron 다운로드 → 정상 동작이다 (v42+ 는 설치 스크립트가 없다,
-      #                                 pnpm-workspace.yaml 참조)
-      #   3. 프로세스는 죽고 CDP ack 만 유실 → 종료와 경쟁시켜도 동일. exit 이벤트가 안 온다
-      #
-      # 강제 kill 로 초록을 만들지 않는다 — Linux 는 배포 대상 OS 이고(PRODUCT.md),
-      # 거기서 앱이 안 죽는다는 사실을 CI 초록으로 덮는 것이 된다. 종료 경로를 고친 뒤
-      # 아래 세 스텝을 되살린다.
-      #
-      #   - name: Install Electron system libraries
-      #     run: pnpm exec playwright install-deps chromium
-      #   - name: E2E
-      #     run: xvfb-run -a dbus-run-session -- pnpm test:e2e
-      #   - name: Upload E2E artifacts
-      #     if: always()
-      #     uses: actions/upload-artifact@v4
-      #     with:
-      #       name: e2e-artifacts
-      #       path: |
-      #         e2e-artifacts/
-      #         playwright-report/
-      #         test-results/
-      #       if-no-files-found: ignore
-      #       retention-days: 7
+      # 원인은 플랫폼이 아니라 종료 순서였다 — `before-quit` 에서 DB 를 닫아 놓고 그 뒤에
+      # 창의 close 핸들러가 그 DB 를 읽었고, main 의 예외가 에러 박스로 떠서 종료를 붙잡았다
+      # (src/main/index.ts 의 `will-quit` 주석). macOS 에서 같은 증상을 재현하고 고친 뒤
+      # 종료가 35초 타임아웃에서 143ms 로 떨어졌다. 이 스텝이 Linux 에서도 같은 원인이었는지
+      # 판정한다.
+      - name: Install Electron system libraries
+        run: pnpm exec playwright install-deps chromium
+
+      - name: E2E
+        run: xvfb-run -a dbus-run-session -- pnpm test:e2e
+
+      - name: Upload E2E artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-artifacts
+          path: |
+            e2e-artifacts/
+            playwright-report/
+            test-results/
+          if-no-files-found: ignore
+          retention-days: 7
