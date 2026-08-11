@@ -85,7 +85,7 @@ tests → 각 모듈 옆 *.test.ts (Vitest)
 **Interfaces:**
 - Produces: `pnpm dev`(개발 실행) / `pnpm build`(프로덕션 빌드) / `pnpm typecheck` 스크립트. `createWindow(): BrowserWindow`.
 
-- [ ] **Step 1: 의존성 설치**
+- [x] **Step 1: 의존성 설치**
 
 **빌드 스크립트 차단 문제부터 처리한다.** pnpm 10+ 는 의존성의 빌드 스크립트를 기본
 차단하고(postinstall 이 공급망 공격의 주요 통로), 네이티브 모듈을 컴파일하는
@@ -140,7 +140,7 @@ pnpm add -D @types/react @types/react-dom
 > 끄는 것이 곧 검증 안 된 릴리즈를 받는 것이므로, 버전이 창을 통과할 때까지 기다린다.
 > (2026-08-05: electron 43.3.0 이 전날 릴리즈라 이 창에 걸려 43.2.0 으로 간다.)
 
-- [ ] **Step 2: 설정 파일 작성**
+- [x] **Step 2: 설정 파일 작성**
 
 `electron.vite.config.ts`:
 
@@ -178,7 +178,7 @@ export default defineConfig({
 
 > TypeScript 7 에서 `baseUrl` 이 **제거**됐다. `paths` 값은 `["./src/shared/*"]` 처럼 `./` 로 시작하는 상대 경로로 쓴다.
 
-- [ ] **Step 3: 최소 코드 작성**
+- [x] **Step 3: 최소 코드 작성**
 
 `src/main/window.ts`:
 
@@ -225,13 +225,13 @@ app.on('window-all-closed', () => {
 
 > `__dirname` 은 ESM 산출물에서도 쓸 수 있다 — electron-vite 가 CommonJS 심을 주입한다 (빌드 결과로 확인).
 
-- [ ] **Step 4: 검증**
+- [x] **Step 4: 검증**
 
 실행: `pnpm typecheck` → 에러 0. `pnpm build` → `out/main/index.js`·`out/preload/index.cjs`·`out/renderer/` 생성, 에러 0. `pnpm dev` → 창이 뜨고 "dongmodoro" 텍스트 표시.
 
 육안 확인 대신 자동 검증을 쓸 수 있다: `--remote-debugging-port` 로 앱을 띄우고 CDP `Runtime.evaluate` 로 `document.querySelector('h1').textContent` 를 읽는다. 렌더는 비동기이므로 값이 나올 때까지 폴링해야 한다.
 
-- [ ] **Step 5: 커밋** — `feat: scaffold electron-vite app with react and strict typescript`
+- [x] **Step 5: 커밋** — `feat: scaffold electron-vite app with react and strict typescript`
 
 ---
 
@@ -248,27 +248,27 @@ app.on('window-all-closed', () => {
 **Interfaces:**
 - Produces: `pnpm lint`. 커밋 시 자동으로 도는 3개 훅.
 
-- [ ] **Step 1: 설치** — `pnpm add -D eslint @eslint/js typescript-eslint husky lint-staged @commitlint/cli @commitlint/config-conventional`
+- [x] **Step 1: 설치** — `pnpm add -D eslint @eslint/js typescript-eslint husky lint-staged @commitlint/cli @commitlint/config-conventional`
 
   이때 **TypeScript 를 6.x 로 내린다** (`pnpm add -D typescript@6`) — typescript-eslint 가 TS 7 을 지원하지 않는다.
 
-- [ ] **Step 2: ESLint 규칙 작성** — ADR-008(shared 순수성) · ADR-015 §2(DB 격리) · ADR-009 §3(시간 초크포인트) · CLAUDE.md(이모지 금지).
+- [x] **Step 2: ESLint 규칙 작성** — ADR-008(shared 순수성) · ADR-015 §2(DB 격리) · ADR-009 §3(시간 초크포인트) · CLAUDE.md(이모지 금지).
 
   > **함정**: flat config 는 같은 규칙 이름을 뒤 블록이 **통째로 덮어쓴다**(옵션 병합 아님).
   > `no-restricted-imports` 를 shared 용·DB 용으로 각각 쓰면 shared 규칙이 조용히 사라진다.
   > 파일 그룹을 겹치지 않게 나누고, 한 그룹에 필요한 옵션을 **한 블록에 모아서** 준다.
 
-- [ ] **Step 3: 규칙이 실제로 걸리는지 검증** — 규칙마다 위반 파일을 만들어 `pnpm lint` 로 확인하고 지운다. **이 단계를 건너뛰면 위 함정을 못 잡는다.**
+- [x] **Step 3: 규칙이 실제로 걸리는지 검증** — 규칙마다 위반 파일을 만들어 `pnpm lint` 로 확인하고 지운다. **이 단계를 건너뛰면 위 함정을 못 잡는다.**
 
-- [ ] **Step 3.5: Prettier** ([ADR-017](../architecture/decisions/adr-017-prettier.md), ADR-016 §2 대체) — `pnpm add -D prettier eslint-config-prettier`. `eslint-config-prettier` 는 flat config **마지막**에 둔다. `.prettierignore` 에 `*.md` 와 `docs/` 를 넣는다 — Prettier 는 표 셀을 글자 수로 패딩하는데 한글은 두 칸 폭이라 정렬이 오히려 깨지고, `docs/origin/` 은 읽기 전용이다.
+- [x] **Step 3.5: Prettier** ([ADR-017](../architecture/decisions/adr-017-prettier.md), ADR-016 §2 대체) — `pnpm add -D prettier eslint-config-prettier`. `eslint-config-prettier` 는 flat config **마지막**에 둔다. `.prettierignore` 에 `*.md` 와 `docs/` 를 넣는다 — Prettier 는 표 셀을 글자 수로 패딩하는데 한글은 두 칸 폭이라 정렬이 오히려 깨지고, `docs/origin/` 은 읽기 전용이다.
 
-- [ ] **Step 4: husky 훅 3종** — `pre-commit`(lint-staged: prettier 로 고친 뒤 eslint 로 검사), `commit-msg`(commitlint + 한글 금지 커스텀 규칙), `pre-push`(main·release 차단).
+- [x] **Step 4: husky 훅 3종** — `pre-commit`(lint-staged: prettier 로 고친 뒤 eslint 로 검사), `commit-msg`(commitlint + 한글 금지 커스텀 규칙), `pre-push`(main·release 차단).
 
-- [ ] **Step 5: 훅 검증** — 위반 코드·한글 메시지·형식 위반 커밋을 실제로 시도해 각각 차단되는지, 정상 커밋은 통과하는지 확인.
+- [x] **Step 5: 훅 검증** — 위반 코드·한글 메시지·형식 위반 커밋을 실제로 시도해 각각 차단되는지, 정상 커밋은 통과하는지 확인.
 
-- [ ] **Step 6: 문서 갱신** — CONTRIBUTING.md 강제화 계층 표(⏸ → ✅)와 스니펫, overview.md 확정 스택.
+- [x] **Step 6: 문서 갱신** — CONTRIBUTING.md 강제화 계층 표(⏸ → ✅)와 스니펫, overview.md 확정 스택.
 
-- [ ] **Step 7: 커밋** — `feat: enforce architecture rules with eslint and git hooks`
+- [x] **Step 7: 커밋** — `feat: enforce architecture rules with eslint and git hooks`
 
 ---
 
@@ -280,7 +280,7 @@ app.on('window-all-closed', () => {
 **Interfaces:**
 - Produces: `now(): string`(UTC ISO `'...Z'`) / `dayKey(d?: Date): string`(`'YYYY-MM-DD'` 로컬) / `weekKey(d?: Date): string`(그 주 월요일 `'YYYY-MM-DD'`) / `monthKey(d?: Date): string`(`'YYYY-MM'`). 전부 인자 생략 시 현재 시각. 이 모듈 밖 `new Date()` 금지 (ADR-009 §3).
 
-- [ ] **Step 1: 설치와 설정**
+- [x] **Step 1: 설치와 설정**
 
 ```bash
 pnpm add -D vitest @vitest/coverage-v8
@@ -288,7 +288,7 @@ pnpm add -D vitest @vitest/coverage-v8
 
 `vitest.config.ts` 는 `test: { include: ['src/**/*.test.{ts,tsx}'] }`. `package.json` 에 `"test": "vitest run"` 추가.
 
-- [ ] **Step 2: 실패하는 테스트 작성**
+- [x] **Step 2: 실패하는 테스트 작성**
 
 `src/shared/time/index.test.ts` (핵심 케이스 — 자정 경계·주 경계·연말 53주):
 
@@ -335,9 +335,9 @@ describe('time module (ADR-009/010)', () => {
 })
 ```
 
-- [ ] **Step 3: 실행해 실패 확인** — `pnpm test` → FAIL (모듈 없음)
+- [x] **Step 3: 실행해 실패 확인** — `pnpm test` → FAIL (모듈 없음)
 
-- [ ] **Step 4: 구현**
+- [x] **Step 4: 구현**
 
 `src/shared/time/index.ts`:
 
@@ -367,9 +367,9 @@ export function monthKey(d: Date = new Date()): string {
 }
 ```
 
-- [ ] **Step 5: 통과 확인** — `pnpm test` → PASS 5건
+- [x] **Step 5: 통과 확인** — `pnpm test` → PASS 5건
 
-- [ ] **Step 6: 커밋** — `feat: add shared time module with day/week/month keys`
+- [x] **Step 6: 커밋** — `feat: add shared time module with day/week/month keys`
 
 ---
 
@@ -408,11 +408,11 @@ export function monthKey(d: Date = new Date()): string {
 > 2. **Node 내장 모듈 손 열거(15개)가 불완전했다** — `node:buffer` 가 통과. 열거를
 >    `node:module` 의 `builtinModules` 실목록 + `node:*` 글롭으로 교체했다.
 
-- [ ] **Step 1: zod 설치** — `pnpm add zod` (실행 시점 zod 4 가 설치된다. 응답 스키마는
+- [x] **Step 1: zod 설치** — `pnpm add zod` (실행 시점 zod 4 가 설치된다. 응답 스키마는
       `z.object` 대신 **`z.strictObject`** 를 쓴다 — `z.object` 는 모르는 키를 조용히 버려서
       계약이 어긋나도 알 수 없다.)
 
-- [ ] **Step 2: 실패하는 계약 테스트 작성**
+- [x] **Step 2: 실패하는 계약 테스트 작성**
 
 `src/shared/ipc/contracts.test.ts`:
 
@@ -434,9 +434,9 @@ describe('system.getAppInfo contract', () => {
 })
 ```
 
-- [ ] **Step 3: 실행해 실패 확인** — `pnpm test` → FAIL
+- [x] **Step 3: 실행해 실패 확인** — `pnpm test` → FAIL
 
-- [ ] **Step 4: 구현**
+- [x] **Step 4: 구현**
 
 `src/shared/ipc/channels.ts`:
 
@@ -538,12 +538,12 @@ export const api = window.api
 
 `src/main/index.ts` 의 `whenReady` 에서 `registerSystemHandlers(() => 0)` 호출 (schemaVersion 은 Task 4 에서 실값 연결).
 
-- [ ] **Step 4.5: `handle.ts` 단위 테스트** — 보안 핵심인데 계약 테스트로는 안 덮인다.
+- [x] **Step 4.5: `handle.ts` 단위 테스트** — 보안 핵심인데 계약 테스트로는 안 덮인다.
       `vi.mock('electron')` 으로 `ipcMain.handle` 이 받아간 콜백을 붙잡아 직접 호출한다:
       신뢰 발신자 통과 / 외부 URL 거부 / dev 서버 URL 통과 / 요청 위반 거부 / 응답 위반 거부 /
       **에러 메시지에 입력값이 실리지 않음**.
 
-- [ ] **Step 5: 검증** — `pnpm test` PASS. 실제 앱을 띄워 왕복 확인 (CDP `Runtime.evaluate` +
+- [x] **Step 5: 검증** — `pnpm test` PASS. 실제 앱을 띄워 왕복 확인 (CDP `Runtime.evaluate` +
       `awaitPromise: true` 로 자동화 가능). 확인할 것: `typeof window.api === 'object'`,
       `getAppInfo()` 가 계약대로 응답, **`window.ipcRenderer`·`window.require` 가 undefined**
       (raw 노출 없음 — ADR-007 §3).
@@ -552,7 +552,7 @@ export const api = window.api
       > 시그니처가 인자를 받지 않아 거기서 잘린다. 이는 버그가 아니라 더 강한 보장이며,
       > main 의 `req.parse` 는 preload 버그에 대한 2차 방어선으로 남는다.
 
-- [ ] **Step 6: 커밋** — `feat: add zod-validated ipc contract with system.getAppInfo`
+- [x] **Step 6: 커밋** — `feat: add zod-validated ipc contract with system.getAppInfo`
 
 ---
 
@@ -585,7 +585,7 @@ export const api = window.api
 - Consumes: Task 2 의 시간 모듈(백업 파일명), Task 3 의 `registerSystemHandlers(getSchemaVersion)`.
 - Produces: `openDb(dbPath: string): { db: BetterSQLite3Database, sqlite: Database }` / `migrateDb(sqlite, db, backupDir): { schemaVersion: number }` — 적용된 마이그레이션 수를 버전으로 반환. 예외 `DowngradeError`.
 
-- [ ] **Step 1: 설치**
+- [x] **Step 1: 설치**
 
 ```bash
 pnpm add better-sqlite3 drizzle-orm
@@ -619,7 +619,7 @@ pnpm add -D drizzle-kit @types/better-sqlite3
 > better-sqlite3 는 13.0.3 이 나와 있으나 pnpm 의 `minimumReleaseAge`(24h) 창에 아직
 > 들어오지 않아 13.0.2 가 설치된다. 의도된 동작이며 시간이 지나면 자동으로 올라간다.
 
-- [ ] **Step 2: 스키마 작성** — `src/main/db/schema.ts`
+- [x] **Step 2: 스키마 작성** — `src/main/db/schema.ts`
 
 ADR 을 열고 그대로 옮긴다. 아래는 **읽을 순서와 빠뜨리기 쉬운 지점의 체크리스트**이며,
 값·식의 원본이 아니다.
@@ -656,12 +656,12 @@ export default defineConfig({
 })
 ```
 
-- [ ] **Step 3: 마이그레이션 생성과 SQL 육안 검증**
+- [x] **Step 3: 마이그레이션 생성과 SQL 육안 검증**
 
 실행: `pnpm drizzle-kit generate` → `drizzle/0000_*.sql` 생성.
 생성된 SQL 을 열어 확인: CHECK 7종·FK·인덱스 6종이 모두 들어 있는가. `week_items.carry_from_id` 자기참조 FK 가 누락됐으면 생성된 SQL 에 `FOREIGN KEY (carry_from_id) REFERENCES week_items(id)` 를 직접 추가한다 (drizzle-kit 의 자기참조 지원이 불완전할 수 있음 — 수정 후 `drizzle-kit generate` 재실행 금지, journal 은 그대로).
 
-- [ ] **Step 4: 실패하는 마이그레이션 러너 테스트 작성**
+- [x] **Step 4: 실패하는 마이그레이션 러너 테스트 작성**
 
 `src/main/db/migrate.test.ts`:
 
@@ -733,9 +733,9 @@ describe('migrateDb', () => {
 })
 ```
 
-- [ ] **Step 5: 실행해 실패 확인** — `pnpm test` → FAIL (open/migrate 없음)
+- [x] **Step 5: 실행해 실패 확인** — `pnpm test` → FAIL (open/migrate 없음)
 
-- [ ] **Step 6: 구현**
+- [x] **Step 6: 구현**
 
 `src/main/db/open.ts`:
 
@@ -795,9 +795,9 @@ export function migrateDb(
 
 `src/main/index.ts` 를 연결: `app.getPath('userData')` 아래 `app.db` 로 `openDb` → `migrateDb` → 그 `schemaVersion` 을 `registerSystemHandlers` 에 전달. `DowngradeError` 를 잡으면 `dialog.showErrorBox` 로 안내 후 `app.quit()` (열지 않는다 — ADR-011 §7).
 
-- [ ] **Step 7: 통과 확인** — `pnpm test` → 전부 PASS. `pnpm dev` → 창이 뜨고 콘솔에서 `await window.api.system.getAppInfo()` 의 `schemaVersion` 이 1 이상.
+- [x] **Step 7: 통과 확인** — `pnpm test` → 전부 PASS. `pnpm dev` → 창이 뜨고 콘솔에서 `await window.api.system.getAppInfo()` 의 `schemaVersion` 이 1 이상.
 
-- [ ] **Step 8: 커밋** — `feat: add sqlite schema, pragma set, backup and migration runner`
+- [x] **Step 8: 커밋** — `feat: add sqlite schema, pragma set, backup and migration runner`
 
 ---
 
@@ -824,7 +824,7 @@ export function migrateDb(
 - Consumes: Task 4 의 `openDb`/`migrateDb`(계약 테스트에서 인메모리 실 DB 준비), `schema.ts` 의 `settings` 테이블.
 - Produces: `SettingsRepository { get(key: string): string | null; set(key: string, value: string): void }` / `Repositories { settings: SettingsRepository }` / `UnitOfWork { run<T>(work: (repos: Repositories) => T): T }` / `makeDrizzleUow(db): UnitOfWork` / `makeMemoryUow(): UnitOfWork`. 이후 기능은 포트 메서드를 여기에 추가하는 방식으로 확장한다.
 
-- [ ] **Step 1: 실패하는 계약 테스트 작성**
+- [x] **Step 1: 실패하는 계약 테스트 작성**
 
 `src/main/db/repositories/settings.contract.test.ts` — 같은 스위트를 두 구현체가 통과해야 한다:
 
@@ -874,9 +874,9 @@ contractSuite('drizzle', drizzleUowOnMemoryDb)
 contractSuite('memory', makeMemoryUow)
 ```
 
-- [ ] **Step 2: 실행해 실패 확인** — `pnpm test` → FAIL (ports/구현체 없음)
+- [x] **Step 2: 실행해 실패 확인** — `pnpm test` → FAIL (ports/구현체 없음)
 
-- [ ] **Step 3: 구현**
+- [x] **Step 3: 구현**
 
 `src/main/services/ports.ts` (DB 라이브러리 import 없음 — 순수 인터페이스):
 
@@ -950,9 +950,9 @@ export function makeMemoryUow(): UnitOfWork {
 }
 ```
 
-- [ ] **Step 4: 통과 확인** — `pnpm test` → 계약 스위트 2회(drizzle·memory) 전부 PASS
+- [x] **Step 4: 통과 확인** — `pnpm test` → 계약 스위트 2회(drizzle·memory) 전부 PASS
 
-- [ ] **Step 5: 커밋** — `feat: add repository ports with unit of work and contract tests`
+- [x] **Step 5: 커밋** — `feat: add repository ports with unit of work and contract tests`
 
 > **Task 3 구조 심사에서 이연된 관찰 지점 3건** (2026-08-05 격리 리뷰, PLAUSIBLE 판정 —
 > 당시엔 실해 0 이라 미룸. 이 태스크에서 채널·핸들러가 늘어나면 실해가 생긴다):
@@ -980,9 +980,9 @@ export function makeMemoryUow(): UnitOfWork {
 - Consumes: Task 3 의 `api.system.getAppInfo`.
 - Produces: `queryClient` 싱글턴. 키 계층 설계는 여기서 하지 않는다(타이머 ADR 로 이연) — 이 태스크의 키는 `['system','appInfo']` 하나뿐.
 
-- [ ] **Step 1: 설치** — `pnpm add @tanstack/react-query`
+- [x] **Step 1: 설치** — `pnpm add @tanstack/react-query`
 
-- [ ] **Step 2: 구현**
+- [x] **Step 2: 구현**
 
 > **⚠️ `new QueryClient()` 를 기본값 그대로 쓰지 않는다 (2026-08-06 갱신).**
 > 기본값은 **진짜 서버를 전제**한다. 특히 `networkMode` 기본값 `'online'` 이면 브라우저가
@@ -1014,9 +1014,9 @@ export function App() {
 }
 ```
 
-- [ ] **Step 3: 검증** — `pnpm dev` → 화면에 `v0.1.0 · schema v1` 형태 텍스트 렌더. `pnpm typecheck` 에러 0.
+- [x] **Step 3: 검증** — `pnpm dev` → 화면에 `v0.1.0 · schema v1` 형태 텍스트 렌더. `pnpm typecheck` 에러 0.
 
-- [ ] **Step 4: 커밋** — `feat: wire tanstack query over ipc with app info query`
+- [x] **Step 4: 커밋** — `feat: wire tanstack query over ipc with app info query`
 
 ---
 
@@ -1029,7 +1029,7 @@ export function App() {
 **Interfaces:**
 - Produces: 모든 시각 값은 `var(--token)` 으로만 소비. shadcn 컴포넌트는 `src/renderer/shared/ui/` 에 생성된다 (ADR-008 의 "UI 킷(shadcn 커스텀)" 위치).
 
-- [ ] **Step 1: 설치** — Tailwind v4 방식:
+- [x] **Step 1: 설치** — Tailwind v4 방식:
 
 ```bash
 pnpm add tailwindcss @tailwindcss/vite
@@ -1038,7 +1038,7 @@ pnpm add -D lucide-react class-variance-authority clsx tailwind-merge
 
 `electron.vite.config.ts` 의 renderer plugins 에 `tailwindcss()` 추가.
 
-- [ ] **Step 2: 토큰 이관**
+- [x] **Step 2: 토큰 이관**
 
 `tokens.css` 에 [design-system/tokens.md §9 기준 CSS 블록](../design-system/tokens.md) 을 **그대로** 옮긴다 — **값 변형·추가 금지**, tokens.md 가 유일 출처. 그 블록에 아래가 포함되며 **하나도 빠뜨리지 않는다**:
 
@@ -1049,11 +1049,11 @@ pnpm add -D lucide-react class-variance-authority clsx tailwind-merge
 
 `global.css` 는 `@import 'tailwindcss'` + `@theme` 블록에서 Tailwind 색·폰트를 `var(--token)` 참조로 매핑 + `body { background: var(--bg-deep); color: var(--ink); font-family: var(--font-sans); }` + `:focus-visible` 포커스 링 (design-system ADR-004).
 
-- [ ] **Step 3: shadcn 초기화** — `pnpm dlx shadcn@latest init` (경로: `src/renderer/shared/ui`), `button` 하나만 추가해 파이프라인 검증. 스킨은 이 태스크에서 손대지 않는다(뼈대만 — ADR-003).
+- [x] **Step 3: shadcn 초기화** — `pnpm dlx shadcn@latest init` (경로: `src/renderer/shared/ui`), `button` 하나만 추가해 파이프라인 검증. 스킨은 이 태스크에서 손대지 않는다(뼈대만 — ADR-003).
 
-- [ ] **Step 4: 검증** — `pnpm dev` → 배경 `--bg-deep`, 본문 `--ink` 적용된 플레이스홀더 + shadcn Button 1개 렌더. 이모지 0. `pnpm build` 에러 0.
+- [x] **Step 4: 검증** — `pnpm dev` → 배경 `--bg-deep`, 본문 `--ink` 적용된 플레이스홀더 + shadcn Button 1개 렌더. 이모지 0. `pnpm build` 에러 0.
 
-- [ ] **Step 5: 커밋** — `feat: add tailwind, design tokens css and shadcn skeleton`
+- [x] **Step 5: 커밋** — `feat: add tailwind, design tokens css and shadcn skeleton`
 
 ---
 
@@ -1063,7 +1063,7 @@ pnpm add -D lucide-react class-variance-authority clsx tailwind-merge
 - Create: `README.md`
 - Modify: (없음 — 검증만)
 
-- [ ] **Step 1: 전체 검증 일괄 실행**
+- [x] **Step 1: 전체 검증 일괄 실행**
 
 ```bash
 pnpm typecheck && pnpm test && pnpm build
@@ -1071,11 +1071,11 @@ pnpm typecheck && pnpm test && pnpm build
 
 Expected: 세 명령 모두 exit 0. 추가로 `pnpm dev` 로 창·DB·IPC·토큰 적용을 최종 육안 확인.
 
-- [ ] **Step 2: README 작성** — 저장소 루트 `README.md` 에 최소한만: 한 줄 소개, 요구 환경(Node/pnpm), `pnpm install / dev / test / build` 사용법, 문서 진입점([docs/features/README.md](../features/README.md) · [docs/architecture/overview.md](../architecture/overview.md)) 링크. 기능 설명은 문서로 링크만 하고 복제하지 않는다.
+- [x] **Step 2: README 작성** — 저장소 루트 `README.md` 에 최소한만: 한 줄 소개, 요구 환경(Node/pnpm), `pnpm install / dev / test / build` 사용법, 문서 진입점([docs/features/README.md](../features/README.md) · [docs/architecture/overview.md](../architecture/overview.md)) 링크. 기능 설명은 문서로 링크만 하고 복제하지 않는다.
 
-- [ ] **Step 3: 커밋** — `docs: add readme with dev commands and doc entrypoints`
+- [x] **Step 3: 커밋** — `docs: add readme with dev commands and doc entrypoints`
 
-- [ ] **Step 4: PR** — 사용자 컨펌 1회 후 `feature/m1-scaffolding` → main PR 생성, 스쿼시 머지. PR 제목: `feat: scaffold electron app with db, ipc and ui foundations`
+- [x] **Step 4: PR** — 사용자 컨펌 1회 후 `feature/m1-scaffolding` → main PR 생성, 스쿼시 머지. PR 제목: `feat: scaffold electron app with db, ipc and ui foundations`
 
 ---
 
