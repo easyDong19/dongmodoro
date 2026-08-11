@@ -65,8 +65,13 @@ jobs:
         run: pnpm exec playwright install-deps chromium
 
       # xvfb = 가상 디스플레이. 없으면 창을 만들지 못하고 기동 자체가 실패한다.
+      #
+      # dbus-run-session 은 **종료가 멈추는 것**을 막는다. 세션 버스가 없으면 Chromium 이
+      # `Failed to connect to the bus` 를 내고, 종료 경로의 동기 D-Bus 호출이 응답을 기다리며
+      # 블록된다(기본 타임아웃 25초). 첫 CI 실행에서 단언은 전부 통과했는데 teardown 만
+      # 30초를 넘겨 실패했고, 멈추기 직전 마지막 로그가 그 오류였다.
       - name: E2E
-        run: xvfb-run -a pnpm test:e2e
+        run: xvfb-run -a dbus-run-session -- pnpm test:e2e
 
       # 실패했을 때도 올린다 — 실패한 실행의 스크린샷이 성공한 실행의 것보다 쓸모 있다.
       # 스크린샷 회귀 비교는 하지 않는다(OS 별 폰트 렌더링 차이). 비교는 사람이 한다.
@@ -78,5 +83,6 @@ jobs:
           path: |
             e2e-artifacts/
             playwright-report/
+            test-results/
           if-no-files-found: ignore
           retention-days: 7
