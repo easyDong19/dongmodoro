@@ -113,10 +113,14 @@ src/main/index.ts                  # (수정) 단일 인스턴스 잠금 · MIGR
 
 ### Task 4: 앱 아이콘과 제품 메타
 
-- [ ] **Step 1:** `build/icon.png` (1024×1024) 를 만든다. 기존 시각 언어를 따른다 — **뽀모 도트**를 모티프로 하고, 색은 [tokens.css](../../src/renderer/shared/styles/tokens.css) 의 값에서 가져온다. 새 색을 지어내지 않는다.
-- [ ] **Step 2:** 이모지를 아이콘으로 쓰지 않는다. 프로젝트의 UI 이모지 금지 규칙(design-system principles §6)이 앱 아이콘에 직접 적용되는 것은 아니지만, 🍅 를 굽는 것은 시각 언어의 단절이다.
-- [ ] **Step 3:** `.icns` 를 생성한다. macOS 에서는 `sips` + `iconutil` 로 만들 수 있다. 생성 명령을 `docs/` 가 아니라 **[CONTRIBUTING.md](../../CONTRIBUTING.md) 의 빌드 절에** 적어 재생성 가능하게 한다.
-- [ ] **Step 4:** 앱 이름·저작권 등 메타를 `electron-builder.yml` 에 채운다. 창 제목과 Dock 이름이 `Electron` 으로 뜨지 않는지 Task 6 에서 확인한다.
+- [x] **Step 1:** `build/icon.png` (1024×1024) 를 만든다. 기존 시각 언어를 따른다 — **뽀모 도트**를 모티프로 하고, 색은 [tokens.css](../../src/renderer/shared/styles/tokens.css) 의 값에서 가져온다. 새 색을 지어내지 않는다.
+
+  > **갱신 (실행 중 정정):** 아이콘은 **사용자가 직접 그려 넣었다.** 링을 틸에서 앰버로 흐르게 하고 가운데에 뽀모 도트 4개(채움 3 · 미채움 1)를 놓은 그림이며, 계획서가 말한 모티프·색 규칙을 그대로 만족한다. 실행 중에 만든 임시 SVG 는 지웠다.
+  >
+  > 받은 파일이 1536×1024 라 그대로는 쓸 수 없어, 콘텐츠 bbox 를 재서 **1024 캔버스에 아트 824** 로 정규화했다 (macOS 규격). 그 결과 PNG 가 추적 대상 원본이 되고 `.icns` 는 파생물이 된다.
+- [x] **Step 2:** 이모지를 아이콘으로 쓰지 않는다. 프로젝트의 UI 이모지 금지 규칙(design-system principles §6)이 앱 아이콘에 직접 적용되는 것은 아니지만, 🍅 를 굽는 것은 시각 언어의 단절이다.
+- [x] **Step 3:** `.icns` 를 생성한다. macOS 에서는 `sips` + `iconutil` 로 만들 수 있다. 생성 명령을 `docs/` 가 아니라 **[CONTRIBUTING.md](../../CONTRIBUTING.md) 의 빌드 절에** 적어 재생성 가능하게 한다.
+- [x] **Step 4:** 앱 이름·저작권 등 메타를 `electron-builder.yml` 에 채운다. 창 제목과 Dock 이름이 `Electron` 으로 뜨지 않는지 Task 6 에서 확인한다.
 
 **검증:** `pnpm dist:dir` 산출물의 Dock/Finder 아이콘이 기본 Electron 아이콘이 아니다.
 
