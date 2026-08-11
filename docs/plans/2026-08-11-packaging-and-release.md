@@ -224,8 +224,8 @@ reserve virtual memory for CodeRange`. 기본값에 있던 JIT 권한 셋(`allow
 
 ### Task 8: 버전과 릴리스 (사용자 확인이 필요한 단계)
 
-- [ ] **Step 1:** `package.json` 의 `version` 을 `0.1.0` → `1.0.0` 으로 올린다. 여기까지가 `feature/packaging` 브랜치의 마지막 커밋이다.
-- [ ] **Step 2:** 자동 검증 5종 + `pnpm test:e2e` 통과 확인 후 PR 생성 (제목·본문 **영어**). 제목 안: `build: package the app with electron-builder and add the release workflow`
+- [x] **Step 1:** `package.json` 의 `version` 을 `0.1.0` → `1.0.0` 으로 올린다. 여기까지가 `feature/packaging` 브랜치의 마지막 커밋이다.
+- [x] **Step 2:** 자동 검증 5종 + `pnpm test:e2e` 통과 확인 후 PR 생성 (제목·본문 **영어**). 제목 안: `build: package the app with electron-builder and add the release workflow`
 - [ ] **Step 3:** 머지 후 **사용자에게 보고하고 확인을 받는다.** 아래 셋은 사람이 판단한다.
   - `release/1.0` 브랜치를 만들 것인가
   - `v1.0.0` 태그를 만들 것인가
