@@ -1,6 +1,6 @@
 # ADR-004: 패키징·배포 — pnpm + electron-builder + GitHub Releases
 
-- 상태: accepted (2026-08-03) — 단, macOS 코드 서명 여부는 미결정 (M4 에서 결정)
+- 상태: accepted (2026-08-03) — **서명 여부는 [ADR-028](./adr-028-code-signing.md) 이 닫았다** (2026-08-11). 본문의 "미결정" 표현은 이력으로 그대로 둔다
 
 ## Context
 

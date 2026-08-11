@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  hardened runtime 아래에서 이 앱이 살아 있으려면 필요한 예외들 (ADR-028).
+
+  **이 파일은 electron-builder 의 기본 엔타이틀먼트를 보완하는 것이 아니라 통째로
+  대체한다.** 실측으로 배웠다 — 마지막 항목 하나만 적어 두었더니 V8 이
+  `Failed to reserve virtual memory for CodeRange` 로 즉사했다. JIT 권한 셋이 기본값에
+  들어 있었는데 그것을 지워 버린 것이다. 여기서 무엇을 빼면 앱이 뜨지 않는다.
+
+  - allow-jit / allow-unsigned-executable-memory: V8 은 실행 가능 메모리를 직접 만든다.
+    없으면 창이 뜨기 전에 프로세스가 죽는다.
+  - allow-dyld-environment-variables: Electron 런타임이 쓴다 (기본값에 포함돼 있다).
+  - disable-library-validation: 라이브러리 검증은 **같은 팀 ID 로 서명된 코드만** 로드하게
+    하는데, 애드혹 서명에는 팀 ID 가 없어 better-sqlite3 의 `.node` 가 걸릴 수 있다.
+    electron-builder 가 빌드 때 이것을 경고한다.
+
+  개발자 인증서로 정식 서명하게 되면 팀 ID 가 생기므로 마지막 예외는 지워야 한다.
+-->
+<plist version="1.0">
+  <dict>
+    <key>com.apple.security.cs.allow-jit</key>
+    <true/>
+    <key>com.apple.security.cs.allow-unsigned-executable-memory</key>
+    <true/>
+    <key>com.apple.security.cs.allow-dyld-environment-variables</key>
+    <true/>
+    <key>com.apple.security.cs.disable-library-validation</key>
+    <true/>
+  </dict>
+</plist>
