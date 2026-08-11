@@ -79,9 +79,10 @@ export function WeekCard() {
    * 돌려주지 않으면 플래너가 사라지면서 포커스가 `<body>` 로 떨어져 키보드 사용자가
    * 위치를 잃는다.
    *
-   * 진입 경로가 둘(빈 상태 CTA · `수정`)이지만 **한 번에 하나만 렌더된다.** 그래서 누른
-   * 노드를 붙잡아 두는 대신 "지금 그 자리에 있는 버튼"을 가리키게 한다 — 플래너가 열릴
-   * 때 버튼이 언마운트되므로, 노드를 붙잡으면 복귀 시점엔 죽은 참조가 된다.
+   * 진입 경로가 둘(빈 상태 CTA · 헤더 `수정`)이지만 **한 번에 하나만 렌더된다** — 헤더
+   * 버튼은 빈 상태가 아닐 때만 그린다. 그래서 누른 노드를 붙잡아 두는 대신 "지금 그 자리에
+   * 있는 버튼"을 가리키게 한다 — 플래너가 열릴 때 버튼이 언마운트되므로, 노드를 붙잡으면
+   * 복귀 시점엔 죽은 참조가 된다.
    */
   const ctaRef = useRef<HTMLButtonElement | null>(null)
   const reviewCtaRef = useRef<HTMLButtonElement | null>(null)
@@ -200,10 +201,32 @@ export function WeekCard() {
   return (
     // 랜드마크 라벨은 App 의 감싸는 section 이 갖는다 — 여기에도 붙이면 같은 이름이 둘이 된다.
     <div className="flex h-full flex-col">
-      <header className="shrink-0 px-4 pt-4">
-        <p className="eyebrow">WEEK</p>
-        <h2 className="card-title text-ink">이번 주 할당</h2>
-        <p className="font-mono text-xs tabular-nums text-ink-dim">{weekRangeLabel(weekKey)}</p>
+      <header className="flex shrink-0 items-start gap-2 px-4 pt-4">
+        <div className="flex-1">
+          <p className="eyebrow">WEEK</p>
+          <h2 className="card-title text-ink">이번 주 할당</h2>
+          <p className="font-mono text-xs tabular-nums text-ink-dim">{weekRangeLabel(weekKey)}</p>
+        </div>
+
+        {/* 활성 항목이 있을 때의 유일한 플래너 진입점이다 (§2). 빈 상태에는 본문 CTA 가
+            있으므로 그리지 않는다 — 진입이 둘이 되면 어느 쪽이 "지금 쓸 것"인지 흐려지고,
+            포커스를 돌려줄 자리도 갈린다.
+
+            이것이 없으면 주중 재수정(PRD R23)에 진입점이 없다. 첫 확정에서 예산을 비워 둔
+            사용자는 게이지가 `예산을 정하면 …` 이라고 안내하는데 그 조작이 화면에 없는
+            상태에 갇히고, 일요일에 다음 주 계획도 세울 수 없다 — 이월 항목이 다음 주에
+            활성으로 남으므로 그 주에도 같은 상태가 이어진다. */}
+        {emptyKind === null ? (
+          <Button
+            ref={ctaRef}
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={() => setPlanning(true)}
+          >
+            수정
+          </Button>
+        ) : null}
       </header>
 
       {/* 배너는 일반 뷰 상단에 얹힌다 (week-plan ux-spec §2). 떠 있어도 목록·드로어·pull·
