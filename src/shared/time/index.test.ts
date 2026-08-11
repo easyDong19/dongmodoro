@@ -5,6 +5,7 @@ import {
   addWeeks,
   calendarKeys,
   dayKey,
+  dayLabel,
   weekKey,
   monthKey,
   localKeys,
@@ -195,6 +196,30 @@ describe('weekStartLabel (weekly-review 계획서 정정 ①)', () => {
 
   it('앞자리 0 을 붙이지 않는다', () => {
     expect(weekStartLabel('2026-01-05')).toBe('1/5')
+  })
+})
+
+describe('dayLabel — 타이틀바 날짜 (app-shell ux-spec §1.2)', () => {
+  it('연·월·일을 한국어로 붙여 준다', () => {
+    expect(dayLabel('2026-08-11')).toBe('2026년 8월 11일')
+  })
+
+  it('월·일에 앞자리 0 을 붙이지 않는다', () => {
+    expect(dayLabel('2026-01-05')).toBe('2026년 1월 5일')
+  })
+
+  it('월말·연말에서도 날짜가 밀리지 않는다', () => {
+    expect(dayLabel('2026-01-31')).toBe('2026년 1월 31일')
+    expect(dayLabel('2026-12-31')).toBe('2026년 12월 31일')
+  })
+
+  it('윤년 2월 29일을 그대로 읽는다', () => {
+    expect(dayLabel('2028-02-29')).toBe('2028년 2월 29일')
+  })
+
+  // 요일은 캘린더가 소유한다 — 라벨에 섞이면 두 문서가 같은 정보를 각자 정의하게 된다.
+  it('요일을 붙이지 않는다', () => {
+    expect(dayLabel('2026-08-11')).not.toMatch(/[월화수목금토일]요일/)
   })
 })
 

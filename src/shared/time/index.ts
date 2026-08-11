@@ -142,6 +142,23 @@ export function weeksSince(originWeek: string, week: string): number {
   return Math.floor((dayNumber(week) - dayNumber(originWeek)) / 7) + 1
 }
 
+/**
+ * 타이틀바의 날짜 라벨 `2026년 8월 11일` (app-shell ux-spec §1.2 의 와이드·미디엄 포맷).
+ *
+ * **요일을 붙이지 않는다** — 요일은 캘린더가 소유하는 정보다 (§1.2).
+ *
+ * `Intl.DateTimeFormat` 을 쓰지 않는다. 로케일·타임존에 따라 결과가 달라지는데 여기서
+ * 필요한 것은 **이미 고정된 달력 키**의 표시일 뿐이라, 다른 라벨들과 같은 방식으로
+ * epoch day 를 UTC 로 읽는다 (ADR-009 §3 시간 모듈 초크포인트 — 포맷은 이 모듈 밖에서
+ * 하지 않는다).
+ *
+ * 내로우 구간의 축약(`8월 11일`)은 그 구간이 생길 때 함께 만든다 (ux-spec §1.2).
+ */
+export function dayLabel(dayKeyValue: string): string {
+  const at = new Date(dayNumber(dayKeyValue) * 86_400_000)
+  return `${at.getUTCFullYear()}년 ${at.getUTCMonth() + 1}월 ${at.getUTCDate()}일`
+}
+
 /** epoch day → `8/3`. `dayNumber` 의 역이며 UTC 로만 읽어 DST 를 타지 않는다. */
 function monthDayLabel(atMs: number): string {
   const d = new Date(atMs)

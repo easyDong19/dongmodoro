@@ -9,7 +9,9 @@ import { registerTodayHandlers } from './ipc/today'
 import { registerTimerHandlers } from './ipc/timer'
 import { registerWeekHandlers } from './ipc/week'
 import { registerReviewHandlers } from './ipc/review'
+import { registerSettingsHandlers } from './ipc/settings'
 import { startClock } from './services/clock'
+import { applyTheme, readTheme } from './services/theme'
 import { bootstrapWatermark } from './services/review'
 import { calendarKeys, nowMs } from '@shared/time'
 import { startTimerHost } from './services/timer-host'
@@ -84,18 +86,31 @@ app
   .then(() => {
     // DB 가 먼저다 — 열지 못하면 창을 띄우지 않는다.
     const { schemaVersion, uow } = startDb()
+    /**
+     * **창보다 먼저 테마를 적용한다** (design-system ADR-010 §3).
+     *
+     * 이 순서가 "첫 페인트 깜빡임 0" 의 근거 전부다. `nativeTheme.themeSource` 는 렌더러의
+     * `prefers-color-scheme` 까지 결정하므로, 창이 만들어지기 전에 값을 넣어 두면 첫 프레임이
+     * 이미 올바른 테마다. 렌더러가 뜬 뒤 IPC 로 물어보는 구조였다면 왕복하는 동안 반대 테마가
+     * 한 번 그려지고, 그 깜빡임은 배선으로 없앨 수 없다.
+     *
+     * `readTheme` 은 계약 밖의 저장값(기존 DB 의 `"system"`)을 여기서 정규화하고 되쓴다.
+     */
+    const initialTheme = readTheme(uow)
+    applyTheme(initialTheme)
     // 핸들러를 창보다 먼저 등록한다 — renderer 가 뜨자마자 호출해도 받을 사람이 있어야 한다.
     registerSystemHandlers(() => schemaVersion)
     registerClockHandlers()
     registerTodayHandlers(uow)
     registerWeekHandlers(uow)
     registerReviewHandlers(uow)
+    registerSettingsHandlers(uow, () => mainWindow)
     // 타이머는 창보다 먼저 산다 — renderer 가 죽어도 main 의 타이머는 계속 돈다 (R12).
     const timerHost = startTimerHost(uow, () => mainWindow)
     stopTimerHost = timerHost.stop
     registerTimerHandlers(timerHost.engine, uow)
     // 종료 확인 조건 (timer R13): focus 가 running/paused 일 때만 묻는다.
-    mainWindow = createWindow(() => {
+    mainWindow = createWindow(initialTheme, () => {
       const snap = timerHost.engine.getSnapshot()
       return snap.mode === 'focus' && (snap.phase === 'running' || snap.phase === 'paused')
     })

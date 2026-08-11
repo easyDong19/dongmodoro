@@ -66,6 +66,10 @@ const api: Api = {
     getPending: () => ipcRenderer.invoke(CHANNELS.review.getPending),
     settle: (input) => ipcRenderer.invoke(CHANNELS.review.settle, input)
   },
+  settings: {
+    getTheme: () => ipcRenderer.invoke(CHANNELS.settings.getTheme),
+    setTheme: (theme) => ipcRenderer.invoke(CHANNELS.settings.setTheme, theme)
+  },
   events: {
     onTimerTransition: on(EVENT_CHANNELS.timerTransition),
     onSessionRecorded: on(EVENT_CHANNELS.sessionRecorded),

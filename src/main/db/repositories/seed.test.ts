@@ -29,7 +29,7 @@ describe('seedSettings — ADR-018 §4', () => {
     expect(uow.run((r) => r.settings.get('short_break_min'))).toBe('5')
     expect(uow.run((r) => r.settings.get('long_break_min'))).toBe('15')
     expect(uow.run((r) => r.settings.get('plan_lead_days'))).toBe('1')
-    expect(uow.run((r) => r.settings.get('theme'))).toBe('"system"')
+    expect(uow.run((r) => r.settings.get('theme'))).toBe('"dark"')
     expect(uow.run((r) => r.settings.get('weekly_capacity'))).toBeNull()
   })
 

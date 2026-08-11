@@ -40,3 +40,33 @@ describe('system.getAppInfo contract', () => {
     expect(() => contracts.system.getAppInfo.req.parse(['rogue'])).toThrow()
   })
 })
+
+describe('settings.getTheme · setTheme contract (design-system ADR-010 §1)', () => {
+  it('accepts only light and dark', () => {
+    expect(contracts.settings.setTheme.req.parse(['light'])).toEqual(['light'])
+    expect(contracts.settings.setTheme.req.parse(['dark'])).toEqual(['dark'])
+  })
+
+  /**
+   * `system` 을 계약에서 거부하는 것이 이 ADR 의 경계선이다. 통과시키면 화면이 다시
+   * OS 추종을 요청할 수 있게 되고, 그 값을 저장하는 순간 상태가 셋으로 돌아간다.
+   */
+  it('rejects the removed system option', () => {
+    expect(() => contracts.settings.setTheme.req.parse(['system'])).toThrow()
+  })
+
+  it('rejects an arbitrary string', () => {
+    expect(() => contracts.settings.setTheme.req.parse(['purple'])).toThrow()
+  })
+
+  it('getTheme takes no arguments', () => {
+    expect(contracts.settings.getTheme.req.parse([])).toEqual([])
+    expect(() => contracts.settings.getTheme.req.parse(['light'])).toThrow()
+  })
+
+  it('both responses carry the stored theme and nothing else', () => {
+    expect(contracts.settings.getTheme.res.parse({ theme: 'dark' })).toEqual({ theme: 'dark' })
+    expect(contracts.settings.setTheme.res.parse({ theme: 'light' })).toEqual({ theme: 'light' })
+    expect(() => contracts.settings.getTheme.res.parse({ theme: 'dark', rogue: true })).toThrow()
+  })
+})

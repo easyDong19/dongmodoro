@@ -55,7 +55,17 @@ export async function launchApp(userDataDir: string): Promise<ElectronApplicatio
   }
 
   const app = await electron.launch({
-    args: [MAIN_ENTRY, `--user-data-dir=${userDataDir}`]
+    args: [MAIN_ENTRY, `--user-data-dir=${userDataDir}`],
+    /**
+     * **이것이 없으면 테마를 테스트할 수 없다.** Playwright 는 `colorScheme` 을 지정하지
+     * 않으면 `'light'` 로 **에뮬레이션한다**(문서: "Defaults to 'light'"). 그 상태에서는
+     * 앱이 무엇을 하든 렌더러의 `prefers-color-scheme` 이 항상 light 로 고정되어,
+     * 측정값이 앱이 아니라 하네스를 말하게 된다.
+     *
+     * `null` 은 에뮬레이션을 끄고 시스템 기본값으로 되돌린다 — Electron 에서 그 "시스템"은
+     * `nativeTheme.themeSource` 이므로, 앱이 실제로 정한 테마가 그대로 관측된다.
+     */
+    colorScheme: null
   })
 
   /**
@@ -82,7 +92,7 @@ export async function launchApp(userDataDir: string): Promise<ElectronApplicatio
  * `close()` 도 안 풀려서 예전처럼 teardown 타임아웃으로 실패한다. 여기서 통과하는 경우는
  * "앱이 정상 종료했다"뿐이며, 그것이 우리가 원하는 결과다.
  */
-async function closeApp(app: ElectronApplication): Promise<void> {
+export async function closeApp(app: ElectronApplication): Promise<void> {
   const proc = app.process()
   const exited =
     proc.exitCode !== null

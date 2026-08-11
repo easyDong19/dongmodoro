@@ -15,7 +15,10 @@ export function seedSettings(uow: UnitOfWork): void {
     short_break_min: '5',
     long_break_min: '15',
     plan_lead_days: '1',
-    theme: '"system"'
+    // 'dark' — the app owns the theme and does not follow the OS (design-system ADR-010 §1).
+    // Existing databases still hold '"system"'; readTheme() normalises and rewrites those,
+    // because seeding is idempotent and never overwrites a key that is already present.
+    theme: '"dark"'
     // NOTE: weekly_capacity and last_settled_week are NOT seeded here.
   }
 
