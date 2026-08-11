@@ -1,7 +1,7 @@
 import { weekRangeLabel, weekStartLabel } from '@shared/time'
 import { Button } from '@renderer/shared/ui/button'
 import { CompletedSection } from './CompletedSection'
-import { ConfirmSection } from './ConfirmSection'
+import { ConfirmSection, GuidanceSection } from './ConfirmSection'
 import { PendingSection } from './PendingSection'
 import { SummarySection } from './SummarySection'
 import { useDecisions } from './useDecisions'
@@ -103,7 +103,7 @@ export function ReviewPanel({
       </header>
 
       {/* 섹션 순서는 요약 → 끝낸 것들 → 남은 것들 → 안내 → 확정이며 내로우에서도
-          바뀌지 않는다 (§10). 남은 것들부터는 다음 태스크가 채운다. */}
+          바뀌지 않는다 (§10). 앞의 넷은 스크롤하고 확정만 하단에 고정된다. */}
       <div
         data-testid="review-sections"
         className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-4 py-3"
@@ -123,19 +123,19 @@ export function ReviewPanel({
           onPick={decisions.pick}
           onReduce={decisions.setReduceValue}
         />
+        <GuidanceSection data={data} />
+      </div>
+
+      {/* 확정만 하단 고정이다 (§10) — 항목이 몇 개든 버튼에 도달할 수 있어야 한다. */}
+      <div className="shrink-0 border-t border-glass-border-soft px-4 py-3">
         <ConfirmSection
           data={data}
           carriedPomos={decisions.carriedPomosOf(data.pending)}
           pending={settle.isPending}
           error={error}
           onConfirm={onConfirm}
+          onClose={onClose}
         />
-      </div>
-
-      <div className="shrink-0 px-4 py-3">
-        <Button type="button" variant="ghost" size="sm" onClick={onClose}>
-          닫기
-        </Button>
       </div>
     </div>
   )

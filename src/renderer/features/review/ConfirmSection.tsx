@@ -4,36 +4,24 @@ import type { ReviewPending } from './useReview'
 type Panel = Extract<ReviewPending, { needed: true }>
 
 /**
- * 안내 + 확정 (ux-spec §6·§7).
- *
- * 확정 전 확인 다이얼로그를 두지 않는다 (§7.3) — 파괴적 행위가 아니고(폐기도 soft),
- * 확정 후 플래너에서 계속 편집할 수 있다.
+ * 안내 (ux-spec §6). 섹션 4 이며 **스크롤 영역 안**에 있다 — 확정 버튼만 하단 고정이다 (§10).
  */
-export function ConfirmSection({
-  data,
-  carriedPomos,
-  pending,
-  error,
-  onConfirm
-}: {
-  data: Panel
-  /** 지금 선택 기준의 이월 뽀모 합. 라벨과 중립 사실 줄이 이 값에서 나온다. */
-  carriedPomos: number
-  pending: boolean
-  error: 'stale' | 'failed' | null
-  onConfirm: () => void
-}) {
-  const weekWord = data.targetWeekIsCurrent ? '이번 주' : '다음 주'
+export function GuidanceSection({ data }: { data: Panel }) {
   const unplanned = data.summary.weeks.reduce((sum, w) => sum + w.unplannedPomos, 0)
   const { focusMin, shortBreakMin, longBreakMin } = data.baseline
 
   return (
-    <section className="flex flex-col gap-3">
+    <section className="flex flex-col gap-2">
       {/* "미분류"라는 단어를 쓰지 않는다 (§6) — 주간 카드의 "기타 — 계획에 없던 집중"과
-          같은 개념이므로 같은 말을 쓴다. 값이 0 이면 문장 자체를 렌더하지 않는다. */}
+          같은 개념이므로 같은 말을 쓴다. 값이 0 이면 문장 자체를 렌더하지 않는다.
+
+          **숫자 뒤에 조사를 붙이지 않는다.** ux-spec 초판은 `계획에 없던 집중 N은` 이라고
+          적었지만 은/는은 숫자를 읽은 소리에 따라 갈린다 (2 는 `이` 라 `는`, 3 은 `삼` 이라
+          `은`) — 실물에서 `집중 2은` 이 나왔다. 주간 카드의 pull 토스트가 같은 이유로
+          제목 뒤 조사를 뺐고(week-plan ux-spec §3.1), 여기도 같은 방식으로 끊는다. */}
       {unplanned > 0 ? (
         <p className="text-xs text-ink-dim">
-          {`계획에 없던 집중 ${unplanned}은 기록으로만 남아요. 할당이 틀린 건 실패가 아니라 정보예요.`}
+          {`계획에 없던 집중 ${unplanned} — 기록으로만 남아요. 할당이 틀린 건 실패가 아니라 정보예요.`}
         </p>
       ) : null}
 
@@ -49,7 +37,38 @@ export function ConfirmSection({
           바꾼 길이는 다음 주부터 적용돼요 · 이번 주 기록은 그대로예요
         </p>
       </div>
+    </section>
+  )
+}
 
+/**
+ * 확정 (ux-spec §7). **스크롤 하단에 고정된다** (§10) — 항목이 몇 개든 확정 버튼에
+ * 도달할 수 있어야 한다. 실물에서 이것이 스크롤 안에 있었고, 목록이 길어지면 버튼이
+ * 화면 밖으로 밀렸다.
+ *
+ * 확정 전 확인 다이얼로그를 두지 않는다 (§7.3) — 파괴적 행위가 아니고(폐기도 soft),
+ * 확정 후 플래너에서 계속 편집할 수 있다.
+ */
+export function ConfirmSection({
+  data,
+  carriedPomos,
+  pending,
+  error,
+  onConfirm,
+  onClose
+}: {
+  data: Panel
+  /** 지금 선택 기준의 이월 뽀모 합. 라벨과 중립 사실 줄이 이 값에서 나온다. */
+  carriedPomos: number
+  pending: boolean
+  error: 'stale' | 'failed' | null
+  onConfirm: () => void
+  onClose: () => void
+}) {
+  const weekWord = data.targetWeekIsCurrent ? '이번 주' : '다음 주'
+
+  return (
+    <div className="flex flex-col gap-2">
       {/* 3주 만에 복귀해 60뽀모가 한 주로 들어오는 상황과 한 주를 알차게 보낸 상황에
           같은 시각 언어(앰버 글로우 + 불꽃)를 쓰지 않기 위한 줄이다 (R40). 막지도,
           캡을 두지도, 줄이라고 권하지도 않는다 — 두 숫자를 나란히 놓기만 한다. */}
@@ -69,13 +88,16 @@ export function ConfirmSection({
         </p>
       ) : null}
 
-      <div>
+      <div className="flex items-center gap-2">
         <Button type="button" size="sm" disabled={pending} onClick={onConfirm}>
           {carriedPomos > 0
             ? `${weekWord} 시작 (이월 뽀모 ${carriedPomos} 포함)`
             : `${weekWord} 시작`}
         </Button>
+        <Button type="button" variant="ghost" size="sm" onClick={onClose}>
+          닫기
+        </Button>
       </div>
-    </section>
+    </div>
   )
 }

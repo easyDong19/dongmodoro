@@ -104,7 +104,7 @@ describe('ReviewPanel — 안내 (§6)', () => {
         }
       })
     )
-    expect(screen.getByText(/계획에 없던 집중 8은 기록으로만 남아요/)).toBeInTheDocument()
+    expect(screen.getByText(/계획에 없던 집중 8 — 기록으로만 남아요/)).toBeInTheDocument()
   })
 
   it('"미분류" 라는 단어를 쓰지 않는다', () => {
@@ -135,6 +135,34 @@ describe('ReviewPanel — 안내 (§6)', () => {
   it('"정산에서만 바꿔요" 류를 쓰지 않는다', () => {
     const { container } = renderPanel()
     expect(container.textContent).not.toMatch(/정산에서만/)
+  })
+
+  /**
+   * 실물에서 `계획에 없던 집중 2은` 이 나왔다. 은/는은 숫자를 **읽은 소리**에 따라
+   * 갈리는데(2 = `이` → 는, 3 = `삼` → 은) 템플릿은 하나뿐이라 반드시 절반이 틀린다.
+   * 주간 카드의 pull 토스트가 같은 이유로 조사를 뺐고, 여기도 끊어 쓴다.
+   */
+  it('숫자 뒤에 조사를 붙이지 않는다 — 어떤 수에도 어색하지 않아야 한다', () => {
+    for (const n of [1, 2, 3, 6, 9, 10]) {
+      const { container, unmount } = renderPanel(
+        panel({
+          summary: {
+            ...panel().summary,
+            weeks: [{ ...panel().summary.weeks[0], unplannedPomos: n }]
+          }
+        })
+      )
+      expect(container.textContent).toContain(`계획에 없던 집중 ${n} —`)
+      expect(container.textContent).not.toContain(`집중 ${n}은`)
+      expect(container.textContent).not.toContain(`집중 ${n}는`)
+      unmount()
+    }
+  })
+
+  it('확정 버튼이 스크롤 영역 밖 하단에 고정된다 (§10)', () => {
+    renderPanel()
+    const sections = screen.getByTestId('review-sections')
+    expect(sections.contains(confirmButton())).toBe(false)
   })
 })
 
