@@ -1,14 +1,42 @@
 // @vitest-environment jsdom
 import type {} from '@testing-library/jest-dom/vitest'
-import { render, screen, within } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import userEvent from '@testing-library/user-event'
+import type { ReactNode } from 'react'
 import { describe, expect, it, vi } from 'vitest'
+import type { Api } from '@shared/ipc/api'
 import { ReviewPanel } from './ReviewPanel'
 import type { ReviewError, ReviewPending, SettleInput, SettleResult } from './useReview'
 
 type Panel = Extract<ReviewPending, { needed: true }>
 
 const THIS_WEEK = '2026-08-24'
+
+/**
+ * 패널의 안내 섹션이 `조정` 진입점을 품으면서 이 패널도 쿼리를 쓰는 화면이 됐다
+ * (pomo-baseline R25). 값을 읽지 못하면 `조정` 이 비활성일 뿐 나머지 섹션은 그대로다.
+ */
+function withQuery(node: ReactNode) {
+  window.api = {
+    settings: {
+      getBaseline: vi.fn().mockResolvedValue({
+        focusMin: 25,
+        shortBreakMin: 5,
+        longBreakMin: 15,
+        capacity: null,
+        basisPomos: null,
+        basisSource: null
+      }),
+      setBaseline: vi.fn()
+    }
+  } as unknown as Api
+
+  const qc = new QueryClient({
+    defaultOptions: { queries: { retry: false }, mutations: { retry: false } }
+  })
+  return <QueryClientProvider client={qc}>{node}</QueryClientProvider>
+}
 
 function panel(over: Partial<Panel> = {}): Panel {
   return {
@@ -77,14 +105,16 @@ function renderPanel(
     ((_input: SettleInput, o: { onSuccess: (r: SettleResult) => void }) => o.onSuccess(result()))
   const mutate = vi.fn(inner)
   const view = render(
-    <ReviewPanel
-      data={data}
-      currentWeek={THIS_WEEK}
-      settle={{ mutate, isPending: false }}
-      error={over.error ?? null}
-      onSettled={over.onSettled ?? vi.fn()}
-      onClose={over.onClose ?? vi.fn()}
-    />
+    withQuery(
+      <ReviewPanel
+        data={data}
+        currentWeek={THIS_WEEK}
+        settle={{ mutate, isPending: false }}
+        error={over.error ?? null}
+        onSettled={over.onSettled ?? vi.fn()}
+        onClose={over.onClose ?? vi.fn()}
+      />
+    )
   )
   return { ...view, mutate }
 }
@@ -127,9 +157,29 @@ describe('ReviewPanel — 안내 (§6)', () => {
     ).toBeInTheDocument()
   })
 
-  it('조정 버튼은 이번 마일스톤에 없다 — 갈 화면이 없다', () => {
+  /** 진입점이 열렸다 (pomo-baseline R25). 값을 읽기 전에는 누를 수 없다. */
+  it('조정 버튼이 있고, 값을 읽고 나면 눌러 폼이 열린다', async () => {
     renderPanel()
-    expect(screen.queryByRole('button', { name: '조정' })).not.toBeInTheDocument()
+    const adjust = await screen.findByRole('button', { name: '조정' })
+    await waitFor(() => expect(adjust).toBeEnabled())
+
+    await userEvent.click(adjust)
+    expect(screen.getByLabelText('집중 길이 (분)')).toBeInTheDocument()
+  })
+
+  /**
+   * 폼이 열려 있는 동안에도 정산은 그대로 확정할 수 있어야 한다 — 두 저장은 별개다
+   * (ux-spec §6). 폼 버튼이 확정 버튼의 라벨을 빼앗지도 않는다.
+   */
+  it('폼이 열려도 확정 버튼은 그대로 눌린다', async () => {
+    const { mutate } = renderPanel()
+    const adjust = await screen.findByRole('button', { name: '조정' })
+    await waitFor(() => expect(adjust).toBeEnabled())
+    await userEvent.click(adjust)
+
+    expect(confirmButton()).toBeEnabled()
+    await userEvent.click(confirmButton())
+    expect(mutate).toHaveBeenCalledOnce()
   })
 
   it('"정산에서만 바꿔요" 류를 쓰지 않는다', () => {
@@ -306,14 +356,16 @@ describe('ReviewPanel — 예외 화면 (§8)', () => {
     expect(screen.getByTestId('stepper-value')).toHaveTextContent('2')
 
     rerender(
-      <ReviewPanel
-        data={panel()}
-        currentWeek={THIS_WEEK}
-        settle={{ mutate: vi.fn(), isPending: false }}
-        error="failed"
-        onSettled={vi.fn()}
-        onClose={vi.fn()}
-      />
+      withQuery(
+        <ReviewPanel
+          data={panel()}
+          currentWeek={THIS_WEEK}
+          settle={{ mutate: vi.fn(), isPending: false }}
+          error="failed"
+          onSettled={vi.fn()}
+          onClose={vi.fn()}
+        />
+      )
     )
     expect(screen.getByTestId('stepper-value')).toHaveTextContent('2')
   })
@@ -345,14 +397,16 @@ describe('ReviewPanel — 예외 화면 (§8)', () => {
       ]
     })
     rerender(
-      <ReviewPanel
-        data={grown}
-        currentWeek={THIS_WEEK}
-        settle={{ mutate: vi.fn(), isPending: false }}
-        error="stale"
-        onSettled={vi.fn()}
-        onClose={vi.fn()}
-      />
+      withQuery(
+        <ReviewPanel
+          data={grown}
+          currentWeek={THIS_WEEK}
+          settle={{ mutate: vi.fn(), isPending: false }}
+          error="stale"
+          onSettled={vi.fn()}
+          onClose={vi.fn()}
+        />
+      )
     )
 
     const rows = screen.getAllByTestId('pending-row')
@@ -382,16 +436,18 @@ describe('ReviewPanel — 예외 화면 (§8)', () => {
 
     // 패널을 열어둔 사이 세션이 돌아 남은 몫이 2 로 줄었다
     rerender(
-      <ReviewPanel
-        data={panel({
-          pending: [{ ...panel().pending[0], estPomos: 8, spentPomos: 6, remaining: 2 }]
-        })}
-        currentWeek={THIS_WEEK}
-        settle={{ mutate: vi.fn(), isPending: false }}
-        error={null}
-        onSettled={vi.fn()}
-        onClose={vi.fn()}
-      />
+      withQuery(
+        <ReviewPanel
+          data={panel({
+            pending: [{ ...panel().pending[0], estPomos: 8, spentPomos: 6, remaining: 2 }]
+          })}
+          currentWeek={THIS_WEEK}
+          settle={{ mutate: vi.fn(), isPending: false }}
+          error={null}
+          onSettled={vi.fn()}
+          onClose={vi.fn()}
+        />
+      )
     )
     expect(screen.getByTestId('stepper-value')).toHaveTextContent('2')
   })

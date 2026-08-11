@@ -153,3 +153,18 @@ describe('review-stale', () => {
     ])
   })
 })
+
+describe('baseline-changed', () => {
+  /**
+   * 주간 카드도 타이머도 대상이 아니다. 카드는 그 주 스냅샷을 읽고 이 편집은 스냅샷을
+   * 건드리지 않으며(R19·R22), 타이머의 남은 시간은 쿼리 파생값이 아니라 엔진 상태다.
+   * 둘 중 하나라도 넣으면 아무것도 안 바뀌는 재조회가 생기고, 그 재조회가 다음 사람에게
+   * "베이스라인이 저 화면을 바꾼다"는 오해를 심는다.
+   */
+  it('설정과 정산 패널 둘만 다시 읽는다', () => {
+    expect(keysToInvalidate({ type: 'baseline-changed' })).toEqual([
+      ['settings', 'baseline'],
+      ['review', 'pending']
+    ])
+  })
+})
