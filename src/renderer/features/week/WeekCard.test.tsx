@@ -43,8 +43,21 @@ type Drawer = Awaited<ReturnType<Api['week']['drawer']>>
 
 const emptyDrawer: Drawer = { itemWeek: WEEK, completedAt: null, tasks: [] }
 
-async function renderCard(summary: Summary, over: Partial<Api['week']> = {}) {
+type Status = Awaited<ReturnType<Api['review']['getStatus']>>
+type Pending = Awaited<ReturnType<Api['review']['getPending']>>
+
+async function renderCard(
+  summary: Summary,
+  over: Partial<Api['week']> = {},
+  targetWeek: string = WEEK,
+  review: { status?: Status; pending?: Pending } = {}
+) {
   window.api = {
+    review: {
+      // 편집 대상 주의 기본값이 여기서 온다 — renderer 는 plan_lead_days 를 모른다.
+      getStatus: vi.fn().mockResolvedValue(review.status ?? { needed: false, targetWeek }),
+      getPending: vi.fn().mockResolvedValue(review.pending ?? { needed: false, targetWeek })
+    },
     clock: {
       now: vi
         .fn()
@@ -357,5 +370,131 @@ describe('WeekCard — 타이포와 빈 공간', () => {
   it('기타 행만 있는 주도 위에서부터 쌓는다 — 보여줄 기록이 있다', async () => {
     await renderCard(makeSummary({ totalSpent: 2, otherRow: { visible: true, spentPomos: 2 } }))
     expect(screen.getByTestId('week-item-list').className).not.toContain('justify-center')
+  })
+})
+
+/**
+ * §3.1 마지막 줄 — 목록 정렬은 생성순이고 **오늘 배정된 항목만** 상단으로 올린다
+ * (PRD R7·R10). 사용자가 순서를 바꾸는 UI 는 없다.
+ */
+describe('WeekCard — 오늘 배정 상단 정렬 (A8)', () => {
+  it('오늘 배정된 항목이 위로 오고 나머지는 원래 순서를 지킨다', async () => {
+    await renderCard(
+      makeSummary({
+        items: [
+          makeItem({ id: 'a', title: '먼저', days: [] }),
+          makeItem({ id: 'b', title: '오늘 것', days: [4] }), // DAY = 금요일 (weekdayIndex 4)
+          makeItem({ id: 'c', title: '나중', days: [0] })
+        ]
+      })
+    )
+
+    const titles = screen
+      .getAllByTestId('week-item-row')
+      .map((row) => row.querySelector('span')?.textContent)
+    expect(titles).toEqual(['오늘 것', '먼저', '나중'])
+  })
+
+  it('오늘 배정이 없으면 생성순 그대로다', async () => {
+    await renderCard(
+      makeSummary({
+        items: [makeItem({ id: 'a', title: '먼저' }), makeItem({ id: 'b', title: '나중' })]
+      })
+    )
+    const titles = screen
+      .getAllByTestId('week-item-row')
+      .map((row) => row.querySelector('span')?.textContent)
+    expect(titles).toEqual(['먼저', '나중'])
+  })
+})
+
+/**
+ * §2 라벨 파생 규칙 (PRD R5). 헤더·확정 버튼·빈 상태 CTA 가 **편집 대상 주 선택
+ * 하나에서만** 파생한다 — 오늘이 무슨 요일인지에서 직접 파생하면, 일요일에
+ * `이번 주 할당 잡기` 를 눌렀는데 다음 주가 열리는 모순이 생긴다.
+ */
+describe('WeekCard — 편집 대상 주 기본값 (A3·A5)', () => {
+  it('계획 대상 주가 다음 주면 빈 상태 CTA 도 다음 주라고 말한다', async () => {
+    await renderCard(makeSummary(), {}, '2026-08-10')
+    expect(await screen.findByRole('button', { name: '+ 다음 주 할당 잡기' })).toBeInTheDocument()
+  })
+
+  it('그 CTA 로 들어가면 다음 주 초안을 불러온다', async () => {
+    const planDraft = vi
+      .fn()
+      .mockResolvedValue({ week: '2026-08-10', budget: null, prefill: null, items: [] })
+    await renderCard(makeSummary(), { planDraft }, '2026-08-10')
+
+    await userEvent.click(await screen.findByRole('button', { name: '+ 다음 주 할당 잡기' }))
+    expect(await screen.findByText('다음 주 계획')).toBeInTheDocument()
+    expect(planDraft).toHaveBeenCalledWith('2026-08-10')
+  })
+
+  it('평일에는 이번 주가 기본이고 세그먼트로 다음 주 초안으로 옮길 수 있다', async () => {
+    const planDraft = vi
+      .fn()
+      .mockImplementation((week: string) =>
+        Promise.resolve({ week, budget: null, prefill: null, items: [] })
+      )
+    await renderCard(makeSummary(), { planDraft }, WEEK)
+
+    await userEvent.click(await screen.findByRole('button', { name: '+ 이번 주 할당 잡기' }))
+    expect(planDraft).toHaveBeenCalledWith(WEEK)
+
+    await userEvent.click(screen.getByRole('button', { name: '다음 주' }))
+    expect(await screen.findByText('다음 주 계획')).toBeInTheDocument()
+    expect(planDraft).toHaveBeenCalledWith('2026-08-10')
+  })
+})
+
+/**
+ * 배너는 일반 뷰 상단에 얹히고, `정산 시작` 은 카드 자리를 패널로 바꾼다 (정정 ③).
+ * 오버레이로 덮지 않는 이유는 R7 — 패널이 열려 있어도 타이머·오늘 목록을 계속 써야 한다.
+ */
+describe('WeekCard — 정산 배너와 패널 (weekly-review §1·§2)', () => {
+  const pendingStatus: Status = {
+    needed: true,
+    targetWeek: '2026-08-10',
+    from: WEEK,
+    to: WEEK,
+    weekCount: 1,
+    pendingItemCount: 2
+  }
+
+  it('정산 대기가 아니면 배너가 없다', async () => {
+    await renderCard(makeSummary())
+    expect(screen.queryByTestId('review-banner')).not.toBeInTheDocument()
+  })
+
+  it('정산 대기면 배너가 목록 위에 뜨고 일반 뷰는 그대로 동작한다 (R7)', async () => {
+    await renderCard(makeSummary({ items: [makeItem()] }), {}, WEEK, { status: pendingStatus })
+    expect(await screen.findByTestId('review-banner')).toBeInTheDocument()
+    // 배너가 떠 있어도 목록·게이지가 사라지지 않는다
+    expect(screen.getByTestId('week-item-row')).toBeInTheDocument()
+    expect(screen.getByTestId('week-gauge-slot')).toBeInTheDocument()
+  })
+
+  it('정산 시작을 누르면 패널이 카드 자리를 대신한다', async () => {
+    await renderCard(makeSummary(), {}, WEEK, {
+      status: pendingStatus,
+      pending: { needed: false, targetWeek: '2026-08-10' }
+    })
+
+    await userEvent.click(await screen.findByRole('button', { name: '정산 시작' }))
+    expect(await screen.findByText('지금 정산할 주가 없어요')).toBeInTheDocument()
+    expect(screen.queryByTestId('week-item-list')).not.toBeInTheDocument()
+  })
+
+  it('닫으면 일반 뷰로 돌아가고 포커스가 정산 시작 버튼으로 귀속된다', async () => {
+    await renderCard(makeSummary(), {}, WEEK, {
+      status: pendingStatus,
+      pending: { needed: false, targetWeek: '2026-08-10' }
+    })
+
+    await userEvent.click(await screen.findByRole('button', { name: '정산 시작' }))
+    await userEvent.click(await screen.findByRole('button', { name: '닫기' }))
+
+    const cta = await screen.findByRole('button', { name: '정산 시작' })
+    expect(cta).toHaveFocus()
   })
 })

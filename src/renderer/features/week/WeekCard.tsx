@@ -1,15 +1,19 @@
 import { useRef, useState, type Ref } from 'react'
-import { weekRangeLabel } from '@shared/time'
+import { addWeeks, weekRangeLabel } from '@shared/time'
 import { Button } from '@renderer/shared/ui/button'
 import { Toast } from '@renderer/shared/ui/Toast'
 import { BudgetGauge } from './BudgetGauge'
 import { ItemDrawer } from './ItemDrawer'
 import { OtherRow } from './OtherRow'
-import { Planner } from './Planner'
+import { Planner, type PlanTarget } from './Planner'
 import { WeekItemRow } from './WeekItemRow'
 import { useDrawer } from './useDrawer'
 import { usePlanner } from './usePlanner'
 import { useWeek } from './useWeek'
+import { ReviewBanner } from '@renderer/features/review/ReviewBanner'
+import { ReviewPanel } from '@renderer/features/review/ReviewPanel'
+import { useReview } from '@renderer/features/review/useReview'
+import { useReviewStatus } from '@renderer/features/review/useReviewStatus'
 
 /**
  * 빈 상태 세 갈래 (ux-spec §8). 사실만 적고 칭찬하지 않는다 (principles §1).
@@ -20,10 +24,13 @@ import { useWeek } from './useWeek'
  */
 function EmptyState({
   kind,
+  targetLabel,
   onOpenPlanner,
   ctaRef
 }: {
   kind: 'no-plan' | 'unplanned-only' | 'all-done'
+  /** CTA 라벨도 편집 대상 주 선택에서 파생한다 (§2 라벨 파생 규칙, PRD R5). */
+  targetLabel: string
   onOpenPlanner: () => void
   ctaRef: Ref<HTMLButtonElement>
 }) {
@@ -35,10 +42,10 @@ function EmptyState({
       <p className="text-sm text-ink-dim">
         {kind === 'all-done'
           ? '이번 주 할당을 다 끝냈어요'
-          : '이번 주 할당을 잡으면 뽀모 예산이 여기 보여요'}
+          : `${targetLabel} 할당을 잡으면 뽀모 예산이 여기 보여요`}
       </p>
       <Button ref={ctaRef} type="button" variant="secondary" size="sm" onClick={onOpenPlanner}>
-        {kind === 'all-done' ? '수정' : '+ 이번 주 할당 잡기'}
+        {kind === 'all-done' ? '수정' : `+ ${targetLabel} 할당 잡기`}
       </Button>
     </div>
   )
@@ -52,11 +59,12 @@ function EmptyState({
  * 예산 대비 소진은 이 화면이 존재하는 이유라 항상 보여야 한다.
  */
 export function WeekCard() {
-  const { weekKey, query, pullNext, complete, uncomplete, drop } = useWeek()
+  const { weekKey, todayIndex, query, pullNext, complete, uncomplete, drop } = useWeek()
   // 동시에 하나만 열린다 (§6) — 열린 항목 id 하나로 표현한다.
   const [openId, setOpenId] = useState<string | null>(null)
   const [toast, setToast] = useState<string | null>(null)
   const [planning, setPlanning] = useState(false)
+  const [reviewing, setReviewing] = useState(false)
   const caretRefs = useRef(new Map<string, HTMLButtonElement | null>())
   /**
    * 플래너 진입 버튼. 복귀할 때 포커스를 여기로 돌려준다 (PRODUCT.md 접근성 §4) —
@@ -68,14 +76,38 @@ export function WeekCard() {
    * 때 버튼이 언마운트되므로, 노드를 붙잡으면 복귀 시점엔 죽은 참조가 된다.
    */
   const ctaRef = useRef<HTMLButtonElement | null>(null)
+  const reviewCtaRef = useRef<HTMLButtonElement | null>(null)
+  const status = useReviewStatus().data
+  /**
+   * 편집 대상 주 = `week_of(오늘 + plan_lead_days)` (PRD R3). renderer 가 그 식을 다시
+   * 계산하지 않고 판정 응답의 `targetWeek` 을 그대로 쓴다 — 설정이 바뀌면 여기도 따라간다.
+   * 판정이 아직 안 왔으면 **이번 주**로 둔다. 모를 때 `다음 주` 로 떨어지면 평일에
+   * 카드를 연 사용자가 한순간 다음 주 라벨을 보게 된다 — 기본 설정에서 그 값이 맞는
+   * 날은 일요일 하루뿐이다.
+   */
+  const defaultTarget: PlanTarget =
+    status === undefined || status.targetWeek === weekKey ? 'current' : 'next'
+  const [target, setTarget] = useState<PlanTarget | null>(null)
+  const planTarget = target ?? defaultTarget
+  const planWeek = planTarget === 'current' ? weekKey : addWeeks(weekKey, 1)
+
+  const review = useReview(reviewing)
   const drawer = useDrawer(weekKey, openId)
-  const planner = usePlanner(planning)
+  const planner = usePlanner(planning, planWeek)
   const summary = query.data
 
   /** 복귀는 확정·취소 공통이다. 버튼이 다시 렌더된 뒤라야 포커스가 걸린다. */
   const leavePlanner = () => {
     setPlanning(false)
+    // 편집 대상 주 선택도 함께 놓는다 — 다음에 열 때는 그날의 기본값에서 다시 시작한다.
+    setTarget(null)
     queueMicrotask(() => ctaRef.current?.focus())
+  }
+
+  /** 정산 진입 버튼(배너)으로 포커스를 돌려준다 — 패널이 사라지며 포커스를 잃지 않게. */
+  const leaveReview = () => {
+    setReviewing(false)
+    queueMicrotask(() => reviewCtaRef.current?.focus())
   }
 
   /** 닫을 때 포커스를 캐럿으로 돌려준다 — 열었던 자리를 잃지 않게 (PRODUCT.md 접근성 §4). */
@@ -97,18 +129,57 @@ export function WeekCard() {
 
   if (summary === undefined) return null
 
+  // 정산 패널도 카드를 통째로 대신한다 (weekly-review 계획서 정정 ③). 플래너와 같은 자리라
+  // 둘이 동시에 열리지 않는다 — 배너는 일반 뷰에만 있으므로 구조적으로 배타적이다.
+  if (reviewing && review.query.data !== undefined) {
+    return (
+      <ReviewPanel
+        data={review.query.data}
+        currentWeek={weekKey}
+        settle={review.settle}
+        error={review.error}
+        // 확정 후 패널이 닫히고 배너가 사라진다. **플래너를 자동으로 열지 않는다** —
+        // 정산과 플래닝은 분리된 단계다 (ux-spec §7.3).
+        onSettled={(message) => {
+          leaveReview()
+          setToast(message)
+        }}
+        onClose={leaveReview}
+      />
+    )
+  }
+
   // 플래너는 카드를 통째로 대신한다 — 일반 뷰와 나란히 두지 않는다 (§5.1).
   if (planning && planner.query.data !== undefined) {
     return (
+      // key 로 주마다 새로 마운트한다 — 초안·예산·입력 중이던 값이 그 주의 것으로 전부
+      // 다시 채워져야 한다 (§5.0 전환 효과). 상태를 손으로 되돌리면 빠뜨릴 자리가 생긴다.
       <Planner
+        key={planWeek}
         draft={planner.query.data}
+        week={planWeek}
+        target={planTarget}
+        onChangeWeek={setTarget}
         onConfirm={(input) => planner.confirm.mutate(input, { onSuccess: leavePlanner })}
         onCancel={leavePlanner}
       />
     )
   }
 
-  const { items, otherRow, budget, totalSpent } = summary
+  const { otherRow, budget, totalSpent } = summary
+  /**
+   * 목록 정렬은 **생성순**이고, 오늘 배정된 항목만 상단으로 올린다 (§3.1, PRD R7·R10).
+   * 사용자가 순서를 바꾸는 UI 는 없다.
+   *
+   * `sort` 는 안정 정렬이므로 두 그룹 안의 생성순이 유지된다 — main 이 이미 생성순으로
+   * 주고 있다. 보고 있는 주가 이번 주가 아니면 "오늘 배정"이 성립하지 않아 정렬도 없다.
+   */
+  const items =
+    todayIndex === null
+      ? summary.items
+      : [...summary.items].sort(
+          (a, b) => Number(b.days.includes(todayIndex)) - Number(a.days.includes(todayIndex))
+        )
   const emptyKind =
     items.length > 0
       ? items.every((i) => i.completedAt !== null)
@@ -127,6 +198,17 @@ export function WeekCard() {
         <p className="font-mono text-xs tabular-nums text-ink-dim">{weekRangeLabel(weekKey)}</p>
       </header>
 
+      {/* 배너는 일반 뷰 상단에 얹힌다 (week-plan ux-spec §2). 떠 있어도 목록·드로어·pull·
+          게이지가 전부 정상 동작한다 — 정산은 다른 기능의 선행 조건이 아니다 (R7). */}
+      <div className="shrink-0">
+        <ReviewBanner
+          status={status}
+          currentWeek={weekKey}
+          ctaRef={reviewCtaRef}
+          onStart={() => setReviewing(true)}
+        />
+      </div>
+
       {/* 보여줄 행이 없는 주에는 안내를 가운데로 올린다. 게이지는 하단 고정이라(§7) 목록이
           위에 붙으면 그 사이가 통째로 비어 화면이 미완성으로 읽힌다. 행이 하나라도 있으면
           위에서부터 쌓는다 — 목록은 읽는 순서가 있는 것이다. */}
@@ -144,6 +226,7 @@ export function WeekCard() {
               key={row.id}
               row={row}
               week={weekKey}
+              todayIndex={todayIndex}
               onPullNext={onPullNext}
               onComplete={(id) => complete.mutate(id)}
               onUncomplete={(id) => uncomplete.mutate(id)}
@@ -174,7 +257,12 @@ export function WeekCard() {
         {otherRow.visible ? <OtherRow spentPomos={otherRow.spentPomos} /> : null}
         {emptyKind !== null ? (
           <li>
-            <EmptyState kind={emptyKind} onOpenPlanner={() => setPlanning(true)} ctaRef={ctaRef} />
+            <EmptyState
+              kind={emptyKind}
+              targetLabel={planTarget === 'current' ? '이번 주' : '다음 주'}
+              onOpenPlanner={() => setPlanning(true)}
+              ctaRef={ctaRef}
+            />
           </li>
         ) : null}
       </ul>

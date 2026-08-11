@@ -10,28 +10,63 @@ type Item = Awaited<ReturnType<Api['week']['summary']>>['items'][number]
 /** 배열 인덱스 0 = 월요일 (ADR-010 §1). 순수 상수이므로 "오늘이 무슨 요일인가"와 무관하다. */
 const DAY_NAMES = ['월', '화', '수', '목', '금', '토', '일'] as const
 
+type PipState = 'off' | 'on' | 'past' | 'today' | 'upcoming'
+
 /**
- * 요일 핍 7개. **2상태(배정됨·미배정)** 이며 색과 지름 **두 채널**로 구분한다 —
- * 색만 다르면 색각 이상에서 구분이 사라진다 (principles §3.5). 불투명도로 상태를
- * 표현하지도 않는다.
+ * 핍 상태의 시각 표현 (ux-spec §3.2 표). **색 축과 모양 축이 둘 다 갈린다** — 색만
+ * 다르면 색각 이상에서 구분이 사라지고(principles §3.5), 모양만 다르면 5px 지름에서
+ * 안 읽힌다.
  *
- * 4상태(지난/오늘/앞으로)는 이번 마일스톤에서 뺐다 — renderer 가 "오늘이 무슨 요일인가"를
- * 알 방법이 없다. `aria-label` 의 요일 이름은 인덱스→이름 매핑이라 그 정보와 무관하고,
- * 없으면 스크린 리더에 구분 없는 점 7개로 읽힌다.
+ * 불투명도를 쓰지 않는 것도 규칙이다 — 고대비 모드에서 사라진다. "지난 요일"은 놓쳤다는
+ * 표시가 아니므로 `--danger` 도, 실패 문구도 붙이지 않는다 (§3.2, principles §1·§2).
+ *
+ * `오늘` 의 글로우는 **바깥 링으로 대신한다.** 점 하나에 걸 글로우 토큰이 tokens.md 에
+ * 없고, 없는 값을 소비처에서 지어내는 것은 §10 이 ADR 을 먼저 요구하는 일이다.
  */
-function DayPips({ days }: { days: number[] }) {
+const PIP_STYLE: Record<PipState, string> = {
+  off: 'size-1 rounded-full bg-ink-faint',
+  on: 'size-1.5 rounded-full bg-teal',
+  past: 'size-1.5 rounded-full border border-teal',
+  today: 'size-2 rounded-full bg-amber ring-1 ring-amber ring-offset-1 ring-offset-bg-deep',
+  upcoming: 'size-1.5 rounded-full bg-teal'
+}
+
+const PIP_LABEL: Record<PipState, string> = {
+  off: '',
+  on: ' · 배정',
+  past: ' · 배정, 지난 요일',
+  today: ' · 배정, 오늘',
+  upcoming: ' · 배정, 다가올 요일'
+}
+
+function pipState(assigned: boolean, index: number, todayIndex: number | null): PipState {
+  if (!assigned) return 'off'
+  if (todayIndex === null) return 'on'
+  if (index < todayIndex) return 'past'
+  return index === todayIndex ? 'today' : 'upcoming'
+}
+
+/**
+ * 요일 핍 7개, 월요일 시작 (ADR-010 §1).
+ *
+ * `todayIndex` 가 `null` 이면 2상태로 남는다 — 보고 있는 주가 오늘이 속한 주가 아니면
+ * "지난/오늘/다가올"이 성립하지 않기 때문이다. 상태를 `aria-label` 에도 실어, 스크린
+ * 리더가 색과 모양에 기대지 않게 한다.
+ */
+function DayPips({ days, todayIndex }: { days: number[]; todayIndex: number | null }) {
   return (
     <span className="flex items-center gap-1">
       {DAY_NAMES.map((name, i) => {
-        const on = days.includes(i)
+        const state = pipState(days.includes(i), i, todayIndex)
         return (
           <span
             key={name}
             data-testid="day-pip"
-            aria-label={name}
-            aria-pressed={on}
+            data-state={state}
+            aria-label={`${name}${PIP_LABEL[state]}`}
+            aria-pressed={state !== 'off'}
             role="img"
-            className={on ? 'size-1.5 rounded-full bg-teal' : 'size-1 rounded-full bg-ink-faint'}
+            className={PIP_STYLE[state]}
           />
         )
       })}
@@ -46,6 +81,7 @@ function DayPips({ days }: { days: number[] }) {
 export function WeekItemRow({
   row,
   week,
+  todayIndex,
   onPullNext,
   onComplete,
   onUncomplete,
@@ -57,6 +93,8 @@ export function WeekItemRow({
 }: {
   row: Item
   week: string
+  /** 이 주에서 오늘이 몇 번째 날인가 (0 = 월). 보고 있는 주가 이번 주가 아니면 null. */
+  todayIndex: number | null
   onPullNext: (id: string) => void
   onComplete: (id: string) => void
   onUncomplete: (id: string) => void
@@ -113,7 +151,7 @@ export function WeekItemRow({
         {row.childTotal > 0 ? (
           <span className="text-xs text-ink-dim">{`· 조각 ${row.childDone}/${row.childTotal}`}</span>
         ) : null}
-        <DayPips days={row.days} />
+        <DayPips days={row.days} todayIndex={todayIndex} />
       </div>
 
       {suggestComplete ? (

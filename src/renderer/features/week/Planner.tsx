@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react'
 import type { Api } from '@shared/ipc/api'
+import { weekRangeLabel } from '@shared/time'
 import { Button } from '@renderer/shared/ui/button'
 
 type Draft = Awaited<ReturnType<Api['week']['planDraft']>>
@@ -54,21 +55,70 @@ function DayChips({
   )
 }
 
+/** 편집 대상 주. 세 번째 값은 없다 — 지난 주·2주 뒤는 v1 비범위다 (§5.0). */
+export type PlanTarget = 'current' | 'next'
+
+const TARGET_LABEL: Record<PlanTarget, string> = { current: '이번 주', next: '다음 주' }
+
+/**
+ * 편집 대상 주 세그먼트 (§5.0). **선택 상태에 보더가 필수다** — `--glass-strong` 배경은
+ * 고대비 모드에서 사라지므로 배경만으로 선택을 표현하면 무엇이 선택됐는지 알 수 없다
+ * (design-system ADR-006 §3). `aria-pressed` 는 스크린리더용이고 시각 신호를 대체하지 않는다.
+ */
+function TargetToggle({
+  target,
+  onPick
+}: {
+  target: PlanTarget
+  onPick: (next: PlanTarget) => void
+}) {
+  return (
+    <div className="flex items-center gap-1">
+      {(['current', 'next'] as const).map((value) => {
+        const on = value === target
+        return (
+          <button
+            key={value}
+            type="button"
+            aria-pressed={on}
+            onClick={() => onPick(value)}
+            className={`${TARGET_MIN} rounded-md border px-2 text-xs ${
+              on
+                ? 'border-control-border bg-glass-strong text-teal'
+                : 'border-transparent text-ink-dim'
+            }`}
+          >
+            {TARGET_LABEL[value]}
+          </button>
+        )
+      })}
+    </div>
+  )
+}
+
 /**
  * 플래너 모드 (ux-spec §5). 4단계를 한 화면에 위에서 아래로 쌓는다 — 마법사도, 단계
  * 전환도 없다. 어느 단계든 언제나 되돌아가 고칠 수 있는 것이 요점이다.
  *
- * **편집 대상 주 토글이 없다.** `다음 주` 는 이번 마일스톤에서 뺐으므로 항상 오늘이
- * 속한 주를 편집하고, 라벨도 그렇게 고정된다.
+ * **헤더·확정 버튼 라벨은 `target` 하나에서만 파생한다** (§5.0, PRD R5). 오늘이 무슨
+ * 요일인지에서 직접 파생하면, 일요일에 `이번 주 할당 잡기` 를 눌렀는데 다음 주가 열리는
+ * 모순이 생긴다.
  *
  * **과적이 확정을 막지 않는다** (R22). 예산은 추정치이고, 넘긴 것은 실패가 아니라 사실이다.
  */
 export function Planner({
   draft,
+  week,
+  target,
+  onChangeWeek,
   onConfirm,
   onCancel
 }: {
   draft: Draft
+  /** 편집 중인 주 키. 범위 라벨을 그린다. */
+  week: string
+  target: PlanTarget
+  onChangeWeek: (next: PlanTarget) => void
   onConfirm: (input: ConfirmInput) => void
   onCancel: () => void
 }) {
@@ -86,6 +136,22 @@ export function Planner({
   const [est, setEst] = useState(MIN_EST)
   const [days, setDays] = useState<number[]>([])
   const [confirmingDrop, setConfirmingDrop] = useState<string | null>(null)
+  /**
+   * 전환 확인 대기 중인 세그먼트. **고치던 내용을 조용히 버리지 않기 위한 장치**이며
+   * 파괴적 행위가 아니므로 `--danger` 도 경고 톤도 쓰지 않는다 (§5.0).
+   */
+  const [confirmingSwitch, setConfirmingSwitch] = useState<PlanTarget | null>(null)
+  /** 초안을 건드렸는가. 행 추가·제거·예산·입력 중인 제목이 전부 여기 모인다. */
+  const [dirty, setDirty] = useState(false)
+
+  const pickTarget = (next: PlanTarget) => {
+    if (next === target) return
+    if (dirty) {
+      setConfirmingSwitch(next)
+      return
+    }
+    onChangeWeek(next)
+  }
 
   const kept = rows.filter((r) => !r.pendingDrop)
   const planned = kept.reduce((sum, r) => sum + r.estPomos, 0)
@@ -106,6 +172,7 @@ export function Planner({
         pendingDrop: false
       }
     ])
+    setDirty(true)
     setTitle('')
     setEst(MIN_EST)
     setDays([]) // 요일 선택 초기화 — 다음 항목이 앞 항목의 배치를 물려받지 않는다 (§5.3)
@@ -113,6 +180,7 @@ export function Planner({
   }
 
   const removeRow = (row: Row) => {
+    setDirty(true)
     if (row.origin === 'new') {
       setRows((prev) => prev.filter((r) => r.key !== row.key)) // 무해한 취소 — 확인 없음
       return
@@ -122,19 +190,53 @@ export function Planner({
 
   return (
     <div className="flex h-full flex-col">
-      <header className="shrink-0 px-4 pt-4">
+      <header className="flex shrink-0 flex-col gap-1 px-4 pt-4">
         <p className="eyebrow">WEEK</p>
-        <h2 className="card-title text-ink">이번 주 계획</h2>
+        <h2 className="card-title text-ink">{`${TARGET_LABEL[target]} 계획`}</h2>
+        <TargetToggle target={target} onPick={pickTarget} />
+        <p className="font-mono text-xs tabular-nums text-ink-dim">{weekRangeLabel(week)}</p>
+        {confirmingSwitch !== null ? (
+          <div className="flex flex-col gap-1 rounded-md border border-glass-border-soft px-2 py-2">
+            <span className="text-xs text-ink-dim">
+              고치던 내용이 있어요 — 저장하지 않고 다른 주로 갈까요?
+            </span>
+            <div className="flex gap-2">
+              <Button
+                type="button"
+                variant="ghost"
+                size="xs"
+                onClick={() => {
+                  const next = confirmingSwitch
+                  setConfirmingSwitch(null)
+                  onChangeWeek(next)
+                }}
+              >
+                저장하지 않고 이동
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                size="xs"
+                onClick={() => setConfirmingSwitch(null)}
+              >
+                여기 남기
+              </Button>
+            </div>
+          </div>
+        ) : null}
       </header>
 
       <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3">
         <label className="flex flex-col gap-1 text-xs text-ink-dim">
-          이번 주 예산 (추정치)
+          {`${TARGET_LABEL[target]} 예산 (추정치)`}
           <input
             type="number"
             min={0}
             value={budget ?? ''}
-            onChange={(e) => setBudget(e.target.value === '' ? null : Number(e.target.value))}
+            onChange={(e) => {
+              setDirty(true)
+              setBudget(e.target.value === '' ? null : Number(e.target.value))
+            }}
             className="w-24 rounded-md border border-control-border bg-glass px-2 py-1 font-mono text-sm tabular-nums text-ink"
           />
         </label>
@@ -147,7 +249,10 @@ export function Planner({
               type="text"
               maxLength={40}
               value={title}
-              onChange={(e) => setTitle(e.target.value)}
+              onChange={(e) => {
+                setDirty(true)
+                setTitle(e.target.value)
+              }}
               onKeyDown={(e) => {
                 if (e.key === 'Enter') addItem()
               }}
@@ -335,7 +440,7 @@ export function Planner({
               })
             }
           >
-            이번 주 시작
+            {`${TARGET_LABEL[target]} 시작`}
           </Button>
         </div>
       </div>

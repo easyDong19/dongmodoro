@@ -101,6 +101,15 @@ export const timerSnapshotSchema = z.strictObject({
   focusSinceLastLong: z.int().min(0)
 })
 
+/**
+ * 정산 확정이 실패할 수 있는 **유일한 정상 경로** — 보고 있던 범위가 실제로 달라졌다.
+ *
+ * main 이 던지고 renderer 가 알아봐야 하므로 계약 옆에 둔다. IPC 를 건너는 동안 Error 는
+ * 메시지만 남으므로 renderer 는 `message.includes()` 로 판정한다 — 그래서 이 문자열이
+ * 양쪽에서 같은 상수여야 한다.
+ */
+export const STALE_RANGE = 'STALE_RANGE'
+
 export const contracts = {
   system: {
     getAppInfo: {

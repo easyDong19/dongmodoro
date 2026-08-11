@@ -145,3 +145,11 @@ describe('settled', () => {
     ).toEqual([['week', '2026-08-24'], ['today', '2026-08-20'], ['month'], ['review', 'pending']])
   })
 })
+
+describe('review-stale', () => {
+  it('판정과 패널을 함께 다시 읽는다 — 패널 키가 하위라 접두사로 잡힌다', () => {
+    expect(keysToInvalidate({ type: 'review-stale', currentDayKey: '2026-08-20' })).toEqual([
+      ['review', 'pending']
+    ])
+  })
+})

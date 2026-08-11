@@ -23,11 +23,16 @@ function makeRow(over: Partial<Row> = {}): Row {
   }
 }
 
-function renderRow(over: Partial<Row> = {}, handlers: Partial<Record<string, () => void>> = {}) {
+function renderRow(
+  over: Partial<Row> = {},
+  handlers: Partial<Record<string, () => void>> = {},
+  todayIndex: number | null = null
+) {
   return render(
     <WeekItemRow
       row={makeRow(over)}
       week={WEEK}
+      todayIndex={todayIndex}
       onPullNext={handlers.onPullNext ?? vi.fn()}
       onComplete={handlers.onComplete ?? vi.fn()}
       onUncomplete={handlers.onUncomplete ?? vi.fn()}
@@ -63,15 +68,10 @@ describe('WeekItemRow — 기본 구성 (§3.1)', () => {
 describe('WeekItemRow — 요일 핍 (§3.2 · principles §3.5)', () => {
   it('월요일 시작 순서로 요일 이름을 노출한다', () => {
     renderRow({ days: [0, 2] })
-    expect(screen.getAllByTestId('day-pip').map((p) => p.getAttribute('aria-label'))).toEqual([
-      '월',
-      '화',
-      '수',
-      '목',
-      '금',
-      '토',
-      '일'
-    ])
+    // 라벨은 요일 이름으로 시작하고 뒤에 상태가 붙는다 — 이름 순서가 이 테스트의 대상이다.
+    expect(
+      screen.getAllByTestId('day-pip').map((p) => p.getAttribute('aria-label')?.split(' ·')[0])
+    ).toEqual(['월', '화', '수', '목', '금', '토', '일'])
   })
 
   it('배정 여부를 aria-pressed 로 노출한다', () => {
@@ -93,6 +93,47 @@ describe('WeekItemRow — 요일 핍 (§3.2 · principles §3.5)', () => {
     const sizeOf = (el: Element) =>
       (el.className.match(/size-\[?[\d.]+(rem|px)?\]?/) ?? [])[0] ?? el.className
     expect(sizeOf(mon)).not.toBe(sizeOf(tue))
+  })
+
+  /**
+   * §3.2 의 4상태. 색 축(`--ink-faint` / `--teal` / `--amber`)과 모양 축(solid 작게 /
+   * 윤곽선만 / solid / 링 + 지름 확대)이 **둘 다** 갈린다 — 색만 다르면 색각 이상에서
+   * 구분이 사라지고, 모양만 다르면 5px 지름에서 안 읽힌다.
+   */
+  it('오늘을 알면 배정 핍이 지난/오늘/다가올로 갈린다', () => {
+    renderRow({ days: [0, 3, 5] }, {}, 3) // 오늘 = 목요일
+    const pips = screen.getAllByTestId('day-pip')
+    expect(pips[0].getAttribute('data-state')).toBe('past')
+    expect(pips[3].getAttribute('data-state')).toBe('today')
+    expect(pips[5].getAttribute('data-state')).toBe('upcoming')
+    expect(pips[1].getAttribute('data-state')).toBe('off')
+  })
+
+  it('지난 요일은 속을 비우고 오늘은 링과 큰 지름을 갖는다', () => {
+    renderRow({ days: [0, 3, 5] }, {}, 3)
+    const [mon, , , thu, , sat] = screen.getAllByTestId('day-pip')
+    expect(mon.className).toMatch(/border-teal/) // 윤곽선만
+    expect(mon.className).not.toMatch(/bg-teal/)
+    expect(thu.className).toMatch(/ring-/) // 바깥 링 1겹
+    expect(sat.className).toMatch(/bg-teal/) // solid 채움
+  })
+
+  it('오늘이 지난 요일에 --danger 를 쓰지 않는다 — 놓쳤다는 표시가 아니다', () => {
+    renderRow({ days: [0] }, {}, 3)
+    for (const pip of screen.getAllByTestId('day-pip')) {
+      expect(pip.className).not.toMatch(/danger/)
+    }
+  })
+
+  it('오늘을 모르면(다른 주) 2상태로 남는다', () => {
+    renderRow({ days: [0, 3] }, {}, null)
+    const states = screen.getAllByTestId('day-pip').map((p) => p.getAttribute('data-state'))
+    expect(new Set(states)).toEqual(new Set(['on', 'off']))
+  })
+
+  it('상태를 aria-label 에도 실어 스크린리더가 색에 기대지 않게 한다', () => {
+    renderRow({ days: [3] }, {}, 3)
+    expect(screen.getAllByTestId('day-pip')[3].getAttribute('aria-label')).toContain('오늘')
   })
 
   it('불투명도로 배정 여부를 표현하지 않는다 (principles §3.5)', () => {

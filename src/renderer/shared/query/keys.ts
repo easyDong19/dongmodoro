@@ -11,6 +11,12 @@ export const keys = {
   timer: () => ['timer'] as const,
   clock: () => ['clock'] as const,
   reviewPending: () => ['review', 'pending'] as const,
+  /**
+   * 정산 패널 데이터. **일부러 `reviewPending()` 아래에 둔다** — 확정과 자정 경계가 그
+   * 키를 털면 배너와 열려 있는 패널이 접두사로 함께 잡힌다. 별도 최상위 키로 두면
+   * 확정 후 배너만 사라지고 패널은 낡은 목록을 계속 보여준다.
+   */
+  reviewPanel: () => ['review', 'pending', 'panel'] as const,
   today: (dayKey: string) => ['today', dayKey] as const,
   day: (dayKey: string) => ['day', dayKey] as const,
   /**

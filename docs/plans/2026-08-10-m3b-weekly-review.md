@@ -1,5 +1,10 @@
 # M3b 주간 정산 구현 계획
 
+> **상태: 실행 완료** (2026-08-11, [PR #39](https://github.com/easyDong19/dongmodoro/pull/39) ·
+> 화면 PR). 열려 있는 체크박스는 Task 13 Step 4 의 **수동 검증 11항목**뿐이다 — 실행 주체가
+> 실물 앱을 눌러 봐야 하는 것이라 자동 검증(테스트·타입·린트·포맷·빌드 5종 통과)으로
+> 대체하지 않고 남긴다.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) 문법으로 진행을 추적한다.
 
 **Goal:** 한 주가 끝나는 지점에서 남은 항목을 **화면 1개·클릭 1회**로 처분하고, 그 결과가 계획 대상 주의 항목·워터마크·주간 카드까지 한 트랜잭션으로 반영되는 줄기를 화면에서 끝까지 통과시킨다. 몇 주를 비우고 돌아와도 화면은 여전히 1개다.
@@ -656,7 +661,7 @@ Task 1 이 요일 필드를 만들었으므로 M3a 가 함께 미뤄 둔 셋이 
 - Modify: `src/renderer/features/week/WeekItemRow.tsx`, `WeekCard.tsx`, `Planner.tsx`, `usePlanner.ts`, `useWeek.ts`
 - Test: 각 모듈 옆 `*.test.tsx`
 
-- [ ] **Step 1: 실패하는 테스트 작성**
+- [x] **Step 1: 실패하는 테스트 작성**
 
 ```tsx
 it('요일 핍이 지난/오늘/앞으로/미배정 4상태를 구분한다', () => {
@@ -667,13 +672,13 @@ it('오늘 배정된 항목이 목록 상단으로 온다 (week-plan R7 · A8)',
 it('플래너의 다음 주 세그먼트가 편집 대상 주를 바꾸고 라벨이 그 주를 가리킨다 (A3 · A5)', () => { /* ... */ })
 ```
 
-- [ ] **Step 2: 실행해 실패 확인** — FAIL
+- [x] **Step 2: 실행해 실패 확인** — FAIL
 
-- [ ] **Step 3: 구현** — 요일 정보의 출처는 `useClock().weekdayIndex` **하나뿐**이다. renderer 에서 요일을 계산하지 않는다 (ESLint `TIME_SELECTORS` 가 막는다).
+- [x] **Step 3: 구현** — 요일 정보의 출처는 `useClock().weekdayIndex` **하나뿐**이다. renderer 에서 요일을 계산하지 않는다 (ESLint `TIME_SELECTORS` 가 막는다).
 
-- [ ] **Step 4: 통과 확인** — `pnpm test` PASS
+- [x] **Step 4: 통과 확인** — `pnpm test` PASS
 
-- [ ] **Step 5: 커밋** — `feat: revive weekday-dependent week card behaviour now that the clock reports it`
+- [x] **Step 5: 커밋** — `feat: revive weekday-dependent week card behaviour now that the clock reports it`
 
 ---
 
@@ -683,7 +688,7 @@ it('플래너의 다음 주 세그먼트가 편집 대상 주를 바꾸고 라�
 - Create: `src/renderer/features/review/ReviewBanner.tsx`, `useReviewStatus.ts` + tests
 - Modify: `src/renderer/features/week/WeekCard.tsx` (헤더 아래 슬롯)
 
-- [ ] **Step 1: 실패하는 테스트 작성** — ux-spec §2 의 5상태 표를 그대로 옮긴다.
+- [x] **Step 1: 실패하는 테스트 작성** — ux-spec §2 의 5상태 표를 그대로 옮긴다.
 
 ```tsx
 it('빈 범위면 배너 자체를 렌더하지 않는다', () => { /* ... */ })
@@ -694,15 +699,15 @@ it('--danger 를 쓰지 않는다 — 정산 대기는 실패가 아니다 (prin
 it('"미달성"·"밀린"·"숙제"·"지연" 이 문구에 없다 (원칙 7)', () => { /* ... */ })
 ```
 
-- [ ] **Step 2: 실행해 실패 확인** — FAIL
+- [x] **Step 2: 실행해 실패 확인** — FAIL
 
-- [ ] **Step 3: 구현** — `--amber` 텍스트/보더 + `--glass` 표면, lucide `CalendarClock`. 주 라벨은 정정 ① 대로 `weekRangeLabel`.
+- [x] **Step 3: 구현** — `--amber` 텍스트/보더 + `--glass` 표면, lucide `CalendarClock`. 주 라벨은 정정 ① 대로 `weekRangeLabel`.
 
 배너에 닫기(×)를 둘 수 있으나 **로컬 상태로만** 숨긴다 — "무시했다"를 저장하면 저장값이 둘이 되어 워터마크 단독 판정이 깨진다. `review.dismissBanner` 채널을 **만들지 않는다.**
 
-- [ ] **Step 4: 통과 확인** — `pnpm test` PASS
+- [x] **Step 4: 통과 확인** — `pnpm test` PASS
 
-- [ ] **Step 5: 커밋** — `feat: show the settlement banner above the week card`
+- [x] **Step 5: 커밋** — `feat: show the settlement banner above the week card`
 
 ---
 
@@ -712,7 +717,7 @@ it('"미달성"·"밀린"·"숙제"·"지연" 이 문구에 없다 (원칙 7)', 
 - Create: `src/renderer/features/review/ReviewPanel.tsx`, `useReview.ts`, `SummarySection.tsx`, `CompletedSection.tsx` + tests
 - Modify: `src/renderer/features/week/WeekCard.tsx` (패널이 카드를 대신한다 — 정정 ③)
 
-- [ ] **Step 1: 실패하는 테스트 작성**
+- [x] **Step 1: 실패하는 테스트 작성**
 
 ```tsx
 it('한 일을 먼저 놓는다 — 공부한 날·소진이 남은 건수보다 앞선다 (R9 · A6)', () => { /* ... */ })
@@ -723,15 +728,15 @@ it('끝낸 것들이 0건이면 섹션 자체를 숨긴다', () => { /* ... */ }
 it('끝낸 것들에는 조작 컨트롤이 없다 (Q14 — 완료는 이미 만들어진 사실이다)', () => { /* ... */ })
 ```
 
-- [ ] **Step 2: 실행해 실패 확인** — FAIL
+- [x] **Step 2: 실행해 실패 확인** — FAIL
 
-- [ ] **Step 3: 구현** — 소진 수는 M3a 의 `PomoDots` + 숫자 병기(`--font-mono`, tabular-nums). 예산 초과에 빨강·경고를 쓰지 않는다.
+- [x] **Step 3: 구현** — 소진 수는 M3a 의 `PomoDots` + 숫자 병기(`--font-mono`, tabular-nums). 예산 초과에 빨강·경고를 쓰지 않는다.
 
 패널 진입은 M3a 의 플래너와 같은 모양이다 — `WeekCard` 가 `reviewing` 상태일 때 자기 대신 `ReviewPanel` 을 렌더하고, 닫을 때 진입 버튼으로 포커스를 되돌린다 (PRODUCT.md 접근성 §4). 되돌리지 않으면 포커스가 `<body>` 로 떨어진다.
 
-- [ ] **Step 4: 통과 확인** — `pnpm test` PASS
+- [x] **Step 4: 통과 확인** — `pnpm test` PASS
 
-- [ ] **Step 5: 커밋** — `feat: render the settlement summary and the finished section`
+- [x] **Step 5: 커밋** — `feat: render the settlement summary and the finished section`
 
 ---
 
@@ -740,7 +745,7 @@ it('끝낸 것들에는 조작 컨트롤이 없다 (Q14 — 완료는 이미 만
 **Files:**
 - Create: `src/renderer/shared/ui/Segmented.tsx`, `Stepper.tsx`, `src/renderer/features/review/PendingSection.tsx`, `PendingRow.tsx` + tests
 
-- [ ] **Step 1: 실패하는 테스트 작성**
+- [x] **Step 1: 실패하는 테스트 작성**
 
 ```tsx
 it('모든 항목의 기본 선택이 "다음 주로" 다 (R12)', () => { /* ... */ })
@@ -757,17 +762,17 @@ it('N주째 배지는 N ≥ 2 일 때만 나오고 색으로 강조하지 않는
 it('조작 타깃이 --target-min 을 밑돌지 않는다', () => { /* ... */ })
 ```
 
-- [ ] **Step 2: 실행해 실패 확인** — FAIL
+- [x] **Step 2: 실행해 실패 확인** — FAIL
 
-- [ ] **Step 3: 구현** — 정렬(`carryWeeks` 내림 → 주 오름 → 생성순)은 **화면이 한다.** 서버는 주·생성순으로만 준다.
+- [x] **Step 3: 구현** — 정렬(`carryWeeks` 내림 → 주 오름 → 생성순)은 **화면이 한다.** 서버는 주·생성순으로만 준다.
 
 세그먼트는 `aria-pressed` 를 쓰되 **시각 신호를 대체하지 않는다** — 스크린리더 전용이다. 360px 폭이라 세그먼트는 제목 아래 자기 줄로 내려간다 (정정 ③).
 
 "버리기"·"삭제"·"정리하세요" 류 문구를 넣지 않는다. 잘려나간 몫이 이력에 안 남는다는 사실(R36)을 화면에서 경고하지 않는다 — 줄이는 것은 실패가 아니다.
 
-- [ ] **Step 4: 통과 확인** — `pnpm test` PASS
+- [x] **Step 4: 통과 확인** — `pnpm test` PASS
 
-- [ ] **Step 5: 커밋** — `feat: offer carry, reduce and release for every remaining item`
+- [x] **Step 5: 커밋** — `feat: offer carry, reduce and release for every remaining item`
 
 ---
 
@@ -777,7 +782,7 @@ it('조작 타깃이 --target-min 을 밑돌지 않는다', () => { /* ... */ })
 - Create: `src/renderer/features/review/ConfirmSection.tsx` + test
 - Modify: `ReviewPanel.tsx`, `useReview.ts`
 
-- [ ] **Step 1: 실패하는 테스트 작성**
+- [x] **Step 1: 실패하는 테스트 작성**
 
 ```tsx
 it('계획에 없던 집중이 1 이상일 때만 안내가 나오고 "미분류" 라는 단어를 쓰지 않는다', () => { /* ... */ })
@@ -811,29 +816,29 @@ describe('STALE_RANGE 후처리 (ux-spec §8.1)', () => {
 it('확정 실패 시 선택 상태를 유지하고 아무것도 반영되지 않았음을 알린다 (R22)', () => { /* ... */ })
 ```
 
-- [ ] **Step 2: 실행해 실패 확인** — FAIL
+- [x] **Step 2: 실행해 실패 확인** — FAIL
 
-- [ ] **Step 3: 구현** — 확정 후 패널이 닫히고 배너가 사라진다. **플래너를 자동으로 열지 않는다** — 정산과 플래닝은 분리된 단계다.
+- [x] **Step 3: 구현** — 확정 후 패널이 닫히고 배너가 사라진다. **플래너를 자동으로 열지 않는다** — 정산과 플래닝은 분리된 단계다.
 
 확정 버튼은 스크롤 하단 고정으로 항상 도달 가능해야 한다 (ux-spec §10).
 
-- [ ] **Step 4: 통과 확인** — `pnpm test` PASS
+- [x] **Step 4: 통과 확인** — `pnpm test` PASS
 
-- [ ] **Step 5: 커밋** — `feat: confirm the settlement and recover when the range shifts underneath`
+- [x] **Step 5: 커밋** — `feat: confirm the settlement and recover when the range shifts underneath`
 
 ---
 
 ### Task 13: 문서 갱신 + 마무리 검증
 
-- [ ] **Step 1: 정정 3건을 기능 문서에 반영**
+- [x] **Step 1: 정정 3건을 기능 문서에 반영**
   - `ux-spec.md` §2·§3·§5.1 — `W35`·`W33–W35` 표기를 날짜 라벨로 (정정 ①)
   - `technical-spec.md` `review.getPending` 계약 + `ux-spec.md` §7.2 — `targetWeekBudget` nullable 과 예산 없음 문구 (정정 ②)
   - `ux-spec.md` §6 — 뽀모 길이 **진입점**이 pomo-baseline 마일스톤으로 미뤄졌다는 사실 (표시는 남는다)
   - `weekly-review/overview.md` 상태를 Draft → In Review
 
-- [ ] **Step 2: 마일스톤 문서 갱신** — `PRODUCT.md`·`README.md` 에 M3b 완료와 남은 것(뽀모 길이 편집 UI·부하 그래프·드릴다운) 기록
+- [x] **Step 2: 마일스톤 문서 갱신** — `PRODUCT.md`·`README.md` 에 M3b 완료와 남은 것(뽀모 길이 편집 UI·부하 그래프·드릴다운) 기록
 
-- [ ] **Step 3: 자동 검증 5종**
+- [x] **Step 3: 자동 검증 5종**
 
 ```bash
 pnpm test && pnpm lint && pnpm typecheck && pnpm format:check && pnpm build
@@ -852,7 +857,7 @@ pnpm test && pnpm lint && pnpm typecheck && pnpm format:check && pnpm build
   - [ ] 3주 공백을 만든 DB 로 실행 — 정산 화면이 **1개**이고 항목만 3주분이다 (A3)
   - [ ] 다크·라이트 양쪽에서 배너·패널을 본다 — **다크는 아직 한 번도 눈으로 확인된 적이 없다** (광원 실효 알파가 라이트의 2배다)
 
-- [ ] **Step 5: 커밋 + PR** — `docs: record m3b completion` / PR 제목 `feat: settle a week range and carry the remainder forward`
+- [x] **Step 5: 커밋 + PR** — `docs: record m3b completion` / PR 제목 `feat: settle a week range and carry the remainder forward`
 
 ---
 

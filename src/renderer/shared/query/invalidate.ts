@@ -25,6 +25,14 @@ export type InvalidationEvent =
       currentDayKey: string
     }
   | {
+      /**
+       * 확정이 `STALE_RANGE` 로 거절됐다. 아무것도 저장되지 않았지만 **화면이 보던 범위가
+       * 실제와 다르다**는 사실이 밝혀졌으므로 판정과 패널을 다시 읽는다 (ux-spec §8).
+       */
+      type: 'review-stale'
+      currentDayKey: string
+    }
+  | {
       type: 'clock-boundary'
       payload: ClockBoundary
       previous: ClockBoundary
@@ -96,6 +104,10 @@ export function keysToInvalidate(e: InvalidationEvent): readonly (readonly strin
         keys.monthAll(),
         keys.reviewPending()
       ]
+    case 'review-stale':
+      // 패널 키가 이 키의 하위라 접두사로 함께 잡힌다 (keys.ts) — 배너와 패널이 같은
+      // 재판정 결과를 본다.
+      return [keys.reviewPending()]
     case 'clock-boundary': {
       const out: (readonly string[])[] = [keys.todayAll(), keys.reviewPending()]
       if (e.payload.weekKey !== e.previous.weekKey) out.push(keys.weekAll())

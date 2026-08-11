@@ -6,9 +6,9 @@ import {
   resolveDecisions,
   reviewPending,
   reviewStatus,
-  settle,
-  STALE_RANGE
+  settle
 } from './review'
+import { STALE_RANGE } from '@shared/ipc/contracts'
 import type { PendingDecisionRow } from './review'
 import type { Repositories, UnitOfWork } from './ports'
 
