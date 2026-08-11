@@ -68,7 +68,9 @@ const api: Api = {
   },
   settings: {
     getTheme: () => ipcRenderer.invoke(CHANNELS.settings.getTheme),
-    setTheme: (theme) => ipcRenderer.invoke(CHANNELS.settings.setTheme, theme)
+    setTheme: (theme) => ipcRenderer.invoke(CHANNELS.settings.setTheme, theme),
+    getBaseline: () => ipcRenderer.invoke(CHANNELS.settings.getBaseline),
+    setBaseline: (form) => ipcRenderer.invoke(CHANNELS.settings.setBaseline, form)
   },
   events: {
     onTimerTransition: on(EVENT_CHANNELS.timerTransition),

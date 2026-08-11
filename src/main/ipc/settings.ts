@@ -2,6 +2,8 @@ import type { BrowserWindow } from 'electron'
 import { CHANNELS } from '@shared/ipc/channels'
 import { contracts } from '@shared/ipc/contracts'
 import type { UnitOfWork } from '../services/ports'
+import { localKeys } from '@shared/time'
+import { baselineBasis, baselineForm, writeBaseline } from '../services/baseline'
 import { readTheme, setTheme } from '../services/theme'
 import { handleIpc } from './handle'
 
@@ -27,4 +29,15 @@ export function registerSettingsHandlers(
   handleIpc(CHANNELS.settings.setTheme, contracts.settings.setTheme, (theme) => ({
     theme: setTheme(uow, theme, getWindow())
   }))
+
+  handleIpc(CHANNELS.settings.getBaseline, contracts.settings.getBaseline, () =>
+    uow.run((repos) => ({
+      ...baselineForm(repos),
+      ...baselineBasis(repos, localKeys().localDate)
+    }))
+  )
+
+  handleIpc(CHANNELS.settings.setBaseline, contracts.settings.setBaseline, (form) =>
+    writeBaseline(uow, form)
+  )
 }

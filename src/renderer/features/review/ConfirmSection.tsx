@@ -1,3 +1,4 @@
+import { BaselineSection } from '@renderer/features/baseline/BaselineSection'
 import { Button } from '@renderer/shared/ui/button'
 import type { ReviewPending } from './useReview'
 
@@ -26,13 +27,19 @@ export function GuidanceSection({ data }: { data: Panel }) {
       ) : null}
 
       <div className="flex flex-col gap-1">
-        <p className="text-xs text-ink-dim">
-          {`뽀모 길이 — 집중 ${focusMin} · 짧은 휴식 ${shortBreakMin} · 긴 휴식 ${longBreakMin}`}
-        </p>
+        {/* 현재 값은 이 패널의 payload 로 그린다. `조정` 폼도 같은 값을 자기 채널로
+            읽지만, **표시의 출처는 여기 하나뿐이다** — 두 경로가 같은 사실을 그리면
+            저장 직후 한쪽만 갱신된 순간이 화면에 보인다. 저장 후 이 줄을 갱신하는 것은
+            `baseline-changed` 무효화의 몫이다. */}
+        <div className="flex flex-wrap items-center gap-2">
+          <p className="text-xs text-ink-dim">
+            {`뽀모 길이 — 집중 ${focusMin} · 짧은 휴식 ${shortBreakMin} · 긴 휴식 ${longBreakMin}`}
+          </p>
+          <BaselineSection />
+        </div>
         {/* 완결 문장이므로 메타 토큰(xs)이 아니라 sm 이다 (design-system ADR-009 §2).
             "정산에서만 바꿔요" 류를 쓰지 않는다 — 길이는 언제든 편집할 수 있고, 정산에
-            있는 것은 진입점일 뿐이다 (ADR-013 §3). 그 진입점은 pomo-baseline 소관이라
-            이번 마일스톤에서 뺐고, 여기서는 현재 값만 사실로 적는다. */}
+            있는 것은 진입점일 뿐이다 (ADR-013 §3). */}
         <p className="text-sm text-ink-dim">
           바꾼 길이는 다음 주부터 적용돼요 · 이번 주 기록은 그대로예요
         </p>

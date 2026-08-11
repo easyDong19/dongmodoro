@@ -19,7 +19,7 @@ export type SettlementStatus =
  * 계획 대상 주 = `weekOf(오늘 + plan_lead_days)` (technical-spec §0).
  * `plan_lead_days` 기본 1 = 일요일에 다음 주를 계획한다.
  */
-function planTargetWeek(repos: Repositories, todayKey: string): string {
+export function planTargetWeek(repos: Repositories, todayKey: string): string {
   const raw = repos.settings.get(LEAD)
   const lead = raw === null ? 1 : (JSON.parse(raw) as number)
   return weekOfDay(addDays(todayKey, lead))

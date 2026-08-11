@@ -47,7 +47,9 @@ export const CHANNELS = {
    */
   settings: {
     getTheme: 'settings:getTheme',
-    setTheme: 'settings:setTheme'
+    setTheme: 'settings:setTheme',
+    getBaseline: 'settings:getBaseline',
+    setBaseline: 'settings:setBaseline'
   }
 } as const
 

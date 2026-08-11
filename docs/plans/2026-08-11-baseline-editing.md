@@ -100,10 +100,10 @@ src/
 
 계획이 결정을 만들 수 없으므로, **화면 배치를 코드보다 먼저 문서에 적는다.** 이 순서를 뒤집으면 구현이 곧 결정이 되고 ux-spec 이 사후 추인 문서가 된다.
 
-- [ ] **Step 1:** [weekly-review/ux-spec.md](../features/weekly-review/ux-spec.md) §6 에서 **"`조정` 버튼은 pomo-baseline 마일스톤으로 미뤘다"** 문단을 지운다.
-- [ ] **Step 2:** 같은 자리에 조정 폼의 **자리**를 적는다 — `조정` 을 누르면 **패널 내 인라인으로 펼쳐지고**, 확정 버튼(§7)은 하단 고정을 유지한다. 별도 모달·별도 창을 만들지 않는다. 근거를 함께 적는다: 정산 패널은 이미 스크롤 영역이고, 모달을 겹치면 "정산을 확정하지 않고 닫아도 길이 변경은 남는다"(§6)는 규칙이 사용자에게 두 겹의 취소 버튼으로 보인다.
-- [ ] **Step 3:** 길이 변경과 정산 확정이 **별개 저장**임을 화면 수준에서 어떻게 드러내는지 한 줄 적는다 — 폼은 자기 확정 버튼을 갖고, 그 버튼은 정산 확정 버튼과 라벨이 겹치지 않는다.
-- [ ] **Step 4:** [pomo-baseline/prd.md](../features/pomo-baseline/prd.md) 는 **고치지 않는다.** 요구사항이 바뀌는 것이 아니라 구현이 따라잡는 것이다.
+- [x] **Step 1:** [weekly-review/ux-spec.md](../features/weekly-review/ux-spec.md) §6 에서 **"`조정` 버튼은 pomo-baseline 마일스톤으로 미뤘다"** 문단을 지운다.
+- [x] **Step 2:** 같은 자리에 조정 폼의 **자리**를 적는다 — `조정` 을 누르면 **패널 내 인라인으로 펼쳐지고**, 확정 버튼(§7)은 하단 고정을 유지한다. 별도 모달·별도 창을 만들지 않는다. 근거를 함께 적는다: 정산 패널은 이미 스크롤 영역이고, 모달을 겹치면 "정산을 확정하지 않고 닫아도 길이 변경은 남는다"(§6)는 규칙이 사용자에게 두 겹의 취소 버튼으로 보인다.
+- [x] **Step 3:** 길이 변경과 정산 확정이 **별개 저장**임을 화면 수준에서 어떻게 드러내는지 한 줄 적는다 — 폼은 자기 확정 버튼을 갖고, 그 버튼은 정산 확정 버튼과 라벨이 겹치지 않는다.
+- [x] **Step 4:** [pomo-baseline/prd.md](../features/pomo-baseline/prd.md) 는 **고치지 않는다.** 요구사항이 바뀌는 것이 아니라 구현이 따라잡는 것이다.
 
 **검증:** ux-spec §6 에 "미뤘다"·"갈 곳이 없다" 류 표현이 0건이고, 폼의 자리가 한 문단으로 확정돼 있다.
 
@@ -111,8 +111,8 @@ src/
 
 ### Task 2: IPC 계약 — `settings.getBaseline` · `setBaseline`
 
-- [ ] **Step 1:** [channels.ts](../../src/shared/ipc/channels.ts) 의 `settings` 에 `getBaseline: 'settings:getBaseline'` · `setBaseline: 'settings:setBaseline'` 을 더한다. **범용 `get(key)` 를 만들지 않는다** — 그 파일 주석이 이미 이유를 적어 뒀다.
-- [ ] **Step 2:** [contracts.ts](../../src/shared/ipc/contracts.ts) 에 폼 값 스키마를 만든다. 하한이 여기 있고, 이것이 R5·R7 의 **첫 번째 거부 지점**이다.
+- [x] **Step 1:** [channels.ts](../../src/shared/ipc/channels.ts) 의 `settings` 에 `getBaseline: 'settings:getBaseline'` · `setBaseline: 'settings:setBaseline'` 을 더한다. **범용 `get(key)` 를 만들지 않는다** — 그 파일 주석이 이미 이유를 적어 뒀다.
+- [x] **Step 2:** [contracts.ts](../../src/shared/ipc/contracts.ts) 에 폼 값 스키마를 만든다. 하한이 여기 있고, 이것이 R5·R7 의 **첫 번째 거부 지점**이다.
 
   ```ts
   const baselineFormSchema = z.strictObject({
@@ -124,7 +124,7 @@ src/
   })
   ```
 
-- [ ] **Step 3:** `getBaseline` 의 응답은 폼 값 + **시간 비교의 기준 개수**다. 기준을 렌더러가 고르게 하면 R26 의 결정 순서가 화면으로 새어나간다.
+- [x] **Step 3:** `getBaseline` 의 응답은 폼 값 + **시간 비교의 기준 개수**다. 기준을 렌더러가 고르게 하면 R26 의 결정 순서가 화면으로 새어나간다.
 
   ```ts
   getBaseline: {
@@ -138,9 +138,9 @@ src/
   }
   ```
 
-- [ ] **Step 4:** `setBaseline` 의 요청은 `z.tuple([baselineFormSchema])`, 응답은 **저장된 값**이다 (`baselineFormSchema`). `void` 가 아닌 이유는 `setTheme` 과 같다 — 화면이 낙관적 추측이 아니라 사실로 갱신하게 한다.
-- [ ] **Step 5:** `capacity: null` 을 보내는 것은 **"미설정을 유지한다"** 는 뜻이며 **"설정을 지운다"가 아니다.** 이 문장을 계약 주석에 적는다. 해제는 이번 범위 밖이고(위 표), 주석이 없으면 다음 사람이 null 을 삭제 신호로 읽는다.
-- [ ] **Step 6:** [api.ts](../../src/shared/ipc/api.ts) 와 [preload/index.ts](../../src/preload/index.ts) 의 `settings` 표면에 두 함수를 더한다. ADR-007 의 네 곳(channels → contracts → handleIpc → preload)을 전부 채운다.
+- [x] **Step 4:** `setBaseline` 의 요청은 `z.tuple([baselineFormSchema])`, 응답은 **저장된 값**이다 (`baselineFormSchema`). `void` 가 아닌 이유는 `setTheme` 과 같다 — 화면이 낙관적 추측이 아니라 사실로 갱신하게 한다.
+- [x] **Step 5:** `capacity: null` 을 보내는 것은 **"미설정을 유지한다"** 는 뜻이며 **"설정을 지운다"가 아니다.** 이 문장을 계약 주석에 적는다. 해제는 이번 범위 밖이고(위 표), 주석이 없으면 다음 사람이 null 을 삭제 신호로 읽는다.
+- [x] **Step 6:** [api.ts](../../src/shared/ipc/api.ts) 와 [preload/index.ts](../../src/preload/index.ts) 의 `settings` 표면에 두 함수를 더한다. ADR-007 의 네 곳(channels → contracts → handleIpc → preload)을 전부 채운다.
 
 **검증:** 타입체크 통과. `focusMin: 0`·`12.5`·`capacity` 길이 6 을 보내는 계약 단위 테스트가 전부 거부된다 (A5).
 
@@ -148,16 +148,19 @@ src/
 
 ### Task 3: main 서비스 — 쓰기 경로와 기준 개수
 
-- [ ] **Step 1:** [baseline.ts](../../src/main/services/baseline.ts) 에 `writeBaseline(uow, form)` 을 더한다. 하는 일은 `settings` 네 키를 **한 트랜잭션에서** 갱신하는 것뿐이다. 값은 JSON 문자열이다 (ADR-018 §5) — `'25'`, `'[4,2,4,2,4,0,8]'`.
-- [ ] **Step 2:** `capacity === null` 이면 `weekly_capacity` 키를 **건드리지 않는다.** 쓰지 않는 것과 `null` 을 쓰는 것을 혼동하지 않는다 — 후자를 하면 A9 가 깨질 여지가 생긴다.
-- [ ] **Step 3:** **`weeks` 테이블에 접근하지 않는다.** 이 함수가 `weeks` 를 import 하면 R19 가 코드 한 줄로 깨진다. 리뷰에서 확인할 수 있게 함수 주석에 명시한다.
-- [ ] **Step 4:** `baselineBasis(repos, todayKey)` 를 더한다. R26 의 결정 순서를 **여기서만** 구현한다.
+- [x] **Step 1:** [baseline.ts](../../src/main/services/baseline.ts) 에 `writeBaseline(uow, form)` 을 더한다. 하는 일은 `settings` 네 키를 **한 트랜잭션에서** 갱신하는 것뿐이다. 값은 JSON 문자열이다 (ADR-018 §5) — `'25'`, `'[4,2,4,2,4,0,8]'`.
+- [x] **Step 2:** `capacity === null` 이면 `weekly_capacity` 키를 **건드리지 않는다.** 쓰지 않는 것과 `null` 을 쓰는 것을 혼동하지 않는다 — 후자를 하면 A9 가 깨질 여지가 생긴다.
+- [x] **Step 3:** **`weeks` 테이블에 접근하지 않는다.** 이 함수가 `weeks` 를 import 하면 R19 가 코드 한 줄로 깨진다. 리뷰에서 확인할 수 있게 함수 주석에 명시한다.
+- [x] **Step 4:** `baselineBasis(repos, todayKey)` 를 더한다. R26 의 결정 순서를 **여기서만** 구현한다.
   1. `planTargetWeek(repos, todayKey)` 로 계획 대상 주를 구한다 — [review.ts](../../src/main/services/review.ts) 에 이미 있다. **복제하지 않고 import 한다.** 복제하면 `plan_lead_days` 해석이 두 곳이 된다.
   2. `effectiveBudget(repos, targetWeek)` 이 개수를 반환하면 `{ basisPomos, basisSource: 'budget' }`.
   3. 아니면 `weekly_capacity` 합 → `{ basisPomos, basisSource: 'capacity' }`.
   4. 둘 다 없으면 `{ basisPomos: null, basisSource: null }`.
-- [ ] **Step 5:** [ipc/settings.ts](../../src/main/ipc/settings.ts) 에 핸들러 2종을 배선한다. **이 파일은 배선만 한다** — 결정 순서·검증은 서비스에 있다. 기존 테마 핸들러가 그 규율을 이미 지키고 있다.
-- [ ] **Step 6:** 테스트 (`src/main/services/baseline.test.ts` 신규):
+- [x] **Step 5:** [ipc/settings.ts](../../src/main/ipc/settings.ts) 에 핸들러 2종을 배선한다. **이 파일은 배선만 한다** — 결정 순서·검증은 서비스에 있다. 기존 테마 핸들러가 그 규율을 이미 지키고 있다.
+- [x] **Step 6:** 테스트 — **기존 [`src/main/db/repositories/baseline.test.ts`](../../src/main/db/repositories/baseline.test.ts) 에 더한다.**
+
+  > **갱신 (실행 중 정정):** 이 Step 은 원래 `src/main/services/baseline.test.ts` 를 새로 만들라고 했는데, 그 자리에서는 eslint 가 막는다 — 테스트가 인메모리 DB 를 세우려면 `drizzle-orm/better-sqlite3/migrator` 를 import 해야 하고, ADR-015 §2 는 DB 라이브러리 import 를 `src/main/db/` 하위로 제한한다. 위 **파일 구조** 메모("새로 만들지 말고 그 파일에 더한다")가 맞았고 Step 표기가 틀렸다.
+
   - 길이만 바꾸면 `weekly_capacity` 가 미설정으로 남는다 (A9)
   - 이미 `weeks` 행이 있는 주에서 길이를 바꿔도 `effectiveBaseline(그 주)` 가 **변하지 않는다** (A17)
   - 그 값이 **다음 주**의 `effectiveBaseline` 에서는 새 값으로 읽힌다 (A18)
@@ -170,16 +173,16 @@ src/
 
 ### Task 4: 편집 폼 — 길이 3종 + 가용량 7칸 + 시간 비교
 
-- [ ] **Step 1:** `src/renderer/features/baseline/useBaseline.ts` — `keys.settings()` 로 조회하고, 변경 성공 시 무효화한다. 새 query key 를 만들지 않는다 (`keys.settings()` 가 이미 있다).
-- [ ] **Step 2:** `BaselineForm.tsx` 를 만든다. 입력은 길이 3종(분)과 가용량 7칸(개수)이며, **가용량 칸의 순서는 월→일**이다 (R7 · A7). 요일 라벨을 붙여 인덱스 규약이 화면에서 드러나게 한다.
-- [ ] **Step 3:** 가용량이 미설정(`null`)이면 7칸을 **빈 채로** 연다. 사용자가 한 칸이라도 채우면 나머지를 `0` 으로 채워 배열을 완성한다. **폼을 여는 것만으로 배열이 생기지 않는다** (A9).
-- [ ] **Step 4:** 시간 비교를 렌더한다 (R26 · A23). 형식은 ux-spec §6 의 예시를 따른다 — `주 24개 · 지금 10시간 → 바꾸면 20시간`.
+- [x] **Step 1:** `src/renderer/features/baseline/useBaseline.ts` — `keys.settings()` 로 조회하고, 변경 성공 시 무효화한다. 새 query key 를 만들지 않는다 (`keys.settings()` 가 이미 있다).
+- [x] **Step 2:** `BaselineForm.tsx` 를 만든다. 입력은 길이 3종(분)과 가용량 7칸(개수)이며, **가용량 칸의 순서는 월→일**이다 (R7 · A7). 요일 라벨을 붙여 인덱스 규약이 화면에서 드러나게 한다.
+- [x] **Step 3:** 가용량이 미설정(`null`)이면 7칸을 **빈 채로** 연다. 사용자가 한 칸이라도 채우면 나머지를 `0` 으로 채워 배열을 완성한다. **폼을 여는 것만으로 배열이 생기지 않는다** (A9).
+- [x] **Step 4:** 시간 비교를 렌더한다 (R26 · A23). 형식은 ux-spec §6 의 예시를 따른다 — `주 24개 · 지금 10시간 → 바꾸면 20시간`.
   - 계산은 `기준 개수 × focus_min` 이고 분을 시간으로 바꾼다.
   - `basisSource === 'capacity'` 면 기준 개수는 **폼에서 편집 중인 가용량 합**을 쓴다. 서버가 준 값을 고집하면 가용량을 24 → 10 으로 고친 사용자에게 24 기준 비교가 남는다.
   - `basisPomos === null` 이면 **비교 영역을 렌더하지 않는다.** 오류 문구도 경고도 없다 (A25).
-- [ ] **Step 5:** 자동 환산을 하지 않는다 (A24). 길이를 바꿔도 가용량 입력값은 그대로 두고, "가용량도 바꿀까요" 류 제안을 하지 않는다 (PRD 원칙 6).
-- [ ] **Step 6:** 접근성 — 조작 타깃 24px(`--target-min`), 포커스 링, 숫자 입력에 라벨. 이모지 금지·토큰만 (design-system principles §6·§7).
-- [ ] **Step 7:** 테스트:
+- [x] **Step 5:** 자동 환산을 하지 않는다 (A24). 길이를 바꿔도 가용량 입력값은 그대로 두고, "가용량도 바꿀까요" 류 제안을 하지 않는다 (PRD 원칙 6).
+- [x] **Step 6:** 접근성 — 조작 타깃 24px(`--target-min`), 포커스 링, 숫자 입력에 라벨. 이모지 금지·토큰만 (design-system principles §6·§7).
+- [x] **Step 7:** 테스트:
   - 미설정 상태로 열면 가용량 7칸이 비어 있고, 아무것도 건드리지 않고 저장하면 `capacity: null` 이 전송된다
   - 한 칸을 채우면 나머지가 `0` 으로 채워진 길이 7 배열이 전송된다
   - `focusMin` 을 25 → 50 으로 바꾸면 비교 문장의 두 숫자가 함께 바뀐다
@@ -191,12 +194,12 @@ src/
 
 ### Task 5: 정산 패널 진입점
 
-- [ ] **Step 1:** [ConfirmSection.tsx](../../src/renderer/features/review/ConfirmSection.tsx) 의 `GuidanceSection` 에 `조정` **ghost 버튼**을 더한다. 현재 값 표시 줄(`뽀모 길이 — 집중 25 · …`)은 그대로 둔다 — 그 줄은 이미 ux-spec §6 대로다.
-- [ ] **Step 2:** 누르면 `BaselineForm` 이 **같은 섹션 안에서 인라인으로** 펼쳐진다 (Task 1 에서 확정한 자리). 확정 버튼은 하단 고정을 유지한다 (§10).
-- [ ] **Step 3:** 폼의 저장은 **정산 확정과 독립**이다. 저장 후 폼을 접고, 표시 줄의 숫자가 새 값으로 갱신된다. 정산을 확정하지 않고 패널을 닫아도 길이 변경은 남는다 (ux-spec §6).
-- [ ] **Step 4:** 보조 문구 `` `바꾼 길이는 다음 주부터 적용돼요 · 이번 주 기록은 그대로예요` `` 는 그대로 둔다. **"정산에서만 바꿔요" 류 문구를 새로 만들지 않는다** (R21 이 그 제약을 폐기했다).
-- [ ] **Step 5:** [invalidate.ts](../../src/renderer/shared/query/invalidate.ts) — 베이스라인 변경 후 무효화 대상을 정한다. **정산 패널(`keys.reviewPending()`)과 타이머(`keys.timer()`)** 다. 주간 카드는 그 주 스냅샷을 읽으므로 **무효화 대상이 아니다** — 넣으면 "아무것도 안 바뀌는 재조회"가 생기고, 그것이 다음 사람에게 "베이스라인이 주간 카드를 바꾼다"는 오해를 심는다.
-- [ ] **Step 6:** 테스트 — `조정` 을 눌러 폼이 열리고, 저장 후 표시 줄 숫자가 바뀌며, **정산 확정 버튼이 그 사이에도 계속 눌리는 상태**로 남는다.
+- [x] **Step 1:** [ConfirmSection.tsx](../../src/renderer/features/review/ConfirmSection.tsx) 의 `GuidanceSection` 에 `조정` **ghost 버튼**을 더한다. 현재 값 표시 줄(`뽀모 길이 — 집중 25 · …`)은 그대로 둔다 — 그 줄은 이미 ux-spec §6 대로다.
+- [x] **Step 2:** 누르면 `BaselineForm` 이 **같은 섹션 안에서 인라인으로** 펼쳐진다 (Task 1 에서 확정한 자리). 확정 버튼은 하단 고정을 유지한다 (§10).
+- [x] **Step 3:** 폼의 저장은 **정산 확정과 독립**이다. 저장 후 폼을 접고, 표시 줄의 숫자가 새 값으로 갱신된다. 정산을 확정하지 않고 패널을 닫아도 길이 변경은 남는다 (ux-spec §6).
+- [x] **Step 4:** 보조 문구 `` `바꾼 길이는 다음 주부터 적용돼요 · 이번 주 기록은 그대로예요` `` 는 그대로 둔다. **"정산에서만 바꿔요" 류 문구를 새로 만들지 않는다** (R21 이 그 제약을 폐기했다).
+- [x] **Step 5:** [invalidate.ts](../../src/renderer/shared/query/invalidate.ts) — 베이스라인 변경 후 무효화 대상을 정한다. **정산 패널(`keys.reviewPending()`)과 타이머(`keys.timer()`)** 다. 주간 카드는 그 주 스냅샷을 읽으므로 **무효화 대상이 아니다** — 넣으면 "아무것도 안 바뀌는 재조회"가 생기고, 그것이 다음 사람에게 "베이스라인이 주간 카드를 바꾼다"는 오해를 심는다.
+- [x] **Step 6:** 테스트 — `조정` 을 눌러 폼이 열리고, 저장 후 표시 줄 숫자가 바뀌며, **정산 확정 버튼이 그 사이에도 계속 눌리는 상태**로 남는다.
 
 **검증:** 위 3종 통과. 패널을 열어 폼만 저장하고 닫는 흐름에서 정산이 확정되지 않는다.
 
@@ -204,9 +207,9 @@ src/
 
 ### Task 6: 문서·주석 정정
 
-- [ ] **Step 1:** 위 **"함께 고치는 문서·주석 6곳"** 표를 전부 처리한다. Task 1 에서 이미 처리한 ux-spec §6 은 제외.
-- [ ] **Step 2:** `grep -rn "편집 진입점은 pomo-baseline\|편집 UI 가 없\|마일스톤으로 미뤘다" src/ docs/features/ docs/architecture/ README.md PRODUCT.md` 로 잔여 표현 0건 확인. `docs/origin/`·`docs/decision-log/`·`docs/plans/` 는 **소급 수정 금지 대상이라 제외**한다.
-- [ ] **Step 3:** [README.md](../../README.md) 의 "값이 없어 미뤄져 있는 셋" 문장에서 **뽀모 길이 편집 진입점만** 뺀다. 요일별 부하 그래프와 기타 행 드릴다운은 여전히 없다 — 셋을 통째로 지우면 문서가 거짓이 된다.
+- [x] **Step 1:** 위 **"함께 고치는 문서·주석 6곳"** 표를 전부 처리한다. Task 1 에서 이미 처리한 ux-spec §6 은 제외.
+- [x] **Step 2:** `grep -rn "편집 진입점은 pomo-baseline\|편집 UI 가 없\|마일스톤으로 미뤘다" src/ docs/features/ docs/architecture/ README.md PRODUCT.md` 로 잔여 표현 0건 확인. `docs/origin/`·`docs/decision-log/`·`docs/plans/` 는 **소급 수정 금지 대상이라 제외**한다.
+- [x] **Step 3:** [README.md](../../README.md) 의 "값이 없어 미뤄져 있는 셋" 문장에서 **뽀모 길이 편집 진입점만** 뺀다. 요일별 부하 그래프와 기타 행 드릴다운은 여전히 없다 — 셋을 통째로 지우면 문서가 거짓이 된다.
 
 **검증:** Step 2 의 grep 이 제외 경로 밖에서 0건.
 
@@ -214,16 +217,45 @@ src/
 
 ### Task 7: 마무리 검증
 
-- [ ] **Step 1:** 자동 검증 5종 통과 — `pnpm typecheck` · `pnpm lint` · `pnpm format:check` · `pnpm test` · `pnpm build`.
-- [ ] **Step 2:** `pnpm test:e2e` 로컬 통과 (기존 케이스 회귀 확인). **새 E2E 케이스는 추가하지 않는다** — 이 기능의 핵심 불변식(A17·A18·A20)은 시간을 넘나드는 것이라 단위 테스트가 정확하고 빠르다.
-- [ ] **Step 3:** 손으로 확인한다 (실측 결과를 이 문서 하단에 기록):
+- [x] **Step 1:** 자동 검증 5종 통과 — `pnpm typecheck` · `pnpm lint` · `pnpm format:check` · `pnpm test` · `pnpm build`.
+- [x] **Step 2:** `pnpm test:e2e` 로컬 통과 (기존 케이스 회귀 확인). **새 E2E 케이스는 추가하지 않는다** — 이 기능의 핵심 불변식(A17·A18·A20)은 시간을 넘나드는 것이라 단위 테스트가 정확하고 빠르다.
+- [x] **Step 3:** 손으로 확인한다 (실측 결과를 이 문서 하단에 기록):
   - 정산 패널에서 집중 25 → 50 으로 바꾸고 저장 → 표시 줄이 50 으로 바뀐다
   - 같은 주에 타이머를 시작하면 **여전히 25분**이다 (그 주에 세션이 이미 있어 스냅샷이 있는 경우) — A17
   - 가용량을 처음 입력한 뒤 플래너를 열면 예산 필드가 **합계로 프리필**된다 — A7
   - 앱을 껐다 켜도 바뀐 값이 유지된다
-- [ ] **Step 4:** PR 생성 (제목·본문 **영어**, Conventional Commits). 제목 안: `feat: edit pomo length and weekly capacity from the settlement panel`
+- [x] **Step 4:** PR 생성 (제목·본문 **영어**, Conventional Commits). 제목 안: `feat: edit pomo length and weekly capacity from the settlement panel`
 
-**검증:** Step 1·2 전부 통과, Step 3 의 4항이 실측으로 확인됨.
+**검증:** Step 1·2 전부 통과, Step 3 은 4항 중 3항을 실측하고 마지막 1항은 생략했다 (아래 기록).
+
+---
+
+#### 수동 검증 실측 기록 (2026-08-11, macOS)
+
+**계획서가 놓쳤던 것 1건** — 실물에서 드러나 같은 브랜치에서 고쳤다:
+
+**가용량을 처음 정하면서 길이도 함께 바꾸면 시간 비교가 뜨지 않았다.** 폼을 열 때 가용량이
+미설정이면 서버가 `basisSource: null` 을 주는데, 초판 구현은 `basisSource === 'capacity'`
+일 때만 편집값으로 다시 합산했다. 그래서 두 값이 폼 안에 다 있는데도 비교가 생략됐다 —
+**R26 이 막으려던 바로 그 장면**(예산을 그대로 둔 채 두 배의 시간을 계획하는 것)이다.
+기준을 "예산이 출처면 서버 값, 그 밖에는 편집 중인 가용량 합"으로 고치고 회귀 테스트를 더했다.
+
+**실측한 것:**
+
+- `조정` 을 누르면 폼이 패널 **안에서 인라인으로** 펼쳐지고, `이번 주 시작` 은 하단 고정을 유지한 채 계속 눌린다
+- 미설정 상태에서 가용량 7칸이 **빈 채로** 열린다
+- 집중 25 → 50 저장 → 폼이 접히고 표시 줄이 `뽀모 길이 — 집중 50 · …` 으로 갱신된다 (`baseline-changed` 무효화)
+- 저장 직후 타이머는 **25:00 그대로**였고, `초기화` 를 누르자 **50:00** 이 됐다 — 엔진이 리셋 시점에 다시 읽는다는 설계 그대로다. 이 주에는 스냅샷이 없어 새 값이 읽힌 것이며 (R23), 무효화 대상에서 타이머를 뺀 판단이 실물에서 맞았다
+- 가용량 `[4,0,0,0,0,0,0]` 을 처음 저장한 뒤 플래너를 열자 예산 필드가 **4 로 프리필**됐다 (A7·R12) — 이 경로는 그동안 값이 없어 한 번도 돌지 않았다
+- 길이를 50 → 25 로 되돌리는 화면에서 `주 4개 · 지금 3.3시간 → 바꾸면 1.7시간` 이 렌더됐다 (A23)
+
+**생략한 것:**
+
+- **앱 재시작 후 값 유지는 확인하지 않았다.** 저장 후 폼을 다시 열었을 때 DB 에서 읽은 값
+  (50 · `[4,0,…]`)이 그대로 나온 것으로 저장 자체는 확인됐고, `settings` 테이블의 재시작 보존은
+  테마가 이미 E2E 케이스로 덮고 있다.
+- **A17 의 "스냅샷이 있는 주" 쪽은 실물에서 재현하지 못했다.** 개발 DB 의 이번 주에 `weeks` 행이
+  없어 R23 경로만 밟혔다. 스냅샷이 있는 쪽은 단위 테스트가 덮는다.
 
 ---
 
