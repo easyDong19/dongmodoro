@@ -2,7 +2,7 @@ import { nativeTheme } from 'electron'
 import type { BrowserWindow } from 'electron'
 import type { Theme } from '@shared/ipc/contracts'
 import type { UnitOfWork } from './ports'
-import { OVERLAY_COLORS, TITLEBAR_HEIGHT } from './theme-colors'
+import { BG_DEEP, OVERLAY_COLORS, TITLEBAR_HEIGHT } from './theme-colors'
 
 /** `settings` 값은 JSON 문자열이다 (ADR-018 §5). */
 const THEME_KEY = 'theme'
@@ -53,16 +53,28 @@ export function readTheme(uow: UnitOfWork): Theme {
  * 동작하고, 동시에 macOS 트래픽 라이트의 명암도 여기서 따라온다. 해석 지점이 하나뿐이라
  * CSS 와 창 컨트롤이 어긋날 수 없다.
  *
- * **창 생성 이전에 불려야 한다.** 그래야 창이 태어나는 순간 이미 올바른 테마이고 첫 페인트
- * 깜빡임이 구조적으로 발생하지 않는다 (main/index.ts 의 호출 순서 참조).
+ * **창 생성 이전에 불려야 한다.** 그래야 창이 태어나는 순간 이미 올바른 테마다
+ * (main/index.ts 의 호출 순서 참조).
+ *
+ * 단, `themeSource` 만으로는 첫 페인트 깜빡임이 닫히지 않는다 — 그 색은 창의 배경색이지
+ * 테마가 아니다. 그래서 아래에서 배경색을 함께 갱신하고, 창 생성 옵션에도 같은 값을 준다
+ * (window.ts).
  */
 export function applyTheme(theme: Theme, win?: BrowserWindow | null): void {
   nativeTheme.themeSource = theme
 
-  // macOS 는 부를 필요가 없다 — `setTitleBarOverlay` 는 win32·linux 전용이고, 트래픽
+  if (!win || win.isDestroyed()) return
+
+  /**
+   * 실행 중에 테마를 바꾸면 창 배경색도 따라가야 한다. 이 색이 보이는 것은 다음 기동의
+   * 첫 프레임이므로, 여기서 갱신하지 않으면 사용자가 라이트로 바꿔 놓고 다음에 열 때
+   * 다크 배경을 한 번 보게 된다. **플랫폼을 가리지 않으므로 macOS 조기 반환보다 앞이다.**
+   */
+  win.setBackgroundColor(BG_DEEP[theme])
+
+  // macOS 는 여기서 끝이다 — `setTitleBarOverlay` 는 win32·linux 전용이고, 트래픽
   // 라이트는 위의 themeSource 를 따라 OS 가 알아서 다시 그린다.
   if (process.platform === 'darwin') return
-  if (!win || win.isDestroyed()) return
 
   win.setTitleBarOverlay({ ...OVERLAY_COLORS[theme], height: TITLEBAR_HEIGHT })
 }

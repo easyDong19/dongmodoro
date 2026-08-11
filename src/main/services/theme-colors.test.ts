@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest'
 import { readFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { OVERLAY_COLORS } from './theme-colors'
+import { BG_DEEP, OVERLAY_COLORS } from './theme-colors'
 
 /**
  * 이 테스트가 `theme-colors.ts` 의 존재를 정당화한다.
@@ -46,6 +46,18 @@ describe('창 컨트롤 오버레이 색 — tokens.css 와의 대조 (design-sy
    */
   it('다크 배경색과 라이트 글리프색이 같은 색이다', () => {
     expect(OVERLAY_COLORS.light.symbolColor).toBe(OVERLAY_COLORS.dark.color)
+  })
+
+  /**
+   * 창 자체의 배경색이다. **첫 페인트 전에 화면에 나가는 유일한 색**이므로 어긋나면
+   * 사용자가 기동할 때마다 잘못된 색을 한 번 본다 — 오버레이보다 눈에 잘 띄는 자리다.
+   */
+  it('창 배경색이 두 테마의 --bg-deep 과 같다', () => {
+    expect(BG_DEEP.dark).toBe(tokenValue('bg-deep'))
+    expect(BG_DEEP.light).toBe(tokenValue('light-bg-deep'))
+    // 창 배경에 알파를 주면 그 뒤로 데스크톱이 비친다 — 불투명이어야 한다.
+    expect(BG_DEEP.dark).toMatch(/^#[0-9a-fA-F]{6}$/)
+    expect(BG_DEEP.light).toMatch(/^#[0-9a-fA-F]{6}$/)
   })
 
   it('알파가 있는 색을 쓰지 않는다 — 글리프는 합성되지 않는 자리다', () => {

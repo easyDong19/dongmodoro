@@ -1,7 +1,7 @@
 import { BrowserWindow, dialog } from 'electron'
 import { join } from 'node:path'
 import type { Theme } from '@shared/ipc/contracts'
-import { OVERLAY_COLORS, TITLEBAR_HEIGHT } from './services/theme-colors'
+import { BG_DEEP, OVERLAY_COLORS, TITLEBAR_HEIGHT } from './services/theme-colors'
 
 /**
  * `shouldConfirmClose` 는 종료 확인 조건(timer R13 — focus 가 running/paused)의
@@ -35,6 +35,18 @@ export function createWindow(
   const win = new BrowserWindow({
     width: 1280,
     height: 800,
+    /**
+     * **첫 페인트 전까지 화면에 나가는 색이다.** 창은 만들어지는 즉시 보이지만 렌더러가
+     * 처음 칠하기까지 100ms 안팎이 걸리고, 그 사이는 CSS 가 아니라 이 색이 채운다.
+     * 주지 않으면 Electron 기본값인 흰색이 나가며, 실측(30fps 화면 녹화)으로 다크 기동 시
+     * 순백 프레임 2장 ≈ 66ms 가 확인됐다 — 어두운 화면을 기대한 사용자에게 가장 거슬리는
+     * 자리다.
+     *
+     * `nativeTheme.themeSource` 로는 닫히지 않는다. 그쪽은 렌더러의 `prefers-color-scheme`
+     * 와 트래픽 라이트를 정할 뿐 **창 배경색을 건드리지 않는다.** 실행 중 테마 변경은
+     * services/theme.ts 의 `applyTheme` 이 같은 값으로 갱신한다.
+     */
+    backgroundColor: BG_DEEP[theme],
     titleBarStyle: isMac ? 'hiddenInset' : 'hidden',
     titleBarOverlay: isMac ? true : { ...OVERLAY_COLORS[theme], height: TITLEBAR_HEIGHT },
     // 38px 바의 세로 중앙에 맞춘 값이다(트래픽 라이트 지름 ≈14px). 계산으로 떨어지지

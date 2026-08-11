@@ -13,6 +13,7 @@ vi.mock('electron', () => ({ nativeTheme: fakeNativeTheme }))
 
 const { testUow } = await import('../db/repositories/test-helpers')
 const { readTheme, applyTheme, setTheme } = await import('./theme')
+const { BG_DEEP } = await import('./theme-colors')
 
 function storedTheme(uow: ReturnType<typeof testUow>['uow']): string | null {
   return uow.run((r) => r.settings.get('theme'))
@@ -85,6 +86,42 @@ describe('applyTheme — themeSource 가 유일한 적용 채널 (ADR-010 §3)',
   it("themeSource 가 'system' 으로 남지 않는다", () => {
     applyTheme('dark')
     expect(fakeNativeTheme.themeSource).not.toBe('system')
+  })
+
+  /**
+   * 창 배경색까지 함께 바꾼다 — **`themeSource` 는 이 색을 건드리지 않기 때문이다.**
+   *
+   * 창 배경색은 렌더러가 처음 칠하기 전까지 화면에 나가는 색이고, 창 생성 시점에 한 번
+   * 정해진다. 여기서 갱신하지 않으면 실행 중에 테마를 바꾼 사용자가 **다음 기동에서**
+   * 이전 테마의 색을 한 번 보게 된다. 적용 지점이 하나라는 규칙(ADR-010 §3)이 이 색에도
+   * 그대로 적용된다.
+   *
+   * macOS 조기 반환보다 **앞에서** 불려야 한다 — 이 색은 플랫폼을 가리지 않는다.
+   */
+  it('창 배경색을 테마의 --bg-deep 으로 갱신한다', () => {
+    const win = {
+      isDestroyed: () => false,
+      setBackgroundColor: vi.fn(),
+      setTitleBarOverlay: vi.fn()
+    }
+
+    applyTheme('light', win as unknown as Parameters<typeof applyTheme>[1])
+    expect(win.setBackgroundColor).toHaveBeenCalledWith(BG_DEEP.light)
+
+    applyTheme('dark', win as unknown as Parameters<typeof applyTheme>[1])
+    expect(win.setBackgroundColor).toHaveBeenLastCalledWith(BG_DEEP.dark)
+  })
+
+  it('창이 없거나 파괴됐으면 배경색을 건드리지 않는다', () => {
+    const destroyed = {
+      isDestroyed: () => true,
+      setBackgroundColor: vi.fn(),
+      setTitleBarOverlay: vi.fn()
+    }
+
+    expect(() => applyTheme('light')).not.toThrow()
+    applyTheme('light', destroyed as unknown as Parameters<typeof applyTheme>[1])
+    expect(destroyed.setBackgroundColor).not.toHaveBeenCalled()
   })
 })
 
