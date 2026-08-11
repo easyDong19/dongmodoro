@@ -38,6 +38,15 @@ export type InvalidationEvent =
       previous: ClockBoundary
       currentDayKey: string
     } // 사건 12
+  /**
+   * 테마 선택이 바뀌었다. **`currentDayKey` 를 갖지 않는 유일한 사건이다** — 표시 설정은
+   * 어떤 달력 키에도 매이지 않으므로 들고 다닐 이유가 없다.
+   *
+   * 화면 색은 이 무효화를 기다리지 않는다. main 이 `nativeTheme.themeSource` 를 바꾸는
+   * 순간 CSS 가 이미 따라오고(design-system ADR-010 §3), 여기서 무효화하는 것은
+   * **토글 버튼이 어느 쪽을 눌린 상태로 그릴지**뿐이다.
+   */
+  | { type: 'theme-changed' }
 
 /**
  * 사건 → 무효화할 쿼리 키 목록의 순수 계산 (ADR-025 §3). QueryClient 를 몰라야 단위
@@ -114,6 +123,12 @@ export function keysToInvalidate(e: InvalidationEvent): readonly (readonly strin
       if (e.payload.monthKey !== e.previous.monthKey) out.push(keys.monthAll())
       return out
     }
+    /**
+     * 설정 키 하나뿐이다. 다른 레이어를 건드리지 않는 유일한 사건이며, 그것이 테마가
+     * 표시 설정이라는 사실의 코드상 표현이다 — 어떤 집계도 테마에 의존하지 않는다.
+     */
+    case 'theme-changed':
+      return [keys.settings()]
   }
 }
 
