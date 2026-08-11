@@ -455,6 +455,9 @@ export const eventContracts = {
 /** `'light' | 'dark'`. 스키마에서 파생하므로 둘이 어긋날 수 없다. */
 export type Theme = z.infer<typeof themeSchema>
 
+/** 편집 폼이 주고받는 전역 분모값. 같은 이유로 스키마에서 파생한다. */
+export type BaselineForm = z.infer<typeof baselineFormSchema>
+
 export type TimerSnapshotWire = z.infer<typeof timerSnapshotSchema>
 export type SessionRecorded = z.infer<typeof eventContracts.sessionRecorded>
 export type ClockBoundary = z.infer<typeof eventContracts.clockBoundary>

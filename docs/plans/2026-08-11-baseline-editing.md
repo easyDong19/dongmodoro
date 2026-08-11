@@ -148,16 +148,19 @@ src/
 
 ### Task 3: main 서비스 — 쓰기 경로와 기준 개수
 
-- [ ] **Step 1:** [baseline.ts](../../src/main/services/baseline.ts) 에 `writeBaseline(uow, form)` 을 더한다. 하는 일은 `settings` 네 키를 **한 트랜잭션에서** 갱신하는 것뿐이다. 값은 JSON 문자열이다 (ADR-018 §5) — `'25'`, `'[4,2,4,2,4,0,8]'`.
-- [ ] **Step 2:** `capacity === null` 이면 `weekly_capacity` 키를 **건드리지 않는다.** 쓰지 않는 것과 `null` 을 쓰는 것을 혼동하지 않는다 — 후자를 하면 A9 가 깨질 여지가 생긴다.
-- [ ] **Step 3:** **`weeks` 테이블에 접근하지 않는다.** 이 함수가 `weeks` 를 import 하면 R19 가 코드 한 줄로 깨진다. 리뷰에서 확인할 수 있게 함수 주석에 명시한다.
-- [ ] **Step 4:** `baselineBasis(repos, todayKey)` 를 더한다. R26 의 결정 순서를 **여기서만** 구현한다.
+- [x] **Step 1:** [baseline.ts](../../src/main/services/baseline.ts) 에 `writeBaseline(uow, form)` 을 더한다. 하는 일은 `settings` 네 키를 **한 트랜잭션에서** 갱신하는 것뿐이다. 값은 JSON 문자열이다 (ADR-018 §5) — `'25'`, `'[4,2,4,2,4,0,8]'`.
+- [x] **Step 2:** `capacity === null` 이면 `weekly_capacity` 키를 **건드리지 않는다.** 쓰지 않는 것과 `null` 을 쓰는 것을 혼동하지 않는다 — 후자를 하면 A9 가 깨질 여지가 생긴다.
+- [x] **Step 3:** **`weeks` 테이블에 접근하지 않는다.** 이 함수가 `weeks` 를 import 하면 R19 가 코드 한 줄로 깨진다. 리뷰에서 확인할 수 있게 함수 주석에 명시한다.
+- [x] **Step 4:** `baselineBasis(repos, todayKey)` 를 더한다. R26 의 결정 순서를 **여기서만** 구현한다.
   1. `planTargetWeek(repos, todayKey)` 로 계획 대상 주를 구한다 — [review.ts](../../src/main/services/review.ts) 에 이미 있다. **복제하지 않고 import 한다.** 복제하면 `plan_lead_days` 해석이 두 곳이 된다.
   2. `effectiveBudget(repos, targetWeek)` 이 개수를 반환하면 `{ basisPomos, basisSource: 'budget' }`.
   3. 아니면 `weekly_capacity` 합 → `{ basisPomos, basisSource: 'capacity' }`.
   4. 둘 다 없으면 `{ basisPomos: null, basisSource: null }`.
-- [ ] **Step 5:** [ipc/settings.ts](../../src/main/ipc/settings.ts) 에 핸들러 2종을 배선한다. **이 파일은 배선만 한다** — 결정 순서·검증은 서비스에 있다. 기존 테마 핸들러가 그 규율을 이미 지키고 있다.
-- [ ] **Step 6:** 테스트 (`src/main/services/baseline.test.ts` 신규):
+- [x] **Step 5:** [ipc/settings.ts](../../src/main/ipc/settings.ts) 에 핸들러 2종을 배선한다. **이 파일은 배선만 한다** — 결정 순서·검증은 서비스에 있다. 기존 테마 핸들러가 그 규율을 이미 지키고 있다.
+- [x] **Step 6:** 테스트 — **기존 [`src/main/db/repositories/baseline.test.ts`](../../src/main/db/repositories/baseline.test.ts) 에 더한다.**
+
+  > **갱신 (실행 중 정정):** 이 Step 은 원래 `src/main/services/baseline.test.ts` 를 새로 만들라고 했는데, 그 자리에서는 eslint 가 막는다 — 테스트가 인메모리 DB 를 세우려면 `drizzle-orm/better-sqlite3/migrator` 를 import 해야 하고, ADR-015 §2 는 DB 라이브러리 import 를 `src/main/db/` 하위로 제한한다. 위 **파일 구조** 메모("새로 만들지 말고 그 파일에 더한다")가 맞았고 Step 표기가 틀렸다.
+
   - 길이만 바꾸면 `weekly_capacity` 가 미설정으로 남는다 (A9)
   - 이미 `weeks` 행이 있는 주에서 길이를 바꿔도 `effectiveBaseline(그 주)` 가 **변하지 않는다** (A17)
   - 그 값이 **다음 주**의 `effectiveBaseline` 에서는 새 값으로 읽힌다 (A18)

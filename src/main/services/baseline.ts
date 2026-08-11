@@ -1,4 +1,6 @@
-import type { Baseline, Repositories, WeekSnapshot } from './ports'
+import type { BaselineForm } from '@shared/ipc/contracts'
+import type { Baseline, Repositories, UnitOfWork, WeekSnapshot } from './ports'
+import { planTargetWeek } from './review'
 
 /** settings 값은 JSON 문자열이다 (ADR-018 §5) — `'25'` 를 파싱해 정수로 되돌린다. */
 function readIntSetting(repos: Repositories, key: string): number {
@@ -64,6 +66,59 @@ export function budgetPrefill(repos: Repositories): number | null {
 function capacitySetting(repos: Repositories): number[] | null {
   const raw = repos.settings.get('weekly_capacity')
   return raw === null ? null : (JSON.parse(raw) as number[])
+}
+
+/** 지금 저장된 전역 분모값 전부 — 편집 폼이 여는 값 (R6·R7·R8). */
+export function baselineForm(repos: Repositories): BaselineForm {
+  return { ...globalBaseline(repos), capacity: capacitySetting(repos) }
+}
+
+/**
+ * R26 의 **기준 개수** — 길이를 바꾸기 전에 보여줄 "주 N개" 의 N 이다.
+ *
+ * 결정 순서는 이 함수에만 존재한다: ① 계획 대상 주의 `유효 예산` ② `sum(weekly_capacity)`
+ * ③ 둘 다 없으면 없음. ③ 은 오류가 아니라 **시간 비교를 생략하라는 신호**다 (A25).
+ *
+ * 계획 대상 주는 `planTargetWeek` 을 그대로 쓴다. 여기서 `plan_lead_days` 를 다시 읽으면
+ * 정산과 이 화면이 서로 다른 주를 기준으로 삼는 날이 온다 — 리드 값이 1 이 아닌 순간이다.
+ */
+export function baselineBasis(
+  repos: Repositories,
+  todayKey: string
+): { basisPomos: number | null; basisSource: 'budget' | 'capacity' | null } {
+  const budget = effectiveBudget(repos, planTargetWeek(repos, todayKey))
+  if (budget !== null) return { basisPomos: budget, basisSource: 'budget' }
+
+  const capacity = capacitySetting(repos)
+  if (capacity !== null) {
+    return { basisPomos: capacity.reduce((sum, n) => sum + n, 0), basisSource: 'capacity' }
+  }
+
+  return { basisPomos: null, basisSource: null }
+}
+
+/**
+ * 전역 분모값을 갱신한다 (R21·R22). **`weeks` 에 접근하지 않는다.**
+ *
+ * 그 금지가 이 기능 전체의 불변식이다. 여기서 `weeks` 를 한 줄이라도 건드리면 이미
+ * 박제된 주의 분모가 따라 움직이고(R19 위반), "이번 주 기록은 그대로예요" 라고 적어 둔
+ * 화면 문구가 거짓이 된다. 효력 지연은 새 코드가 만드는 것이 아니라 **스냅샷을 안 만지는
+ * 것**이다.
+ *
+ * `capacity` 가 `null` 이면 `weekly_capacity` 키를 **건드리지 않는다** — 미설정을 유지하는
+ * 것이지 지우는 것이 아니다. 여기서 `null` 을 써 넣으면 R8 이 지키려던 "미설정 ≠ 예산 0"
+ * 구분이 저장소 쪽에서 흐려진다.
+ */
+export function writeBaseline(uow: UnitOfWork, form: BaselineForm): BaselineForm {
+  return uow.run((repos) => {
+    repos.settings.set('focus_min', JSON.stringify(form.focusMin))
+    repos.settings.set('short_break_min', JSON.stringify(form.shortBreakMin))
+    repos.settings.set('long_break_min', JSON.stringify(form.longBreakMin))
+    if (form.capacity !== null) {
+      repos.settings.set('weekly_capacity', JSON.stringify(form.capacity))
+    }
+    return baselineForm(repos)
+  })
 }
 
 /**
