@@ -78,7 +78,7 @@ ADR-013 이 `weeks` 행을 도입해 막으려던 것은 "8월에 25분으로 �
 |---|---|---|---|
 | **정적 시딩** | `focus_min` · `short_break_min` · `long_break_min` | 25 · 5 · 15 | pomo-baseline R6 |
 | | `plan_lead_days` | 1 | ADR-010 |
-| | `theme` | `'system'` | design-system ADR-008 |
+| | `theme` | `'dark'` | design-system ADR-010 (2026-08-11 갱신 — `'system'` 선택지가 없어졌다) |
 | **계산 부트스트랩** | `last_settled_week` | weekly-review §0.2 가 계산 | 정적 기본값이 아니다 |
 | **시딩하지 않음** | `weekly_capacity` | — | pomo-baseline R8 |
 

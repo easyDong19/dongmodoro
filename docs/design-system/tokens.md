@@ -453,8 +453,14 @@ body { font-size: var(--text-md); }   /* 빠뜨리면 본문이 10px 로 렌더�
 > **구현 메모.** 위 블록의 라이트 선택자는 문서용 축약이다. 실제 구현에서는 라이트 값을
 > CSS 커스텀 프로퍼티 세트 하나로 두고 `@media (prefers-color-scheme: light)` 와
 > `[data-theme='light']` 두 곳에서 같은 세트를 참조하도록 구성한다(중복 정의를 만들지
-> 않는다). `data-theme` 값은 `settings` 테이블의 `theme` 키(`system`/`light`/`dark`)에서
-> 오며, 전환 경로는 트레이 메뉴다 (ADR-008 §4).
+> 않는다).
+>
+> **두 경로의 용도가 다르다** (ADR-010 §3). 런타임 전환은 `@media` 경로만 쓴다 — main 이
+> `nativeTheme.themeSource` 를 `light`/`dark` 로 설정하면 그것이 렌더러의
+> `prefers-color-scheme` 을 결정한다. `settings` 테이블 `theme` 키의 값은 **`light` 또는
+> `dark` 둘뿐이고 기본은 `dark`** 이며, 전환 경로는 타이틀바의 2택 세그먼트다.
+> `[data-theme]` 경로는 **테스트와 문서 전용**이다 — 브라우저만으로 라이트를 강제해야 하는
+> 자리(와이어프레임의 테마 미리보기)가 쓴다. 앱 코드는 이 속성을 설정하지 않는다.
 
 ---
 
