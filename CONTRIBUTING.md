@@ -85,6 +85,52 @@
 
 ---
 
+## 테스트
+
+러너가 둘이고 **파일이 겹치지 않는다.**
+
+| 러너 | 대상 | 위치 | 명령 |
+|---|---|---|---|
+| Vitest | 단위·컴포넌트 | `src/**/*.test.{ts,tsx}` · `scripts/**/*.test.mjs` | `pnpm test` |
+| Playwright | E2E (실제 앱을 띄운다) | `e2e/**/*.spec.ts` | `pnpm test:e2e` |
+
+[vitest.config.ts](vitest.config.ts) 의 `include` 가 **화이트리스트**(`src/**`·`scripts/**`)라
+`e2e/` 는 애초에 Vitest 시야 밖이다. 그래서 어느 쪽에도 `exclude` 를 두지 않는다.
+
+### E2E 실행
+
+```bash
+pnpm test:e2e:build
+```
+
+처음 실행하거나 소스를 고친 뒤에는 이 명령을 쓴다 — 빌드부터 한다.
+이미 빌드해 둔 산출물로 반복 실행할 때는 `pnpm test:e2e` 만 쓰면 된다.
+산출물이 없으면 `빌드 산출물이 없습니다: …` 로 멈추고 무엇을 할지 알려준다.
+
+**개발 서버가 아니라 `out/main/index.js` 를 띄운다.** 그 번들이 실제 배포 대상이고,
+마이그레이션 폴더 계산이 `out/main/` 기준이라 소스를 직접 실행하면 그 경로가 성립하지 않는다.
+
+**DB 는 매 테스트마다 격리된다.** Electron 이 Chromium 의 `--user-data-dir` 스위치를 존중하므로
+픽스처가 넘긴 임시 디렉토리가 `app.getPath('userData')` 가 된다. 그래서 모든 테스트가 순정
+첫 실행이고 — 시딩 기본값·첫 실행 동작을 그대로 검증할 수 있다 — **개발용 DB 도 오염되지 않는다.**
+브라우저는 내려받지 않는다. Electron 바이너리를 그대로 쓰므로 `playwright install` 이 필요 없다.
+
+### E2E 를 위해 `src/` 를 고치지 않는다
+
+테스트 전용 IPC 채널·전역 훅·`process.env.E2E` 분기를 앱 코드에 만들지 않는다.
+**테스트를 위해 프로덕션 코드에 문을 내면 그 문이 배포본에도 남는다.**
+
+관측이 필요하면 화면에 이미 있는 것으로 잡는다 — `aria-label`·역할·텍스트.
+`data-testid` 를 새로 심지 않는다. 접근성 이름은 사용자에게도 의미가 있어서
+**테스트와 사용자가 같은 것을 보게 된다.**
+
+### 스크린샷은 비교하지 않는다
+
+E2E 는 스크린샷을 `e2e-artifacts/` 에 남기고 CI 가 그것을 아티팩트로 올리지만,
+**자동 비교(`toHaveScreenshot`)는 하지 않는다.** 폰트 렌더링이 OS 마다 달라 macOS 로컬
+베이스라인과 ubuntu CI 결과가 일치하지 않고, 상시 실패하는 테스트는 곧 무시된다.
+비교는 사람이 한다.
+
 ## 강제화 계층 (이 규칙이 실제로 막히는 위치)
 
 | 층 | 대상 | 수단 | 상태 |
@@ -92,6 +138,7 @@
 | Claude 하네스 | Claude 의 git/gh 명령 | [.claude/hooks/protect-git-flow.sh](.claude/hooks/protect-git-flow.sh) (PreToolUse) | ✅ 적용됨 |
 | 로컬 git | 사람이 치는 commit/push | husky + commitlint + ESLint | ✅ 적용됨 ([ADR-016](docs/architecture/decisions/adr-016-lint-and-git-hooks.md)) |
 | GitHub Actions | **PR 제목·본문의 언어** | [pr-language.yml](.github/workflows/pr-language.yml) → [scripts/check-pr-language.mjs](scripts/check-pr-language.mjs) | ✅ 적용됨 |
+| GitHub Actions | **타입체크·린트·서식·단위 테스트·빌드·E2E** | [ci.yml](.github/workflows/ci.yml) | ✅ 적용됨 |
 | GitHub 서버 | 모든 클라이언트 (최종 방어선) | branch ruleset + squash-only | ⏸ 설정 명령은 아래 |
 
 **CI 층이 따로 필요한 이유** — `commit-msg` 훅은 **로컬 커밋만** 본다. 스쿼시 머지 커밋의
@@ -122,6 +169,10 @@ husky 는 `prepare` 스크립트로 설치되므로 저장소를 클론해 `pnpm
 
 마크다운과 `docs/` 는 포매팅하지 않는다 — Prettier 가 표 셀을 글자 수로 패딩해서 한글 표가
 오히려 어긋난다. 문서 서식은 사람이 지킨다.
+
+**훅은 테스트를 돌리지 않는다.** 타입체크·단위 테스트·빌드·E2E 를 자동으로 돌리는 곳은
+[ci.yml](.github/workflows/ci.yml) 하나뿐이다. 커밋이 빨라야 하는 자리(pre-commit)에
+수십 초짜리 검사를 넣지 않는 대신, PR 이 그 검사를 통과하지 못하면 머지되지 않는다.
 
 수동 실행:
 
