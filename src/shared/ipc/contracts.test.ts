@@ -70,3 +70,75 @@ describe('settings.getTheme · setTheme contract (design-system ADR-010 §1)', (
     expect(() => contracts.settings.getTheme.res.parse({ theme: 'dark', rogue: true })).toThrow()
   })
 })
+
+describe('settings.setBaseline contract (pomo-baseline R5·R7·R8)', () => {
+  const form = { focusMin: 25, shortBreakMin: 5, longBreakMin: 15, capacity: null }
+
+  it('accepts the seeded defaults with capacity unset', () => {
+    expect(contracts.settings.setBaseline.req.parse([form])).toEqual([form])
+  })
+
+  it('accepts a seven-slot capacity array, index 0 being Monday', () => {
+    const withCapacity = { ...form, capacity: [4, 2, 4, 2, 4, 0, 8] }
+    expect(contracts.settings.setBaseline.req.parse([withCapacity])).toEqual([withCapacity])
+  })
+
+  /**
+   * A5 의 네 값이다. 이 거부가 경계에 없으면 `focus_min = 0` 인 DB 가 만들어지고,
+   * 그 주의 타이머는 즉시 끝나는 세션을 무한히 기록한다.
+   */
+  it.each([0, -5, 12.5])('rejects focusMin %p', (focusMin) => {
+    expect(() => contracts.settings.setBaseline.req.parse([{ ...form, focusMin }])).toThrow()
+  })
+
+  it('rejects a missing focusMin', () => {
+    const { focusMin: _dropped, ...rest } = form
+    expect(() => contracts.settings.setBaseline.req.parse([rest])).toThrow()
+  })
+
+  it.each([6, 8])('rejects a capacity array of length %p', (len) => {
+    const capacity = Array.from({ length: len }, () => 1)
+    expect(() => contracts.settings.setBaseline.req.parse([{ ...form, capacity }])).toThrow()
+  })
+
+  /** 가용량은 0 을 허용한다 — "그날은 안 한다"는 정상적인 계획 의사다 (R7). */
+  it('accepts zero in a capacity slot but not a negative one', () => {
+    const zeroed = { ...form, capacity: [0, 0, 0, 0, 0, 0, 0] }
+    expect(contracts.settings.setBaseline.req.parse([zeroed])).toEqual([zeroed])
+    expect(() =>
+      contracts.settings.setBaseline.req.parse([{ ...form, capacity: [-1, 0, 0, 0, 0, 0, 0] }])
+    ).toThrow()
+  })
+})
+
+describe('settings.getBaseline contract (pomo-baseline R26)', () => {
+  const res = {
+    focusMin: 25,
+    shortBreakMin: 5,
+    longBreakMin: 15,
+    capacity: null,
+    basisPomos: null,
+    basisSource: null
+  }
+
+  it('takes no arguments', () => {
+    expect(contracts.settings.getBaseline.req.parse([])).toEqual([])
+    expect(() => contracts.settings.getBaseline.req.parse([1])).toThrow()
+  })
+
+  /** 기준 개수 없음은 오류가 아니다 (A25) — 화면이 비교를 생략할 뿐이다. */
+  it('allows the basis to be absent', () => {
+    expect(contracts.settings.getBaseline.res.parse(res)).toEqual(res)
+  })
+
+  it('carries where the basis came from', () => {
+    const fromBudget = { ...res, basisPomos: 24, basisSource: 'budget' as const }
+    expect(contracts.settings.getBaseline.res.parse(fromBudget)).toEqual(fromBudget)
+  })
+
+  it('rejects an unknown basis source', () => {
+    expect(() =>
+      contracts.settings.getBaseline.res.parse({ ...res, basisPomos: 24, basisSource: 'guess' })
+    ).toThrow()
+  })
+})

@@ -33,6 +33,23 @@ const clockBoundarySchema = z.strictObject({
  */
 const themeSchema = z.enum(['light', 'dark'])
 
+/**
+ * 분모의 전역값 — 편집 폼이 주고받는 모든 것 (pomo-baseline R5·R7·R8).
+ *
+ * 하한이 여기 있는 것이 **첫 번째 거부 지점**이다 (두 번째는 SQLite CHECK, ADR-011 §6).
+ * 길이는 1분 이상 정수이며 0·음수·비정수·빈 값은 경계에서 막힌다 (A5).
+ *
+ * `capacity` 의 `null` 은 **"미설정을 유지한다"** 이지 **"설정을 지운다"가 아니다.**
+ * 해제는 v1 범위 밖이고, 이 구분이 없으면 다음 사람이 null 을 삭제 신호로 읽어 R8 이
+ * 지키려던 "미설정 ≠ 예산 0"이 흐려진다. 인덱스 0 은 월요일이다 (R7 · ADR-010 §1).
+ */
+const baselineFormSchema = z.strictObject({
+  focusMin: z.int().min(1),
+  shortBreakMin: z.int().min(1),
+  longBreakMin: z.int().min(1),
+  capacity: z.array(z.int().min(0)).length(7).nullable()
+})
+
 /** `TodayRow`(main/services/ports.ts) 를 그대로 미러링한다 — 필드·nullable 이 어긋나면
  * 여기가 먼저 깨져야 한다 (choke-point payload, ADR-025 §3). */
 const todayRowSchema = z.strictObject({
@@ -387,7 +404,29 @@ export const contracts = {
      * 갱신하게 하려는 것이다. 값 정규화가 main 에 있으므로(레거시 `system` → `dark`)
      * 보낸 값과 저장된 값이 다를 수 있는 경로가 실제로 존재한다.
      */
-    setTheme: { req: z.tuple([themeSchema]), res: z.strictObject({ theme: themeSchema }) }
+    setTheme: { req: z.tuple([themeSchema]), res: z.strictObject({ theme: themeSchema }) },
+    /**
+     * 분모의 전역값 조회 (pomo-baseline R6·R7). 응답에 붙는 `basisPomos` 는 저장값이
+     * 아니라 **R26 의 시간 비교용 기준 개수**이며, 그 결정 순서(유효 예산 → 가용량 합 →
+     * 없음)는 main 서비스에만 있다. 렌더러가 고르게 하면 순서가 화면으로 새어나간다.
+     */
+    getBaseline: {
+      req: z.tuple([]),
+      res: baselineFormSchema.extend({
+        /** `null` 이면 시간 비교를 렌더하지 않는다. 오류가 아니다 (A25). */
+        basisPomos: z.int().nullable(),
+        /**
+         * 기준 개수의 출처. `'capacity'` 면 폼에서 가용량을 고치는 순간 기준도 함께
+         * 움직여야 하므로, 렌더러가 편집 중인 배열로 다시 합산한다 (A23).
+         */
+        basisSource: z.enum(['budget', 'capacity']).nullable()
+      })
+    },
+    /**
+     * 응답이 `void` 가 아니라 **저장된 값**인 이유는 `setTheme` 과 같다 — 화면이 낙관적
+     * 추측이 아니라 사실로 갱신하게 한다.
+     */
+    setBaseline: { req: z.tuple([baselineFormSchema]), res: baselineFormSchema }
   }
 } as const
 

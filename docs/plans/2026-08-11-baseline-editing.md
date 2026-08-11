@@ -111,8 +111,8 @@ src/
 
 ### Task 2: IPC 계약 — `settings.getBaseline` · `setBaseline`
 
-- [ ] **Step 1:** [channels.ts](../../src/shared/ipc/channels.ts) 의 `settings` 에 `getBaseline: 'settings:getBaseline'` · `setBaseline: 'settings:setBaseline'` 을 더한다. **범용 `get(key)` 를 만들지 않는다** — 그 파일 주석이 이미 이유를 적어 뒀다.
-- [ ] **Step 2:** [contracts.ts](../../src/shared/ipc/contracts.ts) 에 폼 값 스키마를 만든다. 하한이 여기 있고, 이것이 R5·R7 의 **첫 번째 거부 지점**이다.
+- [x] **Step 1:** [channels.ts](../../src/shared/ipc/channels.ts) 의 `settings` 에 `getBaseline: 'settings:getBaseline'` · `setBaseline: 'settings:setBaseline'` 을 더한다. **범용 `get(key)` 를 만들지 않는다** — 그 파일 주석이 이미 이유를 적어 뒀다.
+- [x] **Step 2:** [contracts.ts](../../src/shared/ipc/contracts.ts) 에 폼 값 스키마를 만든다. 하한이 여기 있고, 이것이 R5·R7 의 **첫 번째 거부 지점**이다.
 
   ```ts
   const baselineFormSchema = z.strictObject({
@@ -124,7 +124,7 @@ src/
   })
   ```
 
-- [ ] **Step 3:** `getBaseline` 의 응답은 폼 값 + **시간 비교의 기준 개수**다. 기준을 렌더러가 고르게 하면 R26 의 결정 순서가 화면으로 새어나간다.
+- [x] **Step 3:** `getBaseline` 의 응답은 폼 값 + **시간 비교의 기준 개수**다. 기준을 렌더러가 고르게 하면 R26 의 결정 순서가 화면으로 새어나간다.
 
   ```ts
   getBaseline: {
@@ -138,9 +138,9 @@ src/
   }
   ```
 
-- [ ] **Step 4:** `setBaseline` 의 요청은 `z.tuple([baselineFormSchema])`, 응답은 **저장된 값**이다 (`baselineFormSchema`). `void` 가 아닌 이유는 `setTheme` 과 같다 — 화면이 낙관적 추측이 아니라 사실로 갱신하게 한다.
-- [ ] **Step 5:** `capacity: null` 을 보내는 것은 **"미설정을 유지한다"** 는 뜻이며 **"설정을 지운다"가 아니다.** 이 문장을 계약 주석에 적는다. 해제는 이번 범위 밖이고(위 표), 주석이 없으면 다음 사람이 null 을 삭제 신호로 읽는다.
-- [ ] **Step 6:** [api.ts](../../src/shared/ipc/api.ts) 와 [preload/index.ts](../../src/preload/index.ts) 의 `settings` 표면에 두 함수를 더한다. ADR-007 의 네 곳(channels → contracts → handleIpc → preload)을 전부 채운다.
+- [x] **Step 4:** `setBaseline` 의 요청은 `z.tuple([baselineFormSchema])`, 응답은 **저장된 값**이다 (`baselineFormSchema`). `void` 가 아닌 이유는 `setTheme` 과 같다 — 화면이 낙관적 추측이 아니라 사실로 갱신하게 한다.
+- [x] **Step 5:** `capacity: null` 을 보내는 것은 **"미설정을 유지한다"** 는 뜻이며 **"설정을 지운다"가 아니다.** 이 문장을 계약 주석에 적는다. 해제는 이번 범위 밖이고(위 표), 주석이 없으면 다음 사람이 null 을 삭제 신호로 읽는다.
+- [x] **Step 6:** [api.ts](../../src/shared/ipc/api.ts) 와 [preload/index.ts](../../src/preload/index.ts) 의 `settings` 표면에 두 함수를 더한다. ADR-007 의 네 곳(channels → contracts → handleIpc → preload)을 전부 채운다.
 
 **검증:** 타입체크 통과. `focusMin: 0`·`12.5`·`capacity` 길이 6 을 보내는 계약 단위 테스트가 전부 거부된다 (A5).
 
