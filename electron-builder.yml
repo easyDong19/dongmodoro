@@ -1,0 +1,53 @@
+# 패키징 설정 (ADR-004). 산출물은 GitHub Releases 에 올려 수동 다운로드로 배포한다.
+#
+# 여기서 정하는 것은 **무엇을 함께 실을 것인가**이며, 그 판단이 이 앱에서는 두 가지로
+# 좁혀진다: 마이그레이션 `.sql` 파일과 better-sqlite3 의 네이티브 바이너리. 둘 다
+# 개발 모드에서는 그냥 파일 시스템에 있어서 보이지 않다가, asar 아카이브로 들어가는
+# 순간 각자 다른 이유로 깨진다.
+appId: com.easydong.dongmodoro
+productName: dongmodoro
+copyright: Copyright © 2026 easyDong19
+
+directories:
+  # `build/` 가 buildResources 기본값이다 — 아이콘(icon.icns)을 여기서 찾는다.
+  output: release
+
+# 제외 목록으로 쓴다 — `files` 를 포함 목록으로 적으면 electron-builder 가 기본 규칙을
+# 통째로 대체해서, 프로덕션 의존성(better-sqlite3 포함) 판정까지 우리가 떠안게 된다.
+files:
+  - '!src/*'
+  - '!e2e/*'
+  - '!e2e-artifacts/*'
+  - '!test-results/*'
+  - '!docs/*'
+  - '!scripts/*'
+  - '!playwright.config.ts'
+  - '!electron.vite.config.{js,ts,mjs,cjs}'
+  - '!vitest.config.ts'
+  - '!vitest.setup.ts'
+  - '!tsconfig*.json'
+  - '!eslint.config.js'
+  - '!commitlint.config.js'
+  - '!components.json'
+  - '!drizzle.config.ts'
+
+# 마이그레이션은 **asar 밖**에 있어야 한다. Drizzle 마이그레이터는 디렉토리를 실제
+# 파일 시스템 경로로 읽고, `migrate.ts` 는 그 안의 `.sql` 개수를 세어 스키마 세대를
+# 판정한다 (ADR-020 §6). 아카이브 안의 경로는 진짜 경로가 아니라 둘 다 실패한다.
+# 앱은 `process.resourcesPath` 로 이 자리를 푼다 (src/main/index.ts).
+extraResources:
+  - from: drizzle
+    to: drizzle
+
+# 네이티브 모듈도 아카이브 밖에 남아야 한다 — `.node` 바이너리는 `dlopen` 으로 열리는데
+# asar 경로는 OS 가 아는 경로가 아니다. 여기가 비면 앱은 DB 를 열지 못하고 시작 실패
+# 대화상자로 빠진다 (ADR-020 §4).
+asarUnpack:
+  - '**/*.node'
+
+mac:
+  target: dmg
+  category: public.app-category.productivity
+  # 서명하지 않는다 (ADR-028). Gatekeeper 경고를 사용자가 수동으로 넘기며, 그 절차는
+  # README 가 안내한다. 서명 자격이 생기면 이 두 줄을 지우는 것이 전환의 전부다.
+  identity: null

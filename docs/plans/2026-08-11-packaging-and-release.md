@@ -80,19 +80,19 @@ src/main/index.ts                  # (수정) 단일 인스턴스 잠금 · MIGR
 
 ### Task 2: electron-builder 도입
 
-- [ ] **Step 1:** `pnpm add -D electron-builder` 로 devDependency 를 더한다.
-- [ ] **Step 2:** `electron-builder.yml` 을 만든다. 최소 설정은 다음과 같다.
+- [x] **Step 1:** `pnpm add -D electron-builder` 로 devDependency 를 더한다.
+- [x] **Step 2:** `electron-builder.yml` 을 만든다. 최소 설정은 다음과 같다.
   - `appId` — 역도메인 형식. 값은 Task 7 에서 ADR 로 확정하지 말고 여기서 정한다 (기술 식별자라 결정 문서가 필요한 종류가 아니다).
   - `productName: dongmodoro`
   - `directories.output: release/` — **`.gitignore` 에 추가한다.** 빠뜨리면 수백 MB 산출물이 커밋 후보로 올라온다.
   - `files` — `out/**` 와 `package.json` 만. `src/`·`docs/`·`e2e/` 를 넣지 않는다.
   - `mac.target: dmg`, `mac.category` 지정.
-- [ ] **Step 3:** **`extraResources` 로 `drizzle/` 을 싣는다.** [index.ts:34](../../src/main/index.ts) 의 TODO 가 지목한 바로 그것이다. 이 한 줄이 없으면 설치본이 첫 실행에서 마이그레이션 디렉토리를 못 찾고 죽는다.
-- [ ] **Step 4:** 네이티브 모듈이 `asar` 밖에 남게 한다 (`asarUnpack` 에 `**/*.node` 계열). better-sqlite3 는 `.node` 바이너리를 `dlopen` 하는데, **아카이브 안의 경로는 실제 파일 경로가 아니라서 로드에 실패한다.**
-- [ ] **Step 5:** `package.json` 에 스크립트 2개를 더한다.
+- [x] **Step 3:** **`extraResources` 로 `drizzle/` 을 싣는다.** [index.ts:34](../../src/main/index.ts) 의 TODO 가 지목한 바로 그것이다. 이 한 줄이 없으면 설치본이 첫 실행에서 마이그레이션 디렉토리를 못 찾고 죽는다.
+- [x] **Step 4:** 네이티브 모듈이 `asar` 밖에 남게 한다 (`asarUnpack` 에 `**/*.node` 계열). better-sqlite3 는 `.node` 바이너리를 `dlopen` 하는데, **아카이브 안의 경로는 실제 파일 경로가 아니라서 로드에 실패한다.**
+- [x] **Step 5:** `package.json` 에 스크립트 2개를 더한다.
   - `"dist:dir": "pnpm build && electron-builder --dir"` — 포장 없이 앱 디렉토리만. 빠르고, 설정이 맞는지 보는 용도.
   - `"dist": "pnpm build && electron-builder --mac"` — 실제 `.dmg`.
-- [ ] **Step 6:** `pnpm-workspace.yaml` 의 `allowBuilds` 에 `better-sqlite3` 가 있는지 확인한다. **이미 있으면 건드리지 않는다** — ADR-004 가 이 설정의 이름이 pnpm 11 에서 바뀌었다고 기록해 뒀으므로, 형식이 현행인지만 본다.
+- [x] **Step 6:** `pnpm-workspace.yaml` 의 `allowBuilds` 에 `better-sqlite3` 가 있는지 확인한다. **이미 있으면 건드리지 않는다** — ADR-004 가 이 설정의 이름이 pnpm 11 에서 바뀌었다고 기록해 뒀으므로, 형식이 현행인지만 본다.
 
 **검증:** `pnpm dist:dir` 이 성공하고 산출물 디렉토리에 앱이 생긴다. 아직 실행해 보지 않는다 — Task 3 이 남았다.
 
@@ -100,12 +100,12 @@ src/main/index.ts                  # (수정) 단일 인스턴스 잠금 · MIGR
 
 ### Task 3: 패키징된 경로 분기
 
-- [ ] **Step 1:** [src/main/index.ts](../../src/main/index.ts) 의 `MIGRATIONS_DIR` 을 `app.isPackaged` 로 분기한다.
+- [x] **Step 1:** [src/main/index.ts](../../src/main/index.ts) 의 `MIGRATIONS_DIR` 을 `app.isPackaged` 로 분기한다.
   - 패키징: `join(process.resourcesPath, 'drizzle')`
   - 개발: 기존 `join(dirname(fileURLToPath(import.meta.url)), '../../drizzle')`
-- [ ] **Step 2:** [index.ts:34](../../src/main/index.ts) 의 `TODO(M4 패키징, ADR-004)` 주석을 **지우고**, 왜 두 경로가 다른지를 설명하는 주석으로 바꾼다. 해결된 TODO 를 남겨두면 다음 사람이 미해결로 읽는다.
-- [ ] **Step 3:** 마이그레이션 개수 세기가 패키징 후에도 성립하는지 확인한다. [migrate.ts](../../src/main/db/migrate.ts) 의 `bundledMigrationCount` 는 디렉토리의 `.sql` 개수를 스키마 버전으로 쓴다 — `extraResources` 가 `drizzle/` 의 `meta/` 까지 함께 실어야 Drizzle 마이그레이터가 동작하고, `.sql` 개수는 그대로여야 한다.
-- [ ] **Step 4:** 다른 경로 의존이 더 있는지 훑는다. `grep -rn "import.meta.url\|__dirname\|process.cwd()" src/main src/preload` 로 확인하고, 나오는 것마다 패키징 후에도 성립하는지 판정한다. **성립하지 않는 것을 지금 찾지 못하면 Task 6 에서 앱이 죽는 형태로 찾게 된다.**
+- [x] **Step 2:** [index.ts:34](../../src/main/index.ts) 의 `TODO(M4 패키징, ADR-004)` 주석을 **지우고**, 왜 두 경로가 다른지를 설명하는 주석으로 바꾼다. 해결된 TODO 를 남겨두면 다음 사람이 미해결로 읽는다.
+- [x] **Step 3:** 마이그레이션 개수 세기가 패키징 후에도 성립하는지 확인한다. [migrate.ts](../../src/main/db/migrate.ts) 의 `bundledMigrationCount` 는 디렉토리의 `.sql` 개수를 스키마 버전으로 쓴다 — `extraResources` 가 `drizzle/` 의 `meta/` 까지 함께 실어야 Drizzle 마이그레이터가 동작하고, `.sql` 개수는 그대로여야 한다.
+- [x] **Step 4:** 다른 경로 의존이 더 있는지 훑는다. `grep -rn "import.meta.url\|__dirname\|process.cwd()" src/main src/preload` 로 확인하고, 나오는 것마다 패키징 후에도 성립하는지 판정한다. **성립하지 않는 것을 지금 찾지 못하면 Task 6 에서 앱이 죽는 형태로 찾게 된다.**
 
 **검증:** `grep` 결과의 모든 항목에 대해 "패키징 후에도 성립함" 또는 "고쳤음" 판정이 붙어 있다.
 

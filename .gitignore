@@ -5,6 +5,11 @@ dist/
 *.local
 .DS_Store
 
+# electron-builder 산출물 (electron-builder.yml 의 directories.output).
+# `.dmg` 하나가 수백 MB 라 추적하면 저장소가 즉시 못 쓰게 된다 — 배포본은 GitHub
+# Releases 가 보관한다 (ADR-004).
+release/
+
 # Obsidian vault settings (local editor state)
 .obsidian/
 

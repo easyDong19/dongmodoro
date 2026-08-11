@@ -10,6 +10,11 @@
 allowBuilds:
   better-sqlite3: true
   electron: true
+  # false 다 — electron-builder 가 끌고 온 Windows 인스톨러 도구이고, v1.0.0 은 macOS
+  # 하나만 배포한다 (ADR-028 을 낳은 것과 같은 이유: 켤 수 없는 OS 의 산출물을 만들면
+  # 검증되지 않은 것이 검증된 것처럼 보인다). pnpm 이 설치 때 미결 상태로 적어 두므로
+  # 여기서 결정을 못박는다 — 비워 두면 매 설치마다 같은 경고가 다시 뜬다.
+  electron-winstaller: false
   esbuild: true
 
 # Deliberately no `minimumReleaseAgeExclude` here. pnpm 11 refuses versions

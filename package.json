@@ -8,6 +8,8 @@
   "scripts": {
     "dev": "electron-vite dev",
     "build": "electron-vite build",
+    "dist:dir": "pnpm build && electron-builder --dir",
+    "dist": "pnpm build && electron-builder --mac",
     "typecheck": "tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.web.json && tsc --noEmit -p tsconfig.e2e.json",
     "test": "vitest run",
     "test:e2e": "playwright test",
@@ -42,6 +44,7 @@
     "clsx": "^2.1.1",
     "drizzle-kit": "^0.31.10",
     "electron": "^43.2.0",
+    "electron-builder": "^26.15.3",
     "electron-vite": "^5.0.0",
     "eslint": "^10.8.0",
     "eslint-config-prettier": "^10.1.8",

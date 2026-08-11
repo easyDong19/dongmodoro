@@ -24,18 +24,22 @@ import { acquireSingleInstanceLock, focusExistingWindow } from './single-instanc
 import type { UnitOfWork } from './services/ports'
 
 /**
- * 마이그레이션 폴더는 **번들 산출물 기준**으로 푼다.
+ * 마이그레이션 폴더의 자리는 **패키징 여부로 갈린다.** 한 경로로는 둘 다 맞출 수 없다.
  *
- * 이 파일은 `out/main/index.js` 한 덩어리로 번들되므로 여기서의 `../../` 가 저장소
- * 루트다. `migrate.ts` 가 자기 위치에서 유도하지 않고 인자로 받는 이유가 이것이다 —
- * 소스(`src/main/db/`)와 산출물(`out/main/`)의 깊이가 달라 한 상대 경로로는 둘 다
- * 맞출 수 없다. `import.meta.url` 을 쓰는 것은 `"type": "module"` 이라 `__dirname` 이
- * 없기 때문이다.
+ * - 개발·`out/` 실행: 이 파일은 `out/main/index.js` 한 덩어리로 번들되므로 `../../` 가
+ *   저장소 루트다. `migrate.ts` 가 자기 위치에서 유도하지 않고 인자로 받는 이유가 이것이다 —
+ *   소스(`src/main/db/`)와 산출물(`out/main/`)의 깊이가 다르다. `import.meta.url` 을 쓰는
+ *   것은 `"type": "module"` 이라 `__dirname` 이 없기 때문이다.
+ * - 패키징: 코드가 asar 아카이브 안으로 들어가므로 같은 상대 경로가 **아카이브 내부의
+ *   존재하지 않는 자리**를 가리킨다. `.sql` 은 `extraResources` 로 아카이브 밖에 실려
+ *   있고(electron-builder.yml), 그 자리는 `process.resourcesPath` 아래다.
  *
- * TODO(M4 패키징, ADR-004): asar 안에서는 이 경로가 성립하지 않는다. electron-builder
- * 의 `extraResources` 로 `drizzle/` 을 함께 실어 `process.resourcesPath` 로 풀어야 한다.
+ * 이 분기가 없으면 설치본이 **첫 실행에서만** 죽는다 — 개발 모드에서는 영영 재현되지
+ * 않으므로, 검증은 반드시 설치본으로 해야 한다.
  */
-const MIGRATIONS_DIR = join(dirname(fileURLToPath(import.meta.url)), '../../drizzle')
+const MIGRATIONS_DIR = app.isPackaged
+  ? join(process.resourcesPath, 'drizzle')
+  : join(dirname(fileURLToPath(import.meta.url)), '../../drizzle')
 
 let closeDatabase: (() => void) | undefined
 let mainWindow: BrowserWindow | null = null
