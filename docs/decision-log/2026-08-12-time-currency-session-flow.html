@@ -1,0 +1,211 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>의사결정 플로우 — 2026-08-12 시간 통화 전환 세션</title>
+<style>
+  :root {
+    --bg: #ffffff; --surface: #f7f8f8; --line: #d8dcda; --line-strong: #9aa3a0;
+    --text: #14201c; --muted: #6b7873;
+    --teal: #0f8a6d; --teal-soft: rgba(15,138,109,0.10);
+    --amber: #a76a12; --amber-soft: rgba(167,106,18,0.12);
+    --violet: #7c4fc4; --violet-soft: rgba(124,79,196,0.10);
+    --danger: #b3543f;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0c1a16; --surface: rgba(255,255,255,0.045); --line: rgba(255,255,255,0.14);
+      --line-strong: rgba(255,255,255,0.4); --text: #e8f0ec; --muted: #8fa39b;
+      --teal: #6fd4b8; --teal-soft: rgba(111,212,184,0.12);
+      --amber: #f0b671; --amber-soft: rgba(240,182,113,0.14);
+      --violet: #b795e8; --violet-soft: rgba(183,149,232,0.12);
+      --danger: #e8907e;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { background: var(--bg); color: var(--text); margin: 0; padding: 32px 20px 64px;
+         font-family: ui-sans-serif, -apple-system, "Segoe UI", Roboto, sans-serif; line-height: 1.6; }
+  .wrap { max-width: 800px; margin: 0 auto; }
+  h1 { font-size: 22px; margin: 0 0 6px; letter-spacing: -0.01em; }
+  .sub { color: var(--muted); font-size: 13px; margin: 0 0 8px; }
+  .intro { font-size: 14px; background: var(--surface); border: 1px solid var(--line);
+           border-radius: 12px; padding: 14px 18px; margin: 18px 0 0; }
+  .intro b { color: var(--teal); }
+  .legend { display: flex; gap: 14px; flex-wrap: wrap; font-size: 12px; color: var(--muted);
+            margin: 14px 0 0; padding: 12px 0; border-bottom: 1px solid var(--line); }
+  .chip { display: inline-block; padding: 1px 8px; border-radius: 999px; font-size: 11px;
+          font-weight: 600; letter-spacing: 0.02em; vertical-align: 1px; }
+  .chip.rev { background: var(--amber-soft); color: var(--amber); }
+  .chip.exp { background: var(--violet-soft); color: var(--violet); }
+  .chip.sys { background: var(--teal-soft); color: var(--teal); }
+  .phase { margin-top: 40px; }
+  .phase-title { font-size: 12px; font-weight: 700; letter-spacing: 0.1em; color: var(--muted);
+                 text-transform: uppercase; margin: 0 0 4px 46px; }
+  .phase-desc { font-size: 13px; color: var(--muted); margin: 0 0 8px 46px; }
+  .node { display: flex; gap: 16px; }
+  .rail { width: 30px; flex-shrink: 0; display: flex; flex-direction: column; align-items: center; }
+  .dot { width: 12px; height: 12px; border-radius: 50%; background: var(--teal);
+         border: 2px solid var(--bg); box-shadow: 0 0 0 1.5px var(--teal); margin-top: 22px; flex-shrink: 0; }
+  .dot.sys { background: var(--bg); box-shadow: 0 0 0 1.5px var(--line-strong); }
+  .rail .cont { width: 2px; flex: 1; background: var(--line); margin-top: 4px; }
+  .node:last-child .rail .cont { background: linear-gradient(var(--line), transparent); }
+  .card { flex: 1; background: var(--surface); border: 1px solid var(--line); border-radius: 12px;
+          padding: 14px 18px 12px; margin: 8px 0; font-size: 13.5px; }
+  .card.sys { border-style: dashed; }
+  .q { font-weight: 700; font-size: 14px; margin: 0 0 6px; }
+  .q .chip { margin-left: 6px; }
+  .prob { color: var(--muted); margin: 0 0 8px; }
+  ul.opts { list-style: none; margin: 0 0 8px; padding: 0; }
+  ul.opts li { padding: 3px 0 3px 20px; position: relative; color: var(--muted); }
+  ul.opts li::before { content: '○'; position: absolute; left: 2px; color: var(--line-strong); }
+  ul.opts li.pick { color: var(--text); }
+  ul.opts li.pick::before { content: '●'; color: var(--teal); }
+  .dec { background: var(--teal-soft); border-radius: 8px; padding: 7px 12px; margin: 0 0 8px; }
+  .dec b { color: var(--teal); }
+  .why { font-size: 13px; border-left: 3px solid var(--line-strong); padding: 2px 0 2px 12px;
+         color: var(--muted); margin: 0 0 8px; font-style: normal; }
+  .dep { border-top: 1px dashed var(--line); padding-top: 6px; font-size: 12px; color: var(--muted); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>의사결정 플로우 — 시간 통화 전환</h1>
+  <p class="sub">2026-08-12 · 원장: <a href="./2026-08-12-time-currency-session.md">2026-08-12-time-currency-session.md</a></p>
+  <div class="intro">"뽀모 길이를 바꿨는데 되돌아간다"는 문제 제기가 진단을 거쳐 기획 변경으로 커진 세션.
+    결론: <b>계획의 통화(예상 뽀모·예산·가용량)를 버리고 진행 표시를 측정 시간으로 바꾼다.</b>
+    결론의 소유자는 ADR-029 · ADR-030.</div>
+  <div class="legend">
+    <span><span class="chip rev">반전</span> AI 추천 기각 / 선택 번복</span>
+    <span><span class="chip exp">재설명</span> 결정 전 상세 분석 요구</span>
+    <span><span class="chip sys">검증</span> 코드·DB 로 사실 확인</span>
+  </div>
+
+  <div class="phase">
+    <p class="phase-title">Phase 1 · 발단과 진단</p>
+    <p class="phase-desc">문제가 버그인지 설계인지부터 확인했다.</p>
+    <div class="node">
+      <div class="rail"><div class="dot sys"></div><div class="cont"></div></div>
+      <div class="card sys">
+        <p class="q">문제 제기 <span class="chip sys">검증</span></p>
+        <p class="prob">"지금 바꿔도 껐다키면 다시 50분으로 바뀌는데" — 뽀모 길이 편집이 반영되지 않는 것으로 보임.</p>
+        <div class="dec"><b>진단:</b> app.db 직접 조회. 저장은 정상(settings.focus_min=50), 원인은 이번 주 weeks 행에 박제된 스냅샷 — ADR-013 의 효력 지연이 설계대로 동작한 것.</div>
+        <p class="why">버그가 아니라 "설계가 사용자에게 저장 실패로 읽히는" 기획 문제로 재정의.</p>
+      </div>
+    </div>
+    <div class="node">
+      <div class="rail"><div class="dot"></div><div class="cont"></div></div>
+      <div class="card">
+        <p class="q">기획 변경 선언 <span class="chip exp">재설명</span></p>
+        <p class="prob">사용자 원문: "1. 뽀모 세팅값은 변경하면 저장하게 해야함 2. 예상뽀모, 없애고 대신 절대적 시간 값을 측정하는게 좋아보임. 예상뽀모를 추가하는건 플로우를 복잡하게 함. 3. 그에따라 … 관련 DB테이블도 삭제해야함"</p>
+        <div class="dec"><b>AI 분석:</b> 즉시 적용(1)은 예상 뽀모 폐지(2)의 따름정리 — 효력 지연의 보호 대상이 개수 예산이므로. 측정은 새 장치 불요 — sessions.duration_sec 가 이미 저장 중.</div>
+        <div class="dep">→ Q1~Q5 (갈림길 5개로 분해)</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="phase">
+    <p class="phase-title">Phase 2 · 새 통화의 화면별 형태</p>
+    <p class="phase-desc">예상 뽀모가 빠진 자리를 화면마다 하나씩 정했다.</p>
+    <div class="node">
+      <div class="rail"><div class="dot"></div><div class="cont"></div></div>
+      <div class="card">
+        <p class="q">Q1. 주간 계획 층의 모습</p>
+        <p class="prob">"얼마만큼"에 답하던 숫자(est·예산·가용량)가 사라지면 층의 정체성을 다시 정해야 한다.</p>
+        <ul class="opts">
+          <li class="pick">숫자 없는 리스트 — 예산·과적·게이지 전부 삭제</li>
+          <li>시간 예산("주 20시간")으로 대체 — 과적 일부 생존</li>
+          <li>est 만 삭제, 예산 유지 — 반쪽 삭제</li>
+        </ul>
+        <div class="dec"><b>결정:</b> 숫자 없는 리스트. 주간은 "이번 주에 뭘 할까"만 답한다.</div>
+        <p class="why">"예상뽀모를 추가하는건 플로우를 복잡하게 함" — 숫자 입력 자체가 제거 대상이므로 시간 예산도 같은 부담의 재생산.</p>
+        <div class="dep">→ Q2 (정산의 분모 소멸) · → 미결 1 (과적 신호 없이 가기로)</div>
+      </div>
+    </div>
+    <div class="node">
+      <div class="rail"><div class="dot"></div><div class="cont"></div></div>
+      <div class="card">
+        <p class="q">Q2. 정산 요약</p>
+        <p class="prob">`계획 대비 소진(차액 포함)` 요약에서 계획 숫자가 죽는다.</p>
+        <ul class="opts">
+          <li class="pick">측정 시간 요약 — 총·항목별·자유 집중, 사실만</li>
+          <li>처분(이월/폐기)만 남김</li>
+          <li>시간 + 완료 개수 병기</li>
+        </ul>
+        <div class="dec"><b>결정:</b> 측정 시간 요약.</div>
+        <p class="why">"사실만 표시하고 판단은 사용자에게" 원칙과 일치 (추천안 수용).</p>
+        <div class="dep">→ 차액 정의(ADR-027) 폐기 — 자유 focus 시간 직접 합산으로 단순화</div>
+      </div>
+    </div>
+    <div class="node">
+      <div class="rail"><div class="dot"></div><div class="cont"></div></div>
+      <div class="card">
+        <p class="q">Q3. 월 마일스톤 롤업</p>
+        <p class="prob">`이번 주 3/8` 의 분모(예상 뽀모 합)가 죽는다.</p>
+        <ul class="opts">
+          <li class="pick">시간 롤업 — `이번 주 3시간 20분`</li>
+          <li>뽀모 횟수만 — `이번 주 3뽀모`</li>
+          <li>롤업 삭제 — 제목만</li>
+        </ul>
+        <div class="dec"><b>결정:</b> 시간 롤업. 월 층 "수치 입력 없음" 원칙과 무충돌 — 입력이 아니라 파생이다.</div>
+      </div>
+    </div>
+    <div class="node">
+      <div class="rail"><div class="dot"></div><div class="cont"></div></div>
+      <div class="card">
+        <p class="q">Q4. 오늘 목록·주간 항목의 진행 표시</p>
+        <p class="prob">항목당 `소진/예상 뽀모`. 타이머는 계속 뽀모 사이클로 돌므로 단위 자체는 남는다.</p>
+        <ul class="opts">
+          <li class="pick">측정 시간만 — 표시 규칙 하나</li>
+          <li>시간 + 뽀모 횟수 병기</li>
+          <li>뽀모 횟수만 — 길이 가변 문제가 표시에 잔존</li>
+        </ul>
+        <div class="dec"><b>결정:</b> 측정 시간만.</div>
+        <div class="dep">→ CONTEXT.md 의 뽀모 정의가 "집계 화폐" → "타이머 사이클 단위"로 좁아짐</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="phase">
+    <p class="phase-title">Phase 3 · 데이터와 버저닝</p>
+    <p class="phase-desc">파괴적 변경의 크기를 정했다.</p>
+    <div class="node">
+      <div class="rail"><div class="dot"></div><div class="cont"></div></div>
+      <div class="card">
+        <p class="q">Q5. 기존 데이터</p>
+        <ul class="opts">
+          <li class="pick">마이그레이션 — est·예산·가용량만 제거, 세션·항목 보존. 과거 주도 시간 표시 소급</li>
+          <li>DB 초기화 — 기록 전부 유실</li>
+        </ul>
+        <div class="dec"><b>결정:</b> 마이그레이션.</div>
+      </div>
+    </div>
+    <div class="node">
+      <div class="rail"><div class="dot"></div><div class="cont"></div></div>
+      <div class="card">
+        <p class="q">Q6. 버저닝</p>
+        <p class="prob">"버저닝을추천해줘 이정도면 꽤 큰 변경사항이라서 말이지"</p>
+        <ul class="opts">
+          <li class="pick">2.0.0 — 통화 교체 + 테이블 삭제 + 화면 의미 변경</li>
+          <li>1.2.0 — 파괴적 변경을 마이너에 싣게 됨</li>
+        </ul>
+        <div class="dec"><b>결정:</b> 2.0.0. (AI 추천 수용, 현재 main 은 1.1.0)</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="phase">
+    <p class="phase-title">Phase 4 · 종결</p>
+    <div class="node">
+      <div class="rail"><div class="dot sys"></div><div class="cont"></div></div>
+      <div class="card sys">
+        <p class="q">설계 승인과 기록</p>
+        <p class="prob">화면 6개 + 데이터 플로우를 HTML 와이어프레임으로 그려 확인 후 승인.</p>
+        <div class="dec"><b>산출:</b> 이 기록 · ADR-029(즉시 효력) · ADR-030(시간 통화) · 구현 계획서(2026-08-12-time-currency.md) · CONTEXT.md 용어 갱신</div>
+        <div class="dep">미결: 과적 대체 신호(없이 가보고 결정) · 온보딩(독립) · 시간 예산 재도입(지금은 안 만듦)</div>
+      </div>
+    </div>
+  </div>
+</div>
+</body>
+</html>

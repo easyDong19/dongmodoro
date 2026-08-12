@@ -7,6 +7,9 @@
   - **§1·§2·§3 과 Consequences 는 전부 유효하다.** 집계 술어의 주 조건, pull 주 제한 폐기,
     이월의 재부모화·`milestone_id` 승계는 이 문서가 계속 소유한다.
   - 아래 본문은 이력으로 그대로 둔다 (docs/CLAUDE.md 의 ADR 정정 규칙).
+- **§4 폐기됨 (2026-08-12, [ADR-030](adr-030-time-as-progress-currency.md))** — 차액이라는
+  개념 자체가 사라진다 (ADR-027 도 함께 폐기). **§1·§2·§3 은 계속 유효하다** — 측정
+  시간 합산의 주·항목 귀속 판정이 같은 술어를 쓴다.
 - 근거: [2026-08-04 리뷰 결정](../../decision-log/2026-08-04-review-decisions.md) D1 · 상세 시각화 [review-findings.html](../../decision-log/2026-08-04-review-findings.html)
 - 관계: [ADR-011](adr-011-schema-final.md) §2 의 "pull 은 오늘이 속한 주의 항목으로 제한한다"를 **폐기**한다 (부분 정정)
 
