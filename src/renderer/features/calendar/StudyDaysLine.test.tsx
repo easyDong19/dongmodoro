@@ -12,14 +12,12 @@ async function renderLine(days: number) {
   const studyDays = vi.fn().mockResolvedValue({ week: WEEK, days })
   window.api = {
     clock: {
-      now: vi
-        .fn()
-        .mockResolvedValue({
-          dayKey: '2026-08-04',
-          weekKey: WEEK,
-          monthKey: '2026-08',
-          weekdayIndex: 1
-        })
+      now: vi.fn().mockResolvedValue({
+        dayKey: '2026-08-04',
+        weekKey: WEEK,
+        monthKey: '2026-08',
+        weekdayIndex: 1
+      })
     },
     calendar: { studyDays }
   } as unknown as Api
