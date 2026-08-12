@@ -43,13 +43,14 @@ export function MilestoneCard() {
     setAdding(false)
   }
 
+  /*
+   * **`aria-label` 을 두지 않는다.** 카드의 접근성 이름은 셸의 `<section>` 이 소유한다
+   * (App.tsx) — 다른 카드(타이머·주간·오늘·캘린더)가 전부 그 규율이다. 여기에도 같은
+   * 이름을 붙이면 **같은 이름의 region 이 중첩되어** 스크린리더가 두 번 읽고,
+   * `getByRole('region', …)` 이 두 요소로 갈라진다.
+   */
   return (
-    <section
-      className="flex min-h-0 flex-col gap-2"
-      aria-label="월 결과물"
-      data-mode={data.mode}
-      data-testid="milestone-card"
-    >
+    <div className="flex min-h-0 flex-col gap-2" data-mode={data.mode} data-testid="milestone-card">
       <h2 className={`card-title ${data.mode.startsWith('past') ? 'text-ink-dim' : 'text-ink'}`}>
         결과물
       </h2>
@@ -186,6 +187,6 @@ export function MilestoneCard() {
           </Button>
         )
       ) : null}
-    </section>
+    </div>
   )
 }
