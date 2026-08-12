@@ -10,6 +10,7 @@ import { registerTimerHandlers } from './ipc/timer'
 import { registerWeekHandlers } from './ipc/week'
 import { registerReviewHandlers } from './ipc/review'
 import { registerCalendarHandlers } from './ipc/calendar'
+import { registerMilestoneHandlers } from './ipc/milestones'
 import { registerSettingsHandlers } from './ipc/settings'
 import { startClock } from './services/clock'
 import { applyTheme, readTheme } from './services/theme'
@@ -121,6 +122,7 @@ function boot(): void {
       registerWeekHandlers(uow)
       registerReviewHandlers(uow)
       registerCalendarHandlers(uow)
+      registerMilestoneHandlers(uow)
       registerSettingsHandlers(uow, () => mainWindow)
       // 타이머는 창보다 먼저 산다 — renderer 가 죽어도 main 의 타이머는 계속 돈다 (R12).
       const timerHost = startTimerHost(uow, () => mainWindow)

@@ -1,5 +1,5 @@
 import { v7 as uuidv7 } from 'uuid'
-import { localKeys, now } from '../../shared/time'
+import { localKeys, monthOfWeek, now } from '../../shared/time'
 import { budgetPrefill, effectiveBudget, weekSnapshot } from './baseline'
 import type { ChildTaskRow, PlanDraftItem, UnitOfWork, WeekItemRow } from './ports'
 
@@ -205,6 +205,42 @@ export function setItemCompleted(
     const at = now()
     repos.weekItems.complete(weekItemId, at)
     return { itemWeek: header.week, completedAt: at }
+  })
+}
+
+/**
+ * 할당 ↔ 마일스톤 연결 (milestones R13·R14 · A12).
+ *
+ * **후보 제한을 서비스가 강제한다.** 화면이 후보 목록을 좁히는 것만으로는 IPC 를 직접
+ * 부르는 경로가 열린다 — `pullFromDrawer` 의 소속 검증과 같은 규율이다. 후보는 그 할당의
+ * 주가 귀속된 달(`monthOfWeek`)의 **보관되지 않은** 마일스톤이며, 8월 주의 할당을 9월
+ * 마일스톤에 새로 매달 수 없다. 그렇지 않으면 한 마일스톤의 롤업이 임의의 달에서 올라와
+ * 월 레이어의 경계가 사라진다.
+ *
+ * **해제(`null`)는 언제나 허용된다** — 연결 없음은 오류 상태가 아니다 (R13). 이월이
+ * 승계한 타월 연결도 이 경로로 끊을 수 있어야 한다.
+ */
+export function setItemMilestone(
+  uow: UnitOfWork,
+  input: { weekItemId: string; milestoneId: string | null }
+): { itemWeek: string } {
+  return uow.run((repos) => {
+    const header = repos.weekItems.header(input.weekItemId)
+    if (header === null) {
+      throw new Error(`setItemMilestone: item '${input.weekItemId}' not found`)
+    }
+
+    if (input.milestoneId !== null) {
+      const candidates = repos.milestones.listForMonth(monthOfWeek(header.week))
+      if (!candidates.some((m) => m.id === input.milestoneId)) {
+        throw new Error(
+          `setItemMilestone: milestone '${input.milestoneId}' is not a candidate for week ${header.week}`
+        )
+      }
+    }
+
+    repos.milestones.setWeekItemMilestone(input.weekItemId, input.milestoneId)
+    return { itemWeek: header.week }
   })
 }
 

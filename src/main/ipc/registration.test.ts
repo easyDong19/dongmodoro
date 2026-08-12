@@ -38,6 +38,7 @@ describe('IPC 등록 완결성 (ADR-007)', () => {
     const { registerWeekHandlers } = await import('./week')
     const { registerReviewHandlers } = await import('./review')
     const { registerCalendarHandlers } = await import('./calendar')
+    const { registerMilestoneHandlers } = await import('./milestones')
     const { registerSettingsHandlers } = await import('./settings')
     const { TimerEngine } = await import('../services/timer-engine')
     registerSystemHandlers(() => 1)
@@ -52,6 +53,7 @@ describe('IPC 등록 완결성 (ADR-007)', () => {
     registerWeekHandlers(uow)
     registerReviewHandlers(uow)
     registerCalendarHandlers(uow)
+    registerMilestoneHandlers(uow)
     // 창은 테마 변경 시에만 필요하고 fn 이 호출되지 않으므로 null 로 충분하다.
     registerSettingsHandlers(uow, () => null)
     // 엔진은 순수 클래스라 스텁 의존성으로 실물을 세운다 — 핸들러 fn 은 호출되지 않는다.

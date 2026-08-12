@@ -192,3 +192,65 @@ describe('calendar contract — 달력 키 형식은 경계에서 거른다 (ADR
     )
   })
 })
+
+describe('milestones contract — 수치 필드가 없다 (R3 · A3)', () => {
+  it('빈 제목과 공백 제목을 거부한다', () => {
+    const req = contracts.milestones.create.req
+    expect(req.safeParse([{ month: '2026-08', title: '' }]).success).toBe(false)
+    expect(req.safeParse([{ month: '2026-08', title: '   ' }]).success).toBe(false)
+  })
+
+  /**
+   * A3 — "마일스톤 추가 폼에 뽀모·할당량 등 숫자 입력 필드가 없다." 계약이 `strictObject`
+   * 이므로 수치 필드를 실은 요청이 거부된다. 계약에 없으면 화면이 만들 수 없다.
+   */
+  it('예상 뽀모를 실은 생성 요청을 거부한다 (A3)', () => {
+    const res = contracts.milestones.create.req.safeParse([
+      { month: '2026-08', title: '결과물', estPomos: 4 }
+    ])
+    expect(res.success).toBe(false)
+  })
+
+  it('제목 복사는 제목 배열만 받는다 — 원본 id 를 받지 않는다 (R22 · A23)', () => {
+    const req = contracts.milestones.carryTitles.req
+    expect(req.safeParse([{ month: '2026-08', titles: ['남은 것'] }]).success).toBe(true)
+    expect(req.safeParse([{ month: '2026-08', titles: ['a'], sourceIds: ['m1'] }]).success).toBe(
+      false
+    )
+  })
+
+  it('빈 제목 배열을 거부한다 — 아무것도 안 만드는 호출은 의도가 아니다', () => {
+    expect(
+      contracts.milestones.carryTitles.req.safeParse([{ month: '2026-08', titles: [] }]).success
+    ).toBe(false)
+  })
+
+  it('응답의 마일스톤 행에 수치 필드가 없다', () => {
+    const res = contracts.milestones.forMonth.res.safeParse({
+      month: '2026-08',
+      mode: 'edit',
+      items: [
+        {
+          id: 'm1',
+          month: '2026-08',
+          title: '결과물',
+          completedAt: null,
+          archivedAt: null,
+          rollup: null,
+          estPomos: 4
+        }
+      ],
+      badge: null,
+      rollupWeek: null,
+      carryCandidates: []
+    })
+    expect(res.success).toBe(false)
+  })
+
+  it('연결 해제는 null 로 표현되며 유효하다 (R13)', () => {
+    const req = contracts.week.setMilestone.req
+    expect(req.safeParse([{ weekItemId: 'i1', milestoneId: null }]).success).toBe(true)
+    expect(req.safeParse([{ weekItemId: 'i1', milestoneId: 'm1' }]).success).toBe(true)
+    expect(req.safeParse([{ weekItemId: 'i1' }]).success).toBe(false)
+  })
+})
