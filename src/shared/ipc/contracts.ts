@@ -361,7 +361,9 @@ export const contracts = {
           .nullable(),
         /** 롤업의 **범위 라벨**을 그릴 주. `null` 이면 화면이 숫자 대신 사실 문구를 쓴다 (R17). */
         rollupWeek: dayKeySchema.nullable(),
-        carryCandidates: z.array(milestoneSchema)
+        carryCandidates: z.array(milestoneSchema),
+        /** `보관 K건` 뒤에서 펼치는 목록. 해제의 도달 경로다 (R11 · A20). */
+        archivedItems: z.array(milestoneSchema)
       })
     },
     create: {

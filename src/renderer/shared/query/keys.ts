@@ -43,6 +43,11 @@ export const keys = {
   /** 플래너 초안. 드로어와 같은 이유로 `week(weekKey)` 아래에 둔다. */
   weekPlanDraft: (weekKey: string) => ['week', weekKey, 'planDraft'] as const,
   monthCalendar: (monthKey: string) => ['month', monthKey, 'calendar'] as const,
+  /**
+   * 마일스톤 카드 한 화면. `monthCalendar` 와 나란히 `monthAll()` prefix 아래에 둔다 —
+   * 세션 완료·자정 경계는 두 카드를 함께 털어야 하고, 마일스톤 편집은 이 키 하나만 턴다.
+   */
+  monthMilestones: (monthKey: string) => ['month', monthKey, 'milestones'] as const,
   /** 캡처 바 대기 상태 (Task 10) — 이벤트 리스너가 쓰고 CaptureBar 가 읽는다. */
   capturePending: () => ['capture', 'pending'] as const,
   // prefix 무효화 전용 (쿼리 키로 직접 쓰지 않는다)

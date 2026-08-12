@@ -271,6 +271,11 @@ export function monthLabel(monthKeyValue: string): string {
   return `${y}년 ${m}월`
 }
 
+/** 연도 없이 `8월`. 문장 안에서 달을 부를 때 쓴다 — `10월은 9월 1일부터 계획할 수 있어요`. */
+export function monthOnlyLabel(monthKeyValue: string): string {
+  return `${Number(monthKeyValue.split('-')[1])}월`
+}
+
 /**
  * 그 달의 `local_date` **범위 조회** 경계 (calendar-records R3 · A3).
  *

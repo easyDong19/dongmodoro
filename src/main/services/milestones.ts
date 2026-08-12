@@ -67,6 +67,12 @@ export type MonthMilestones = {
   rollupWeek: string | null
   /** 직전 달 미완료 제목 (R22). 빈 배열이면 화면이 복사 액션을 렌더하지 않는다. */
   carryCandidates: MilestoneRow[]
+  /**
+   * 보관된 것들 (R11). 목록 본문에는 나오지 않지만 화면이 `보관 K건` 뒤에서 펼친다 —
+   * **해제가 지난달 카드에서도 가능해야 하므로**(A20) 도달 경로가 필요하다. 이것이 없으면
+   * 보관은 되는데 해제는 규칙에만 있는 기능이 된다.
+   */
+  archivedItems: MilestoneRow[]
 }
 
 /**
@@ -108,7 +114,9 @@ export function monthMilestones(uow: UnitOfWork, month: string): MonthMilestones
       badge: mode === 'past' ? badgeCounts : null,
       rollupWeek,
       carryCandidates:
-        mode === 'current-empty' ? repos.milestones.carryCandidates(addMonths(month, -1)) : []
+        mode === 'current-empty' ? repos.milestones.carryCandidates(addMonths(month, -1)) : [],
+      archivedItems:
+        badgeCounts.archivedCount === 0 ? [] : repos.milestones.listArchivedForMonth(month)
     }
   })
 }

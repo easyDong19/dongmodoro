@@ -240,6 +240,12 @@ export type MilestoneRollupRow = {
 export interface MilestonesRepository {
   /** 그 달의 **보관되지 않은** 마일스톤. 생성 순 고정이다 (R10). */
   listForMonth(month: string): MilestoneRow[]
+  /**
+   * 그 달의 **보관된** 마일스톤. 목록 본문에는 나오지 않지만(R11), 보관 해제가 지난달
+   * 카드에서도 가능해야 하므로(R11 · A20) 화면이 `보관 K건` 뒤에서 펼칠 대상이 필요하다.
+   * 이 조회가 없으면 해제는 규칙에만 있고 도달 경로가 없는 기능이 된다.
+   */
+  listArchivedForMonth(month: string): MilestoneRow[]
   /** 배지 재료. **보관을 거르지 않는다** (R21). */
   badgeCounts(month: string): MilestoneBadge
   /** 제목 복사 후보 (R22) — 그 달의 미완료. **보관 여부와 무관하게** 낸다. */

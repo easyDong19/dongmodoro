@@ -85,6 +85,7 @@ function fakeUow(o: {
   badge?: { total: number; completed: number; archivedCount: number }
   rollup?: { milestoneId: string; spentPomos: number; plannedPomos: number }[]
   carry?: MilestoneRow[]
+  archived?: MilestoneRow[]
   onRollup?: (month: string, week: string) => void
 }): UnitOfWork {
   const rows = o.rows ?? []
@@ -93,6 +94,7 @@ function fakeUow(o: {
       listForMonth: () => rows,
       badgeCounts: () => o.badge ?? { total: rows.length, completed: 0, archivedCount: 0 },
       carryCandidates: () => o.carry ?? [],
+      listArchivedForMonth: () => o.archived ?? [],
       rollup: (month: string, week: string) => {
         o.onRollup?.(month, week)
         return o.rollup ?? []
@@ -239,5 +241,31 @@ describe('monthMilestones — 제목 복사 후보 (R22 · A23)', () => {
     )
     expect(res.mode).toBe('edit')
     expect(res.carryCandidates).toEqual([])
+  })
+})
+
+describe('monthMilestones — 보관 목록은 해제의 도달 경로다 (R11 · A20)', () => {
+  it('보관이 0건이면 조회하지 않고 빈 배열이다', () => {
+    freezeAt(2026, 8, 4)
+    const res = monthMilestones(
+      fakeUow({
+        rows: [row()],
+        badge: { total: 1, completed: 0, archivedCount: 0 },
+        archived: [row({ id: 'never-read' })]
+      }),
+      '2026-08'
+    )
+    expect(res.archivedItems).toEqual([])
+  })
+
+  it('보관이 있으면 지난달 카드에서도 목록을 싣는다 — 없으면 해제에 도달할 수 없다', () => {
+    freezeAt(2026, 8, 4)
+    const archived = [row({ id: 'arch', month: '2026-07', archivedAt: '2026-07-31T00:00:00.000Z' })]
+    const res = monthMilestones(
+      fakeUow({ rows: [], badge: { total: 1, completed: 0, archivedCount: 1 }, archived }),
+      '2026-07'
+    )
+    expect(res.mode).toBe('past')
+    expect(res.archivedItems.map((a) => a.id)).toEqual(['arch'])
   })
 })

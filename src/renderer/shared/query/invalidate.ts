@@ -59,6 +59,14 @@ export type InvalidationEvent =
    * 다시 읽는다 (timer R1) — 재조회로는 앞당길 수 없고, 앞당기는 것이 옳지도 않다.
    */
   | { type: 'baseline-changed' }
+  /**
+   * 마일스톤이 추가·수정·완료·보관·삭제·복사됐다. `currentDayKey` 를 갖지 않는다 —
+   * 대상 달을 payload 가 이미 들고 있고, 카드가 한 달만 그리므로 화면이 그 달을 안다.
+   *
+   * **캘린더는 대상이 아니다.** 마일스톤은 점에 영향을 주지 않으므로, 넣으면 아무것도
+   * 안 바뀌는 재조회가 생기고 그 재조회가 "마일스톤이 캘린더를 바꾼다"는 오해를 심는다.
+   */
+  | { type: 'milestone-changed'; payload: { month: string } }
 
 /**
  * 사건 → 무효화할 쿼리 키 목록의 순수 계산 (ADR-025 §3). QueryClient 를 몰라야 단위
@@ -148,6 +156,8 @@ export function keysToInvalidate(e: InvalidationEvent): readonly (readonly strin
      */
     case 'baseline-changed':
       return [keys.baseline(), keys.reviewPending()]
+    case 'milestone-changed':
+      return [keys.monthMilestones(e.payload.month)]
   }
 }
 

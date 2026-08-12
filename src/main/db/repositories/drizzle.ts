@@ -661,6 +661,20 @@ function makeRepos(tx: Tx): Repositories {
           .orderBy(asc(milestones.sortOrder), asc(milestones.id))
           .all(),
 
+      listArchivedForMonth: (month) =>
+        tx
+          .select({
+            id: milestones.id,
+            month: milestones.month,
+            title: milestones.title,
+            completedAt: milestones.completedAt,
+            archivedAt: milestones.archivedAt
+          })
+          .from(milestones)
+          .where(and(eq(milestones.month, month), isNotNull(milestones.archivedAt)))
+          .orderBy(asc(milestones.sortOrder), asc(milestones.id))
+          .all(),
+
       badgeCounts: (month) =>
         tx
           .select({
