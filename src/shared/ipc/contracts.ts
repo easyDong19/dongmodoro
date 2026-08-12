@@ -116,6 +116,35 @@ const childTaskSchema = z.strictObject({
   inToday: z.boolean()
 })
 
+/**
+ * 달력 키의 형식은 계약이 거른다 — 렌더러가 조립한 문자열이 여기서 처음 검증된다.
+ * `'2026-8'`(zero-pad 없음)·`'26-08'` 은 CHECK 제약까지 가기 전에 거부되어야 한다
+ * (ADR-011 §6 — 거부는 경계에서).
+ */
+const monthKeySchema = z.string().regex(/^\d{4}-\d{2}$/, 'month must be YYYY-MM')
+const dayKeySchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'day must be YYYY-MM-DD')
+
+/**
+ * 월 그리드 한 칸. **점 없음을 등급으로 표현하지 않는다** — `hasRecord: false` 가 그
+ * 사실이며, `dotLevel: null` 을 두면 같은 사실을 두 필드가 말하게 되어 어긋날 수 있다.
+ */
+const calendarDaySchema = z.strictObject({
+  dayKey: dayKeySchema,
+  hasRecord: z.boolean(),
+  focusCount: z.int().min(0),
+  dotLevel: z.enum(['basic', 'strong'])
+})
+
+/** 날짜 패널 한 행. `pulled`·`hadSession` 이 출처이며 둘 다 참일 수 있다 (R18). */
+const dayTaskSchema = z.strictObject({
+  taskId: z.string(),
+  title: z.string(),
+  /** **현재** 완료 상태다 (R19) — 그 날짜 시점의 완료 여부가 아니다. */
+  completedAt: z.string().nullable(),
+  pulled: z.boolean(),
+  hadSession: z.boolean()
+})
+
 export const timerSnapshotSchema = z.strictObject({
   mode: z.enum(['focus', 'short', 'long']),
   phase: z.enum(['idle', 'running', 'paused']),
@@ -275,6 +304,35 @@ export const contracts = {
       res: z.strictObject({ itemWeek: z.string(), completedAt: z.string().nullable() })
     },
     drop: { req: z.tuple([z.string()]), res: z.strictObject({ itemWeek: z.string() }) }
+  },
+  /**
+   * 캘린더 열람. 화면 하나 = 응답 하나이며, 화면이 조각을 모아 조립하지 않는다.
+   * **쓰기 채널이 없는 것이 계약이다** (R23 — 날짜 패널은 읽기 전용).
+   */
+  calendar: {
+    month: {
+      req: z.tuple([monthKeySchema]),
+      res: z.strictObject({
+        month: monthKeySchema,
+        /** 1일 앞의 빈 칸 수. 월요일 시작 기준이다 (R7). */
+        leadingBlanks: z.int().min(0).max(6),
+        days: z.array(calendarDaySchema)
+      })
+    },
+    day: {
+      req: z.tuple([dayKeySchema]),
+      res: z.strictObject({
+        dayKey: dayKeySchema,
+        hasRecord: z.boolean(),
+        focusCount: z.int().min(0),
+        tasks: z.array(dayTaskSchema)
+      })
+    },
+    /** `이번 주 N일 공부 중`. 주 키를 받는다 — 이 값만 `기록 있음` 과 다른 조건을 쓴다 (R24). */
+    studyDays: {
+      req: z.tuple([dayKeySchema]),
+      res: z.strictObject({ week: dayKeySchema, days: z.int().min(0) })
+    }
   },
   review: {
     /**

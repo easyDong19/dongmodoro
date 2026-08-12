@@ -142,3 +142,53 @@ describe('settings.getBaseline contract (pomo-baseline R26)', () => {
     ).toThrow()
   })
 })
+
+describe('calendar contract — 달력 키 형식은 경계에서 거른다 (ADR-011 §6)', () => {
+  it('zero-pad 없는 월 키를 거부한다', () => {
+    expect(contracts.calendar.month.req.safeParse(['2026-8']).success).toBe(false)
+  })
+
+  it('두 자리 연도를 거부한다', () => {
+    expect(contracts.calendar.month.req.safeParse(['26-08']).success).toBe(false)
+  })
+
+  it('월 채널에 날짜 키를 보내면 거부한다 — 두 키가 섞이면 범위 조회가 하루짜리가 된다', () => {
+    expect(contracts.calendar.month.req.safeParse(['2026-08-04']).success).toBe(false)
+  })
+
+  it('정상 월 키를 통과시킨다', () => {
+    expect(contracts.calendar.month.req.safeParse(['2026-08']).success).toBe(true)
+  })
+
+  it('날짜 채널은 날짜 키만 받는다', () => {
+    expect(contracts.calendar.day.req.safeParse(['2026-08-04']).success).toBe(true)
+    expect(contracts.calendar.day.req.safeParse(['2026-08']).success).toBe(false)
+  })
+
+  /**
+   * 점 없음은 `hasRecord: false` 로만 표현된다. `dotLevel: null` 을 허용하면 같은 사실을
+   * 두 필드가 말하게 되고, 두 값이 어긋난 응답이 계약을 통과한다.
+   */
+  it('dotLevel 에 null 을 허용하지 않는다', () => {
+    const day = {
+      dayKey: '2026-08-04',
+      hasRecord: false,
+      focusCount: 0,
+      dotLevel: null
+    }
+    const res = contracts.calendar.month.res.safeParse({
+      month: '2026-08',
+      leadingBlanks: 0,
+      days: [day]
+    })
+    expect(res.success).toBe(false)
+  })
+
+  it('앞 빈 칸 수는 0~6 이다 — 7 은 한 줄이 통째로 비었다는 뜻이라 있을 수 없다', () => {
+    const base = { month: '2026-08', days: [] }
+    expect(contracts.calendar.month.res.safeParse({ ...base, leadingBlanks: 6 }).success).toBe(true)
+    expect(contracts.calendar.month.res.safeParse({ ...base, leadingBlanks: 7 }).success).toBe(
+      false
+    )
+  })
+})

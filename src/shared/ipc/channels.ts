@@ -35,6 +35,12 @@ export const CHANNELS = {
     uncomplete: 'week:uncomplete',
     drop: 'week:drop'
   },
+  /** 캘린더 열람 (calendar-records). 전부 조회이며 쓰기 채널이 없다 (R23). */
+  calendar: {
+    month: 'calendar:month',
+    day: 'calendar:day',
+    studyDays: 'calendar:studyDays'
+  },
   review: {
     getStatus: 'review:getStatus',
     getPending: 'review:getPending',

@@ -61,6 +61,11 @@ const api: Api = {
     uncomplete: (weekItemId) => ipcRenderer.invoke(CHANNELS.week.uncomplete, weekItemId),
     drop: (weekItemId) => ipcRenderer.invoke(CHANNELS.week.drop, weekItemId)
   },
+  calendar: {
+    month: (month) => ipcRenderer.invoke(CHANNELS.calendar.month, month),
+    day: (dayKey) => ipcRenderer.invoke(CHANNELS.calendar.day, dayKey),
+    studyDays: (week) => ipcRenderer.invoke(CHANNELS.calendar.studyDays, week)
+  },
   review: {
     getStatus: () => ipcRenderer.invoke(CHANNELS.review.getStatus),
     getPending: () => ipcRenderer.invoke(CHANNELS.review.getPending),
