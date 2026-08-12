@@ -10,6 +10,11 @@
   - §7 의 **"better-sqlite3 는 `foreign_keys` 기본 OFF" 는 사실이 아니다** (13.0.3 에서 기본값 1 확인 — ADR-019 §9). **`foreign_keys = ON` 을 명시하는 결정은 유지한다** — 버전에 따라 달라질 수 있는 것에 의존하지 않기 위해서다. 근거 문장만 무효다.
   - §7 의 **백업·버전 검사의 실행 방법**은 [ADR-020](adr-020-db-safeguards.md) 이 확정한다 (WAL 포함 스냅샷, 조건부 백업, 보존 5개, 실패 3갈래, 종료 시 체크포인트).
   - §1 의 `weeks` 컬럼 정의는 [ADR-018](adr-018-first-run-state.md) 기준으로 읽는다.
+- **부분 폐기됨 (2026-08-12, [ADR-030](adr-030-time-as-progress-currency.md))**
+  - §1 의 `weeks` 테이블 정의 전체와 `week_items.est_pomos`·`tasks.est_pomos` 컬럼이
+    죽는다 — 진행 통화가 뽀모 개수에서 측정 시간으로 바뀌면서 계획 숫자의 저장소가
+    사라진다. 불변 달력 키·`task_pulls`·나머지 테이블·제약·PRAGMA·백업·버전 검사는
+    그대로 유효하다.
 - **추가 정정 (2026-08-06)** — [ADR-022](adr-022-calendar-key-pairing.md) §3 이 §1 의
   `weeks` 컬럼 정의에 **`created_at`·`updated_at` 을 추가**한다. `weeks` 행은 계획 확정·
   주중 재수정·정산으로 UPDATE 되므로 mutable 이고(ADR-013 §2, week-plan R23), PK 가
