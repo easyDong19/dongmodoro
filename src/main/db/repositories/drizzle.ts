@@ -2,7 +2,7 @@ import { and, asc, desc, eq, gt, gte, isNotNull, isNull, lte, sql } from 'drizzl
 import type { SQL } from 'drizzle-orm'
 import type { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3'
 import { v7 as uuidv7 } from 'uuid'
-import { settings, weeks, weekItems, tasks, taskPulls, sessions } from '../schema'
+import { settings, weeks, weekItems, tasks, taskPulls, sessions, milestones } from '../schema'
 import { now } from '../../../shared/time'
 import type { Repositories, SessionRow, UnitOfWork } from '../../services/ports'
 
@@ -638,6 +638,146 @@ function makeRepos(tx: Tx): Repositories {
           .from(sessions)
           .where(and(eq(sessions.localWeek, week), eq(sessions.kind, 'focus')))
           .get()?.n ?? 0
+    },
+
+    /**
+     * 월 마일스톤 (milestones). 판정·순서는 서비스가 갖고 여기는 조회·실행만 한다.
+     *
+     * **`badgeCounts` 가 `archived_at` 을 거르지 않는 것이 이 블록의 핵심 규율이다**
+     * (R21 · A21). 한 줄만 더하면 보관으로 달성률을 조작할 수 있게 된다.
+     */
+    milestones: {
+      listForMonth: (month) =>
+        tx
+          .select({
+            id: milestones.id,
+            month: milestones.month,
+            title: milestones.title,
+            completedAt: milestones.completedAt,
+            archivedAt: milestones.archivedAt
+          })
+          .from(milestones)
+          .where(and(eq(milestones.month, month), isNull(milestones.archivedAt)))
+          .orderBy(asc(milestones.sortOrder), asc(milestones.id))
+          .all(),
+
+      badgeCounts: (month) =>
+        tx
+          .select({
+            // 보관을 거르지 않는다 (R21) — 분모는 "그 달에 존재했던" 수다.
+            total: sql<number>`count(*)`,
+            // 0행이면 SQLite 의 sum() 은 NULL 이다 — coalesce 없이는 `completed: null` 이
+            // 계약을 통과하지 못한다 (listForWeek 의 `counts.done` 이 같은 함정을 밟았다).
+            completed: sql<number>`coalesce(sum(case when ${milestones.completedAt} is not null then 1 else 0 end), 0)`,
+            archivedCount: sql<number>`coalesce(sum(case when ${milestones.archivedAt} is not null then 1 else 0 end), 0)`
+          })
+          .from(milestones)
+          .where(eq(milestones.month, month))
+          .get() ?? { total: 0, completed: 0, archivedCount: 0 },
+
+      carryCandidates: (month) =>
+        tx
+          .select({
+            id: milestones.id,
+            month: milestones.month,
+            title: milestones.title,
+            completedAt: milestones.completedAt,
+            archivedAt: milestones.archivedAt
+          })
+          .from(milestones)
+          // 보관 여부와 무관하게 후보로 낸다 (R22) — 고르는 것은 사용자다.
+          .where(and(eq(milestones.month, month), isNull(milestones.completedAt)))
+          .orderBy(asc(milestones.sortOrder), asc(milestones.id))
+          .all(),
+
+      nextSortOrder: (month) =>
+        (tx
+          .select({ maxOrder: sql<number | null>`max(${milestones.sortOrder})` })
+          .from(milestones)
+          .where(eq(milestones.month, month))
+          .get()?.maxOrder ?? -1) + 1,
+
+      create: (m) => {
+        tx.insert(milestones)
+          .values({ id: m.id, month: m.month, title: m.title, sortOrder: m.sortOrder })
+          .run()
+      },
+
+      rename: (id, title) => {
+        tx.update(milestones).set({ title }).where(eq(milestones.id, id)).run()
+      },
+
+      complete: (id, at) => {
+        tx.update(milestones).set({ completedAt: at }).where(eq(milestones.id, id)).run()
+      },
+
+      uncomplete: (id) => {
+        tx.update(milestones).set({ completedAt: null }).where(eq(milestones.id, id)).run()
+      },
+
+      archive: (id, at) => {
+        tx.update(milestones).set({ archivedAt: at }).where(eq(milestones.id, id)).run()
+      },
+
+      unarchive: (id) => {
+        tx.update(milestones).set({ archivedAt: null }).where(eq(milestones.id, id)).run()
+      },
+
+      /**
+       * 물리 삭제 (ADR-014 §3). `week_items.milestone_id` FK 가 `ON DELETE SET NULL`
+       * 이므로 연결돼 있던 할당은 사라지지 않고 미연결("기타")이 된다 — 조각·세션과 그
+       * 소진 기록은 그대로다 (R8 · A8).
+       */
+      remove: (id) => {
+        tx.delete(milestones).where(eq(milestones.id, id)).run()
+      },
+
+      /**
+       * 롤업 (R16·R17). 마일스톤 → 할당 → 조각 → 세션 사슬을 탄다. 소진은 `itemSpent()`
+       * 와 **같은 술어**여야 마일스톤 롤업과 주간 카드의 항목 소진이 어긋나지 않는다
+       * (성공 지표).
+       *
+       * 폐기·삭제된 할당은 뺀다 — 화면에서 사라진 할당의 소진이 롤업에만 남으면 그 숫자를
+       * 설명할 자리가 없다.
+       */
+      rollup: (month, week) =>
+        tx
+          .select({
+            milestoneId: milestones.id,
+            plannedPomos: sql<number>`coalesce(sum(${weekItems.estPomos}), 0)`,
+            spentPomos: sql<number>`coalesce(sum(${itemSpent()}), 0)`
+          })
+          .from(milestones)
+          .innerJoin(
+            weekItems,
+            and(
+              eq(weekItems.milestoneId, milestones.id),
+              eq(weekItems.week, week),
+              isNull(weekItems.droppedAt),
+              isNull(weekItems.deletedAt)
+            )
+          )
+          .where(eq(milestones.month, month))
+          .groupBy(milestones.id)
+          .all(),
+
+      linkedMilestone: (weekItemId) =>
+        tx
+          .select({
+            id: milestones.id,
+            month: milestones.month,
+            title: milestones.title,
+            completedAt: milestones.completedAt,
+            archivedAt: milestones.archivedAt
+          })
+          .from(weekItems)
+          .innerJoin(milestones, eq(weekItems.milestoneId, milestones.id))
+          .where(eq(weekItems.id, weekItemId))
+          .get() ?? null,
+
+      setWeekItemMilestone: (weekItemId, milestoneId) => {
+        tx.update(weekItems).set({ milestoneId }).where(eq(weekItems.id, weekItemId)).run()
+      }
     },
 
     review: {
