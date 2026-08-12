@@ -255,6 +255,16 @@ export function monthOfWeek(weekKeyValue: string): string {
   return monthOfDay(weekKeyValue)
 }
 
+/**
+ * 그리드 셀에 찍는 일(日) 숫자. `1`~`31` 이며 앞자리 0 이 없다.
+ *
+ * 화면에서 `dayKey.slice(8)` 을 하지 않게 하려고 존재한다 — 달력 키의 구조를 아는 곳이
+ * 이 모듈 하나여야 형식이 바뀌는 날 고칠 자리가 하나다.
+ */
+export function dayOfMonth(dayKeyValue: string): number {
+  return Number(dayKeyValue.split('-')[2])
+}
+
 /** 카드 헤더의 달 라벨 `2026년 8월`. `dayLabel` 과 같은 이유로 `Intl` 을 쓰지 않는다. */
 export function monthLabel(monthKeyValue: string): string {
   const [y, m] = monthKeyValue.split('-').map(Number)
