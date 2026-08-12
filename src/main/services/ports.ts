@@ -197,6 +197,59 @@ export interface SessionsRepository {
   focusCountSinceLastLong(): number
 }
 
+/**
+ * 날짜 패널 한 행 (calendar-records R18). **두 원천의 합집합**이며 어느 쪽에서 왔는지를
+ * 함께 싣는다 — 화면이 출처를 구분해 표시한다.
+ *
+ * 합집합을 만드는 것은 서비스다. 리포지토리는 두 원천을 각각 조회해 넘기기만 한다
+ * (ADR-008 — 도메인 규칙은 리포지토리가 갖지 않는다).
+ */
+export type DayTaskRow = {
+  taskId: string
+  title: string
+  /**
+   * **현재** 완료 상태다 (R19). 대상 날짜 시점의 완료 여부가 아니며, 그 정밀도 손실은
+   * 문서가 명시적으로 수용했다 — `completed_at` 은 순간이라 로컬 날짜 비교를 씌우면
+   * 타임존을 옮겼을 때 과거 화면의 완료 표시가 뒤집힌다 (ADR-009 §2).
+   */
+  completedAt: string | null
+  /** 원천 1 — 그날 오늘 목록에 있었다 (`task_pulls`). 치움 표시된 행도 포함한다. */
+  pulled: boolean
+  /** 원천 2 — 그날 그 조각으로 집중했다 (`sessions.local_date`). 사후 캡처가 여기 걸린다. */
+  hadSession: boolean
+}
+
+/** 날짜별 완료 focus 세션 수. `hasRecord` 술어와 점 등급의 재료다 (R5·R6). */
+export type DateFocusCount = {
+  dayKey: string
+  focusCount: number
+}
+
+/**
+ * 캘린더 열람 (calendar-records). **읽기 전용**이며 쓰기 메서드를 두지 않는다 (R23).
+ *
+ * 모든 조회는 `sessions.local_date` 의 **범위 조건**만 쓴다 (R3 · A3) — 술어에
+ * `strftime()`·`date()` 를 씌우지 않는다. 씌우면 `idx_sessions_local_date` 가 죽고,
+ * 타임존을 바꾼 사용자의 과거 점이 이동한다.
+ */
+export interface CalendarRepository {
+  /** 범위 안에서 focus 세션이 1건 이상인 날짜만. 0건인 날은 행을 만들지 않는다. */
+  focusCountsByDate(from: string, to: string): DateFocusCount[]
+  /** 범위 안에서 `task_pulls` 행이 있는 날짜. 치움 표시된 행도 센다 (R18). */
+  pullDatesIn(from: string, to: string): string[]
+  /** 원천 1 — 그날 pull 된 조각. */
+  pulledTasksOn(dayKey: string): { taskId: string; title: string; completedAt: string | null }[]
+  /** 원천 2 — 그날 세션이 붙은 조각. 미분류 집중은 task 가 없으므로 여기 없다. */
+  sessionTasksOn(dayKey: string): { taskId: string; title: string; completedAt: string | null }[]
+  /**
+   * 그 주에 focus 세션이 있는 **서로 다른 날짜 수** (R24 의 `공부한 날 수`).
+   *
+   * `local_week` 로 조회한다 — 주 경계 판정을 날짜 범위로 다시 만들면 ADR-010 의 주
+   * 정의가 두 곳이 된다.
+   */
+  studiedDayCount(week: string): number
+}
+
 export type ReviewWeekFact = {
   week: string
   /** focus 세션이 있었던 서로 다른 날짜 수. */
@@ -294,6 +347,7 @@ export interface Repositories {
   today: TodayRepository
   tasks: TasksRepository
   sessions: SessionsRepository
+  calendar: CalendarRepository
   review: ReviewRepository
 }
 

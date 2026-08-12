@@ -573,6 +573,73 @@ function makeRepos(tx: Tx): Repositories {
       }
     },
 
+    /**
+     * 캘린더 열람 (calendar-records R3 · A3).
+     *
+     * **이 블록의 모든 where 절은 `local_date` 범위 조건이거나 등치 비교뿐이다.**
+     * `strftime()`·`date()` 를 씌우는 순간 `idx_sessions_local_date` 가 죽고, 더 나쁘게는
+     * 조회 시점에 날짜를 파생하게 되어 타임존을 바꾼 사용자의 과거 점이 이동한다
+     * (ADR-009 §2 가 금지한 것). A3 가 검사하는 것이 정확히 이것이다.
+     */
+    calendar: {
+      focusCountsByDate: (from, to) =>
+        tx
+          .select({ dayKey: sessions.localDate, focusCount: sql<number>`count(*)` })
+          .from(sessions)
+          .where(
+            and(
+              gte(sessions.localDate, from),
+              lte(sessions.localDate, to),
+              // 휴식은 점 집계에 들어가지 않는다 (R12). 미분류 집중은 들어간다 (R13) —
+              // task_id 를 거르지 않는 것이 그 요구사항의 구현이다.
+              eq(sessions.kind, 'focus')
+            )
+          )
+          .groupBy(sessions.localDate)
+          .all(),
+
+      pullDatesIn: (from, to) =>
+        tx
+          .selectDistinct({ pullDate: taskPulls.pullDate })
+          .from(taskPulls)
+          .where(and(gte(taskPulls.pullDate, from), lte(taskPulls.pullDate, to)))
+          .all()
+          .map((r) => r.pullDate),
+
+      /**
+       * `removed_at` 을 거르지 않는다 (R18 · A11). 치움 표시는 "지금 오늘 목록에 없다"는
+       * 사실이지 "그날 목록에 없었다"가 아니다 — 거르면 그날 세션이 있는 조각을 × 로 뺀
+       * 뒤 그 날짜 패널에서 사라진다.
+       *
+       * `idx_task_pulls_date` 를 탄다 (ADR-019 §8). PK 가 `(task_id, pull_date)` 순이라
+       * 그 인덱스가 없으면 이 조회는 스캔이다.
+       */
+      pulledTasksOn: (dayKey) =>
+        tx
+          .select({ taskId: tasks.id, title: tasks.title, completedAt: tasks.completedAt })
+          .from(taskPulls)
+          .innerJoin(tasks, eq(taskPulls.taskId, tasks.id))
+          .where(and(eq(taskPulls.pullDate, dayKey), isNull(tasks.deletedAt)))
+          .all(),
+
+      sessionTasksOn: (dayKey) =>
+        tx
+          .selectDistinct({ taskId: tasks.id, title: tasks.title, completedAt: tasks.completedAt })
+          .from(sessions)
+          .innerJoin(tasks, eq(sessions.taskId, tasks.id))
+          .where(
+            and(eq(sessions.localDate, dayKey), eq(sessions.kind, 'focus'), isNull(tasks.deletedAt))
+          )
+          .all(),
+
+      studiedDayCount: (week) =>
+        tx
+          .select({ n: sql<number>`count(distinct ${sessions.localDate})` })
+          .from(sessions)
+          .where(and(eq(sessions.localWeek, week), eq(sessions.kind, 'focus')))
+          .get()?.n ?? 0
+    },
+
     review: {
       /**
        * 세 테이블의 최소 주 키. 달력 키는 사전순 = 시간순이라 `MIN()` 이 곧 가장 이른
