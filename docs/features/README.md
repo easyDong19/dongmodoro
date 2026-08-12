@@ -11,8 +11,8 @@
 | timer | Draft | [overview](./timer/overview.md) | prd, ux-spec | 집중·휴식 사이클과 세션 기록. 이 앱의 코어 루프 |
 | today-tasks | Draft | [overview](./today-tasks/overview.md) | prd | 오늘 목록 — 주간 조각을 가져와 지금 할 일을 고른다 |
 | week-plan | Draft | [overview](./week-plan/overview.md) | prd, ux-spec | 주간 할당과 뽀모 예산. 숫자가 처음 등장하는 레벨 |
-| milestones | Draft | [overview](./milestones/overview.md) | prd | 월간 결과물. 수치 없이 상태로 기술 |
-| calendar-records | Draft | [overview](./calendar-records/overview.md) | prd | 월 캘린더 점과 날짜별 기록 열람 |
+| milestones | In Review | [overview](./milestones/overview.md) | prd | 월간 결과물. 수치 없이 상태로 기술 |
+| calendar-records | In Review | [overview](./calendar-records/overview.md) | prd | 월 캘린더 점과 날짜별 기록 열람 |
 | weekly-review | Draft | [overview](./weekly-review/overview.md) | prd, ux-spec, technical-spec | 주간 정산 — 판정·병합·이월 3택 |
 | pomo-baseline | Draft | [overview](./pomo-baseline/overview.md) | prd | 뽀모 길이와 주간 예산(분모)의 소유자 |
 | app-shell | Draft | [overview](./app-shell/overview.md) | prd, ux-spec | 창·레이아웃·반응형·트레이·수명주기 |
