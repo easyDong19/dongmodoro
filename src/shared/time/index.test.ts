@@ -8,6 +8,11 @@ import {
   dayLabel,
   weekKey,
   monthKey,
+  addMonths,
+  monthOfWeek,
+  monthLabel,
+  monthRange,
+  monthGridSlots,
   localKeys,
   weekRangeLabel,
   weekStartLabel,
@@ -242,5 +247,88 @@ describe('calendarKeys.weekdayIndex — 0 = 월요일 (ADR-010 §1)', () => {
     // 주 시작 + 요일 인덱스 = 그 날. 한 번의 시계 읽기에서 나왔으므로 성립해야 한다.
     const asDay = new Date(Date.UTC(2026, 7, 3) + weekdayIndex * 86_400_000)
     expect(d).toBe(asDay.toISOString().slice(0, 10))
+  })
+})
+
+describe('addMonths — 표시 대상 월 이동 (calendar-records R8 · milestones R20)', () => {
+  it('연 경계를 넘는다 — 12월 다음은 이듬해 1월이다', () => {
+    expect(addMonths('2026-12', 1)).toBe('2027-01')
+    expect(addMonths('2026-01', -1)).toBe('2025-12')
+  })
+
+  it('여러 달을 한 번에 옮겨도 자리올림이 맞는다', () => {
+    expect(addMonths('2026-08', 5)).toBe('2027-01')
+    expect(addMonths('2026-02', -14)).toBe('2024-12')
+  })
+
+  it('0 을 더하면 그대로다', () => {
+    expect(addMonths('2026-08', 0)).toBe('2026-08')
+  })
+})
+
+describe('monthOfWeek — 주는 쪼개지지 않는다 (milestones R18)', () => {
+  it('8/31~9/6 주는 전체가 8월이다', () => {
+    expect(monthOfWeek('2026-08-31')).toBe('2026-08')
+  })
+
+  it('9월에 귀속되는 첫 주는 9/7 시작 주다', () => {
+    expect(monthOfWeek('2026-09-07')).toBe('2026-09')
+  })
+
+  it('연 경계도 주 키의 달을 따른다 — 12/28 주는 12월이다', () => {
+    expect(monthOfWeek('2026-12-28')).toBe('2026-12')
+  })
+})
+
+describe('monthRange — local_date 범위 조회 경계 (calendar-records R3)', () => {
+  it('그 달의 첫날과 마지막날이다', () => {
+    expect(monthRange('2026-08')).toEqual({ from: '2026-08-01', to: '2026-08-31' })
+    expect(monthRange('2026-09')).toEqual({ from: '2026-09-01', to: '2026-09-30' })
+  })
+
+  it('윤년 2월은 29일까지다', () => {
+    expect(monthRange('2028-02').to).toBe('2028-02-29')
+    expect(monthRange('2026-02').to).toBe('2026-02-28')
+  })
+
+  it('12월의 다음 달 계산이 이듬해로 넘어가도 경계가 맞는다', () => {
+    expect(monthRange('2026-12')).toEqual({ from: '2026-12-01', to: '2026-12-31' })
+  })
+})
+
+describe('monthGridSlots — 월요일 시작 그리드 (calendar-records R7 · A4)', () => {
+  it('1일이 수요일인 달의 앞 빈 칸이 2개다 (A4)', () => {
+    // 2026-07-01 은 수요일이다.
+    expect(monthGridSlots('2026-07').leadingBlanks).toBe(2)
+  })
+
+  it('1일이 월요일이면 앞 빈 칸이 없다', () => {
+    // 2026-06-01 은 월요일이다.
+    expect(monthGridSlots('2026-06').leadingBlanks).toBe(0)
+  })
+
+  it('1일이 일요일이면 앞 빈 칸이 6개다 — 일요일이 주의 끝이기 때문이다', () => {
+    // 2026-02-01 은 일요일이다.
+    expect(monthGridSlots('2026-02').leadingBlanks).toBe(6)
+  })
+
+  it('날짜 배열이 그 달만 담는다 — 윤년 2월은 29칸이다', () => {
+    const { days } = monthGridSlots('2028-02')
+    expect(days).toHaveLength(29)
+    expect(days[0]).toBe('2028-02-01')
+    expect(days[28]).toBe('2028-02-29')
+  })
+
+  it('31일 달의 배열이 31칸이고 다음 달을 침범하지 않는다', () => {
+    const { days } = monthGridSlots('2026-08')
+    expect(days).toHaveLength(31)
+    expect(days.at(-1)).toBe('2026-08-31')
+  })
+})
+
+describe('monthLabel', () => {
+  it('한 자리 달에 zero-pad 를 남기지 않는다', () => {
+    expect(monthLabel('2026-08')).toBe('2026년 8월')
+    expect(monthLabel('2026-12')).toBe('2026년 12월')
   })
 })
