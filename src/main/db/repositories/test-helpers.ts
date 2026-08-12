@@ -25,10 +25,19 @@ export const TEST_SNAPSHOT = { ...TEST_BASELINE, capacity: null, budget: null }
  * 기존 테스트 3개(`seed.test.ts`·`settings.test.ts`·`today.test.ts`)는 각자 로컬
  * 헬퍼를 갖고 있고 여기로 옮기지 않았다 — 옮기면 M3a 가 M2 테스트까지 건드린다.
  */
-export function testUow(): { uow: UnitOfWork; db: ReturnType<typeof drizzle> } {
+export function testUow(options?: {
+  /**
+   * 생성된 SQL 을 받아보는 훅. 캘린더의 A3("술어에 날짜 함수를 씌우지 않는다")처럼
+   * **결과가 아니라 쿼리 자체**가 요구사항인 경우에만 쓴다.
+   *
+   * 마이그레이션·시딩 쿼리도 흘러오므로, 호출부가 검사 직전에 수집분을 비운다.
+   */
+  logQuery?: (query: string) => void
+}): { uow: UnitOfWork; db: ReturnType<typeof drizzle> } {
   const sqlite = new Database(':memory:')
   sqlite.pragma('foreign_keys = ON')
-  const db = drizzle(sqlite)
+  const log = options?.logQuery
+  const db = log === undefined ? drizzle(sqlite) : drizzle(sqlite, { logger: { logQuery: log } })
   migrate(db, { migrationsFolder: REPO_MIGRATIONS })
   const uow = makeDrizzleUow(db)
   seedSettings(uow)

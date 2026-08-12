@@ -89,7 +89,8 @@ describe('subscribeMainEvents — 초크포인트 이음매', () => {
     expect(invalidated).toContainEqual(keys.today('2026-08-07'))
     expect(invalidated).toContainEqual(keys.day('2026-08-07'))
     expect(invalidated).toContainEqual(keys.week('2026-08-03'))
-    expect(invalidated).toContainEqual(keys.monthCalendar('2026-08'))
+    // 달 레이어는 광역 prefix 하나다 — 좁은 키는 접두사가 이미 잡고, 마일스톤 롤업은
+    // 이월 승계 때문에 그 달에 한정되지 않는다.
     expect(invalidated).toContainEqual(keys.monthAll())
   })
 

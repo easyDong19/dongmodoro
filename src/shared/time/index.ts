@@ -205,6 +205,107 @@ export function weeksBetween(from: string, to: string): string[] {
   return out
 }
 
+// ---------------------------------------------------------------------------
+// 달 산술 (milestones R2 · calendar-records R1·R7)
+//
+// 위 날짜·주 함수와 같은 규율이다 — **이미 고정된 달력 키끼리의 산술**만 하고 저장된
+// 순간을 파싱해 달력 키를 재파생하지 않는다. 달을 다루는 함수가 이 모듈에만 있어야
+// 하는 이유는 R2 가 화면 코드의 즉석 계산을 금지하기 때문이며, 금지의 우회로는
+// `month.slice(0, 4)` 류의 문자열 절단이다 — 그것도 여기 밖에서는 쓰지 않는다.
+// ---------------------------------------------------------------------------
+
+/** 월 달력 키 → 0년 1월부터 센 달 번호. 달 산술을 12진 자리올림 없이 하게 한다. */
+function monthNumber(monthKeyValue: string): number {
+  const [y, m] = monthKeyValue.split('-').map(Number)
+  return y * 12 + (m - 1)
+}
+
+/** 달 번호 → 월 달력 키. `monthNumber` 의 역. */
+function fromMonthNumber(n: number): string {
+  return `${Math.floor(n / 12)}-${pad((n % 12) + 1)}`
+}
+
+/**
+ * 월 달력 키 + n 달 (`n` 은 음수 가능). 표시 대상 월 이동(calendar-records R8)과
+ * "다음 달" 판별(milestones R20)이 쓴다.
+ *
+ * 연 경계를 넘는 것이 정상 경로다 — `'2026-12'` + 1 = `'2027-01'`.
+ */
+export function addMonths(monthKeyValue: string, n: number): string {
+  return fromMonthNumber(monthNumber(monthKeyValue) + n)
+}
+
+/** 날짜 달력 키가 속한 달. 다른 달 함수들이 쓰는 재료다. */
+function monthOfDay(dayKeyValue: string): string {
+  const at = new Date(dayNumber(dayKeyValue) * 86_400_000)
+  return `${at.getUTCFullYear()}-${pad(at.getUTCMonth() + 1)}`
+}
+
+/**
+ * 주의 귀속 달 — **주 키(그 주 월요일)의 달**이다 (milestones R18).
+ *
+ * **주는 쪼개지지 않는다.** `'2026-08-31'` 주는 9/6 까지 이어지지만 전체가 8월에
+ * 귀속되고, 9월에 귀속되는 첫 주는 9/7 시작 주다. 따라서 9/1~9/6 에 기록된 세션도
+ * 그 주의 할당을 통해 **8월** 마일스톤의 롤업으로 올라간다.
+ *
+ * 이 규칙의 구현은 여기 하나뿐이다. 호출부가 각자 계산하면 달 전환 주에 같은 소진이
+ * 두 달 카드로 갈라진다.
+ */
+export function monthOfWeek(weekKeyValue: string): string {
+  return monthOfDay(weekKeyValue)
+}
+
+/**
+ * 그리드 셀에 찍는 일(日) 숫자. `1`~`31` 이며 앞자리 0 이 없다.
+ *
+ * 화면에서 `dayKey.slice(8)` 을 하지 않게 하려고 존재한다 — 달력 키의 구조를 아는 곳이
+ * 이 모듈 하나여야 형식이 바뀌는 날 고칠 자리가 하나다.
+ */
+export function dayOfMonth(dayKeyValue: string): number {
+  return Number(dayKeyValue.split('-')[2])
+}
+
+/** 카드 헤더의 달 라벨 `2026년 8월`. `dayLabel` 과 같은 이유로 `Intl` 을 쓰지 않는다. */
+export function monthLabel(monthKeyValue: string): string {
+  const [y, m] = monthKeyValue.split('-').map(Number)
+  return `${y}년 ${m}월`
+}
+
+/** 연도 없이 `8월`. 문장 안에서 달을 부를 때 쓴다 — `10월은 9월 1일부터 계획할 수 있어요`. */
+export function monthOnlyLabel(monthKeyValue: string): string {
+  return `${Number(monthKeyValue.split('-')[1])}월`
+}
+
+/**
+ * 그 달의 `local_date` **범위 조회** 경계 (calendar-records R3 · A3).
+ *
+ * 리포지토리가 이 두 값을 `BETWEEN` 에 그대로 넣는다. 술어에 `strftime()`·`date()` 를
+ * 씌우면 인덱스가 죽고, 그것이 A3 가 검사하는 바로 그것이다. 이 함수가 없으면 호출부가
+ * `'2026-08-01'` 을 문자열로 조립하게 되고 그 순간 규약이 샌다.
+ */
+export function monthRange(monthKeyValue: string): { from: string; to: string } {
+  const from = `${monthKeyValue}-01`
+  return { from, to: fromDayNumber(dayNumber(`${addMonths(monthKeyValue, 1)}-01`) - 1) }
+}
+
+/**
+ * 월 그리드의 재료 (calendar-records R7 · A4). 그리드 컴포넌트는 이 결과만 렌더한다.
+ *
+ * `leadingBlanks` 는 1일 앞의 빈 칸 수이며 **월요일 시작** 기준이다 (ADR-010 §1 —
+ * 시안 v7 의 일요일 시작을 뒤집는다). 1일이 수요일인 달은 2 다.
+ */
+export function monthGridSlots(monthKeyValue: string): {
+  leadingBlanks: number
+  days: string[]
+} {
+  const first = dayNumber(`${monthKeyValue}-01`)
+  const next = dayNumber(`${addMonths(monthKeyValue, 1)}-01`)
+  const days: string[] = []
+  for (let dn = first; dn < next; dn++) days.push(fromDayNumber(dn))
+  // epoch day 0(1970-01-01)이 목요일이라 `(dn + 3) % 7` 이 월요일 기준 요일 인덱스다.
+  return { leadingBlanks: (first + 3) % 7, days }
+}
+
 /**
  * 다음 자정(로컬)의 epoch ms. 자정 알람의 재예약 계산에 쓴다 (ADR-026 §1).
  * `new Date()` 생성자를 여기 안에 가둬서 호출부(main/services/clock.ts)가 epoch ms 만

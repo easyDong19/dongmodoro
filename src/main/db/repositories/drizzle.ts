@@ -2,7 +2,7 @@ import { and, asc, desc, eq, gt, gte, isNotNull, isNull, lte, sql } from 'drizzl
 import type { SQL } from 'drizzle-orm'
 import type { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3'
 import { v7 as uuidv7 } from 'uuid'
-import { settings, weeks, weekItems, tasks, taskPulls, sessions } from '../schema'
+import { settings, weeks, weekItems, tasks, taskPulls, sessions, milestones } from '../schema'
 import { now } from '../../../shared/time'
 import type { Repositories, SessionRow, UnitOfWork } from '../../services/ports'
 
@@ -570,6 +570,227 @@ function makeRepos(tx: Tx): Repositories {
             .where(and(eq(sessions.kind, 'focus'), gt(sessions.startedAt, lastLong.startedAt)))
             .get()?.n ?? 0
         )
+      }
+    },
+
+    /**
+     * 캘린더 열람 (calendar-records R3 · A3).
+     *
+     * **이 블록의 모든 where 절은 `local_date` 범위 조건이거나 등치 비교뿐이다.**
+     * `strftime()`·`date()` 를 씌우는 순간 `idx_sessions_local_date` 가 죽고, 더 나쁘게는
+     * 조회 시점에 날짜를 파생하게 되어 타임존을 바꾼 사용자의 과거 점이 이동한다
+     * (ADR-009 §2 가 금지한 것). A3 가 검사하는 것이 정확히 이것이다.
+     */
+    calendar: {
+      focusCountsByDate: (from, to) =>
+        tx
+          .select({ dayKey: sessions.localDate, focusCount: sql<number>`count(*)` })
+          .from(sessions)
+          .where(
+            and(
+              gte(sessions.localDate, from),
+              lte(sessions.localDate, to),
+              // 휴식은 점 집계에 들어가지 않는다 (R12). 미분류 집중은 들어간다 (R13) —
+              // task_id 를 거르지 않는 것이 그 요구사항의 구현이다.
+              eq(sessions.kind, 'focus')
+            )
+          )
+          .groupBy(sessions.localDate)
+          .all(),
+
+      pullDatesIn: (from, to) =>
+        tx
+          .selectDistinct({ pullDate: taskPulls.pullDate })
+          .from(taskPulls)
+          .where(and(gte(taskPulls.pullDate, from), lte(taskPulls.pullDate, to)))
+          .all()
+          .map((r) => r.pullDate),
+
+      /**
+       * `removed_at` 을 거르지 않는다 (R18 · A11). 치움 표시는 "지금 오늘 목록에 없다"는
+       * 사실이지 "그날 목록에 없었다"가 아니다 — 거르면 그날 세션이 있는 조각을 × 로 뺀
+       * 뒤 그 날짜 패널에서 사라진다.
+       *
+       * `idx_task_pulls_date` 를 탄다 (ADR-019 §8). PK 가 `(task_id, pull_date)` 순이라
+       * 그 인덱스가 없으면 이 조회는 스캔이다.
+       */
+      pulledTasksOn: (dayKey) =>
+        tx
+          .select({ taskId: tasks.id, title: tasks.title, completedAt: tasks.completedAt })
+          .from(taskPulls)
+          .innerJoin(tasks, eq(taskPulls.taskId, tasks.id))
+          .where(and(eq(taskPulls.pullDate, dayKey), isNull(tasks.deletedAt)))
+          .all(),
+
+      sessionTasksOn: (dayKey) =>
+        tx
+          .selectDistinct({ taskId: tasks.id, title: tasks.title, completedAt: tasks.completedAt })
+          .from(sessions)
+          .innerJoin(tasks, eq(sessions.taskId, tasks.id))
+          .where(
+            and(eq(sessions.localDate, dayKey), eq(sessions.kind, 'focus'), isNull(tasks.deletedAt))
+          )
+          .all(),
+
+      studiedDayCount: (week) =>
+        tx
+          .select({ n: sql<number>`count(distinct ${sessions.localDate})` })
+          .from(sessions)
+          .where(and(eq(sessions.localWeek, week), eq(sessions.kind, 'focus')))
+          .get()?.n ?? 0
+    },
+
+    /**
+     * 월 마일스톤 (milestones). 판정·순서는 서비스가 갖고 여기는 조회·실행만 한다.
+     *
+     * **`badgeCounts` 가 `archived_at` 을 거르지 않는 것이 이 블록의 핵심 규율이다**
+     * (R21 · A21). 한 줄만 더하면 보관으로 달성률을 조작할 수 있게 된다.
+     */
+    milestones: {
+      listForMonth: (month) =>
+        tx
+          .select({
+            id: milestones.id,
+            month: milestones.month,
+            title: milestones.title,
+            completedAt: milestones.completedAt,
+            archivedAt: milestones.archivedAt
+          })
+          .from(milestones)
+          .where(and(eq(milestones.month, month), isNull(milestones.archivedAt)))
+          .orderBy(asc(milestones.sortOrder), asc(milestones.id))
+          .all(),
+
+      listArchivedForMonth: (month) =>
+        tx
+          .select({
+            id: milestones.id,
+            month: milestones.month,
+            title: milestones.title,
+            completedAt: milestones.completedAt,
+            archivedAt: milestones.archivedAt
+          })
+          .from(milestones)
+          .where(and(eq(milestones.month, month), isNotNull(milestones.archivedAt)))
+          .orderBy(asc(milestones.sortOrder), asc(milestones.id))
+          .all(),
+
+      badgeCounts: (month) =>
+        tx
+          .select({
+            // 보관을 거르지 않는다 (R21) — 분모는 "그 달에 존재했던" 수다.
+            total: sql<number>`count(*)`,
+            // 0행이면 SQLite 의 sum() 은 NULL 이다 — coalesce 없이는 `completed: null` 이
+            // 계약을 통과하지 못한다 (listForWeek 의 `counts.done` 이 같은 함정을 밟았다).
+            completed: sql<number>`coalesce(sum(case when ${milestones.completedAt} is not null then 1 else 0 end), 0)`,
+            archivedCount: sql<number>`coalesce(sum(case when ${milestones.archivedAt} is not null then 1 else 0 end), 0)`
+          })
+          .from(milestones)
+          .where(eq(milestones.month, month))
+          .get() ?? { total: 0, completed: 0, archivedCount: 0 },
+
+      carryCandidates: (month) =>
+        tx
+          .select({
+            id: milestones.id,
+            month: milestones.month,
+            title: milestones.title,
+            completedAt: milestones.completedAt,
+            archivedAt: milestones.archivedAt
+          })
+          .from(milestones)
+          // 보관 여부와 무관하게 후보로 낸다 (R22) — 고르는 것은 사용자다.
+          .where(and(eq(milestones.month, month), isNull(milestones.completedAt)))
+          .orderBy(asc(milestones.sortOrder), asc(milestones.id))
+          .all(),
+
+      nextSortOrder: (month) =>
+        (tx
+          .select({ maxOrder: sql<number | null>`max(${milestones.sortOrder})` })
+          .from(milestones)
+          .where(eq(milestones.month, month))
+          .get()?.maxOrder ?? -1) + 1,
+
+      create: (m) => {
+        tx.insert(milestones)
+          .values({ id: m.id, month: m.month, title: m.title, sortOrder: m.sortOrder })
+          .run()
+      },
+
+      rename: (id, title) => {
+        tx.update(milestones).set({ title }).where(eq(milestones.id, id)).run()
+      },
+
+      complete: (id, at) => {
+        tx.update(milestones).set({ completedAt: at }).where(eq(milestones.id, id)).run()
+      },
+
+      uncomplete: (id) => {
+        tx.update(milestones).set({ completedAt: null }).where(eq(milestones.id, id)).run()
+      },
+
+      archive: (id, at) => {
+        tx.update(milestones).set({ archivedAt: at }).where(eq(milestones.id, id)).run()
+      },
+
+      unarchive: (id) => {
+        tx.update(milestones).set({ archivedAt: null }).where(eq(milestones.id, id)).run()
+      },
+
+      /**
+       * 물리 삭제 (ADR-014 §3). `week_items.milestone_id` FK 가 `ON DELETE SET NULL`
+       * 이므로 연결돼 있던 할당은 사라지지 않고 미연결("기타")이 된다 — 조각·세션과 그
+       * 소진 기록은 그대로다 (R8 · A8).
+       */
+      remove: (id) => {
+        tx.delete(milestones).where(eq(milestones.id, id)).run()
+      },
+
+      /**
+       * 롤업 (R16·R17). 마일스톤 → 할당 → 조각 → 세션 사슬을 탄다. 소진은 `itemSpent()`
+       * 와 **같은 술어**여야 마일스톤 롤업과 주간 카드의 항목 소진이 어긋나지 않는다
+       * (성공 지표).
+       *
+       * 폐기·삭제된 할당은 뺀다 — 화면에서 사라진 할당의 소진이 롤업에만 남으면 그 숫자를
+       * 설명할 자리가 없다.
+       */
+      rollup: (month, week) =>
+        tx
+          .select({
+            milestoneId: milestones.id,
+            plannedPomos: sql<number>`coalesce(sum(${weekItems.estPomos}), 0)`,
+            spentPomos: sql<number>`coalesce(sum(${itemSpent()}), 0)`
+          })
+          .from(milestones)
+          .innerJoin(
+            weekItems,
+            and(
+              eq(weekItems.milestoneId, milestones.id),
+              eq(weekItems.week, week),
+              isNull(weekItems.droppedAt),
+              isNull(weekItems.deletedAt)
+            )
+          )
+          .where(eq(milestones.month, month))
+          .groupBy(milestones.id)
+          .all(),
+
+      linkedMilestone: (weekItemId) =>
+        tx
+          .select({
+            id: milestones.id,
+            month: milestones.month,
+            title: milestones.title,
+            completedAt: milestones.completedAt,
+            archivedAt: milestones.archivedAt
+          })
+          .from(weekItems)
+          .innerJoin(milestones, eq(weekItems.milestoneId, milestones.id))
+          .where(eq(weekItems.id, weekItemId))
+          .get() ?? null,
+
+      setWeekItemMilestone: (weekItemId, milestoneId) => {
+        tx.update(weekItems).set({ milestoneId }).where(eq(weekItems.id, weekItemId)).run()
       }
     },
 

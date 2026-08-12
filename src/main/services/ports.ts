@@ -197,6 +197,141 @@ export interface SessionsRepository {
   focusCountSinceLastLong(): number
 }
 
+/** 마일스톤 한 행. **수치 필드가 없다** (milestones R3) — 숫자가 처음 등장하는 레벨은 주다. */
+export type MilestoneRow = {
+  id: string
+  month: string
+  title: string
+  /** 순간. NULL = 미완료. boolean `done` 을 대체한다 (ADR-011 §5). */
+  completedAt: string | null
+  /** 순간. NULL = 보관 안 됨. 목록 표시에서만 빼며 집계에 중립이다 (ADR-014 §4). */
+  archivedAt: string | null
+}
+
+/**
+ * 지난달 배지 `N / M` 의 재료 (milestones R21) — **그 달의 스냅샷**이다.
+ *
+ * `total` 은 **보관 여부와 무관하다.** 보관으로 분모를 깎을 수 있으면 3개 중 1개 완료한
+ * 달에서 나머지 2개를 보관하는 것만으로 "1/1 달성"이 되어, 아무것도 더 하지 않고
+ * 달성률을 올릴 수 있다 (D4 가 잡은 결함).
+ */
+export type MilestoneBadge = {
+  total: number
+  completed: number
+  /** 보관 건수. 배지에 `· 보관 K건` 으로 함께 표시된다 (R23). 분모를 바꾸지 않는다. */
+  archivedCount: number
+}
+
+/** 마일스톤 하나의 주 단위 롤업 재료 (R17). 저장값이 아니라 매번 파생한다. */
+export type MilestoneRollupRow = {
+  milestoneId: string
+  spentPomos: number
+  /** 그 주의 계획 대비 — 연결된 할당들의 `est_pomos` 합. 0 이면 화면이 분수를 만들지 않는다. */
+  plannedPomos: number
+}
+
+/**
+ * 월 마일스톤 (milestones). 삭제는 **물리 삭제**이며 `deleted_at` 이 없다 (ADR-014 §3).
+ *
+ * `complete`/`uncomplete` 와 `archive`/`unarchive` 를 각각 두 메서드로 나눈 이유는
+ * `WeekItemsRepository` 와 같다 — `setCompleted(id, at | null)` 은 `update(id, patch)`
+ * 모양이라 이 파일 상단이 금지하는 CRUD 포트가 된다.
+ */
+export interface MilestonesRepository {
+  /** 그 달의 **보관되지 않은** 마일스톤. 생성 순 고정이다 (R10). */
+  listForMonth(month: string): MilestoneRow[]
+  /**
+   * 그 달의 **보관된** 마일스톤. 목록 본문에는 나오지 않지만(R11), 보관 해제가 지난달
+   * 카드에서도 가능해야 하므로(R11 · A20) 화면이 `보관 K건` 뒤에서 펼칠 대상이 필요하다.
+   * 이 조회가 없으면 해제는 규칙에만 있고 도달 경로가 없는 기능이 된다.
+   */
+  listArchivedForMonth(month: string): MilestoneRow[]
+  /** 배지 재료. **보관을 거르지 않는다** (R21). */
+  badgeCounts(month: string): MilestoneBadge
+  /** 제목 복사 후보 (R22) — 그 달의 미완료. **보관 여부와 무관하게** 낸다. */
+  carryCandidates(month: string): MilestoneRow[]
+  /** 그 달의 다음 생성 순번. 표시 순서의 안정적 tie-break 로만 쓰인다 (R10). */
+  nextSortOrder(month: string): number
+  create(m: { id: string; month: string; title: string; sortOrder: number }): void
+  rename(id: string, title: string): void
+  complete(id: string, at: string): void
+  uncomplete(id: string): void
+  archive(id: string, at: string): void
+  unarchive(id: string): void
+  /** 물리 삭제. FK 가 `ON DELETE SET NULL` 이라 연결된 할당은 "기타"로 남는다 (R8). */
+  remove(id: string): void
+  /**
+   * 그 달 마일스톤들의 **한 주치** 롤업 (R17). 집계 술어는 ADR-012 §1 그대로 —
+   * `sessions.local_week = week_items.week` 인 `kind='focus'` 만 센다.
+   *
+   * 마일스톤은 어떤 세션도 직접 참조하지 않는다 (R12). 계층은
+   * `milestone → week_item → task → session` 한 방향이고, 이 조회가 그 사슬을 탄다.
+   */
+  rollup(month: string, week: string): MilestoneRollupRow[]
+  /**
+   * 지금 걸려 있는 연결. **후보 밖일 수 있다** — 이월 승계가 만든 타월 연결이 그것이며,
+   * 그것이 다른 달의 마일스톤에 걸린 유일한 합법 경로다 (R15).
+   *
+   * 새로 연결할 때의 후보(R14 · A12)는 별도 메서드가 아니라 `listForMonth(그 할당의 주가
+   * 귀속된 달)` 이다 — 그 메서드가 이미 보관을 거르고 달로 좁힌다.
+   */
+  linkedMilestone(weekItemId: string): MilestoneRow | null
+  setWeekItemMilestone(weekItemId: string, milestoneId: string | null): void
+}
+
+/**
+ * 날짜 패널 한 행 (calendar-records R18). **두 원천의 합집합**이며 어느 쪽에서 왔는지를
+ * 함께 싣는다 — 화면이 출처를 구분해 표시한다.
+ *
+ * 합집합을 만드는 것은 서비스다. 리포지토리는 두 원천을 각각 조회해 넘기기만 한다
+ * (ADR-008 — 도메인 규칙은 리포지토리가 갖지 않는다).
+ */
+export type DayTaskRow = {
+  taskId: string
+  title: string
+  /**
+   * **현재** 완료 상태다 (R19). 대상 날짜 시점의 완료 여부가 아니며, 그 정밀도 손실은
+   * 문서가 명시적으로 수용했다 — `completed_at` 은 순간이라 로컬 날짜 비교를 씌우면
+   * 타임존을 옮겼을 때 과거 화면의 완료 표시가 뒤집힌다 (ADR-009 §2).
+   */
+  completedAt: string | null
+  /** 원천 1 — 그날 오늘 목록에 있었다 (`task_pulls`). 치움 표시된 행도 포함한다. */
+  pulled: boolean
+  /** 원천 2 — 그날 그 조각으로 집중했다 (`sessions.local_date`). 사후 캡처가 여기 걸린다. */
+  hadSession: boolean
+}
+
+/** 날짜별 완료 focus 세션 수. `hasRecord` 술어와 점 등급의 재료다 (R5·R6). */
+export type DateFocusCount = {
+  dayKey: string
+  focusCount: number
+}
+
+/**
+ * 캘린더 열람 (calendar-records). **읽기 전용**이며 쓰기 메서드를 두지 않는다 (R23).
+ *
+ * 모든 조회는 `sessions.local_date` 의 **범위 조건**만 쓴다 (R3 · A3) — 술어에
+ * `strftime()`·`date()` 를 씌우지 않는다. 씌우면 `idx_sessions_local_date` 가 죽고,
+ * 타임존을 바꾼 사용자의 과거 점이 이동한다.
+ */
+export interface CalendarRepository {
+  /** 범위 안에서 focus 세션이 1건 이상인 날짜만. 0건인 날은 행을 만들지 않는다. */
+  focusCountsByDate(from: string, to: string): DateFocusCount[]
+  /** 범위 안에서 `task_pulls` 행이 있는 날짜. 치움 표시된 행도 센다 (R18). */
+  pullDatesIn(from: string, to: string): string[]
+  /** 원천 1 — 그날 pull 된 조각. */
+  pulledTasksOn(dayKey: string): { taskId: string; title: string; completedAt: string | null }[]
+  /** 원천 2 — 그날 세션이 붙은 조각. 미분류 집중은 task 가 없으므로 여기 없다. */
+  sessionTasksOn(dayKey: string): { taskId: string; title: string; completedAt: string | null }[]
+  /**
+   * 그 주에 focus 세션이 있는 **서로 다른 날짜 수** (R24 의 `공부한 날 수`).
+   *
+   * `local_week` 로 조회한다 — 주 경계 판정을 날짜 범위로 다시 만들면 ADR-010 의 주
+   * 정의가 두 곳이 된다.
+   */
+  studiedDayCount(week: string): number
+}
+
 export type ReviewWeekFact = {
   week: string
   /** focus 세션이 있었던 서로 다른 날짜 수. */
@@ -294,6 +429,8 @@ export interface Repositories {
   today: TodayRepository
   tasks: TasksRepository
   sessions: SessionsRepository
+  calendar: CalendarRepository
+  milestones: MilestonesRepository
   review: ReviewRepository
 }
 

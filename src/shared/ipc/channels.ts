@@ -33,7 +33,25 @@ export const CHANNELS = {
     pullFromDrawer: 'week:pullFromDrawer',
     complete: 'week:complete',
     uncomplete: 'week:uncomplete',
-    drop: 'week:drop'
+    drop: 'week:drop',
+    /** 할당 ↔ 마일스톤 연결 (R13·R14). `null` 은 **연결 해제**이며 오류가 아니다. */
+    setMilestone: 'week:setMilestone'
+  },
+  /** 캘린더 열람 (calendar-records). 전부 조회이며 쓰기 채널이 없다 (R23). */
+  calendar: {
+    month: 'calendar:month',
+    day: 'calendar:day',
+    studyDays: 'calendar:studyDays'
+  },
+  /** 월 마일스톤 (milestones). 삭제 확인은 화면이 받고 채널은 id 만 안다 (R8). */
+  milestones: {
+    forMonth: 'milestones:forMonth',
+    create: 'milestones:create',
+    rename: 'milestones:rename',
+    setCompleted: 'milestones:setCompleted',
+    setArchived: 'milestones:setArchived',
+    remove: 'milestones:remove',
+    carryTitles: 'milestones:carryTitles'
   },
   review: {
     getStatus: 'review:getStatus',

@@ -116,6 +116,50 @@ const childTaskSchema = z.strictObject({
   inToday: z.boolean()
 })
 
+/**
+ * 달력 키의 형식은 계약이 거른다 — 렌더러가 조립한 문자열이 여기서 처음 검증된다.
+ * `'2026-8'`(zero-pad 없음)·`'26-08'` 은 CHECK 제약까지 가기 전에 거부되어야 한다
+ * (ADR-011 §6 — 거부는 경계에서).
+ */
+const monthKeySchema = z.string().regex(/^\d{4}-\d{2}$/, 'month must be YYYY-MM')
+const dayKeySchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'day must be YYYY-MM-DD')
+
+/**
+ * 월 그리드 한 칸. **점 없음을 등급으로 표현하지 않는다** — `hasRecord: false` 가 그
+ * 사실이며, `dotLevel: null` 을 두면 같은 사실을 두 필드가 말하게 되어 어긋날 수 있다.
+ */
+const calendarDaySchema = z.strictObject({
+  dayKey: dayKeySchema,
+  hasRecord: z.boolean(),
+  focusCount: z.int().min(0),
+  dotLevel: z.enum(['basic', 'strong'])
+})
+
+/**
+ * 마일스톤 한 행. **수치 필드가 계약에 없다** (milestones R3 · A3) — 계약에 없으면
+ * 화면이 만들 수 없다. 숫자가 처음 등장하는 레벨은 주다.
+ */
+const milestoneSchema = z.strictObject({
+  id: z.string(),
+  month: monthKeySchema,
+  title: z.string(),
+  completedAt: z.string().nullable(),
+  archivedAt: z.string().nullable()
+})
+
+/** 제목 하나. 공백만 있는 제목은 여기서 거부된다 — 서비스의 trim 보다 앞선 방어선이다. */
+const milestoneTitleSchema = z.string().trim().min(1).max(60)
+
+/** 날짜 패널 한 행. `pulled`·`hadSession` 이 출처이며 둘 다 참일 수 있다 (R18). */
+const dayTaskSchema = z.strictObject({
+  taskId: z.string(),
+  title: z.string(),
+  /** **현재** 완료 상태다 (R19) — 그 날짜 시점의 완료 여부가 아니다. */
+  completedAt: z.string().nullable(),
+  pulled: z.boolean(),
+  hadSession: z.boolean()
+})
+
 export const timerSnapshotSchema = z.strictObject({
   mode: z.enum(['focus', 'short', 'long']),
   phase: z.enum(['idle', 'running', 'paused']),
@@ -244,7 +288,11 @@ export const contracts = {
       res: z.strictObject({
         itemWeek: z.string(),
         completedAt: z.string().nullable(),
-        tasks: z.array(childTaskSchema)
+        tasks: z.array(childTaskSchema),
+        /** 지금 걸린 연결. **후보 밖일 수 있다** — 이월 승계의 타월 연결이다 (R15). */
+        milestone: milestoneSchema.nullable(),
+        /** 새로 연결할 수 있는 것들 — 그 주가 귀속된 달의 미보관 마일스톤 (R14 · A12). */
+        milestoneCandidates: z.array(milestoneSchema)
       })
     },
     pullNext: {
@@ -274,7 +322,110 @@ export const contracts = {
       req: z.tuple([z.string()]),
       res: z.strictObject({ itemWeek: z.string(), completedAt: z.string().nullable() })
     },
-    drop: { req: z.tuple([z.string()]), res: z.strictObject({ itemWeek: z.string() }) }
+    drop: { req: z.tuple([z.string()]), res: z.strictObject({ itemWeek: z.string() }) },
+    /**
+     * 할당 ↔ 마일스톤 연결 (R13·R14). `milestoneId: null` 은 **연결 해제**이며 오류가
+     * 아니다 — 연결 없음은 정상 상태이고 UI 상 "기타"로 다뤄진다.
+     */
+    setMilestone: {
+      req: z.tuple([
+        z.strictObject({ weekItemId: z.string(), milestoneId: z.string().nullable() })
+      ]),
+      res: z.strictObject({ itemWeek: z.string() })
+    }
+  },
+  /**
+   * 월 마일스톤. **표시 모드·배지·롤업을 서버가 실어 보낸다** — 모드 판정을 렌더러가
+   * 하면 R20 의 순서가 화면으로 새어나가고, 두 곳이 어긋나는 날이 온다.
+   *
+   * 조작 응답이 주간 항목처럼 소속 키를 싣지 않는 이유는 milestones.ts 주석에 있다 —
+   * 카드가 한 달만 그리므로 무효화할 달을 화면이 이미 안다.
+   */
+  milestones: {
+    forMonth: {
+      req: z.tuple([monthKeySchema]),
+      res: z.strictObject({
+        month: monthKeySchema,
+        mode: z.enum(['far-future', 'lead-edit', 'current-empty', 'edit', 'past', 'past-empty']),
+        items: z.array(
+          milestoneSchema.extend({
+            /** `null` 은 "이 카드에 롤업이 없다"이며 0 과 다르다 (R17·R18). */
+            rollup: z
+              .strictObject({ spentPomos: z.int().min(0), plannedPomos: z.int().min(0) })
+              .nullable()
+          })
+        ),
+        /** `M === 0` 이면 `null` — `0/0 달성` 을 만들지 않는다 (R21 · A22). */
+        badge: z
+          .strictObject({
+            total: z.int().min(0),
+            completed: z.int().min(0),
+            archivedCount: z.int().min(0)
+          })
+          .nullable(),
+        /** 롤업의 **범위 라벨**을 그릴 주. `null` 이면 화면이 숫자 대신 사실 문구를 쓴다 (R17). */
+        rollupWeek: dayKeySchema.nullable(),
+        carryCandidates: z.array(milestoneSchema),
+        /** `보관 K건` 뒤에서 펼치는 목록. 해제의 도달 경로다 (R11 · A20). */
+        archivedItems: z.array(milestoneSchema)
+      })
+    },
+    create: {
+      req: z.tuple([z.strictObject({ month: monthKeySchema, title: milestoneTitleSchema })]),
+      res: z.strictObject({ month: monthKeySchema, id: z.string() })
+    },
+    rename: {
+      req: z.tuple([z.strictObject({ id: z.string(), title: milestoneTitleSchema })]),
+      res: z.void()
+    },
+    setCompleted: {
+      req: z.tuple([z.strictObject({ id: z.string(), completed: z.boolean() })]),
+      res: z.strictObject({ completedAt: z.string().nullable() })
+    },
+    setArchived: {
+      req: z.tuple([z.strictObject({ id: z.string(), archived: z.boolean() })]),
+      res: z.strictObject({ archivedAt: z.string().nullable() })
+    },
+    remove: { req: z.tuple([z.string()]), res: z.void() },
+    /**
+     * 제목 복사 (R22). **제목 배열만** 받는다 — 원본 id 를 받으면 "원본을 건드릴 수도
+     * 있다"는 여지가 계약에 남고, A23 이 지키려는 것이 정확히 그 부재다.
+     */
+    carryTitles: {
+      req: z.tuple([
+        z.strictObject({ month: monthKeySchema, titles: z.array(milestoneTitleSchema).min(1) })
+      ]),
+      res: z.strictObject({ month: monthKeySchema, created: z.int().min(0) })
+    }
+  },
+  /**
+   * 캘린더 열람. 화면 하나 = 응답 하나이며, 화면이 조각을 모아 조립하지 않는다.
+   * **쓰기 채널이 없는 것이 계약이다** (R23 — 날짜 패널은 읽기 전용).
+   */
+  calendar: {
+    month: {
+      req: z.tuple([monthKeySchema]),
+      res: z.strictObject({
+        month: monthKeySchema,
+        /** 1일 앞의 빈 칸 수. 월요일 시작 기준이다 (R7). */
+        leadingBlanks: z.int().min(0).max(6),
+        days: z.array(calendarDaySchema)
+      })
+    },
+    day: {
+      req: z.tuple([dayKeySchema]),
+      res: z.strictObject({
+        dayKey: dayKeySchema,
+        hasRecord: z.boolean(),
+        focusCount: z.int().min(0),
+        tasks: z.array(dayTaskSchema)
+      })
+    },
+    /** `이번 주 N일 공부 중`. 주 키를 받는다 — 이 값만 `기록 있음` 과 다른 조건을 쓴다 (R24). */
+    studyDays: {
+      req: z.tuple([dayKeySchema]),
+      res: z.strictObject({ week: dayKeySchema, days: z.int().min(0) })
+    }
   },
   review: {
     /**

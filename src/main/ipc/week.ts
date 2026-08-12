@@ -9,6 +9,7 @@ import {
   pullFromDrawer,
   pullNextFromItem,
   setItemCompleted,
+  setItemMilestone,
   weekSummary
 } from '../services/week-plan'
 import { handleIpc } from './handle'
@@ -41,4 +42,7 @@ export function registerWeekHandlers(uow: UnitOfWork): void {
     setItemCompleted(uow, weekItemId, false)
   )
   handleIpc(CHANNELS.week.drop, contracts.week.drop, (weekItemId) => dropItem(uow, weekItemId))
+  handleIpc(CHANNELS.week.setMilestone, contracts.week.setMilestone, (input) =>
+    setItemMilestone(uow, input)
+  )
 }

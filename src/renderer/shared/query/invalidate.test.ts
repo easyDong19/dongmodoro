@@ -18,8 +18,14 @@ describe('keysToInvalidate — ADR-025 §3 표의 코드화', () => {
     expect(keys).toContainEqual(['today', '2026-08-07'])
     expect(keys).toContainEqual(['day', '2026-08-07'])
     expect(keys).toContainEqual(['week', '2026-08-03'])
-    expect(keys).toContainEqual(['month', '2026-08', 'calendar'])
-    expect(keys).toContainEqual(['month']) // milestones 광역 (prefix)
+    /**
+     * 달 레이어는 **광역 prefix 하나**로 턴다. 좁은 `monthCalendar(그 달)` 을 함께 적지
+     * 않는 이유가 둘이다: 접두사가 이미 그것을 잡고, 세션이 바꾸는 마일스톤 롤업은 **그
+     * 달에 한정되지 않는다** — 이월이 승계한 타월 연결 때문에 다른 달 카드의 롤업이
+     * 바뀔 수 있다 (ADR-012 §3).
+     */
+    expect(keys).toContainEqual(['month'])
+    expect(keys).not.toContainEqual(['month', '2026-08', 'calendar'])
   })
   it('세션 기록: 자정 걸친 세션(localDate ≠ 오늘)이면 today 전체', () => {
     const keys = keysToInvalidate({
@@ -166,5 +172,38 @@ describe('baseline-changed', () => {
       ['settings', 'baseline'],
       ['review', 'pending']
     ])
+  })
+})
+
+describe('milestone-changed — 캘린더를 털지 않는다', () => {
+  it('그 달 마일스톤 키 하나뿐이다', () => {
+    expect(keysToInvalidate({ type: 'milestone-changed', payload: { month: '2026-08' } })).toEqual([
+      ['month', '2026-08', 'milestones']
+    ])
+  })
+
+  /**
+   * 마일스톤은 캘린더 점에 영향을 주지 않는다. 넣으면 아무것도 안 바뀌는 재조회가 생기고,
+   * 그 재조회가 다음 사람에게 "마일스톤이 캘린더를 바꾼다"는 오해를 심는다.
+   */
+  it('캘린더 키도 monthAll prefix 도 들어가지 않는다', () => {
+    const keys = keysToInvalidate({ type: 'milestone-changed', payload: { month: '2026-08' } })
+    expect(keys).not.toContainEqual(['month', '2026-08', 'calendar'])
+    expect(keys).not.toContainEqual(['month'])
+  })
+})
+
+describe('pull-changed — 점은 바뀌지만 롤업은 안 바뀐다', () => {
+  it('캘린더는 털되 마일스톤은 털지 않는다', () => {
+    const keys = keysToInvalidate({
+      type: 'pull-changed',
+      payload: { itemWeek: '2026-08-03' },
+      currentDayKey: '2026-08-07'
+    })
+    // pull 은 `기록 있음` 의 두 번째 항이라 점이 생기거나 사라진다 (R5).
+    expect(keys).toContainEqual(['month', '2026-08', 'calendar'])
+    // 소진을 만드는 것은 세션이지 pull 이 아니므로 롤업은 그대로다.
+    expect(keys).not.toContainEqual(['month', '2026-08', 'milestones'])
+    expect(keys).not.toContainEqual(['month'])
   })
 })

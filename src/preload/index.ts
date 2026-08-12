@@ -59,7 +59,22 @@ const api: Api = {
     pullFromDrawer: (input) => ipcRenderer.invoke(CHANNELS.week.pullFromDrawer, input),
     complete: (weekItemId) => ipcRenderer.invoke(CHANNELS.week.complete, weekItemId),
     uncomplete: (weekItemId) => ipcRenderer.invoke(CHANNELS.week.uncomplete, weekItemId),
-    drop: (weekItemId) => ipcRenderer.invoke(CHANNELS.week.drop, weekItemId)
+    drop: (weekItemId) => ipcRenderer.invoke(CHANNELS.week.drop, weekItemId),
+    setMilestone: (input) => ipcRenderer.invoke(CHANNELS.week.setMilestone, input)
+  },
+  milestones: {
+    forMonth: (month) => ipcRenderer.invoke(CHANNELS.milestones.forMonth, month),
+    create: (input) => ipcRenderer.invoke(CHANNELS.milestones.create, input),
+    rename: (input) => ipcRenderer.invoke(CHANNELS.milestones.rename, input),
+    setCompleted: (input) => ipcRenderer.invoke(CHANNELS.milestones.setCompleted, input),
+    setArchived: (input) => ipcRenderer.invoke(CHANNELS.milestones.setArchived, input),
+    remove: (id) => ipcRenderer.invoke(CHANNELS.milestones.remove, id),
+    carryTitles: (input) => ipcRenderer.invoke(CHANNELS.milestones.carryTitles, input)
+  },
+  calendar: {
+    month: (month) => ipcRenderer.invoke(CHANNELS.calendar.month, month),
+    day: (dayKey) => ipcRenderer.invoke(CHANNELS.calendar.day, dayKey),
+    studyDays: (week) => ipcRenderer.invoke(CHANNELS.calendar.studyDays, week)
   },
   review: {
     getStatus: () => ipcRenderer.invoke(CHANNELS.review.getStatus),

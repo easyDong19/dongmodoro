@@ -142,3 +142,115 @@ describe('settings.getBaseline contract (pomo-baseline R26)', () => {
     ).toThrow()
   })
 })
+
+describe('calendar contract — 달력 키 형식은 경계에서 거른다 (ADR-011 §6)', () => {
+  it('zero-pad 없는 월 키를 거부한다', () => {
+    expect(contracts.calendar.month.req.safeParse(['2026-8']).success).toBe(false)
+  })
+
+  it('두 자리 연도를 거부한다', () => {
+    expect(contracts.calendar.month.req.safeParse(['26-08']).success).toBe(false)
+  })
+
+  it('월 채널에 날짜 키를 보내면 거부한다 — 두 키가 섞이면 범위 조회가 하루짜리가 된다', () => {
+    expect(contracts.calendar.month.req.safeParse(['2026-08-04']).success).toBe(false)
+  })
+
+  it('정상 월 키를 통과시킨다', () => {
+    expect(contracts.calendar.month.req.safeParse(['2026-08']).success).toBe(true)
+  })
+
+  it('날짜 채널은 날짜 키만 받는다', () => {
+    expect(contracts.calendar.day.req.safeParse(['2026-08-04']).success).toBe(true)
+    expect(contracts.calendar.day.req.safeParse(['2026-08']).success).toBe(false)
+  })
+
+  /**
+   * 점 없음은 `hasRecord: false` 로만 표현된다. `dotLevel: null` 을 허용하면 같은 사실을
+   * 두 필드가 말하게 되고, 두 값이 어긋난 응답이 계약을 통과한다.
+   */
+  it('dotLevel 에 null 을 허용하지 않는다', () => {
+    const day = {
+      dayKey: '2026-08-04',
+      hasRecord: false,
+      focusCount: 0,
+      dotLevel: null
+    }
+    const res = contracts.calendar.month.res.safeParse({
+      month: '2026-08',
+      leadingBlanks: 0,
+      days: [day]
+    })
+    expect(res.success).toBe(false)
+  })
+
+  it('앞 빈 칸 수는 0~6 이다 — 7 은 한 줄이 통째로 비었다는 뜻이라 있을 수 없다', () => {
+    const base = { month: '2026-08', days: [] }
+    expect(contracts.calendar.month.res.safeParse({ ...base, leadingBlanks: 6 }).success).toBe(true)
+    expect(contracts.calendar.month.res.safeParse({ ...base, leadingBlanks: 7 }).success).toBe(
+      false
+    )
+  })
+})
+
+describe('milestones contract — 수치 필드가 없다 (R3 · A3)', () => {
+  it('빈 제목과 공백 제목을 거부한다', () => {
+    const req = contracts.milestones.create.req
+    expect(req.safeParse([{ month: '2026-08', title: '' }]).success).toBe(false)
+    expect(req.safeParse([{ month: '2026-08', title: '   ' }]).success).toBe(false)
+  })
+
+  /**
+   * A3 — "마일스톤 추가 폼에 뽀모·할당량 등 숫자 입력 필드가 없다." 계약이 `strictObject`
+   * 이므로 수치 필드를 실은 요청이 거부된다. 계약에 없으면 화면이 만들 수 없다.
+   */
+  it('예상 뽀모를 실은 생성 요청을 거부한다 (A3)', () => {
+    const res = contracts.milestones.create.req.safeParse([
+      { month: '2026-08', title: '결과물', estPomos: 4 }
+    ])
+    expect(res.success).toBe(false)
+  })
+
+  it('제목 복사는 제목 배열만 받는다 — 원본 id 를 받지 않는다 (R22 · A23)', () => {
+    const req = contracts.milestones.carryTitles.req
+    expect(req.safeParse([{ month: '2026-08', titles: ['남은 것'] }]).success).toBe(true)
+    expect(req.safeParse([{ month: '2026-08', titles: ['a'], sourceIds: ['m1'] }]).success).toBe(
+      false
+    )
+  })
+
+  it('빈 제목 배열을 거부한다 — 아무것도 안 만드는 호출은 의도가 아니다', () => {
+    expect(
+      contracts.milestones.carryTitles.req.safeParse([{ month: '2026-08', titles: [] }]).success
+    ).toBe(false)
+  })
+
+  it('응답의 마일스톤 행에 수치 필드가 없다', () => {
+    const res = contracts.milestones.forMonth.res.safeParse({
+      month: '2026-08',
+      mode: 'edit',
+      items: [
+        {
+          id: 'm1',
+          month: '2026-08',
+          title: '결과물',
+          completedAt: null,
+          archivedAt: null,
+          rollup: null,
+          estPomos: 4
+        }
+      ],
+      badge: null,
+      rollupWeek: null,
+      carryCandidates: []
+    })
+    expect(res.success).toBe(false)
+  })
+
+  it('연결 해제는 null 로 표현되며 유효하다 (R13)', () => {
+    const req = contracts.week.setMilestone.req
+    expect(req.safeParse([{ weekItemId: 'i1', milestoneId: null }]).success).toBe(true)
+    expect(req.safeParse([{ weekItemId: 'i1', milestoneId: 'm1' }]).success).toBe(true)
+    expect(req.safeParse([{ weekItemId: 'i1' }]).success).toBe(false)
+  })
+})

@@ -1,7 +1,7 @@
 import { v7 as uuidv7 } from 'uuid'
-import { localKeys, now } from '../../shared/time'
+import { localKeys, monthOfWeek, now } from '../../shared/time'
 import { budgetPrefill, effectiveBudget, weekSnapshot } from './baseline'
-import type { ChildTaskRow, PlanDraftItem, UnitOfWork, WeekItemRow } from './ports'
+import type { ChildTaskRow, MilestoneRow, PlanDraftItem, UnitOfWork, WeekItemRow } from './ports'
 
 /**
  * 기타 행 소진 — **차액으로 정의한다** (ADR-027 §1).
@@ -96,11 +96,25 @@ export function planDraft(
   }))
 }
 
-/** 드로어 한 화면 = 응답 하나. 폐기 항목도 열린다 (header 가 listForWeek 밖을 본다). */
+/**
+ * 드로어 한 화면 = 응답 하나. 폐기 항목도 열린다 (header 가 listForWeek 밖을 본다).
+ *
+ * 마일스톤 후보를 **여기서 계산해 실어 보낸다** (milestones R14 · A12). 렌더러가
+ * `monthOfWeek` 를 부르고 보관을 거르면 후보 규칙이 두 곳이 된다.
+ *
+ * 지금 걸린 연결(`milestone`)은 후보 밖일 수 있다 — 이월 승계가 만든 타월 연결이며,
+ * 화면은 그것을 지우지 않고 비활성 옵션으로 함께 보여준다 (R15).
+ */
 export function itemDrawer(
   uow: UnitOfWork,
   weekItemId: string
-): { itemWeek: string; completedAt: string | null; tasks: ChildTaskRow[] } {
+): {
+  itemWeek: string
+  completedAt: string | null
+  tasks: ChildTaskRow[]
+  milestone: MilestoneRow | null
+  milestoneCandidates: MilestoneRow[]
+} {
   const { localDate } = localKeys()
   return uow.run((repos) => {
     const header = repos.weekItems.header(weekItemId)
@@ -108,7 +122,9 @@ export function itemDrawer(
     return {
       itemWeek: header.week,
       completedAt: header.completedAt,
-      tasks: repos.weekItems.childTasks(weekItemId, localDate)
+      tasks: repos.weekItems.childTasks(weekItemId, localDate),
+      milestone: repos.milestones.linkedMilestone(weekItemId),
+      milestoneCandidates: repos.milestones.listForMonth(monthOfWeek(header.week))
     }
   })
 }
@@ -205,6 +221,42 @@ export function setItemCompleted(
     const at = now()
     repos.weekItems.complete(weekItemId, at)
     return { itemWeek: header.week, completedAt: at }
+  })
+}
+
+/**
+ * 할당 ↔ 마일스톤 연결 (milestones R13·R14 · A12).
+ *
+ * **후보 제한을 서비스가 강제한다.** 화면이 후보 목록을 좁히는 것만으로는 IPC 를 직접
+ * 부르는 경로가 열린다 — `pullFromDrawer` 의 소속 검증과 같은 규율이다. 후보는 그 할당의
+ * 주가 귀속된 달(`monthOfWeek`)의 **보관되지 않은** 마일스톤이며, 8월 주의 할당을 9월
+ * 마일스톤에 새로 매달 수 없다. 그렇지 않으면 한 마일스톤의 롤업이 임의의 달에서 올라와
+ * 월 레이어의 경계가 사라진다.
+ *
+ * **해제(`null`)는 언제나 허용된다** — 연결 없음은 오류 상태가 아니다 (R13). 이월이
+ * 승계한 타월 연결도 이 경로로 끊을 수 있어야 한다.
+ */
+export function setItemMilestone(
+  uow: UnitOfWork,
+  input: { weekItemId: string; milestoneId: string | null }
+): { itemWeek: string } {
+  return uow.run((repos) => {
+    const header = repos.weekItems.header(input.weekItemId)
+    if (header === null) {
+      throw new Error(`setItemMilestone: item '${input.weekItemId}' not found`)
+    }
+
+    if (input.milestoneId !== null) {
+      const candidates = repos.milestones.listForMonth(monthOfWeek(header.week))
+      if (!candidates.some((m) => m.id === input.milestoneId)) {
+        throw new Error(
+          `setItemMilestone: milestone '${input.milestoneId}' is not a candidate for week ${header.week}`
+        )
+      }
+    }
+
+    repos.milestones.setWeekItemMilestone(input.weekItemId, input.milestoneId)
+    return { itemWeek: header.week }
   })
 }
 
