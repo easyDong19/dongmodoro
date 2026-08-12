@@ -66,7 +66,32 @@ function setup({ clockNow }: { clockNow: () => Promise<typeof clock> }) {
       pullFromDrawer: vi.fn(),
       complete: vi.fn(),
       uncomplete: vi.fn(),
-      drop: vi.fn()
+      drop: vi.fn(),
+      setMilestone: vi.fn()
+    },
+    calendar: {
+      month: vi.fn().mockResolvedValue({ month: clock.monthKey, leadingBlanks: 0, days: [] }),
+      day: vi
+        .fn()
+        .mockResolvedValue({ dayKey: clock.dayKey, hasRecord: false, focusCount: 0, tasks: [] }),
+      studyDays: vi.fn().mockResolvedValue({ week: clock.weekKey, days: 0 })
+    },
+    milestones: {
+      forMonth: vi.fn().mockResolvedValue({
+        month: clock.monthKey,
+        mode: 'current-empty',
+        items: [],
+        badge: null,
+        rollupWeek: null,
+        carryCandidates: [],
+        archivedItems: []
+      }),
+      create: vi.fn(),
+      rename: vi.fn(),
+      setCompleted: vi.fn(),
+      setArchived: vi.fn(),
+      remove: vi.fn(),
+      carryTitles: vi.fn()
     },
     events: {
       onTimerTransition: vi.fn(() => () => {}),
@@ -111,15 +136,52 @@ describe('App — clock 게이트 (콜드 스타트 크래시 회귀)', () => {
 })
 
 describe('App — 카드 표면 (design-system ADR-002)', () => {
-  it('세 카드가 유리 표면 클래스를 쓴다 — 인라인 배경으로 때우지 않는다', async () => {
+  it('다섯 카드가 유리 표면 클래스를 쓴다 — 인라인 배경으로 때우지 않는다', async () => {
     setup({ clockNow: () => Promise.resolve(clock) })
     await screen.findByLabelText('타이머')
 
-    for (const label of ['타이머', '주간 계획', '오늘 목록']) {
+    for (const label of ['월 결과물', '캘린더', '타이머', '주간 계획', '오늘 목록']) {
       const section = screen.getByLabelText(label)
       expect(section.className).toContain('card')
       // 인라인 background 는 backdrop-filter·shadow 를 못 데려온다. 그래서 이 검사가 있다.
       expect(section.getAttribute('style') ?? '').not.toContain('background')
     }
+  })
+})
+
+describe('App — MONTH 컬럼 (app-shell ux-spec §2)', () => {
+  it('마일스톤과 캘린더가 같은 컬럼에 인접해 있다 — 달 이동 연동이 시야 안에서 일어난다', async () => {
+    setup({ clockNow: () => Promise.resolve(clock) })
+    await screen.findByLabelText('캘린더')
+
+    const milestone = screen.getByLabelText('월 결과물')
+    const calendar = screen.getByLabelText('캘린더')
+    expect(milestone.parentElement).toBe(calendar.parentElement)
+  })
+
+  it('WEEK 과 TODAY 도 한 컬럼에 쌓인다 (§2)', async () => {
+    setup({ clockNow: () => Promise.resolve(clock) })
+    await screen.findByLabelText('타이머')
+
+    expect(screen.getByLabelText('주간 계획').parentElement).toBe(
+      screen.getByLabelText('오늘 목록').parentElement
+    )
+  })
+
+  /**
+   * 두 카드가 같은 달을 말하는 것은 규율이 아니라 구조다 (calendar-records R26 · A24) —
+   * 마일스톤 카드가 자기 월 상태를 갖지 않고 provider 를 구독하므로, 서로 다른 달을
+   * 말하는 상태가 표현되지 않는다.
+   */
+  it('두 카드가 같은 달을 조회한다 (A24)', async () => {
+    setup({ clockNow: () => Promise.resolve(clock) })
+    await screen.findByLabelText('캘린더')
+
+    const api = window.api as unknown as {
+      calendar: { month: ReturnType<typeof vi.fn> }
+      milestones: { forMonth: ReturnType<typeof vi.fn> }
+    }
+    expect(api.calendar.month).toHaveBeenCalledWith(clock.monthKey)
+    expect(api.milestones.forMonth).toHaveBeenCalledWith(clock.monthKey)
   })
 })

@@ -84,8 +84,9 @@ export function keysToInvalidate(e: InvalidationEvent): readonly (readonly strin
         todayKey,
         keys.day(localDate),
         keys.week(localWeek),
-        keys.monthCalendar(localDate.slice(0, 7)),
-        keys.monthAll() // milestones 광역 — 마일스톤 쿼리가 아직 없어 prefix 로 표기 (활성 구독 0)
+        // 세션 하나가 점·날짜 패널·공부한 날 수·마일스톤 롤업을 전부 바꾼다.
+        // `monthAll()` 이 그 달의 캘린더와 마일스톤을 접두사로 함께 잡는다.
+        keys.monthAll()
       ]
     }
     case 'capture-recorded': {
@@ -93,6 +94,8 @@ export function keysToInvalidate(e: InvalidationEvent): readonly (readonly strin
       return [keys.week(localWeek), keys.day(localDate), keys.monthAll()]
     }
     case 'pull-changed': {
+      // pull 은 `기록 있음` 술어의 두 번째 항이므로 점이 생기거나 사라진다 (R5).
+      // **마일스톤은 대상이 아니다** — pull 이 롤업을 바꾸지 않는다 (소진은 세션이 만든다).
       return [
         keys.today(e.currentDayKey),
         keys.day(e.currentDayKey),
@@ -120,8 +123,9 @@ export function keysToInvalidate(e: InvalidationEvent): readonly (readonly strin
        * 확정 하나가 네 레이어를 건드린다 (technical-spec 캐시 무효화 표):
        * 범위의 주들은 `settled_at`·스냅샷이 생기고, 계획 대상 주에는 이월 항목이 들어오며,
        * 미완료 조각의 소속 항목이 바뀌어 오늘 목록의 표시가 달라지고, 워터마크 전진으로
-       * 배너가 사라진다. 마일스톤은 이월이 `milestone_id` 를 승계하므로 광역으로 턴다 —
-       * 전용 쿼리가 아직 없어 활성 구독은 0 이다.
+       * 배너가 사라진다. 마일스톤을 광역으로 터는 이유는 **이월이 `milestone_id` 를
+       * 승계하기 때문**이다 (ADR-012 §3) — 새 주로 넘어간 할당이 원래 마일스톤의 롤업에
+       * 계속 잡히므로, 어느 달 카드가 바뀔지 확정할 수 없다.
        *
        * 드로어·플래너 초안은 적지 않는다. 두 키가 `keys.week(w)` 의 하위라 접두사로 함께
        * 잡힌다. 반대 방향은 성립하지 않는다 — 긴 키로 짧은 키를 잡을 수 없다.
