@@ -10,6 +10,7 @@ import {
   pullNextFromItem,
   remainingPomos,
   setItemCompleted,
+  setItemMilestone,
   weekSummary
 } from './week-plan'
 
@@ -409,5 +410,134 @@ describe('planDraft — 플래너 진입 프리필 (R16)', () => {
     const draft = planDraft(uow, WEEK)
     expect(draft.budget).toBe(18) // 이미 정한 값
     expect(draft.prefill).toBeNull() // capacity 는 여전히 미설정
+  })
+})
+
+describe('setItemMilestone — 후보 제한을 서비스가 강제한다 (milestones R14 · A12)', () => {
+  const AUG_WEEK = '2026-08-03'
+  const SEP_WEEK = '2026-09-07'
+
+  function makeMilestone(uow: ReturnType<typeof testUow>['uow'], month: string, title: string) {
+    return uow.run((repos) => {
+      const id = `ms-${month}-${title}`
+      repos.milestones.create({
+        id,
+        month,
+        title,
+        sortOrder: repos.milestones.nextSortOrder(month)
+      })
+      return id
+    })
+  }
+
+  function makeItem(uow: ReturnType<typeof testUow>['uow'], week: string) {
+    return uow.run(
+      (repos) =>
+        repos.weekItems.confirmPlan({
+          week,
+          items: [{ id: null, title: '할당', estPomos: 2, days: [] }]
+        }).createdIds[0]
+    )
+  }
+
+  it('그 주가 귀속된 달의 마일스톤에는 연결된다', () => {
+    const { uow } = testUow()
+    ensureWeeks(uow, AUG_WEEK)
+    const m = makeMilestone(uow, '2026-08', 'aug')
+    const item = makeItem(uow, AUG_WEEK)
+
+    expect(setItemMilestone(uow, { weekItemId: item, milestoneId: m })).toEqual({
+      itemWeek: AUG_WEEK
+    })
+    expect(uow.run((r) => r.milestones.linkedMilestone(item)?.id)).toBe(m)
+  })
+
+  /**
+   * A12 — 화면이 후보를 좁히는 것만으로는 IPC 를 직접 부르는 경로가 열린다.
+   * 8월 주의 할당을 9월 마일스톤에 매달 수 있으면 그 롤업이 임의의 달에서 올라와
+   * 월 레이어의 경계가 사라진다.
+   */
+  it('다른 달 마일스톤에 새로 매달면 거부한다 (A12)', () => {
+    const { uow } = testUow()
+    ensureWeeks(uow, AUG_WEEK)
+    const sep = makeMilestone(uow, '2026-09', 'sep')
+    const item = makeItem(uow, AUG_WEEK)
+
+    expect(() => setItemMilestone(uow, { weekItemId: item, milestoneId: sep })).toThrow(
+      /not a candidate/
+    )
+    expect(uow.run((r) => r.milestones.linkedMilestone(item))).toBeNull()
+  })
+
+  it('보관된 마일스톤에도 새로 매달 수 없다 (R14)', () => {
+    const { uow } = testUow()
+    ensureWeeks(uow, AUG_WEEK)
+    const m = makeMilestone(uow, '2026-08', 'archived')
+    uow.run((r) => r.milestones.archive(m, '2026-08-20T00:00:00.000Z'))
+    const item = makeItem(uow, AUG_WEEK)
+
+    expect(() => setItemMilestone(uow, { weekItemId: item, milestoneId: m })).toThrow(
+      /not a candidate/
+    )
+  })
+
+  /**
+   * R18 — 주는 쪼개지지 않는다. 8/31 주는 9/6 까지 이어지지만 전체가 8월에 귀속되므로,
+   * 그 주의 할당은 8월 마일스톤에 연결된다.
+   */
+  it('달을 넘긴 주의 할당은 주 키의 달을 따른다 (R18)', () => {
+    const { uow } = testUow()
+    ensureWeeks(uow, '2026-08-31')
+    const aug = makeMilestone(uow, '2026-08', 'aug')
+    const item = makeItem(uow, '2026-08-31')
+
+    expect(setItemMilestone(uow, { weekItemId: item, milestoneId: aug }).itemWeek).toBe(
+      '2026-08-31'
+    )
+  })
+
+  it('해제는 언제나 허용된다 — 타월 연결도 끊을 수 있어야 한다 (R13·R15)', () => {
+    const { uow } = testUow()
+    ensureWeeks(uow, SEP_WEEK)
+    const aug = makeMilestone(uow, '2026-08', 'aug')
+    const item = makeItem(uow, SEP_WEEK)
+    // 이월 승계가 만드는 것과 같은 타월 연결을 저장소로 직접 만든다.
+    uow.run((r) => r.milestones.setWeekItemMilestone(item, aug))
+
+    expect(setItemMilestone(uow, { weekItemId: item, milestoneId: null })).toEqual({
+      itemWeek: SEP_WEEK
+    })
+    expect(uow.run((r) => r.milestones.linkedMilestone(item))).toBeNull()
+  })
+
+  it('없는 할당이면 throw 한다', () => {
+    const { uow } = testUow()
+    expect(() => setItemMilestone(uow, { weekItemId: 'nope', milestoneId: null })).toThrow(
+      /not found/
+    )
+  })
+})
+
+describe('itemDrawer — 후보를 서버가 좁혀 보낸다 (R14 · A12)', () => {
+  it('그 주가 귀속된 달의 미보관 마일스톤만 후보다', () => {
+    const { uow } = testUow()
+    ensureWeeks(uow, '2026-08-03')
+    const item = uow.run(
+      (repos) =>
+        repos.weekItems.confirmPlan({
+          week: '2026-08-03',
+          items: [{ id: null, title: '할당', estPomos: 2, days: [] }]
+        }).createdIds[0]
+    )
+    uow.run((repos) => {
+      repos.milestones.create({ id: 'aug', month: '2026-08', title: '8월', sortOrder: 0 })
+      repos.milestones.create({ id: 'sep', month: '2026-09', title: '9월', sortOrder: 0 })
+      repos.milestones.create({ id: 'arch', month: '2026-08', title: '보관', sortOrder: 1 })
+      repos.milestones.archive('arch', '2026-08-20T00:00:00.000Z')
+    })
+
+    const drawer = itemDrawer(uow, item)
+    expect(drawer.milestoneCandidates.map((m) => m.id)).toEqual(['aug'])
+    expect(drawer.milestone).toBeNull()
   })
 })

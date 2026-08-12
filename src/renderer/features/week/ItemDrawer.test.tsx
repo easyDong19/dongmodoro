@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import type {} from '@testing-library/jest-dom/vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
 import type { Api } from '@shared/ipc/api'
@@ -32,9 +32,17 @@ function renderDrawer(
     onComplete?: () => void
     onUncomplete?: () => void
     onDrop?: () => void
+    onSetMilestone?: (milestoneId: string | null) => void
   } = {}
 ) {
-  const data: Drawer = { itemWeek: '2026-08-03', completedAt: null, tasks: [], ...over }
+  const data: Drawer = {
+    itemWeek: '2026-08-03',
+    completedAt: null,
+    tasks: [],
+    milestone: null,
+    milestoneCandidates: [],
+    ...over
+  }
   render(
     <ItemDrawer
       id="drawer-i1"
@@ -44,6 +52,7 @@ function renderDrawer(
       onComplete={handlers.onComplete ?? vi.fn()}
       onUncomplete={handlers.onUncomplete ?? vi.fn()}
       onDrop={handlers.onDrop ?? vi.fn()}
+      onSetMilestone={handlers.onSetMilestone ?? vi.fn()}
     />
   )
 }
@@ -222,5 +231,66 @@ describe('ItemDrawer — 조작 타깃 (design-system ADR-004 §2)', () => {
     for (const name of ['닫기', '오늘로 가져오기', '완료로 표시', '보내주기']) {
       expect(screen.getByRole('button', { name }).tagName).toBe('BUTTON')
     }
+  })
+})
+
+describe('ItemDrawer — 마일스톤 연결 (milestones R13·R14·R15 · A11·A12)', () => {
+  const m = (id: string, title: string, month = '2026-08') => ({
+    id,
+    month,
+    title,
+    completedAt: null,
+    archivedAt: null
+  })
+
+  it('연결 없음이 정상 선택지이고 경고 문구가 없다 (R13 · A11)', () => {
+    renderDrawer({ milestone: null, milestoneCandidates: [m('m1', '결과물')] })
+    const select = screen.getByTestId('milestone-select')
+    expect(select).toHaveValue('')
+    expect(screen.getByText('연결 없음')).toBeInTheDocument()
+    expect(screen.queryByText(/연결해|필요|누락/)).not.toBeInTheDocument()
+  })
+
+  it('서버가 준 후보만 고를 수 있다 — 화면이 목록을 다시 좁히지 않는다 (A12)', () => {
+    renderDrawer({ milestone: null, milestoneCandidates: [m('m1', '8월 결과물')] })
+    const options = within(screen.getByTestId('milestone-select')).getAllByRole('option')
+    expect(options.map((o) => o.textContent)).toEqual(['연결 없음', '8월 결과물'])
+  })
+
+  it('고르면 id 를 올려보낸다', async () => {
+    const user = userEvent.setup()
+    const onSetMilestone = vi.fn()
+    renderDrawer({ milestone: null, milestoneCandidates: [m('m1', '결과물')] }, { onSetMilestone })
+
+    await user.selectOptions(screen.getByTestId('milestone-select'), 'm1')
+    expect(onSetMilestone).toHaveBeenCalledWith('m1')
+  })
+
+  it('연결 없음을 고르면 null 을 올려보낸다 — 해제는 오류가 아니다 (R13)', async () => {
+    const user = userEvent.setup()
+    const onSetMilestone = vi.fn()
+    renderDrawer(
+      { milestone: m('m1', '결과물'), milestoneCandidates: [m('m1', '결과물')] },
+      { onSetMilestone }
+    )
+
+    await user.selectOptions(screen.getByTestId('milestone-select'), '')
+    expect(onSetMilestone).toHaveBeenCalledWith(null)
+  })
+
+  /**
+   * R15 — 이월이 승계한 타월 연결. 후보 목록에 없다고 지워 버리면 렌더 시점에 연결이
+   * 사라진 것처럼 보이고, 사용자가 손대지 않았는데 값이 바뀐다.
+   */
+  it('타월 연결은 후보 밖이어도 유지되고 비활성 옵션으로 보인다 (R15)', () => {
+    renderDrawer({
+      milestone: m('m-aug', '8월 결과물', '2026-08'),
+      milestoneCandidates: [m('m-sep', '9월 결과물', '2026-09')]
+    })
+    const select = screen.getByTestId('milestone-select')
+    expect(select).toHaveValue('m-aug')
+    const foreign = screen.getByTestId('milestone-foreign-option')
+    expect(foreign).toBeDisabled()
+    expect(foreign).toHaveTextContent('8월 결과물 (다른 달)')
   })
 })

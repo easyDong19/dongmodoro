@@ -1,7 +1,7 @@
 import { v7 as uuidv7 } from 'uuid'
 import { localKeys, monthOfWeek, now } from '../../shared/time'
 import { budgetPrefill, effectiveBudget, weekSnapshot } from './baseline'
-import type { ChildTaskRow, PlanDraftItem, UnitOfWork, WeekItemRow } from './ports'
+import type { ChildTaskRow, MilestoneRow, PlanDraftItem, UnitOfWork, WeekItemRow } from './ports'
 
 /**
  * 기타 행 소진 — **차액으로 정의한다** (ADR-027 §1).
@@ -96,11 +96,25 @@ export function planDraft(
   }))
 }
 
-/** 드로어 한 화면 = 응답 하나. 폐기 항목도 열린다 (header 가 listForWeek 밖을 본다). */
+/**
+ * 드로어 한 화면 = 응답 하나. 폐기 항목도 열린다 (header 가 listForWeek 밖을 본다).
+ *
+ * 마일스톤 후보를 **여기서 계산해 실어 보낸다** (milestones R14 · A12). 렌더러가
+ * `monthOfWeek` 를 부르고 보관을 거르면 후보 규칙이 두 곳이 된다.
+ *
+ * 지금 걸린 연결(`milestone`)은 후보 밖일 수 있다 — 이월 승계가 만든 타월 연결이며,
+ * 화면은 그것을 지우지 않고 비활성 옵션으로 함께 보여준다 (R15).
+ */
 export function itemDrawer(
   uow: UnitOfWork,
   weekItemId: string
-): { itemWeek: string; completedAt: string | null; tasks: ChildTaskRow[] } {
+): {
+  itemWeek: string
+  completedAt: string | null
+  tasks: ChildTaskRow[]
+  milestone: MilestoneRow | null
+  milestoneCandidates: MilestoneRow[]
+} {
   const { localDate } = localKeys()
   return uow.run((repos) => {
     const header = repos.weekItems.header(weekItemId)
@@ -108,7 +122,9 @@ export function itemDrawer(
     return {
       itemWeek: header.week,
       completedAt: header.completedAt,
-      tasks: repos.weekItems.childTasks(weekItemId, localDate)
+      tasks: repos.weekItems.childTasks(weekItemId, localDate),
+      milestone: repos.milestones.linkedMilestone(weekItemId),
+      milestoneCandidates: repos.milestones.listForMonth(monthOfWeek(header.week))
     }
   })
 }

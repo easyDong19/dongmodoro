@@ -288,7 +288,11 @@ export const contracts = {
       res: z.strictObject({
         itemWeek: z.string(),
         completedAt: z.string().nullable(),
-        tasks: z.array(childTaskSchema)
+        tasks: z.array(childTaskSchema),
+        /** 지금 걸린 연결. **후보 밖일 수 있다** — 이월 승계의 타월 연결이다 (R15). */
+        milestone: milestoneSchema.nullable(),
+        /** 새로 연결할 수 있는 것들 — 그 주가 귀속된 달의 미보관 마일스톤 (R14 · A12). */
+        milestoneCandidates: z.array(milestoneSchema)
       })
     },
     pullNext: {

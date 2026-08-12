@@ -67,7 +67,8 @@ function EmptyState({
  * 예산 대비 소진은 이 화면이 존재하는 이유라 항상 보여야 한다.
  */
 export function WeekCard() {
-  const { weekKey, todayIndex, query, pullNext, complete, uncomplete, drop } = useWeek()
+  const { weekKey, todayIndex, query, pullNext, complete, uncomplete, drop, setMilestone } =
+    useWeek()
   // 동시에 하나만 열린다 (§6) — 열린 항목 id 하나로 표현한다.
   const [openId, setOpenId] = useState<string | null>(null)
   const [toast, setToast] = useState<string | null>(null)
@@ -279,6 +280,9 @@ export function WeekCard() {
                   onComplete={() => complete.mutate(row.id)}
                   onUncomplete={() => uncomplete.mutate(row.id)}
                   onDrop={() => drop.mutate(row.id, { onSuccess: () => setOpenId(null) })}
+                  onSetMilestone={(milestoneId) =>
+                    setMilestone.mutate({ weekItemId: row.id, milestoneId })
+                  }
                 />
               ) : null}
             </WeekItemRow>

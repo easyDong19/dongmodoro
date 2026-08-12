@@ -41,7 +41,13 @@ function makeSummary(over: Partial<Summary> = {}): Summary {
 
 type Drawer = Awaited<ReturnType<Api['week']['drawer']>>
 
-const emptyDrawer: Drawer = { itemWeek: WEEK, completedAt: null, tasks: [] }
+const emptyDrawer: Drawer = {
+  itemWeek: WEEK,
+  completedAt: null,
+  tasks: [],
+  milestone: null,
+  milestoneCandidates: []
+}
 
 type Status = Awaited<ReturnType<Api['review']['getStatus']>>
 type Pending = Awaited<ReturnType<Api['review']['getPending']>>

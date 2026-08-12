@@ -70,7 +70,8 @@ export function ItemDrawer({
   onClose,
   onComplete,
   onUncomplete,
-  onDrop
+  onDrop,
+  onSetMilestone
 }: {
   id: string
   data: Drawer
@@ -79,6 +80,7 @@ export function ItemDrawer({
   onComplete: () => void
   onUncomplete: () => void
   onDrop: () => void
+  onSetMilestone: (milestoneId: string | null) => void
 }) {
   const reduced = useReducedMotion()
   const [selected, setSelected] = useState<string[]>([])
@@ -105,6 +107,36 @@ export function ItemDrawer({
         reduced ? '' : 'transition-[height] duration-150'
       }`}
     >
+      {/*
+        마일스톤 연결 (milestones R13·R14 · A11·A12).
+        - `연결 없음` 이 **정상 선택지**다. 미연결에 경고·요구 문구를 붙이지 않는다 (R13).
+        - 후보는 서버가 좁혀서 보낸다 — 그 할당의 주가 귀속된 달의 미보관 마일스톤뿐이다.
+        - 지금 값이 후보 밖이면(이월이 승계한 타월 연결 — R15) **지우지 않고** 비활성
+          옵션으로 함께 보여준다. 선택지에서 빼면 렌더 시점에 값이 사라진 것처럼 보인다.
+      */}
+      <label className="flex items-center gap-2 text-xs text-ink-dim">
+        결과물
+        <select
+          data-testid="milestone-select"
+          className="min-w-0 flex-1 rounded-md border border-control-border bg-glass px-2 py-1 text-xs text-ink"
+          value={data.milestone?.id ?? ''}
+          onChange={(e) => onSetMilestone(e.target.value === '' ? null : e.target.value)}
+        >
+          <option value="">연결 없음</option>
+          {data.milestoneCandidates.map((m) => (
+            <option key={m.id} value={m.id}>
+              {m.title}
+            </option>
+          ))}
+          {data.milestone !== null &&
+          !data.milestoneCandidates.some((m) => m.id === data.milestone?.id) ? (
+            <option value={data.milestone.id} disabled data-testid="milestone-foreign-option">
+              {`${data.milestone.title} (다른 달)`}
+            </option>
+          ) : null}
+        </select>
+      </label>
+
       {hasTasks ? (
         <>
           <p className="text-xs text-ink-dim">이 할당의 조각 — 오늘 할 것을 고르세요</p>
