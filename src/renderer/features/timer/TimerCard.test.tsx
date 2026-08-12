@@ -21,6 +21,13 @@ const baseSnapshot: TimerSnapshotWire = {
 
 function setup(timer: TimerSnapshotWire) {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+  // StudyDaysLine 이 useClock 을 읽는다 — 실제 앱에서는 ClockGate 가 이미 채워 둔 캐시다.
+  qc.setQueryData(['clock'], {
+    dayKey: '2026-08-04',
+    weekKey: '2026-08-03',
+    monthKey: '2026-08',
+    weekdayIndex: 1
+  })
 
   const mockApi = {
     system: { getAppInfo: vi.fn() },
@@ -44,6 +51,8 @@ function setup(timer: TimerSnapshotWire) {
       setMode: vi.fn().mockResolvedValue(timer)
     },
     sessions: { capture: vi.fn() },
+    // `이번 주 N일 공부 중` 은 calendar 소유이고 자리만 이 카드다 (calendar-records R27).
+    calendar: { studyDays: vi.fn().mockResolvedValue({ week: '2026-08-03', days: 0 }) },
     events: {
       onTimerTransition: vi.fn(() => () => {}),
       onSessionRecorded: vi.fn(() => () => {}),

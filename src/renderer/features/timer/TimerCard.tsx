@@ -4,6 +4,7 @@ import { api } from '@renderer/shared/api'
 import { Button } from '@renderer/shared/ui/button'
 import { useTimer } from './useTimer'
 import { CaptureBar } from './CaptureBar'
+import { StudyDaysLine } from '@renderer/features/calendar/StudyDaysLine'
 
 const MODE_TABS: { mode: TimerMode; label: string }[] = [
   { mode: 'focus', label: '집중' },
@@ -156,6 +157,12 @@ export function TimerCard() {
           </Button>
         ) : null}
       </div>
+
+      {/*
+        `이번 주 N일 공부 중` — **자리만 여기다.** 데이터와 카피의 소유는 calendar-records
+        이며(R27), 문구를 바꿀 때 고치는 문서는 그쪽 PRD 다.
+      */}
+      <StudyDaysLine />
 
       <CaptureBar />
     </div>
