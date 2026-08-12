@@ -68,9 +68,21 @@ probe allow $G "$FEAT_DIR" 'feature 워크트리 cwd 에서 commit'     'git com
 probe allow $G "$FEAT_DIR" 'feature cwd 에서 merge origin/main'   'git merge origin/main --no-edit'
 probe allow $G "$MAIN_DIR" '같은 명령에서 feature 로 switch+commit' 'git switch -q feature/docs-x && git commit -F /tmp/m.txt'
 probe deny  $G "$FEAT_DIR" '같은 명령에서 main 으로 switch+commit'  'git switch main && git commit -m "x"'
+# cd 로 다른 체크아웃에 들어가는 경우 (2026-08-12 패치)
+# 하네스가 호출마다 cwd 를 되돌리므로 `cd <워크트리> && git …` 이 정상 경로다.
+probe allow $G "$MAIN_DIR" 'main cwd 에서 cd 후 feature 워크트리 commit' "cd $FEAT_DIR && git add -A && git commit -m 'x'"
+probe deny  $G "$FEAT_DIR" 'feature cwd 에서 cd 후 main 체크아웃 commit' "cd $MAIN_DIR && git commit -m 'x'"
+probe allow $G "$MAIN_DIR" 'cd 후 feature 에서 push'              "cd $FEAT_DIR && git push -u origin feature/docs-sim"
+probe deny  $G "$FEAT_DIR" 'cd 후 main 에서 tag 생성'             "cd $MAIN_DIR && git tag v9.9.9"
+probe allow $G "$MAIN_DIR" 'cd 대상이 저장소가 아니면 판정 대상 아님' "cd /tmp && git commit -m 'x'"
+probe ask   $G "$FEAT_DIR" 'cd 경로가 변수라 불확실 → 사람에게 확인' 'cd $TARGET && git commit -m "x"'
+probe allow $G "$FEAT_DIR" '불확실해도 보호 대상 명령이 아니면 통과'  'cd $TARGET && git status'
 # 우회 경로
 probe deny  $G "$FEAT_DIR" 'git -C <main 체크아웃> commit 우회'   "git -C $MAIN_DIR commit -m 'x'"
 probe deny  $G "$FEAT_DIR" '/usr/bin/git -C <main> commit 우회'   "/usr/bin/git -C $MAIN_DIR commit -m 'x'"
+probe allow $G "$MAIN_DIR" 'git -C <feature 워크트리> commit 은 정상' "git -C $FEAT_DIR commit -m 'x'"
+probe deny  $G "$FEAT_DIR" 'switch 후 cd 로 main 에서 커밋 (전역 덮어쓰기 악용)' "git switch -q feature/docs-sim && cd $MAIN_DIR && git commit -m 'x'"
+probe deny  $G "$MAIN_DIR" '커밋 메시지 본문의 git switch 는 명령이 아니다' "git commit -F - <<'MSG'${NL}fix: something${NL}${NL}git switch feature/x was mentioned here${NL}MSG"
 # 머지 방식
 probe allow $G "$FEAT_DIR" 'gh pr merge --squash'                 'gh pr merge 5 --squash --delete-branch'
 probe deny  $G "$FEAT_DIR" 'gh pr merge --merge'                  'gh pr merge 5 --merge'
