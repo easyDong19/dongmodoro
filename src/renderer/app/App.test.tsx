@@ -185,3 +185,27 @@ describe('App — MONTH 컬럼 (app-shell ux-spec §2)', () => {
     expect(api.milestones.forMonth).toHaveBeenCalledWith(clock.monthKey)
   })
 })
+
+describe('App — 카드 접근성 이름은 셸이 소유한다', () => {
+  /**
+   * 카드 컴포넌트가 자기 `aria-label` 을 또 붙이면 **같은 이름의 region 이 중첩된다.**
+   * 스크린리더는 같은 이름을 두 번 읽고, `getByRole('region', …)` 은 두 요소로 갈라져
+   * E2E 가 strict mode 위반으로 죽는다 — 실제로 그렇게 한 번 깨졌다 (마일스톤 카드).
+   *
+   * 라벨의 소유자는 App.tsx 의 `<section>` 하나뿐이라는 것을 여기서 못 박는다.
+   */
+  it('카드 이름 5개가 각각 정확히 하나의 region 을 가리킨다', async () => {
+    setup({ clockNow: () => Promise.resolve(clock) })
+    /**
+     * **셸 라벨을 기다리면 안 된다.** `캘린더`·`월 결과물` 은 App 의 `<section>` 이
+     * 데이터와 무관하게 즉시 그리므로, 그걸 기다리면 카드 내용이 도착하기 전에 단언이
+     * 지나간다 — 중복이 생기는 것은 카드가 렌더된 **뒤**라서 그 순간엔 아무것도 안 잡힌다.
+     * CI 를 깨뜨린 것이 정확히 이 타이밍이었다. 카드 안쪽이 뜬 것을 기다린다.
+     */
+    await screen.findByTestId('milestone-card')
+
+    for (const label of ['월 결과물', '캘린더', '타이머', '주간 계획', '오늘 목록']) {
+      expect(screen.getAllByRole('region', { name: label })).toHaveLength(1)
+    }
+  })
+})
