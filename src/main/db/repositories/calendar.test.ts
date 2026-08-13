@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { sql } from 'drizzle-orm'
 import { v7 as uuidv7 } from 'uuid'
-import { ensureWeeks, testUow } from './test-helpers'
+import { testUow } from './test-helpers'
 import type { Repositories } from '../../services/ports'
 
 // 2026-08-03(월) ~ 08-09(일) 한 주. 8/31 주는 9/6 까지 이어지므로 달 경계 테스트에 쓴다.
@@ -38,7 +38,6 @@ function makeTask(repos: Repositories, week: string, title: string): string {
 describe('calendar.focusCountsByDate — 범위 조회만 (R3 · A3)', () => {
   it('날짜별 focus 세션 수를 센다', () => {
     const { uow } = testUow()
-    ensureWeeks(uow, W1)
     uow.run((repos) => {
       repos.sessions.insert(session('s1', null, '2026-08-04', W1))
       repos.sessions.insert(session('s2', null, '2026-08-04', W1))
@@ -53,7 +52,6 @@ describe('calendar.focusCountsByDate — 범위 조회만 (R3 · A3)', () => {
 
   it('휴식 세션은 세지 않는다 (R12 · A7)', () => {
     const { uow } = testUow()
-    ensureWeeks(uow, W1)
     uow.run((repos) => {
       for (let i = 0; i < 5; i++) {
         repos.sessions.insert(session(`b${i}`, null, '2026-08-04', W1, 'short'))
@@ -66,7 +64,6 @@ describe('calendar.focusCountsByDate — 범위 조회만 (R3 · A3)', () => {
 
   it('미분류 집중(task 연결 없음)도 센다 (R13 · A8)', () => {
     const { uow } = testUow()
-    ensureWeeks(uow, W1)
     uow.run((repos) => {
       repos.sessions.insert(session('s1', null, '2026-08-04', W1))
       expect(repos.calendar.focusCountsByDate('2026-08-01', '2026-08-31')).toEqual([
@@ -77,7 +74,6 @@ describe('calendar.focusCountsByDate — 범위 조회만 (R3 · A3)', () => {
 
   it('범위 밖 날짜를 담지 않는다 — 경계는 양끝 포함이다', () => {
     const { uow } = testUow()
-    ensureWeeks(uow, '2026-07-27', W1)
     uow.run((repos) => {
       repos.sessions.insert(session('s1', null, '2026-07-31', '2026-07-27'))
       repos.sessions.insert(session('s2', null, '2026-08-01', '2026-07-27'))
@@ -94,7 +90,6 @@ describe('calendar.focusCountsByDate — 범위 조회만 (R3 · A3)', () => {
    */
   it('자정을 걸친 세션은 시작일에만 잡힌다 (A1)', () => {
     const { uow } = testUow()
-    ensureWeeks(uow, W1)
     uow.run((repos) => {
       repos.sessions.insert({
         id: 's1',
@@ -116,7 +111,6 @@ describe('calendar.focusCountsByDate — 범위 조회만 (R3 · A3)', () => {
 describe('calendar.pullDatesIn', () => {
   it('pull 행이 있는 날짜만 돌려준다', () => {
     const { uow } = testUow()
-    ensureWeeks(uow, W1)
     uow.run((repos) => {
       const t = makeTask(repos, W1, '설계 문서')
       repos.today.pull(t, '2026-08-04')
@@ -131,7 +125,6 @@ describe('calendar.pullDatesIn', () => {
 
   it('같은 날 여러 조각을 pull 해도 날짜는 하나다', () => {
     const { uow } = testUow()
-    ensureWeeks(uow, W1)
     uow.run((repos) => {
       repos.today.pull(makeTask(repos, W1, 'a'), '2026-08-04')
       repos.today.pull(makeTask(repos, W1, 'b'), '2026-08-04')
@@ -144,7 +137,6 @@ describe('calendar.pullDatesIn', () => {
 describe('calendar.pulledTasksOn — 원천 1 (R18)', () => {
   it('8/1 에 pull 한 조각을 8/3 에 다시 pull 해도 8/1 에 남는다 (A9)', () => {
     const { uow } = testUow()
-    ensureWeeks(uow, W1, '2026-07-27')
     uow.run((repos) => {
       const t = makeTask(repos, W1, '설계 문서')
       repos.today.pull(t, '2026-08-01')
@@ -161,7 +153,6 @@ describe('calendar.pulledTasksOn — 원천 1 (R18)', () => {
    */
   it('그날 세션이 있는 조각을 × 로 빼도 그 날짜에 남는다 (A11)', () => {
     const { uow } = testUow()
-    ensureWeeks(uow, W1)
     uow.run((repos) => {
       const t = makeTask(repos, W1, '설계 문서')
       repos.today.pull(t, '2026-08-04')
@@ -174,7 +165,6 @@ describe('calendar.pulledTasksOn — 원천 1 (R18)', () => {
 
   it('삭제된 조각은 제외한다', () => {
     const { uow, db } = testUow()
-    ensureWeeks(uow, W1)
     uow.run((repos) => {
       const t = makeTask(repos, W1, '설계 문서')
       repos.today.pull(t, '2026-08-04')
@@ -188,7 +178,6 @@ describe('calendar.pulledTasksOn — 원천 1 (R18)', () => {
 describe('calendar.sessionTasksOn — 원천 2 (R18)', () => {
   it('그날 세션이 붙은 조각을 준다 — 같은 조각의 세션이 여러 건이어도 한 행이다', () => {
     const { uow } = testUow()
-    ensureWeeks(uow, W1)
     uow.run((repos) => {
       const t = makeTask(repos, W1, '설계 문서')
       repos.sessions.insert(session('s1', t, '2026-08-04', W1))
@@ -200,7 +189,6 @@ describe('calendar.sessionTasksOn — 원천 2 (R18)', () => {
 
   it('pull 행이 없어도 나온다 — 사후 캡처가 이 경로다 (A10)', () => {
     const { uow } = testUow()
-    ensureWeeks(uow, W1)
     uow.run((repos) => {
       const t = makeTask(repos, W1, '자유 집중 1')
       repos.sessions.insert(session('s1', t, '2026-08-04', W1))
@@ -214,7 +202,6 @@ describe('calendar.sessionTasksOn — 원천 2 (R18)', () => {
 
   it('미분류 집중은 조각이 없으므로 목록에 없다 — 점에는 반영되지만 목록에는 행이 없다', () => {
     const { uow } = testUow()
-    ensureWeeks(uow, W1)
     uow.run((repos) => {
       repos.sessions.insert(session('s1', null, '2026-08-04', W1))
       expect(repos.calendar.sessionTasksOn('2026-08-04')).toEqual([])
@@ -228,7 +215,6 @@ describe('calendar.sessionTasksOn — 원천 2 (R18)', () => {
 describe('calendar.studiedDayCount — 주 단위 (R24)', () => {
   it('서로 다른 날짜 수를 센다 — 같은 날 여러 번은 1일이다', () => {
     const { uow } = testUow()
-    ensureWeeks(uow, W1)
     uow.run((repos) => {
       repos.sessions.insert(session('s1', null, '2026-08-03', W1))
       repos.sessions.insert(session('s2', null, '2026-08-03', W1))
@@ -240,7 +226,6 @@ describe('calendar.studiedDayCount — 주 단위 (R24)', () => {
 
   it('휴식만 있는 날은 세지 않는다', () => {
     const { uow } = testUow()
-    ensureWeeks(uow, W1)
     uow.run((repos) => {
       repos.sessions.insert(session('b1', null, '2026-08-03', W1, 'short'))
       expect(repos.calendar.studiedDayCount(W1)).toBe(0)
@@ -253,7 +238,6 @@ describe('calendar.studiedDayCount — 주 단위 (R24)', () => {
    */
   it('일요일과 그 다음 월요일은 다른 주로 갈린다 (A21)', () => {
     const { uow } = testUow()
-    ensureWeeks(uow, W1, '2026-08-10')
     uow.run((repos) => {
       repos.sessions.insert(session('s1', null, '2026-08-09', W1)) // 일
       repos.sessions.insert(session('s2', null, '2026-08-10', '2026-08-10')) // 다음 월
@@ -265,7 +249,6 @@ describe('calendar.studiedDayCount — 주 단위 (R24)', () => {
 
   it('달을 넘긴 주도 한 주로 센다 — 주는 쪼개지지 않는다 (R18)', () => {
     const { uow } = testUow()
-    ensureWeeks(uow, W_AUG_LAST)
     uow.run((repos) => {
       repos.sessions.insert(session('s1', null, '2026-08-31', W_AUG_LAST))
       repos.sessions.insert(session('s2', null, '2026-09-02', W_AUG_LAST))

@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import type { Api } from '@shared/ipc/api'
 import { Button } from '@renderer/shared/ui/button'
-import { PomoDots } from '@renderer/shared/ui/PomoDots'
+import { MeasuredTime } from '@renderer/shared/ui/MeasuredTime'
 import { useReducedMotion } from '@renderer/shared/ui/useReducedMotion'
 
 type Drawer = Awaited<ReturnType<Api['week']['drawer']>>
@@ -9,11 +9,9 @@ type Task = Drawer['tasks'][number]
 
 export type PullInput = {
   taskIds: string[]
-  newTask: { title: string; estPomos: number } | null
+  /** 새 조각은 **제목이 전부다** — 조각에도 계획 숫자를 매기지 않는다 (ADR-030 §3). */
+  newTask: { title: string } | null
 }
-
-/** 새 조각 est 하한은 1 이다 (R6) — 계약도 같은 하한을 건다. */
-const MIN_EST = 1
 
 function TaskRow({
   task,
@@ -47,7 +45,9 @@ function TaskRow({
       >
         {task.title}
       </span>
-      <PomoDots spent={task.spentPomos} est={task.estPomos ?? 0} />
+      {/* 조각의 측정 시간에는 **주 조건이 없다** — 이월된 조각의 이력이 끊기지 않게
+          하는 의도된 비대칭이다 (today-tasks R3-3, ux-spec §6.2). */}
+      <MeasuredTime sec={task.measuredSec} />
       {done ? <span className="text-xs text-ink-dim">완료</span> : null}
       {!done && task.inToday ? <span className="text-xs text-ink-faint">오늘 목록에</span> : null}
     </li>
@@ -85,7 +85,6 @@ export function ItemDrawer({
   const reduced = useReducedMotion()
   const [selected, setSelected] = useState<string[]>([])
   const [title, setTitle] = useState('')
-  const [est, setEst] = useState(MIN_EST)
   const [confirmingDrop, setConfirmingDrop] = useState(false)
 
   const itemDone = data.completedAt !== null
@@ -164,31 +163,8 @@ export function ItemDrawer({
         />
       </label>
 
-      <div className="flex items-center gap-2">
-        <span className="text-xs text-ink-dim">뽀모</span>
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon-xs"
-          aria-label="뽀모 줄이기"
-          onClick={() => setEst((n) => Math.max(MIN_EST, n - 1))}
-        >
-          −
-        </Button>
-        <span className="font-mono text-sm tabular-nums text-ink">{est}</span>
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon-xs"
-          aria-label="뽀모 늘리기"
-          onClick={() => setEst((n) => n + 1)}
-        >
-          +
-        </Button>
-      </div>
-
       {itemDone ? (
-        // 사실만 적는다 — 소진이 est 를 넘었어도 `초과했어요` 류를 붙이지 않는다 (R28).
+        // 사실만 적는다 — 완료 뒤 시간이 더 쌓여도 `초과했어요` 류를 붙이지 않는다 (R28).
         <p className="text-xs text-ink-dim">완료된 할당이에요 — 해제하면 다시 가져올 수 있어요</p>
       ) : null}
 
@@ -203,7 +179,7 @@ export function ItemDrawer({
           onClick={() =>
             onPull({
               taskIds: selected,
-              newTask: trimmed === '' ? null : { title: trimmed, estPomos: est }
+              newTask: trimmed === '' ? null : { title: trimmed }
             })
           }
         >

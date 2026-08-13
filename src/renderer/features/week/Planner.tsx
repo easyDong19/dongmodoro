@@ -6,16 +6,13 @@ import { Button } from '@renderer/shared/ui/button'
 type Draft = Awaited<ReturnType<Api['week']['planDraft']>>
 type DraftItem = Draft['items'][number]
 
-export type ConfirmInput = { budget: number | null; items: DraftItem[] }
+export type ConfirmInput = { items: DraftItem[] }
 
 /** 배열 인덱스 0 = 월요일 (ADR-010 §1). */
 const DAY_NAMES = ['월', '화', '수', '목', '금', '토', '일'] as const
 
-/** 예상 뽀모 하한은 1 이다 (R6) — 계약도 같은 하한을 건다. */
-const MIN_EST = 1
-
 /**
- * 초안 행. `origin` 이 `×` 의 의미를 가른다 (§5.3.1):
+ * 초안 행. `origin` 이 `×` 의 의미를 가른다 (§5.2.1):
  * - `new` — 이 세션에서 추가한 행. 아직 아무 데이터도 만들지 않았으므로 그냥 사라진다
  * - `existing` — 이미 저장된 항목. 확정 시 폐기되므로 **행을 지우지 않고** 예정 표시로 바꾼다
  */
@@ -40,7 +37,7 @@ function DayChips({
             type="button"
             data-testid="day-chip"
             aria-pressed={on}
-            // onMouseDown 을 막아 제목 입력이 포커스를 잃지 않게 한다 (§5.4).
+            // onMouseDown 을 막아 제목 입력이 포커스를 잃지 않게 한다 (§5.3).
             onMouseDown={(e) => e.preventDefault()}
             onClick={() => onToggle(i)}
             className={`${TARGET_MIN} rounded-md px-2 text-xs ${
@@ -97,14 +94,16 @@ function TargetToggle({
 }
 
 /**
- * 플래너 모드 (ux-spec §5). 4단계를 한 화면에 위에서 아래로 쌓는다 — 마법사도, 단계
+ * 플래너 모드 (ux-spec §5). 3단계를 한 화면에 위에서 아래로 쌓는다 — 마법사도, 단계
  * 전환도 없다. 어느 단계든 언제나 되돌아가 고칠 수 있는 것이 요점이다.
  *
  * **헤더·확정 버튼 라벨은 `target` 하나에서만 파생한다** (§5.0, PRD R5). 오늘이 무슨
  * 요일인지에서 직접 파생하면, 일요일에 `이번 주 할당 잡기` 를 눌렀는데 다음 주가 열리는
  * 모순이 생긴다.
  *
- * **과적이 확정을 막지 않는다** (R22). 예산은 추정치이고, 넘긴 것은 실패가 아니라 사실이다.
+ * **숫자 입력이 하나도 없다** (ADR-030 §3). 예상 뽀모·주간 예산·요일별 부하가 통화와
+ * 함께 죽었고, 항목 추가는 제목(+요일 배치)으로 끝난다. 계획 시점에 매기는 숫자가
+ * 없으므로 과적이라는 상태도, 그것을 알리는 경고도 없다.
  */
 export function Planner({
   draft,
@@ -123,7 +122,6 @@ export function Planner({
   onCancel: () => void
 }) {
   const titleRef = useRef<HTMLInputElement>(null)
-  const [budget, setBudget] = useState<number | null>(draft.budget ?? draft.prefill)
   const [rows, setRows] = useState<Row[]>(() =>
     draft.items.map((item, i) => ({
       ...item,
@@ -133,7 +131,6 @@ export function Planner({
     }))
   )
   const [title, setTitle] = useState('')
-  const [est, setEst] = useState(MIN_EST)
   const [days, setDays] = useState<number[]>([])
   const [confirmingDrop, setConfirmingDrop] = useState<string | null>(null)
   /**
@@ -141,7 +138,7 @@ export function Planner({
    * 파괴적 행위가 아니므로 `--danger` 도 경고 톤도 쓰지 않는다 (§5.0).
    */
   const [confirmingSwitch, setConfirmingSwitch] = useState<PlanTarget | null>(null)
-  /** 초안을 건드렸는가. 행 추가·제거·예산·입력 중인 제목이 전부 여기 모인다. */
+  /** 초안을 건드렸는가. 행 추가·제거·입력 중인 제목이 전부 여기 모인다. */
   const [dirty, setDirty] = useState(false)
 
   const pickTarget = (next: PlanTarget) => {
@@ -154,8 +151,6 @@ export function Planner({
   }
 
   const kept = rows.filter((r) => !r.pendingDrop)
-  const planned = kept.reduce((sum, r) => sum + r.estPomos, 0)
-  const over = budget !== null && budget > 0 ? Math.max(0, planned - budget) : 0
 
   const addItem = () => {
     const trimmed = title.trim()
@@ -165,7 +160,6 @@ export function Planner({
       {
         id: null,
         title: trimmed,
-        estPomos: est,
         days,
         key: `n${prev.length}${trimmed}`,
         origin: 'new',
@@ -174,7 +168,6 @@ export function Planner({
     ])
     setDirty(true)
     setTitle('')
-    setEst(MIN_EST)
     setDays([]) // 요일 선택 초기화 — 다음 항목이 앞 항목의 배치를 물려받지 않는다 (§5.3)
     titleRef.current?.focus()
   }
@@ -227,21 +220,7 @@ export function Planner({
       </header>
 
       <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3">
-        <label className="flex flex-col gap-1 text-xs text-ink-dim">
-          {`${TARGET_LABEL[target]} 예산 (추정치)`}
-          <input
-            type="number"
-            min={0}
-            value={budget ?? ''}
-            onChange={(e) => {
-              setDirty(true)
-              setBudget(e.target.value === '' ? null : Number(e.target.value))
-            }}
-            className="w-24 rounded-md border border-control-border bg-glass px-2 py-1 font-mono text-sm tabular-nums text-ink"
-          />
-        </label>
-
-        <div className="mt-3 flex flex-col gap-2 border-t border-glass-border-soft pt-3">
+        <div className="flex flex-col gap-2">
           <label className="flex flex-col gap-1 text-xs text-ink-dim">
             할당 제목
             <input
@@ -259,33 +238,6 @@ export function Planner({
               className="rounded-md border border-control-border bg-glass px-2 py-1 text-sm text-ink"
             />
           </label>
-
-          <div className="flex items-center gap-2">
-            <span className="text-xs text-ink-dim">예상 뽀모</span>
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon-xs"
-              aria-label="예상 뽀모 줄이기"
-              onMouseDown={(e) => e.preventDefault()}
-              onClick={() => setEst((n) => Math.max(MIN_EST, n - 1))}
-            >
-              −
-            </Button>
-            <span data-testid="est-value" className="font-mono text-sm tabular-nums text-ink">
-              {est}
-            </span>
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon-xs"
-              aria-label="예상 뽀모 늘리기"
-              onMouseDown={(e) => e.preventDefault()}
-              onClick={() => setEst((n) => n + 1)}
-            >
-              +
-            </Button>
-          </div>
 
           <p className="text-xs text-ink-dim">언제 (선택)</p>
           <DayChips
@@ -321,9 +273,6 @@ export function Planner({
                 {row.days.length === 0
                   ? '미배치'
                   : DAY_NAMES.filter((_, i) => row.days.includes(i)).join('')}
-              </span>
-              <span className="font-mono text-xs tabular-nums text-ink-dim">
-                {`(뽀모 ${row.estPomos})`}
               </span>
 
               {row.pendingDrop ? (
@@ -391,36 +340,13 @@ export function Planner({
         ) : null}
       </div>
 
-      {/* 게이지(§7)는 플래너에서 숨겨지고 이 합계가 그 자리를 대신한다 (§5.5). */}
-      <div data-testid="plan-total" className="shrink-0 px-4 py-3">
-        {budget === null ? (
-          <p className="text-xs text-ink-dim">예산을 정하면 과적을 알려줘요</p>
-        ) : (
-          <>
-            <p className="font-mono text-sm tabular-nums text-ink">
-              {`계획 합계 ${planned} / 예산 ${budget}`}
-            </p>
-            <div
-              data-testid="plan-total-bar"
-              className="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-glass-strong"
-            >
-              <div
-                className={`h-full rounded-full ${over > 0 ? 'bg-amber' : 'bg-teal'}`}
-                style={{
-                  width: `${budget === 0 ? 100 : Math.min(100, (planned / budget) * 100)}%`
-                }}
-              />
-            </div>
-            {over > 0 ? (
-              // 질문형까지만 — 단정도, 이 화면에 없는 액션(다음 주로 미루기)도 권하지 않는다.
-              <p className="mt-1 text-xs text-amber">
-                {`+${over} 과적이에요. 예상 뽀모를 줄일까요, 항목을 덜어낼까요?`}
-              </p>
-            ) : null}
-          </>
-        )}
-
-        <div className="mt-2 flex items-center gap-2">
+      {/*
+        총량 바·과적 경고가 있던 자리다. 분모(예산)가 사라져 견줄 대상이 없으므로 여기에
+        아무 숫자도 그리지 않는다 (ADR-030 §3) — 없는 목표를 추측하게 만드는 진행 표시를
+        새로 만들지 않는다는 §7 의 규칙과 같다.
+      */}
+      <div className="shrink-0 px-4 py-3">
+        <div className="flex items-center gap-2">
           <Button type="button" variant="ghost" size="sm" onClick={onCancel}>
             취소
           </Button>
@@ -429,14 +355,8 @@ export function Planner({
             size="sm"
             onClick={() =>
               onConfirm({
-                budget,
                 // 보내줄 예정 행은 목록에서 빠진다 — 선언형 확정이라 그것이 곧 폐기다 (R24).
-                items: kept.map(({ id, title: t, estPomos, days: d }) => ({
-                  id,
-                  title: t,
-                  estPomos,
-                  days: d
-                }))
+                items: kept.map(({ id, title: t, days: d }) => ({ id, title: t, days: d }))
               })
             }
           >

@@ -185,21 +185,25 @@ describe('롤업 (R17 · A16·A17)', () => {
       makeRes({
         mode: 'edit',
         rollupWeek: WEEK,
-        items: [item({ rollup: { spentPomos: 3, plannedPomos: 8 } })]
+        items: [item({ rollup: { measuredSec: 12000 } })]
       })
     )
-    expect(screen.getByText('이번 주 3/8')).toBeInTheDocument()
+    expect(screen.getByTestId('milestone-rollup')).toHaveTextContent('이번 주 3시간 20분')
   })
 
-  it('분모가 0 이면 분수 대신 개수만 쓰되 라벨은 유지한다 (A16)', async () => {
+  /**
+   * 분수가 아니라 시간 하나다 (ADR-030 §3) — 분모였던 est 합이 사라졌다. `0` 은
+   * "쟀는데 0" 이라는 사실이므로 롤업 없음(`null`)과 달리 줄을 지우지 않는다 (R17·R18).
+   */
+  it('세션이 없던 주도 0분 으로 사실을 적는다', async () => {
     await renderCard(
       makeRes({
         mode: 'edit',
         rollupWeek: WEEK,
-        items: [item({ rollup: { spentPomos: 2, plannedPomos: 0 } })]
+        items: [item({ rollup: { measuredSec: 0 } })]
       })
     )
-    expect(screen.getByText('이번 주 2')).toBeInTheDocument()
+    expect(screen.getByTestId('milestone-rollup')).toHaveTextContent('이번 주 0분')
   })
 
   /**
@@ -349,7 +353,7 @@ describe('부정 프레임과 이모지 금지 (R23·R25 · A24·A25)', () => {
       makeRes({
         mode: 'edit',
         rollupWeek: WEEK,
-        items: [item({ rollup: { spentPomos: 1, plannedPomos: 2 } })]
+        items: [item({ rollup: { measuredSec: 1500 } })]
       })
     )
     expect(container.textContent ?? '').not.toMatch(/\p{Extended_Pictographic}/u)

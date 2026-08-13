@@ -34,75 +34,92 @@ const clockBoundarySchema = z.strictObject({
 const themeSchema = z.enum(['light', 'dark'])
 
 /**
- * 분모의 전역값 — 편집 폼이 주고받는 모든 것 (pomo-baseline R5·R7·R8).
+ * 뽀모 길이 3종 — 편집 폼이 주고받는 모든 것 (pomo-baseline R5·R6).
  *
  * 하한이 여기 있는 것이 **첫 번째 거부 지점**이다 (두 번째는 SQLite CHECK, ADR-011 §6).
  * 길이는 1분 이상 정수이며 0·음수·비정수·빈 값은 경계에서 막힌다 (A5).
  *
- * `capacity` 의 `null` 은 **"미설정을 유지한다"** 이지 **"설정을 지운다"가 아니다.**
- * 해제는 v1 범위 밖이고, 이 구분이 없으면 다음 사람이 null 을 삭제 신호로 읽어 R8 이
- * 지키려던 "미설정 ≠ 예산 0"이 흐려진다. 인덱스 0 은 월요일이다 (R7 · ADR-010 §1).
+ * `capacity` 가 없다 — 요일별 가용량은 폐기된 통화다 (ADR-030). 저장 즉시 효력을 가지며
+ * 적용 시점은 다음 세션 시작이므로, 계약에 효력 시점을 말하는 필드도 없다 (ADR-029 §1).
  */
 const baselineFormSchema = z.strictObject({
   focusMin: z.int().min(1),
   shortBreakMin: z.int().min(1),
-  longBreakMin: z.int().min(1),
-  capacity: z.array(z.int().min(0)).length(7).nullable()
+  longBreakMin: z.int().min(1)
 })
 
-/** `TodayRow`(main/services/ports.ts) 를 그대로 미러링한다 — 필드·nullable 이 어긋나면
- * 여기가 먼저 깨져야 한다 (choke-point payload, ADR-025 §3). */
+/**
+ * `TodayRow`(main/services/ports.ts) 를 그대로 미러링한다 — 필드·nullable 이 어긋나면
+ * 여기가 먼저 깨져야 한다 (choke-point payload, ADR-025 §3).
+ *
+ * **개수 필드가 없다** (ADR-030 §1). `estPomos`·`spentPomos` 는 폐기된 통화이고, 진행을
+ * 말하는 필드는 `measuredSec` 하나다 — 계약에 없으면 화면이 되살릴 수 없다.
+ */
 const todayRowSchema = z.strictObject({
   taskId: z.string(),
   title: z.string(),
   sourceTitle: z.string().nullable(),
   sourceWeek: z.string(),
-  estPomos: z.int().nullable(),
-  spentPomos: z.int(),
+  /**
+   * 측정 시간은 **초**로만 오간다 (ADR-031 §2) — 분으로 접힌 값을 계약에 담으면
+   * 합산·차액이 접힌 값 위에서 일어나고, 반올림이 표시 직전 한 번이라는 규칙이 깨진다.
+   */
+  measuredSec: z.int().min(0),
   completedAt: z.string().nullable(),
   pulledAt: z.string()
 })
 
-/** `WeekItemRow`(main/services/ports.ts) 미러링 — 일반 뷰 한 행. */
+/** `WeekItemRow`(main/services/ports.ts) 미러링 — 일반 뷰 한 행. 개수 필드가 없다. */
 const weekItemRowSchema = z.strictObject({
   id: z.string(),
   title: z.string(),
-  estPomos: z.int(),
   days: z.array(z.int().min(0).max(6)),
   originWeek: z.string(),
   completedAt: z.string().nullable(),
-  spentPomos: z.int(),
+  /** 그 항목의 그 주 측정 시간(초). */
+  measuredSec: z.int().min(0),
   childTotal: z.int(),
   childDone: z.int()
 })
 
-// 사용자가 만드는 항목의 est 하한은 1 이다 (R6). 기타 항목은 이 경로를 거치지 않는다.
+/**
+ * 플래너 초안 한 행. **제목·마일스톤 연결·요일 배치가 전부다** (ADR-030 §3) —
+ * 계획 시점에 매기는 숫자가 사라졌으므로 est 하한을 걸 대상도 없다.
+ */
 const planDraftItemSchema = z.strictObject({
   id: z.string().nullable(),
   title: z.string().min(1).max(40),
-  estPomos: z.int().min(1),
   days: z.array(z.int().min(0).max(6))
 })
 
-/** `ReviewWeekFact`(main/services/ports.ts) 미러링 — 정산 요약의 주별 한 줄. */
+/**
+ * `ReviewWeekFact`(main/services/ports.ts) 미러링 — 정산 요약의 주별 한 줄.
+ *
+ * **예산이 없다** (ADR-030 §1 — 폐기된 통화다). `계획 대비` 를 말하던 자리는
+ * 측정 시간이 대신한다. `unplannedMeasuredSec` 는 주간 카드 기타 행과 **같은 차액**
+ * 이며 초 단계에서 계산된다 (ADR-031 §2).
+ */
 const reviewWeekFactSchema = z.strictObject({
   week: z.string(),
   studiedDays: z.int(),
-  spentPomos: z.int(),
-  /** NULL = "기록 없음". 0 은 "예산 0 으로 하겠다"는 별개 사실이다 (ADR-018 §1). */
-  budget: z.int().nullable(),
-  unplannedPomos: z.int()
+  /** 그 주 측정 시간 총합(초). 분으로 접지 않는다. */
+  measuredSec: z.int().min(0),
+  /** 계획에 없던 집중(초) — 차액이라 하한을 걸지 않는다 (음수는 드러나야 할 버그다). */
+  unplannedMeasuredSec: z.int()
 })
 
-/** 3택 한 행. `remaining`·`carryWeeks` 는 저장값이 아니라 서비스가 붙인 파생값이다. */
+/**
+ * 2택 한 행 (ADR-031 §1). `carryWeeks` 는 저장값이 아니라 서비스가 붙인 파생값이다.
+ *
+ * **`estPomos`·`remaining` 이 없다** — 줄일 대상이 사라졌으므로 남은 몫이라는 개념도
+ * 함께 죽었다. 그 자리에 그 주에 이 항목으로 실제로 한 시간이 온다.
+ */
 const pendingRowSchema = z.strictObject({
   id: z.string(),
   week: z.string(),
   title: z.string(),
-  estPomos: z.int(),
-  spentPomos: z.int(),
-  /** 측정값이라 0 이 될 수 있다 (ADR-019 §1). 이월 est 의 하한 1 은 확정이 건다. */
-  remaining: z.int().min(0),
+  /** 그 항목의 그 주 측정 시간(초). 이월 직후 항목은 정의상 0 이다. */
+  measuredSec: z.int().min(0),
   carryWeeks: z.int().min(1)
 })
 
@@ -110,8 +127,8 @@ const pendingRowSchema = z.strictObject({
 const childTaskSchema = z.strictObject({
   taskId: z.string(),
   title: z.string(),
-  estPomos: z.int().nullable(),
-  spentPomos: z.int(),
+  /** 조각 단위라 **주 조건이 없는** 합이다 (today-tasks R3-3). */
+  measuredSec: z.int().min(0),
   completedAt: z.string().nullable(),
   inToday: z.boolean()
 })
@@ -258,18 +275,27 @@ export const contracts = {
       req: z.tuple([z.string()]),
       res: z.strictObject({
         week: z.string(),
-        budget: z.int().nullable(),
-        totalSpent: z.int(),
+        /** 그 주 측정 시간 총합(초). 기타 행 차액의 피감수이며 분으로 접지 않는다. */
+        totalMeasuredSec: z.int().min(0),
         items: z.array(weekItemRowSchema),
-        otherRow: z.strictObject({ visible: z.boolean(), spentPomos: z.int() })
+        /**
+         * `measuredSec` 는 **차액**이다 (ADR-031 §2). 하한을 걸지 않는다 — 음수는
+         * 술어 버그이고, 계약이 막아 주면 그 버그가 조용해진다.
+         *
+         * `visible` 은 값이 아니라 **판정**이다 — 0초짜리 집중이 폐기 항목에 붙어 차액이
+         * 0 인 주에도 행이 떠야 하므로, 판정을 main 이 하고 계약은 결과만 나른다
+         * (week-plan ux-spec §3.4).
+         */
+        otherRow: z.strictObject({
+          visible: z.boolean(),
+          measuredSec: z.int()
+        })
       })
     },
     planDraft: {
       req: z.tuple([z.string()]),
       res: z.strictObject({
         week: z.string(),
-        budget: z.int().nullable(),
-        prefill: z.int().nullable(),
         items: z.array(planDraftItemSchema)
       })
     },
@@ -277,7 +303,6 @@ export const contracts = {
       req: z.tuple([
         z.strictObject({
           week: z.string(),
-          budget: z.int().min(0).nullable(),
           items: z.array(planDraftItemSchema)
         })
       ]),
@@ -307,9 +332,8 @@ export const contracts = {
         z.strictObject({
           weekItemId: z.string(),
           taskIds: z.array(z.string()),
-          newTask: z
-            .strictObject({ title: z.string().min(1).max(40), estPomos: z.int().min(1).nullable() })
-            .nullable()
+          /** 새 조각은 **제목이 전부다** — 조각에도 계획 숫자를 매기지 않는다 (ADR-030 §3). */
+          newTask: z.strictObject({ title: z.string().min(1).max(40) }).nullable()
         })
       ]),
       res: z.strictObject({ itemWeek: z.string() })
@@ -349,9 +373,18 @@ export const contracts = {
         mode: z.enum(['far-future', 'lead-edit', 'current-empty', 'edit', 'past', 'past-empty']),
         items: z.array(
           milestoneSchema.extend({
-            /** `null` 은 "이 카드에 롤업이 없다"이며 0 과 다르다 (R17·R18). */
+            /**
+             * `null` 은 "이 카드에 롤업이 없다"이며 0 과 다르다 (R17·R18) — 전자는 숫자
+             * 자리를 그리지 않고 후자는 `0분` 을 적는다 (week-plan ux-spec §0.3).
+             *
+             * **분모가 없다.** `plannedPomos`(연결된 할당의 est 합)는 폐기된 통화였고,
+             * 롤업은 이제 분수가 아니라 측정 시간 하나다 (ADR-030 §3).
+             */
             rollup: z
-              .strictObject({ spentPomos: z.int().min(0), plannedPomos: z.int().min(0) })
+              .strictObject({
+                /** 그 주 귀속 측정 시간(초). */
+                measuredSec: z.int().min(0)
+              })
               .nullable()
           })
         ),
@@ -471,23 +504,19 @@ export const contracts = {
             weeks: z.array(reviewWeekFactSchema),
             idleWeekCount: z.int().min(0),
             lastStudiedWeek: z.string().nullable(),
-            lastStudiedPomos: z.int().nullable()
+            /** 마지막으로 공부한 주의 측정 시간(초). 그런 주가 없으면 `null`. */
+            lastStudiedMeasuredSec: z.int().min(0).nullable()
           }),
           completed: z.array(
             z.strictObject({
               id: z.string(),
               week: z.string(),
               title: z.string(),
-              spentPomos: z.int()
+              /** 그 항목의 그 주 측정 시간(초). */
+              measuredSec: z.int().min(0)
             })
           ),
           pending: z.array(pendingRowSchema),
-          /**
-           * **nullable 이다.** technical-spec 초안은 "스냅샷이 없으면 기본 예산(가용량 합)"
-           * 이라고 했지만 `weekly_capacity` 를 시딩하지 않기로 한 이상 그 기본값이 없고,
-           * 0 을 채우면 ADR-018 §1 이 구분하려던 "기록 없음"과 "예산 0"이 뭉개진다.
-           */
-          targetWeekBudget: z.int().nullable(),
           /**
            * 패널이 현재 값을 적는 **표시의 유일한 출처**다. 편집은 `settings.getBaseline`
            * 이 따로 읽는다 — 같은 사실을 두 경로로 그리면 저장 직후 한쪽만 갱신된
@@ -508,42 +537,33 @@ export const contracts = {
      * 보내 서버가 집합 일치를 요구하면 그 정상 사용이 확정을 롤백시킨다.
      *
      * 빈 배열은 누락이 아니라 **"전부 이월"이라는 완전한 의사 표시**다 (R13).
+     *
+     * **예외 종류가 `drop` 하나뿐이다** (ADR-031 §1). `carry_reduced` 는 줄일 대상인
+     * est 와 함께 사라졌고, 시간으로 대체하지 않는다 — 이월 항목의 측정 시간은 정의상
+     * 0 이라 "줄인다"는 조작이 성립하지 않는다. 클램프가 없으니 응답의
+     * `clampedExceptionIds` 도 함께 죽었다.
      */
     settle: {
       req: z.tuple([
         z.strictObject({
           expectedRange: z.strictObject({ from: z.string(), to: z.string() }),
           targetWeek: z.string(),
-          exceptions: z.array(
-            z.discriminatedUnion('kind', [
-              z.strictObject({
-                kind: z.literal('carry_reduced'),
-                itemId: z.string(),
-                // 형식 검증만 여기서 한다. 상한 클램프는 서버가 재조회한 남은 몫으로 하며
-                // 거부하지 않는다 (규칙 4) — 열어둔 패널의 값은 언제든 낡을 수 있다.
-                estPomos: z.int().min(1)
-              }),
-              z.strictObject({ kind: z.literal('drop'), itemId: z.string() })
-            ])
-          )
+          exceptions: z.array(z.strictObject({ kind: z.literal('drop'), itemId: z.string() }))
         })
       ]),
       res: z.strictObject({
         settledThrough: z.string(),
         carriedItemIds: z.array(z.string()),
         droppedItemIds: z.array(z.string()),
-        carriedPomos: z.int(),
         /** 화면이 몰랐을 수 있는 이월. 건수를 숨기지 않는다 (R30). */
         autoCarried: z.array(
           z.strictObject({
             sourceItemId: z.string(),
             newItemId: z.string(),
-            title: z.string(),
-            estPomos: z.int()
+            title: z.string()
           })
         ),
-        ignoredExceptionIds: z.array(z.string()),
-        clampedExceptionIds: z.array(z.string())
+        ignoredExceptionIds: z.array(z.string())
       })
     }
   },
@@ -562,22 +582,11 @@ export const contracts = {
      */
     setTheme: { req: z.tuple([themeSchema]), res: z.strictObject({ theme: themeSchema }) },
     /**
-     * 분모의 전역값 조회 (pomo-baseline R6·R7). 응답에 붙는 `basisPomos` 는 저장값이
-     * 아니라 **R26 의 시간 비교용 기준 개수**이며, 그 결정 순서(유효 예산 → 가용량 합 →
-     * 없음)는 main 서비스에만 있다. 렌더러가 고르게 하면 순서가 화면으로 새어나간다.
+     * 길이 3종 조회 (pomo-baseline R6). 응답은 **저장된 값 그대로**이며 파생 필드가
+     * 붙지 않는다 — 시간 비교의 기준 개수(`basisPomos`·`basisSource`)는 그 분모였던
+     * 유효 예산·가용량과 함께 폐기됐다 (ADR-029 §3).
      */
-    getBaseline: {
-      req: z.tuple([]),
-      res: baselineFormSchema.extend({
-        /** `null` 이면 시간 비교를 렌더하지 않는다. 오류가 아니다 (A25). */
-        basisPomos: z.int().nullable(),
-        /**
-         * 기준 개수의 출처. `'capacity'` 면 폼에서 가용량을 고치는 순간 기준도 함께
-         * 움직여야 하므로, 렌더러가 편집 중인 배열로 다시 합산한다 (A23).
-         */
-        basisSource: z.enum(['budget', 'capacity']).nullable()
-      })
-    },
+    getBaseline: { req: z.tuple([]), res: baselineFormSchema },
     /**
      * 응답이 `void` 가 아니라 **저장된 값**인 이유는 `setTheme` 과 같다 — 화면이 낙관적
      * 추측이 아니라 사실로 갱신하게 한다.
@@ -611,7 +620,7 @@ export const eventContracts = {
 /** `'light' | 'dark'`. 스키마에서 파생하므로 둘이 어긋날 수 없다. */
 export type Theme = z.infer<typeof themeSchema>
 
-/** 편집 폼이 주고받는 전역 분모값. 같은 이유로 스키마에서 파생한다. */
+/** 편집 폼이 주고받는 길이 3종. 같은 이유로 스키마에서 파생한다. */
 export type BaselineForm = z.infer<typeof baselineFormSchema>
 
 export type TimerSnapshotWire = z.infer<typeof timerSnapshotSchema>

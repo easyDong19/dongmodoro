@@ -3,7 +3,7 @@ import { ChevronDown, ChevronRight } from 'lucide-react'
 import type { Api } from '@shared/ipc/api'
 import { weeksSince } from '@shared/time'
 import { Button } from '@renderer/shared/ui/button'
-import { PomoDots } from '@renderer/shared/ui/PomoDots'
+import { MeasuredTime } from '@renderer/shared/ui/MeasuredTime'
 
 type Item = Awaited<ReturnType<Api['week']['summary']>>['items'][number]
 
@@ -147,7 +147,7 @@ export function WeekItemRow({
       </div>
 
       <div className="flex items-center gap-2 pl-8">
-        <PomoDots spent={row.spentPomos} est={row.estPomos} />
+        <MeasuredTime sec={row.measuredSec} />
         {row.childTotal > 0 ? (
           <span className="text-xs text-ink-dim">{`· 조각 ${row.childDone}/${row.childTotal}`}</span>
         ) : null}

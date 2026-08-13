@@ -153,25 +153,22 @@ output: z.object({
     weeks: z.array(z.object({          // 범위 안에서 "기록이 있는 주"만. 오름차순
       week: WeekKey,
       studiedDays: z.number().int(),   // distinct sessions.local_date (kind='focus')
-      spentPomos: z.number().int(),    // focus 세션 수
-      budget: z.number().int().nullable(),   // 그 주 스냅샷 예산. **행이 없거나 budget 이 NULL 이면** null = "기록 없음" (ADR-018 §2)
-      unplannedPomos: z.number().int(),      // 차액 정의 — 파생식 표 (ADR-012 §4)
+      measuredSec: z.number().int().min(0),  // 그 주 측정 시간(초). **분으로 접지 않는다**
+      unplannedMeasuredSec: z.number().int(),// 차액(초) — 파생식 표. 하한 없음(음수는 버그)
     })),
     idleWeekCount: z.number().int(),   // 범위 내 기록이 전혀 없는 주 수 (공백 문구용)
     lastStudiedWeek: WeekKey.nullable(),          // 범위 밖일 수 있다 (PRD R31)
-    lastStudiedPomos: z.number().int().nullable(),
+    lastStudiedMeasuredSec: z.number().int().min(0).nullable(),
   }),
   completed: z.array(z.object({        // 항목의 week 이 범위 안이고 completed_at 이 있는 항목
-    id: Id, week: WeekKey, title: z.string(), spentPomos: z.number().int(),
-  })),
-  pending: z.array(z.object({          // 3택 대상
     id: Id, week: WeekKey, title: z.string(),
-    estPomos: z.number().int(),        // 항목 est (Q13 — task est 합이 아니다)
-    spentPomos: z.number().int(),
-    remaining: z.number().int().min(0),   // 파생식 표. 측정값이므로 0 가능 (ADR-019 §1)
+    measuredSec: z.number().int().min(0),
+  })),
+  pending: z.array(z.object({          // 2택 대상
+    id: Id, week: WeekKey, title: z.string(),
+    measuredSec: z.number().int().min(0), // 그 항목의 그 주 측정 시간(초)
     carryWeeks: z.number().int().min(1),  // 파생식 표 (Q12)
   })),
-  targetWeekBudget: z.number().int().nullable(),  // 확정 섹션 중립 사실용 (ux-spec §7.2). **nullable**
   baseline: z.object({                 // 뽀모 길이 진입점의 **현재 유효 설정값** 표시용
     focusMin: z.number().int(), shortBreakMin: z.number().int(), longBreakMin: z.number().int(),
   }),
@@ -181,19 +178,24 @@ output: z.object({
 - `summary.weeks[]` **정의**: 범위(`from..to`) 안에서 **세션 1건 이상 또는 주간 항목
   1건 이상이 있는 주**만 담는다. 완전히 빈 주는 행을 만들지 않고 `idleWeekCount` 로만
   센다 (ux-spec §3). 범위 전체 주를 채우지 않는 이유는, 기록도 계획도 없는 주에는
-  해석할 예산조차 없기 때문이다 (ADR-013 §2).
+  요약할 사실이 없기 때문이다.
+- **초만 오간다** (ADR-031 §2). 합산·차액은 main 에서 초 단계로 끝내고, 반올림(내림)은
+  renderer 가 표시 직전에 한 번만 한다. 분으로 접은 값을 계약에 담으면 화면의
+  `총합 = Σ항목 + 기타` 항등식이 계약 레벨에서 깨진다.
 - `lastStudiedWeek` 는 `from` 이전을 포함해 focus 세션이 있는 **가장 최근 주**다.
   그런 주가 없으면 두 필드 모두 `null`.
 - `completed` 는 **항목의 `week`** 기준이다 — `completed_at` 시각이 범위 밖이어도
   포함한다("그 주의 계획이었는가"가 기준). `is_system = 1` 항목은 제외한다.
-- `pending` 은 `is_system = 1` 항목(기타)을 제외한다 (Q7).
+- `pending` 은 `is_system = 1` 항목(기타)을 제외한다 (Q7). **`estPomos`·`remaining` 이
+  없다** — 남은 몫은 est 위에 서 있던 파생값이라 통화 교체와 함께 죽었다 (ADR-031 §1).
+- **개수 필드가 계약 전체에 없다** (ADR-030 §1). 주 행·항목 행·조각 행 어디에도
+  `spentPomos` 가 없고, 진행을 말하는 필드는 `measuredSec` 하나다. 계약에 없으면 화면이
+  되살릴 수 없다는 것이 이 부재의 목적이다.
 - `baseline` 은 표시 전용이다. 이 값을 바꾸는 것은 `review.settle` 이 아니라
   독립 명령이다 (아래 참고). **전역 설정값을 준다** — 계획 대상 주의 스냅샷이 아니다.
-  그 자리는 "앞으로 적용될 값"을 말하는 자리이기 때문이다 (ADR-013 §3).
-- **`targetWeekBudget` 은 nullable 이다.** 초판은 "스냅샷이 없으면 기본 예산(가용량 합)"
-  이라고 적었으나, `weekly_capacity` 를 시딩하지 않기로 한 이상(ADR-018 §4) 그 기본값이
-  존재하지 않는다. 0 을 채우면 ADR-018 §1 이 구분하려던 "기록 없음"과 "예산 0"이 뭉개지므로
-  `null` 을 그대로 올려 보내고, 화면은 그때 예산을 말하지 않는다 (ux-spec §7.2).
+  그 자리는 "앞으로 적용될 값"을 말하는 자리이기 때문이다 (ADR-029 §2).
+- **`targetWeekBudget` 이 없다** (ADR-030 §1). 예산이 폐기된 통화라 확정 섹션의 중립
+  사실 줄이 비교할 분모를 갖지 않는다 — 그 줄은 이제 `이월 N건` 하나만 말한다.
 
 ### `review.settle(input)` — 확정 (트랜잭션 1개)
 
@@ -201,11 +203,11 @@ output: z.object({
 채 오늘 목록에서 항목을 완료 처리하는 것은 정상 사용인데, 전 항목의 결정을 보내고
 서버가 집합 일치를 요구하면 그 정상 사용이 확정을 롤백시킨다.
 
+**예외 종류는 하나뿐이다** (ADR-031 §1) — `carry_reduced` 는 줄일 대상인 est 와 함께
+죽었고, 시간으로 대체하지 않는다 (이월 항목의 측정 시간은 정의상 0 이다).
+
 ```ts
-const Exception = z.discriminatedUnion('kind', [
-  z.object({ kind: z.literal('carry_reduced'), itemId: Id, estPomos: z.number().int().min(1) }),
-  z.object({ kind: z.literal('drop'),          itemId: Id }),
-]);
+const Exception = z.object({ kind: z.literal('drop'), itemId: Id });
 
 input: z.object({
   expectedRange: z.object({ from: WeekKey, to: WeekKey }),   // 낙관적 동시성 — 확정 1단계
@@ -216,12 +218,10 @@ output: z.object({
   settledThrough: WeekKey,                 // 갱신된 워터마크 (= targetWeek − 7일)
   carriedItemIds: z.array(Id),             // 새로 생성된 계획 대상 주 항목
   droppedItemIds: z.array(Id),
-  carriedPomos: z.number().int(),          // 확정 토스트 문구용
-  autoCarried: z.array(z.object({          // 예외에 없어 서버가 이월한 항목 (화면이 몰랐을 수 있다)
-    sourceItemId: Id, newItemId: Id, title: z.string(), estPomos: z.number().int(),
+  autoCarried: z.array(z.object({          // 예외에 없어 서버가 이월한 항목 = **이월 전부**
+    sourceItemId: Id, newItemId: Id, title: z.string(),
   })),
   ignoredExceptionIds: z.array(Id),        // 그 사이 완료·삭제돼 pending 에서 빠진 항목의 예외
-  clampedExceptionIds: z.array(Id),        // estPomos 가 새 remaining 으로 클램프된 항목
 })
 ```
 
@@ -231,13 +231,11 @@ output: z.object({
    이월**한다. `exceptions: []` 는 "전부 이월"이라는 완전한 의사 표시다.
 2. 재조회한 pending 에 없는 itemId 의 예외는 **무시**한다 (`ignoredExceptionIds`).
    완료·삭제·폐기된 항목, 시스템 항목, 범위 밖 항목이 모두 여기로 흡수된다.
-3. 그 사이 새로 생긴 미완료 항목은 **이월**된다 (`autoCarried`).
-4. `carry_reduced.estPomos` 는 `1..이월 est` 로 **클램프**한다 (`clampedExceptionIds`).
-   이월 est 는 `max(1, remaining)` 이다 (ADR-019 §1). 거부하지 않는 이유는 2 와 같다 —
-   패널을 열어둔 채 세션을 돌리면 `remaining` 이 줄어들고, 거부하면 정상 사용이 확정을
-   실패시킨다.
-5. 응답은 자동 이월·무시·클램프를 **사실로 실어 보낸다.** 화면은 이를 숨기지 않는다
-   (PRD R30, ux-spec §7.3).
+3. 그 사이 새로 생긴 미완료 항목은 **이월**된다.
+4. **클램프가 없다** (ADR-031 §1) — 자를 숫자가 페이로드에 없다.
+5. `autoCarried` 는 **이월된 항목 전부**다. 2택에서는 이월이 예외로 전송되지 않으므로
+   서버는 "화면이 무엇을 그리고 있었는지"를 알 수 없다 — 그 차집합은 화면이 자기 목록을
+   빼서 낸다 (PRD R30, ux-spec §7.3). 응답은 사실을 숨기지 않는다.
 
 **에러 코드**
 
@@ -249,8 +247,7 @@ output: z.object({
 
 - `DECISION_MISSING` 은 개념적으로 사라진다 — 결정이 없는 항목은 이월이기 때문이다.
 - `DECISION_UNKNOWN` 은 규칙 2(무시)로 흡수된다.
-- `REDUCED_OUT_OF_RANGE` 는 규칙 4(클램프)로 흡수된다. 입력 형식 검증(`estPomos ≥ 1`)은
-  zod 가 담당하고, 그 위반은 계약 위반이므로 zod 파싱 실패로 처리한다.
+- `REDUCED_OUT_OF_RANGE` 는 축소 처분 자체가 사라져 대상이 없다 (ADR-031 §1).
 
 남는 에러가 하나뿐인 것은 의도된 결과다. 정산 확정이 실패할 수 있는 유일한 정상
 경로는 "보고 있던 범위가 실제로 달라졌다"뿐이다.
@@ -290,10 +287,10 @@ Q5 가 닫은 구멍이 다시 열린다. 세션 내 임시 숨김은 renderer �
 |---|---|---|
 | `settings` | `last_settled_week` | **판정의 유일한 저장 입력** (워터마크) |
 | `settings` | `plan_lead_days` | 계획 대상 주 계산 (기본 1) |
-| `settings` | `focus_min`·`short_break_min`·`long_break_min` | 길이 진입점의 현재 값 표시 + **새로 만드는** `weeks` 행의 스냅샷 소스 |
-| `settings` | `weekly_capacity` | **새로 만드는** `weeks` 행의 `capacity`·`budget` 스냅샷 소스 |
-| `weeks` | `week`·`budget`·`capacity`·`focus_min`·`short_break_min`·`long_break_min`·`settled_at` | 주별 예산·베이스라인 스냅샷 (요약의 "예산 B"), 행 존재 여부 |
-| `week_items` | `id`·`week`·`title`·`est_pomos`·`milestone_id`·`origin_week`·`carry_from_id`·`is_system`·`completed_at`·`dropped_at`·`deleted_at` | 3택 대상 조회, 배지 계산, 완료 목록 |
+| `settings` | `focus_min`·`short_break_min`·`long_break_min` | 길이 진입점의 현재 값 표시 |
+| `weeks` | `week` | `earliestRecordedWeek` 의 후보 하나뿐이다 — 스냅샷 컬럼은 아무도 읽지 않는다 (ADR-030 §4) |
+| `week_items` | `id`·`week`·`title`·`milestone_id`·`origin_week`·`carry_from_id`·`is_system`·`completed_at`·`dropped_at`·`deleted_at` | 2택 대상 조회, 배지 계산, 완료 목록 |
+| `sessions` | `duration_sec`·`kind`·`local_week`·`local_date`·`task_id` | 측정 시간·공부한 날 수·차액 |
 | `tasks` | `id`·`week_item_id`·`completed_at`·`deleted_at` | 항목별 소진 집계의 조인 경로 + 미완료 조각 재부모화 대상 |
 | `sessions` | `local_week`·`local_date`·`kind`·`task_id` | 소진 뽀모·공부한 날·계획에 없던 집중 (전부 파생, 저장 금지 — 원칙 8) |
 
@@ -302,11 +299,10 @@ Q5 가 닫은 구멍이 다시 열린다. 세션 내 임시 숨김은 renderer �
 | 테이블 | 컬럼 | 시점 |
 |---|---|---|
 | `settings` | `last_settled_week` | 부트스트랩 1회 (§0.2) / 확정 시 `targetWeek − 7일` |
-| `week_items` | INSERT (이월 항목) | 확정 시 — 이월 · 축소 이월 |
+| `week_items` | INSERT (이월 항목) | 확정 시 — 이월 |
 | `week_items` | `dropped_at` | 확정 시 — `drop` (soft. 하드 삭제 금지 — ADR-014 §1) |
 | `tasks` | `week_item_id` | 확정 시 — 이월 항목의 **미완료 조각 재부모화** (ADR-012 §3) |
-| `weeks` | `settled_at` (upsert) | 확정 시 — 정산 범위의 각 주 (이력) |
-| `weeks` | `budget`·`capacity`·`focus_min`·`short_break_min`·`long_break_min` | 확정 시 — **행을 새로 만들 때만** 함께 박제 (ADR-013 §2) |
+| ~~`weeks`~~ | — | **확정은 이 테이블에 쓰지 않는다** (ADR-030 §4) |
 
 - **이미 존재하는 `weeks` 행의 스냅샷 컬럼은 절대 덮어쓰지 않는다.** 확정이 건드리는
   것은 `settled_at` 뿐이다. 이 규칙이 "지각 정산가 진행 중인 주의 단위를 바꾼다"는
@@ -325,13 +321,13 @@ Q5 가 닫은 구멍이 다시 열린다. 세션 내 임시 숨김은 renderer �
 | 주 소진 | `count(sessions where kind='focus' and local_week = :week)` |
 | 공부한 날 | `count(distinct local_date)` (같은 필터) |
 | 계획에 없던 집중 (`unplannedPomos`) | `주 소진 − Σ(is_system = 0 인 항목의 소진)` — 차액 정의 (ADR-012 §4) |
-| 남은 몫 (`remaining`) | `max(0, week_items.est_pomos − 항목 소진)` (Q13 — 항목 est 기준). **측정값이므로 0 가능** (ADR-019 §1) |
-| 이월 est (`carryEst`) | `max(1, remaining)` — 하한 1 은 측정값의 성질이 아니라 **이월 규칙**이다 (ADR-019 §1) |
-| 축소 기본값 | `ceil(carryEst / 2)`, 그 뒤 `1 … carryEst` 로 클램프 |
+| ~~남은 몫 (`remaining`)~~ | **폐기** (ADR-031 §1) — 피감수였던 `est_pomos` 가 사라졌다. 그 자리에 화면이 적는 것은 항목의 측정 시간이다 |
+| ~~이월 est (`carryEst`)~~ | **폐기** (ADR-031 §1) |
+| ~~축소 기본값~~ | **폐기** (ADR-031 §1) |
+| 항목 측정 시간 | `sum(sessions.duration_sec)` — 술어는 항목 소진과 **한 글자도 다르지 않다** (ADR-012 §1). 개수와 초가 다른 집합에서 나오면 두 숫자가 서로를 반증한다 |
+| 계획에 없던 집중(초) | `주 총 focus 초 − Σ(is_system = 0 AND dropped_at IS NULL AND deleted_at IS NULL 항목의 focus 초)` — **초 단계에서** 뺀다 (ADR-027 §1 · ADR-031 §2) |
 | 이월 배지 N주째 (`carryWeeks`) | `diffDays(week, origin_week) / 7 + 1` — 시간 모듈의 `diffDays()` 로 계산한다. 문자열 산술·ms 나눗셈 금지 (ADR-010 §2). 사슬 길이 아님 (Q12) |
-| 주 예산 | `weeks.budget` (nullable). **행이 없거나 `budget` 이 NULL 이면 "기록 없음"** — 파생하지 않는다 (ADR-018 §1·§2) |
-| 새 `weeks` 행의 기본 예산 | `sum(settings.weekly_capacity)` 를 그 시점에 해석해 저장 |
-| 주간 총 집중 시간 | `그 주 budget × 그 주 focus_min` (길이 변경 전/후 비교에 사용 — ADR-013 §4). `budget` 이 NULL 인 주는 이 값도 **"기록 없음"** 이다 |
+| ~~주 예산~~ · ~~새 `weeks` 행의 기본 예산~~ · ~~주간 총 집중 시간~~ | **폐기** (ADR-030 §1·§4 · ADR-029 §3) — 예산·가용량이 사라졌고 확정은 `weeks` 행을 만들지 않는다 |
 
 - **차액 정의를 쓰는 이유**: `task_id IS NULL` 만 세면, 사후 캡처가 시스템 "기타"
   항목에 붙인 세션이 어느 숫자에도 들어가지 않는다. 명시 항목 10 · 기타 6 · NULL 2 인
@@ -344,12 +340,12 @@ Q5 가 닫은 구멍이 다시 열린다. 세션 내 임시 숨김은 renderer �
   계산하고 화면이 직접 SQL 을 만들지 않는다 (ADR-008).
 - 주 필터는 `local_week` 저장 컬럼에 직접 건다. `strftime()` 파생 금지 (ADR-011 §3).
 
-### 3택 대상 조회 조건
+### 2택 대상 조회 조건
 
 ```sql
 SELECT * FROM week_items
 WHERE week BETWEEN :from AND :to      -- 정산 범위. 달력 키 사전순 = 시간순
-  AND completed_at IS NULL            -- 완료는 3택 대상 아님 (Q14)
+  AND completed_at IS NULL            -- 완료는 2택 대상 아님 (Q14)
   AND dropped_at   IS NULL
   AND deleted_at   IS NULL            -- ADR-014 §1
   AND is_system = 0                   -- "기타" 제외 (Q7)
@@ -382,34 +378,25 @@ function settle(input): SettleResult {
     // 3. 예외 대조 — 거부하지 않고 흡수한다
     const known   = new Set(items.map(i => i.id));
     const ignored = input.exceptions.filter(e => !known.has(e.itemId)).map(e => e.itemId);
-    const byId    = index(input.exceptions.filter(e => known.has(e.itemId)), 'itemId');
-    const clamped: Id[] = [];
+    const dropped = new Set(input.exceptions.filter(e => known.has(e.itemId)).map(e => e.itemId));
 
     const ts = now();                                  // 순간 = UTC ISO (ADR-009)
 
     // 4. drop — soft. 원본 행은 남는다 (dropped_at 으로 이력에 남는다)
-    for (const it of items) if (byId[it.id]?.kind === 'drop')
+    for (const it of items) if (dropped.has(it.id))
       update('week_items', it.id, { dropped_at: ts, updated_at: ts });
 
-    // 5. 이월 — 예외에 없는 항목 전부 + carry_reduced.
+    // 5. 이월 — 예외에 없는 항목 전부.
     //    계획 대상 주에 새 행을 "생성"한다 (UPDATE 아님)
     for (const src of items) {
-      const ex = byId[src.id];
-      if (ex?.kind === 'drop') continue;
-
-      const carryEst = Math.max(1, src.remaining);     // 이월 규칙의 하한 (ADR-019 §1)
-      let est = carryEst;                              // 예외 없음 = 이월
-      if (ex?.kind === 'carry_reduced') {
-        est = clamp(ex.estPomos, 1, carryEst);         // 규칙 4 — 거부하지 않고 클램프
-        if (est !== ex.estPomos) clamped.push(src.id);
-      }
+      if (dropped.has(src.id)) continue;
 
       const newId = uuidv7();
       insert('week_items', {
         id: newId,
         week: input.targetWeek,
         title: src.title,
-        est_pomos: est,
+        // est_pomos 컬럼은 2.0.0 마이그레이션이 걷어 갔다 — 쓰지 않는다.
         milestone_id: src.milestone_id,      // 마일스톤 연결 승계 (ADR-012 §3)
         days: '[]',                          // 요일 배치는 플래너에서 다시 (week-plan)
         origin_week: src.origin_week,        // 박제 승계 — 배지의 근거 (Q12)
@@ -429,33 +416,15 @@ function settle(input): SettleResult {
       // 재정산은 워터마크(7단계)가 막으므로 원본이 다시 범위에 들어오지 않는다.
     }
 
-    // 6. 주별 행 — 정산 범위의 각 주 + 계획 대상 주.
-    //    행이 없으면 "그 시점 유효값"을 함께 박제하고(ADR-013 §2),
-    //    있으면 settled_at 만 건드린다(스냅샷 불변 — ADR-013 §3).
-    for (const w of [...weeksBetween(st.from, st.to), input.targetWeek]) {
-      const isRange = w !== input.targetWeek;
-      if (!exists('weeks', w)) {
-        // weekly_capacity 는 시딩되지 않으므로 NULL 일 수 있다 (ADR-018 §4).
-        // 그때는 두 컬럼을 NULL 로 둔다 — [0,…] 이나 0 을 지어내지 않는다 (ADR-018 §1).
-        const cap = readSetting('weekly_capacity');  // 배열 또는 undefined
-        insert('weeks', {
-          week: w,
-          capacity: cap ? json(cap) : null,
-          budget:   cap ? sum(cap) : null,        // 해석된 값을 저장 (ADR-013 §1)
-          focus_min:       readSetting('focus_min'),
-          short_break_min: readSetting('short_break_min'),
-          long_break_min:  readSetting('long_break_min'),
-          settled_at: isRange ? ts : null,
-        });
-      } else if (isRange) {
-        update('weeks', w, { settled_at: ts });   // 스냅샷 컬럼은 건드리지 않는다
-      }
-    }
+    // 6. **주별 행이라는 단계 자체가 없다.** `weeks` 테이블은 2.0.0 마이그레이션이
+    //    지웠다 (ADR-030 §4 · ADR-032). 박제하던 예산·가용량·길이가 전부 폐기된
+    //    통화였고, settled_at 은 어떤 화면도 읽지 않았다 — 정산 필요 판정은
+    //    워터마크 단독이다.
 
     // 7. 워터마크 전진 — 정산한 주가 아니라 targetWeek − 7일 (= st.to)
     writeSetting('last_settled_week', st.to);
 
-    return { settledThrough: st.to, ignoredExceptionIds: ignored, clampedExceptionIds: clamped, ... };
+    return { settledThrough: st.to, ignoredExceptionIds: ignored, ... };
   });
 }
 ```
@@ -471,7 +440,8 @@ function settle(input): SettleResult {
   `origin_week` 박제와 "그 주에 무엇이 남았는가"라는 과거 사실이 동시에 파괴된다.
   대신 **조각(task)은 옮긴다**(5b) — 조각은 "무엇을 할 것인가"이고 항목은 "그 주의
   계획이었다"라는 서로 다른 사실이기 때문이다.
-- **6단계가 계획 대상 주까지 포함**하는 이유는, 스냅샷 없는 주가 남으면 그 주의 예산·
+- **6단계는 사라졌다** (ADR-030 §4). 아래 문단은 그 단계가 존재하던 이유의 이력이며,
+  박제 대상이 전부 폐기된 지금은 성립하지 않는다: 스냅샷 없는 주가 남으면 그 주의 예산·
   단위가 나중에 전역 설정값으로 해석되기 때문이다 (ADR-013 §2). 정산 범위의 과거 주도
   같은 이유로 행이 생긴다 — 계획도 세션도 없던 주에 확정으로 행이 처음 생기는 경우,
   그 시점 유효값이 박제되어 나중에 흔들리지 않는다.
@@ -480,9 +450,11 @@ function settle(input): SettleResult {
 
 ### 비대칭 하나를 명시 수용한다
 
-`drop` 은 `dropped_at` 으로 이력에 남지만, **축소 이월로 잘려나간 몫은 어디에도
+(이 절은 이력이다 — 축소 이월이 사라져 비대칭 자체가 없어졌다. ADR-031 §1)
+
+~~`drop` 은 `dropped_at` 으로 이력에 남지만, **축소 이월로 잘려나간 몫은 어디에도
 남지 않는다** — 새 항목의 `est_pomos` 가 작아질 뿐이고 원본의 est 와의 차이를 기록하는
-컬럼이 없다. v1 은 이 차이를 보정하지 않는다 (PRD R36).
+컬럼이 없다. v1 은 이 차이를 보정하지 않는다 (PRD R36).~~
 
 ---
 
@@ -534,7 +506,7 @@ function settle(input): SettleResult {
 
 | 대상 | 왜 |
 |---|---|
-| 정산 범위 각 주의 주간 데이터 | `settled_at`·(신규 생성 시) 스냅샷이 생긴다 |
+| 정산 범위 각 주의 주간 데이터 | 변하지 않는다 — 확정은 `weeks` 를 건드리지 않는다 (ADR-030 §4) |
 | 계획 대상 주의 주간 데이터 | 이월 항목 INSERT + 주별 행 신규 생성 |
 | **마일스톤 (목록·진척)** | 이월이 `milestone_id` 를 승계하므로 마일스톤에 연결된 항목이 늘어난다 (ADR-012 §3). 승계가 없으면 월 레이어가 주 경계마다 초기화되므로, 이 무효화는 기능 요구의 일부다 |
 | 오늘 목록 | 미완료 조각의 `week_item_id` 가 바뀌어(5b) 조각의 소속 항목 표시가 달라진다 |
@@ -583,8 +555,8 @@ function settle(input): SettleResult {
 
 | 상대 | 이 기능이 보장하는 것 |
 |---|---|
-| week-plan | 확정 후 계획 대상 주에는 이월 항목이 `days = '[]'` 로 존재하고, 그 주의 주별 행에는 예산·가용량·베이스라인 스냅샷이 있다. 신규 할당·요일 배치는 플래너가 이어서 한다 |
-| pomo-baseline | 정산은 길이 변경의 **진입점**일 뿐이며, 확정 트랜잭션은 길이를 쓰지 않는다. 이미 스냅샷이 있는 주의 값을 정산이 덮어쓰는 경로는 없다 (ADR-013 §3) |
+| week-plan | 확정 후 계획 대상 주에는 이월 항목이 `days = '[]'` 로 존재한다. 신규 할당·요일 배치는 플래너가 이어서 한다 |
+| pomo-baseline | 정산은 길이 변경의 **진입점**일 뿐이며, 확정 트랜잭션은 길이를 쓰지 않는다. 저장은 즉시 효력을 갖고 적용은 다음 세션부터다 (ADR-029 §1) |
 | milestones | 이월은 `milestone_id` 를 승계하므로, 확정 후 마일스톤에 연결된 주간 항목이 늘어난다. 마일스톤 행 자체는 건드리지 않는다. 월말 마일스톤 재설정 흐름은 **v1 비범위** |
 | today-tasks | 확정은 `task_pulls` 행을 만들거나 지우지 않는다. 다만 미완료 조각이 이월 항목으로 재부모화되므로(5b), 이미 pull 된 조각은 오늘 목록에 남은 채 **소속 항목만** 바뀐다 |
 | calendar-records | 확정은 `sessions` 를 수정하지 않는다. 정산 후의 세션도 원래 주에 정상 귀속된다 (시나리오 7) |

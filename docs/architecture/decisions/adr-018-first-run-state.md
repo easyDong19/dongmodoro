@@ -4,7 +4,11 @@
   - `weekly_capacity` 의 미설정 표현(NULL)·`weeks` nullable 스냅샷·`유효 예산` 판별 확장이
     전부 죽는다 — 가용량·예산이라는 개념과 그 저장소가 사라진다.
   - **시딩 목록 중 길이 3종(`focus_min`·`short_break_min`·`long_break_min`)과
-    `theme` 등 나머지 키의 시딩은 유효하다.**
+    `theme` 등 나머지 키의 시딩은 유효하다.** 이 목록에 `last_settled_week` 를
+    더하지 않는다는 §4 의 결정도 유효하다 — `bootstrapWatermark` 가 그 키를 소유한다.
+  - **아래 관계 줄의 "ADR-013 §2·§3·§4 는 그대로 유효하다"는 더 이상 참이 아니다** —
+    ADR-013 은 2026-08-12 에 **전체 폐기**됐다 (ADR-029·ADR-030). 그 줄은 이 ADR 이
+    쓰인 시점의 사실로 남겨 둔다.
   - 본문은 이력으로 그대로 둔다.
 - 관계: [ADR-013](adr-013-baseline-budget-effect.md) §1 의 "`weeks.budget` 은 NOT NULL 정수"를
   **부분 정정**한다. §2(행 생성 시점)·§3(편집·효력 분리)·§4 는 그대로 유효하다.

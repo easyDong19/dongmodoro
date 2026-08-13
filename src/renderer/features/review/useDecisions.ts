@@ -5,97 +5,51 @@ type Panel = Extract<Awaited<ReturnType<Api['review']['getPending']>>, { needed:
 export type PendingRow = Panel['pending'][number]
 export type SettleException = Parameters<Api['review']['settle']>[0]['exceptions'][number]
 
-/** 화면의 3택. `carry` 는 기본값이라 전송되지 않는다. */
-export type Choice = 'carry' | 'reduce' | 'drop'
-
-/** 예외로 전송되는 것만 담는다. 기본 이월인 항목은 여기 없다. */
-type Decision = { choice: Exclude<Choice, 'carry'>; estPomos: number }
-
 /**
- * 이월 est = `max(1, 남은 몫)` (R14-1 · ADR-019 §1). 하한 1 은 남은 몫의 성질이 아니라
- * **이월 규칙**이다 — 이월한다는 것은 다음 주에도 계속한다는 뜻이므로 최소 1 을 계획한다.
+ * 화면의 2택 (ADR-031 §1). `carry` 는 기본값이라 전송되지 않는다.
+ *
+ * `reduce` 가 없다 — 줄일 대상이던 est 가 사라졌고, 시간으로 대체하지 않는다. 이월
+ * 항목의 측정 시간은 정의상 0(아직 하지 않은 일)이라 "줄인다"가 성립하지 않는다.
  */
-export function carryEstOf(row: PendingRow): number {
-  return Math.max(1, row.remaining)
-}
-
-/** 축소의 기본 제안값 — 이월 est 의 절반(올림), `1 … 이월 est` 로 클램프 (R15). */
-export function reduceDefault(row: PendingRow): number {
-  const carryEst = carryEstOf(row)
-  return Math.min(carryEst, Math.max(1, Math.ceil(carryEst / 2)))
-}
+export type Choice = 'carry' | 'drop'
 
 /**
- * 3택 상태. **기본은 이월이고 예외만 담는다** (R12·R13) — 아무것도 건드리지 않고
+ * 2택 상태. **기본은 이월이고 예외만 담는다** (R12·R13) — 아무것도 건드리지 않고
  * 확정하면 남은 항목 전체가 이월된다.
  *
  * 상태를 항목 id 로 잡는 것이 `STALE_RANGE` 재렌더의 전제다 (ux-spec §8.1): 범위가
  * 달라져 목록이 바뀌어도 살아남은 행의 선택은 id 로 그대로 이어지고, 사라진 행의 선택은
  * 전송 시점에 자연히 빠진다. 사용자가 손댄 값을 조용히 버리지 않기 위한 배치다.
+ *
+ * 선택이 boolean 이 아니라 집합인 이유도 그것이다 — `보내주기` 를 고른 id 만 담는다.
  */
 export function useDecisions() {
-  const [decisions, setDecisions] = useState<Record<string, Decision>>({})
+  const [drops, setDrops] = useState<ReadonlySet<string>>(() => new Set())
 
-  const choiceOf = (row: PendingRow): Choice => decisions[row.id]?.choice ?? 'carry'
-
-  /**
-   * 축소 스테퍼의 표시값.
-   *
-   * **저장해 둔 값도 지금의 상한으로 자른다.** 패널을 열어둔 채 세션이 돌면 남은 몫이
-   * 줄어드는데, 그때 화면이 옛 값을 계속 보여주면 사용자가 보는 숫자와 확정이 보낼
-   * 숫자가 달라진다 (ux-spec §8.1 — 새 remaining 이 더 작아졌으면 상한으로 클램프).
-   */
-  const reduceValueOf = (row: PendingRow): number => {
-    const stored = decisions[row.id]?.estPomos
-    if (stored === undefined) return reduceDefault(row)
-    return Math.min(carryEstOf(row), Math.max(1, stored))
-  }
+  const choiceOf = (row: PendingRow): Choice => (drops.has(row.id) ? 'drop' : 'carry')
 
   const pick = (row: PendingRow, choice: Choice): void =>
-    setDecisions((prev) => {
-      if (choice === 'carry') {
-        const { [row.id]: _dropped, ...rest } = prev
-        return rest
-      }
-      return { ...prev, [row.id]: { choice, estPomos: reduceValueOf(row) } }
+    setDrops((prev) => {
+      const next = new Set(prev)
+      if (choice === 'drop') next.add(row.id)
+      else next.delete(row.id)
+      return next
     })
-
-  const setReduceValue = (row: PendingRow, estPomos: number): void =>
-    setDecisions((prev) => ({ ...prev, [row.id]: { choice: 'reduce', estPomos } }))
 
   /**
    * 전송할 예외 목록. **지금 목록에 있는 항목만** 담는다 — 그 사이 사라진 항목의 예외는
    * 서버가 무시하지만(R29), 보내지 않는 편이 응답의 `ignoredExceptionIds` 를 실제 사고에만
    * 쓰게 해 준다.
-   *
-   * 축소 값은 여기서도 상한으로 자른다. 패널을 열어둔 채 세션이 돌면 남은 몫이 줄어드는데,
-   * 서버도 같은 클램프를 하지만(규칙 4) 화면이 보낸 값과 실제가 다르면 그 사실이
-   * `clampedExceptionIds` 로 돌아온다 — 화면이 먼저 맞추면 그 알림이 진짜 충돌에만 뜬다.
    */
   const exceptionsFor = (rows: readonly PendingRow[]): SettleException[] =>
-    rows.flatMap((row): SettleException[] => {
-      const decision = decisions[row.id]
-      if (decision === undefined) return []
-      if (decision.choice === 'drop') return [{ kind: 'drop', itemId: row.id }]
-      return [
-        {
-          kind: 'carry_reduced',
-          itemId: row.id,
-          estPomos: Math.min(carryEstOf(row), Math.max(1, decision.estPomos))
-        }
-      ]
-    })
+    rows.filter((row) => drops.has(row.id)).map((row) => ({ kind: 'drop', itemId: row.id }))
 
-  /** 확정 버튼 라벨의 `이월 뽀모 N` (ux-spec §7.1). 보내주기는 0 으로 센다. */
-  const carriedPomosOf = (rows: readonly PendingRow[]): number =>
-    rows.reduce((sum, row) => {
-      const decision = decisions[row.id]
-      if (decision?.choice === 'drop') return sum
-      if (decision?.choice === 'reduce') {
-        return sum + Math.min(carryEstOf(row), Math.max(1, decision.estPomos))
-      }
-      return sum + carryEstOf(row)
-    }, 0)
+  /**
+   * 확정 버튼의 `이월 N건` (ux-spec §7.1). **건수다** — 이월 규모를 시간으로 말할 수
+   * 없기 때문이다 (ADR-031 §1): 이월 항목의 측정 시간은 0 이라 합이 언제나 `0분` 이 된다.
+   */
+  const carriedCountOf = (rows: readonly PendingRow[]): number =>
+    rows.filter((row) => !drops.has(row.id)).length
 
-  return { choiceOf, reduceValueOf, pick, setReduceValue, exceptionsFor, carriedPomosOf }
+  return { choiceOf, pick, exceptionsFor, carriedCountOf }
 }

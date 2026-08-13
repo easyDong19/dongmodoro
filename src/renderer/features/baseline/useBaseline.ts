@@ -8,12 +8,11 @@ import { dispatchInvalidation } from '@renderer/shared/query/invalidate'
 export type BaselineView = Awaited<ReturnType<Api['settings']['getBaseline']>>
 
 /**
- * 전역 분모(길이 3종·가용량)의 읽기·쓰기.
+ * 뽀모 길이 3종의 읽기·쓰기.
  *
- * **이 훅은 어떤 주의 분모도 계산하지 않는다.** `유효 베이스라인`·`유효 예산` 계약은
- * main 에만 있고 (pomo-baseline R13), 여기서 다루는 것은 "지금 저장된 값" 하나다.
- * 그래서 저장 결과가 진행 중인 주에 어떻게 반영되는지를 이 파일은 알지 못하며,
- * 알 필요도 없다 — 반영되지 않는 것이 규칙이다 (R22).
+ * **이 훅은 어떤 주의 값도 계산하지 않는다.** 길이의 저장소는 전역값 하나뿐이고
+ * (ADR-029 §2), 여기서 다루는 것은 "지금 저장된 값" 하나다. 저장은 즉시 효력을 갖고
+ * 적용 시점은 다음 세션 시작이며, 그 시점 판정은 타이머가 갖는다 (timer R1).
  *
  * 무효화는 dispatchInvalidation 초크포인트로만 한다 — ADR-025 §5, eslint 가 강제한다.
  */
@@ -28,8 +27,8 @@ export function useBaseline(): {
   const query = useQuery({
     queryKey: keys.baseline(),
     queryFn: () => api.settings.getBaseline(),
-    // 테마와 달리 staleTime 을 무한으로 두지 않는다 — `basisPomos` 는 저장값이 아니라
-    // 계획 대상 주의 예산에서 파생된 값이라, 플래너에서 예산을 고치면 낡는다.
+    // 응답이 저장값 3종뿐이라 파생 필드가 낡을 일은 없지만, staleTime 을 무한으로 두지는
+    // 않는다 — 폼을 다시 열 때 다른 경로(첫 실행 온보딩)로 바뀐 값을 놓치지 않기 위해서다.
     staleTime: 0
   })
 

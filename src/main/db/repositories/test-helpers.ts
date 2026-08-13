@@ -12,14 +12,11 @@ const REPO_MIGRATIONS = join(fileURLToPath(import.meta.url), '../../../../../dri
 
 export const TEST_BASELINE = { focusMin: 25, shortBreakMin: 5, longBreakMin: 15 }
 
-/** 시딩된 DB 의 기본 상태 — 가용량은 시딩하지 않으므로 계획 의사는 비어 있다. */
-export const TEST_SNAPSHOT = { ...TEST_BASELINE, capacity: null, budget: null }
-
 /**
  * 인메모리 실 SQLite (ADR-023 §3) + FK ON + 마이그레이션 + **설정 시딩**.
  *
- * `seedSettings` 를 포함하는 이유: `effectiveBaseline`(services/baseline.ts)이 그 주
- * `weeks` 스냅샷이 없을 때 settings 의 `focus_min` 을 읽고 **없으면 throw** 한다.
+ * `seedSettings` 를 포함하는 이유: `globalBaseline`(services/baseline.ts)이 settings 의
+ * `focus_min` 을 읽고 **없으면 throw** 한다.
  * 시딩 없이 `confirmWeekPlan` 을 부르면 `missing required setting 'focus_min'` 으로 죽는다.
  *
  * 기존 테스트 3개(`seed.test.ts`·`settings.test.ts`·`today.test.ts`)는 각자 로컬
@@ -42,17 +39,6 @@ export function testUow(options?: {
   const uow = makeDrizzleUow(db)
   seedSettings(uow)
   return { uow, db }
-}
-
-/**
- * `sessions.local_week` 는 `weeks.week` 를 참조하는 FK 다 (schema.ts, ADR-019 §4).
- * 세션을 넣기 전에 그 주 행이 없으면 `FOREIGN KEY constraint failed` 로 죽는다.
- * **주 경계를 넘기는 테스트(A10)는 두 주를 모두 만들어야 한다.**
- */
-export function ensureWeeks(uow: UnitOfWork, ...weekKeys: readonly string[]): void {
-  uow.run((repos) => {
-    for (const week of weekKeys) repos.weeks.ensure(week, TEST_SNAPSHOT)
-  })
 }
 
 /**

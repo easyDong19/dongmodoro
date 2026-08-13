@@ -13,8 +13,7 @@ function makeTask(over: Partial<Task> = {}): Task {
   return {
     taskId: 't1',
     title: '초안 쓰기',
-    estPomos: 2,
-    spentPomos: 0,
+    measuredSec: 0,
     completedAt: null,
     inToday: false,
     ...over
@@ -24,10 +23,7 @@ function makeTask(over: Partial<Task> = {}): Task {
 function renderDrawer(
   over: Partial<Drawer> = {},
   handlers: {
-    onPull?: (input: {
-      taskIds: string[]
-      newTask: { title: string; estPomos: number } | null
-    }) => void
+    onPull?: (input: { taskIds: string[]; newTask: { title: string } | null }) => void
     onClose?: () => void
     onComplete?: () => void
     onUncomplete?: () => void
@@ -137,7 +133,7 @@ describe('ItemDrawer — 푸터 (§6.1·§6.3)', () => {
 
     expect(onPull).toHaveBeenCalledWith({
       taskIds: ['t1'],
-      newTask: { title: '마무리', estPomos: 1 }
+      newTask: { title: '마무리' }
     })
   })
 
@@ -158,10 +154,14 @@ describe('ItemDrawer — 완료된 항목 (§6.4 · R27·R28)', () => {
     ).toBeInTheDocument()
   })
 
-  it('초과에 판단 문구를 붙이지 않는다', () => {
-    renderDrawer({ ...completed, tasks: [makeTask({ estPomos: 1, spentPomos: 3 })] })
+  /**
+   * 초과라는 개념이 est 와 함께 죽었다 (ADR-030 §1) — 완료된 항목에 더 붙은 집중은
+   * 초과가 아니라 그냥 시간이다. 판단 문구를 붙이지 않는다는 규칙은 그대로다.
+   */
+  it('완료 뒤에 붙은 집중도 판단 없이 시간으로만 적는다', () => {
+    renderDrawer({ ...completed, tasks: [makeTask({ measuredSec: 4500 })] })
     expect(screen.queryByText(/초과/)).not.toBeInTheDocument()
-    expect(screen.getByText('+2')).toBeInTheDocument() // 사실은 그대로 보인다
+    expect(screen.getByTestId('measured-time')).toHaveTextContent('1시간 15분')
   })
 })
 

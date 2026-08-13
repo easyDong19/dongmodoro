@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { contracts } from '@shared/ipc/contracts'
-import { ensureWeeks, testUow } from '../db/repositories/test-helpers'
+import { testUow } from '../db/repositories/test-helpers'
 import {
   confirmWeekPlan,
   dropItem,
@@ -21,14 +21,12 @@ const WEEK = '2026-08-03'
 describe('week 계약 왕복', () => {
   it('응답 9종이 전부 계약을 통과한다', () => {
     const { uow } = testUow()
-    ensureWeeks(uow, WEEK)
 
     const confirmed = confirmWeekPlan(uow, {
       week: WEEK,
-      budget: 20,
       items: [
-        { id: null, title: '항목 A', estPomos: 4, days: [1, 3] },
-        { id: null, title: '항목 B', estPomos: 2, days: [] }
+        { id: null, title: '항목 A', days: [1, 3] },
+        { id: null, title: '항목 B', days: [] }
       ]
     })
     expect(contracts.week.confirmPlan.res.parse(confirmed)).toBeTruthy()
@@ -70,7 +68,7 @@ describe('week 계약 왕복', () => {
         pullFromDrawer(uow, {
           weekItemId: idB,
           taskIds: [],
-          newTask: { title: '새 조각', estPomos: 2 }
+          newTask: { title: '새 조각' }
         })
       )
     ).toBeTruthy()
@@ -84,15 +82,21 @@ describe('week 계약 왕복', () => {
     expect(contracts.week.summary.req.parse([WEEK])).toBeTruthy()
     expect(
       contracts.week.pullFromDrawer.req.parse([
-        { weekItemId: 'x', taskIds: ['a'], newTask: { title: 'n', estPomos: null } }
+        { weekItemId: 'x', taskIds: ['a'], newTask: { title: 'n' } }
       ])
     ).toBeTruthy()
 
-    const draft = (estPomos: number, days: number[]) => [
-      { week: WEEK, budget: null, items: [{ id: null, title: 'A', estPomos, days }] }
+    const draft = (title: string, days: number[]) => [
+      { week: WEEK, items: [{ id: null, title, days }] }
     ]
-    expect(contracts.week.confirmPlan.req.safeParse(draft(1, [0, 6])).success).toBe(true)
-    expect(contracts.week.confirmPlan.req.safeParse(draft(0, [])).success).toBe(false) // est 하한 1 (R6)
-    expect(contracts.week.confirmPlan.req.safeParse(draft(1, [7])).success).toBe(false) // 요일 0~6
+    expect(contracts.week.confirmPlan.req.safeParse(draft('A', [0, 6])).success).toBe(true)
+    expect(contracts.week.confirmPlan.req.safeParse(draft('', [])).success).toBe(false) // 제목 필수
+    expect(contracts.week.confirmPlan.req.safeParse(draft('A', [7])).success).toBe(false) // 요일 0~6
+    // 개수 필드는 계약 밖이다 — strictObject 가 되살리는 경로를 거부한다 (ADR-030 §1).
+    expect(
+      contracts.week.confirmPlan.req.safeParse([
+        { week: WEEK, items: [{ id: null, title: 'A', estPomos: 3, days: [] }] }
+      ]).success
+    ).toBe(false)
   })
 })

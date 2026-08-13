@@ -10,6 +10,9 @@
   [ADR-011](adr-011-schema-final.md) §1), 목록의 누락은 제외 결정이 아니었다.
   같은 목록은 ADR-011 §3(sessions)·[ADR-019](adr-019-constraint-implementation.md) §6(settings)
   으로 이미 두 번 확장된 이력이 있다. Decision 1(UUID v7)과 Decision 2 의 나머지는 유효하다.
+- **추가 정정 (2026-08-13, [ADR-030](adr-030-time-as-progress-currency.md))** — 바로 위가
+  추가한 mutable 목록의 **`weeks` 항목이 죽는다** (테이블 제거). Decision 1 과 Decision 2 의
+  나머지 목록(sessions·settings 등)은 유효하다.
   덧붙여 ADR-022 §3 은 `weeks` 에 한해 **`created_at` 도 함께 둔다** — 다른 테이블은 PK 가
   UUID v7 이라 생성 시각이 ID 에 내장되지만 `weeks` 의 PK 는 자연키다.
 

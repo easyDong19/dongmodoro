@@ -9,8 +9,8 @@ import type { ReviewPending } from './useReview'
 type Completed = Extract<ReviewPending, { needed: true }>['completed']
 
 const rows: Completed = [
-  { id: 'a', week: '2026-08-17', title: '논문 3장', spentPomos: 5 },
-  { id: 'b', week: '2026-08-24', title: '발표 준비', spentPomos: 2 }
+  { id: 'a', week: '2026-08-17', title: '논문 3장', measuredSec: 7500 },
+  { id: 'b', week: '2026-08-24', title: '발표 준비', measuredSec: 3000 }
 ]
 
 describe('CompletedSection — 끝낸 것들 (§4)', () => {
@@ -19,10 +19,10 @@ describe('CompletedSection — 끝낸 것들 (§4)', () => {
     expect(container).toBeEmptyDOMElement()
   })
 
-  it('제목과 소진 뽀모를 적는다', () => {
+  it('제목과 측정 시간을 적는다', () => {
     render(<CompletedSection rows={rows} />)
     expect(screen.getByText('논문 3장')).toBeInTheDocument()
-    expect(screen.getByText('뽀모 5')).toBeInTheDocument()
+    expect(screen.getAllByTestId('measured-time')[0]).toHaveTextContent('2시간 5분')
   })
 
   it('기본은 펼침이고 접을 수 있다', async () => {

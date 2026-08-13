@@ -1,8 +1,8 @@
 import { useRef, useState, type Ref } from 'react'
 import { addWeeks, weekRangeLabel } from '@shared/time'
 import { Button } from '@renderer/shared/ui/button'
+import { MeasuredTime } from '@renderer/shared/ui/MeasuredTime'
 import { Toast } from '@renderer/shared/ui/Toast'
-import { BudgetGauge } from './BudgetGauge'
 import { ItemDrawer } from './ItemDrawer'
 import { OtherRow } from './OtherRow'
 import { Planner, type PlanTarget } from './Planner'
@@ -19,7 +19,7 @@ import { useReviewStatus } from '@renderer/features/review/useReviewStatus'
  * 빈 상태 세 갈래 (ux-spec §8). 사실만 적고 칭찬하지 않는다 (principles §1).
  *
  * 갈래를 가르는 기준이 "항목이 있느냐" 하나가 아니라는 점이 핵심이다 — 계획은 없지만
- * 기록은 있는 주에 "할당을 잡으면 예산이 보여요"라고 하면 이미 보이고 있는 기록을
+ * 기록은 있는 주에 "할당을 잡으면 여기에 쌓여요"라고 하면 이미 쌓여 있는 기록을
  * 없는 셈 치는 말이 된다.
  */
 function EmptyState({
@@ -50,7 +50,7 @@ function EmptyState({
           ? '이번 주 할당을 다 끝냈어요'
           : unplannedOnly
             ? '계획이 없어도 기록은 남아요'
-            : `${targetLabel} 할당을 잡으면 뽀모 예산이 여기 보여요`}
+            : `${targetLabel} 할당을 잡으면 여기서 집중한 시간이 쌓여요`}
       </p>
       <Button ref={ctaRef} type="button" variant="secondary" size="sm" onClick={onOpenPlanner}>
         {kind === 'all-done' ? '수정' : `+ ${targetLabel} 할당 잡기`}
@@ -60,11 +60,11 @@ function EmptyState({
 }
 
 /**
- * 주간 카드 일반 뷰 (ux-spec §2). 세로 3단이고 **가운데만 늘어나고 스크롤한다.**
+ * 주간 카드 일반 뷰 (ux-spec §2). 세로 2단이고 **목록만 늘어나고 스크롤한다.**
  *
- * 게이지가 목록 **바깥**에 있고 `shrink-0` 인 것이 이 레이아웃의 요점이다. 목록 안에
- * 넣거나 `min-h-0` 를 빼면 항목이 쌓일 때 카드가 늘어나 게이지가 뷰포트 밖으로 밀린다 —
- * 예산 대비 소진은 이 화면이 존재하는 이유라 항상 보여야 한다.
+ * 하단의 예산 게이지가 없어졌다 (ADR-030 §3 — 예산은 폐기된 통화다). 그 자리가 답하던
+ * "이번 주에 얼마나 했나"는 **헤더의 측정 시간 합**이 답한다. 헤더는 `shrink-0` 이라
+ * 항목이 몇 개든 그 숫자가 화면 밖으로 밀리지 않는다.
  */
 export function WeekCard() {
   const { weekKey, todayIndex, query, pullNext, complete, uncomplete, drop, setMilestone } =
@@ -176,7 +176,7 @@ export function WeekCard() {
     )
   }
 
-  const { otherRow, budget, totalSpent } = summary
+  const { otherRow, totalMeasuredSec } = summary
   /**
    * 목록 정렬은 **생성순**이고, 오늘 배정된 항목만 상단으로 올린다 (§3.1, PRD R7·R10).
    * 사용자가 순서를 바꾸는 UI 는 없다.
@@ -206,17 +206,22 @@ export function WeekCard() {
         <div className="flex-1">
           <p className="eyebrow">WEEK</p>
           <h2 className="card-title text-ink">이번 주 할당</h2>
-          <p className="font-mono text-xs tabular-nums text-ink-dim">{weekRangeLabel(weekKey)}</p>
+          {/* 주 범위 옆에 이번 주 측정 시간 합을 둔다 (ux-spec §7). 세션이 0인 주에도
+              `0분` 을 적는다 — 자리를 지우면 "값 없음"과 구분되지 않는다 (§0.3·§0.5). */}
+          <p className="font-mono text-xs tabular-nums text-ink-dim">
+            {weekRangeLabel(weekKey)}
+            {' · '}
+            <MeasuredTime sec={totalMeasuredSec} testId="week-total-measured" />
+          </p>
         </div>
 
         {/* 활성 항목이 있을 때의 유일한 플래너 진입점이다 (§2). 빈 상태에는 본문 CTA 가
             있으므로 그리지 않는다 — 진입이 둘이 되면 어느 쪽이 "지금 쓸 것"인지 흐려지고,
             포커스를 돌려줄 자리도 갈린다.
 
-            이것이 없으면 주중 재수정(PRD R23)에 진입점이 없다. 첫 확정에서 예산을 비워 둔
-            사용자는 게이지가 `예산을 정하면 …` 이라고 안내하는데 그 조작이 화면에 없는
-            상태에 갇히고, 일요일에 다음 주 계획도 세울 수 없다 — 이월 항목이 다음 주에
-            활성으로 남으므로 그 주에도 같은 상태가 이어진다. */}
+            이것이 없으면 주중 재수정(PRD R23)에 진입점이 없다. 일요일에 다음 주 계획도
+            세울 수 없고, 이월 항목이 다음 주에 활성으로 남으므로 그 주에도 같은 상태가
+            이어진다. */}
         {emptyKind === null ? (
           <Button
             ref={ctaRef}
@@ -289,7 +294,7 @@ export function WeekCard() {
           )
         })}
         {/* 기타 행은 항상 목록 맨 아래다 (§3.4). */}
-        {otherRow.visible ? <OtherRow spentPomos={otherRow.spentPomos} /> : null}
+        {otherRow.visible ? <OtherRow measuredSec={otherRow.measuredSec} /> : null}
         {emptyKind !== null ? (
           <li>
             <EmptyState
@@ -301,10 +306,6 @@ export function WeekCard() {
           </li>
         ) : null}
       </ul>
-
-      <div data-testid="week-gauge-slot" className="shrink-0">
-        <BudgetGauge budget={budget} spent={totalSpent} />
-      </div>
 
       {toast !== null ? <Toast message={toast} onDismiss={() => setToast(null)} /> : null}
     </div>

@@ -19,31 +19,8 @@ function drizzleUowOnMemoryDb(): UnitOfWork {
   return makeDrizzleUow(db)
 }
 
-const LENGTHS = { focusMin: 25, shortBreakMin: 5, longBreakMin: 15 }
-/** `weeks.ensure` 는 길이뿐 아니라 계획 의사까지 받는다 (weekly-review R37). */
-const BASELINE = { ...LENGTHS, capacity: null, budget: null }
-
-describe('WeeksRepository', () => {
-  it('ensure creates a row only when absent, and is idempotent', () => {
-    const uow = drizzleUowOnMemoryDb()
-    const week = '2026-08-03'
-    uow.run((r) => r.weeks.ensure(week, BASELINE))
-    expect(uow.run((r) => r.weeks.baseline(week))).toEqual(LENGTHS)
-    // 두 번째 ensure — 다른 길이를 넘겨도 기존 스냅샷을 덮지 않는다 (weekly-review R37).
-    uow.run((r) =>
-      r.weeks.ensure(week, { ...BASELINE, focusMin: 50, shortBreakMin: 10, longBreakMin: 30 })
-    )
-    expect(uow.run((r) => r.weeks.baseline(week))).toEqual(LENGTHS)
-  })
-
-  it('baseline returns null when the row is absent', () => {
-    const uow = drizzleUowOnMemoryDb()
-    expect(uow.run((r) => r.weeks.baseline('2026-08-03'))).toBeNull()
-  })
-})
-
 describe('WeekItemsRepository', () => {
-  it('ensureSystemItem creates at most one 기타 item per week, est=0', () => {
+  it('ensureSystemItem creates at most one 기타 item per week', () => {
     const uow = drizzleUowOnMemoryDb()
     const week = '2026-08-03'
     const id1 = uow.run((r) => r.weekItems.ensureSystemItem(week))
@@ -75,7 +52,7 @@ describe('TodayRepository', () => {
 
     const rows = uow.run((r) => r.today.list(day))
     expect(rows).toHaveLength(1)
-    expect(rows[0]).toMatchObject({ taskId, sourceTitle: null, sourceWeek: week, spentPomos: 0 })
+    expect(rows[0]).toMatchObject({ taskId, sourceTitle: null, sourceWeek: week, measuredSec: 0 })
 
     // remove with 0 sessions -> deleted -> disappears from list
     uow.run((r) => r.today.remove(taskId, day))
@@ -113,7 +90,6 @@ describe('today.remove branch (today-tasks R13)', () => {
     const uow = drizzleUowOnMemoryDb()
     const week = '2026-08-03'
     const day = '2026-08-03'
-    uow.run((r) => r.weeks.ensure(week, BASELINE))
     const weekItemId = uow.run((r) => r.weekItems.ensureSystemItem(week))
     const taskId = uuidv7()
     uow.run((r) => r.tasks.create({ id: taskId, weekItemId, title: 'x' }))
@@ -163,28 +139,9 @@ describe('TasksRepository', () => {
 })
 
 describe('SessionsRepository', () => {
-  it('insert fails without a weeks row for local_week (FK, ADR-019 §4)', () => {
-    const uow = drizzleUowOnMemoryDb()
-    expect(() =>
-      uow.run((r) =>
-        r.sessions.insert({
-          id: uuidv7(),
-          startedAt: '2026-08-03T09:00:00.000Z',
-          endedAt: '2026-08-03T09:25:00.000Z',
-          durationSec: 1500,
-          kind: 'focus',
-          taskId: null,
-          localDate: '2026-08-03',
-          localWeek: '2026-08-03'
-        })
-      )
-    ).toThrow()
-  })
-
-  it('insert succeeds once weeks.ensure has run, and get() round-trips', () => {
+  it('insert round-trips through get()', () => {
     const uow = drizzleUowOnMemoryDb()
     const week = '2026-08-03'
-    uow.run((r) => r.weeks.ensure(week, BASELINE))
     const id = uuidv7()
     const row = {
       id,
@@ -203,7 +160,6 @@ describe('SessionsRepository', () => {
   it('countFocusOn counts only that date, and attachTask updates task_id', () => {
     const uow = drizzleUowOnMemoryDb()
     const week = '2026-08-03'
-    uow.run((r) => r.weeks.ensure(week, BASELINE))
     const weekItemId = uow.run((r) => r.weekItems.ensureSystemItem(week))
     const taskId = uuidv7()
     uow.run((r) => r.tasks.create({ id: taskId, weekItemId, title: 'x' }))
@@ -231,7 +187,6 @@ describe('SessionsRepository', () => {
   it('focusCountSinceLastLong counts focus sessions after the last long one', () => {
     const uow = drizzleUowOnMemoryDb()
     const week = '2026-08-03'
-    uow.run((r) => r.weeks.ensure(week, BASELINE))
 
     const mk = (kind: 'focus' | 'long', minute: number) => ({
       id: uuidv7(),

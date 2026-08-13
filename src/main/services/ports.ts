@@ -26,56 +26,20 @@ export interface SettingsRepository {
 
 export type Baseline = { focusMin: number; shortBreakMin: number; longBreakMin: number }
 
-export type WeekPlan = {
-  /** NULL = "기록 없음". 0 은 "예산 0 으로 하겠다"는 별개 사실이다 (ADR-018 §1). */
-  budget: number | null
-  /** 요일별 가용 뽀모 `[월..일]`. 미설정이면 null. M3a 에서는 항상 null 이다. */
-  capacity: number[] | null
-  /** 최초 확정 시각. 주중 재수정으로 갱신하지 않는다 (week-plan R23). */
-  plannedAt: string | null
-}
-
-/**
- * `weeks` 행이 처음 생길 때 함께 박제되는 값 전부 (ADR-013 §2, weekly-review R37).
- *
- * 길이 3종과 계획 의사(capacity·budget)를 한 타입에 담는 이유는 **행 생성이 한 번뿐**
- * 이기 때문이다. 길이만 먼저 박고 나중에 계획 의사를 채우는 경로를 열어 두면, 그 사이에
- * 생긴 행이 "가용량을 정한 적 없는 주"인지 "정했는데 아직 안 박힌 주"인지 구분되지 않는다.
- */
-export type WeekSnapshot = Baseline & {
-  /** 요일별 가용 뽀모 `[월..일]`. 정한 적 없으면 null — `[0,…]` 을 지어내지 않는다. */
-  capacity: number[] | null
-  /** 위 배열의 합을 **그 시점에 해석해** 저장한 값 (ADR-013 §1). 미설정이면 null. */
-  budget: number | null
-}
-
-export interface WeeksRepository {
-  /** 그 주 스냅샷 3종. 행이 없으면 null (폴백은 여기서 하지 않는다 — baseline.ts 소관). */
-  baseline(week: string): Baseline | null
-  /**
-   * 행이 없을 때만 생성 + 스냅샷 5종 박제 (ADR-013 §2). 멱등.
-   *
-   * **이미 있는 행의 스냅샷 컬럼은 어떤 값으로도 덮지 않는다** (ADR-013 §3) — 이 한 줄이
-   * "지각 정산이 진행 중인 주의 단위를 바꾼다"는 결함을 스키마 레벨에서 닫는다.
-   */
-  ensure(week: string, snapshot: WeekSnapshot): void
-  /** 그 주 계획 스냅샷. 행이 없으면 null. */
-  plan(week: string): WeekPlan | null
-  /** 예산 저장 + `planned_at` 최초 1회만 기록. 행이 없으면 아무 것도 하지 않는다. */
-  setPlan(week: string, budget: number | null): void
-}
-
 export type WeekItemRow = {
   id: string
   title: string
-  estPomos: number
   /** 요일 배치 의도 `[0..6]`, 0 = 월요일. 빈 배열 = 미배치. */
   days: number[]
   /** 최초 생성 주. 이월 배지 `N주째` 계산의 재료 (R11). */
   originWeek: string
   completedAt: string | null
-  /** R8 술어 — 저장값이 아니라 파생. */
-  spentPomos: number
+  /**
+   * 그 항목의 **측정 시간(초)** — R8 의 집계 술어(주 조건 있음)로 `duration_sec` 를
+   * 합한 값이며 저장값이 아니라 파생이다. 반올림하지 않는다 — 분으로 접는 것은 표시
+   * 직전 renderer 다 (ADR-031 §2).
+   */
+  measuredSec: number
   childTotal: number
   childDone: number
 }
@@ -84,7 +48,6 @@ export type PlanDraftItem = {
   /** null = 이 초안에서 새로 추가된 행. 값이 있으면 기존 항목이다. */
   id: string | null
   title: string
-  estPomos: number
   days: number[]
 }
 
@@ -94,15 +57,32 @@ export interface WeekItemsRepository {
   /** 완료 토글용 — task 의 부모 항목 주 (초크포인트 payload 용). 없으면 null. */
   weekOf(weekItemId: string): string | null
   /**
-   * 일반 뷰에 표시되는 항목 + 소진. **이 술어의 정의역이 곧 ADR-027 §1 의 Σ 다** —
+   * 일반 뷰에 표시되는 항목 + 측정 시간. **이 술어의 정의역이 곧 ADR-027 §1 의 Σ 다** —
    * `is_system = 0 AND dropped_at IS NULL AND deleted_at IS NULL`.
    * 폐기 항목을 포함시키면 A24 가 깨진다.
    */
   listForWeek(week: string): WeekItemRow[]
-  /** 그 주 focus 세션 전체. 폐기·삭제가 줄이지 않는다 (ADR-027 §2). */
-  weekTotalSpent(week: string): number
-  /** 기타 행 표시 조건 ①② — 미분류 세션 또는 부모 없는 조각이 있는가. ③은 서비스가 본다. */
+  /**
+   * 그 주 **측정 시간 총합(초)** — 그 주의 완료 focus 세션 전부의 `duration_sec` 합이다.
+   * `task_id` 를 거르지 않으므로 미분류 집중이 들어오고, 항목의 폐기·삭제가 이 값을
+   * 줄이지 않는다 (ADR-027 §2).
+   *
+   * 기타 행 차액의 피감수다. **초로 돌려준다** — 분으로 접어 넘기면 차액이 접힌 값에서
+   * 계산되어 ADR-031 §2 가 닫으려던 검산 어긋남이 되살아난다.
+   */
+  weekTotalMeasuredSec(week: string): number
+  /** 기타 행 표시 조건 ①② — 미분류 세션 또는 부모 없는 조각이 있는가. */
   hasUnplannedActivity(week: string): boolean
+  /**
+   * 기타 행 표시 조건 ③ — 그 주 focus 세션 중 **목록에 보이는 항목으로 설명되지 않는
+   * 것**이 하나라도 있는가 (week-plan ux-spec §3.4).
+   *
+   * 존재 판정이지 크기 판정이 아니다. 차액(`> 0`)으로 대신 읽으면 `duration_sec = 0`
+   * 세션만 붙은 항목을 폐기했을 때 차액이 0 초가 되어 행이 사라지고, 실재하는 집중이
+   * 화면에서 증발한다 (week-plan PRD A24). 개수 차액으로 읽던 옛 갈래를 이 술어가
+   * 대신하며, 개수는 계약 밖으로 나갔다.
+   */
+  hasHiddenFocus(week: string): boolean
   /**
    * 선언형 확정 (R23·R24). 요청 목록이 그 주 계획의 **전체**다.
    * - `id` 있음 → **ID 로** 매칭해 갱신. 제목 기준 매칭 금지 (제목을 고치면 이력이 끊긴다).
@@ -128,8 +108,11 @@ export interface WeekItemsRepository {
 export type ChildTaskRow = {
   taskId: string
   title: string
-  estPomos: number | null
-  spentPomos: number
+  /**
+   * 그 조각의 측정 시간(초). **주 조건이 없다** — 이유·대가는 today-tasks R3-3 이
+   * 소유한다.
+   */
+  measuredSec: number
   completedAt: string | null
   /** 그 날짜에 활성 pull 행이 있는가 (§6.2 `오늘 목록에`). */
   inToday: boolean
@@ -141,9 +124,12 @@ export type TodayRow = {
   /** 부모 주간 항목명. 기타 항목이면 null (화면이 "기타"로 렌더). */
   sourceTitle: string | null
   sourceWeek: string
-  estPomos: number | null
-  /** 그 task 에 연결된 focus 세션 수 — 저장값이 아니라 파생 (원칙 8, today-tasks R3). */
-  spentPomos: number
+  /**
+   * 그 조각의 측정 시간(초) — 저장값이 아니라 파생이다 (원칙 8, today-tasks R3).
+   * **주 조건이 없다** — 이월된 조각의 이력이 끊기지 않게 하는 의도된 비대칭이다
+   * (today-tasks R3-3).
+   */
+  measuredSec: number
   completedAt: string | null
   pulledAt: string
 }
@@ -158,13 +144,7 @@ export interface TodayRepository {
 }
 
 export interface TasksRepository {
-  create(t: {
-    id: string
-    weekItemId: string
-    title: string
-    estPomos?: number
-    completedAt?: string
-  }): void
+  create(t: { id: string; weekItemId: string; title: string; completedAt?: string }): void
   /** completed ↔ 미완료 토글. 반환은 토글 후 completedAt. task 없으면 throw. */
   toggleComplete(taskId: string): string | null
   titleOf(taskId: string): string | null
@@ -225,9 +205,15 @@ export type MilestoneBadge = {
 /** 마일스톤 하나의 주 단위 롤업 재료 (R17). 저장값이 아니라 매번 파생한다. */
 export type MilestoneRollupRow = {
   milestoneId: string
-  spentPomos: number
-  /** 그 주의 계획 대비 — 연결된 할당들의 `est_pomos` 합. 0 이면 화면이 분수를 만들지 않는다. */
-  plannedPomos: number
+  /**
+   * 그 주 귀속 측정 시간(초). 연결된 **폐기·삭제되지 않은** 할당들의 측정 시간 합이며,
+   * 술어는 `listForWeek` 의 항목 측정 시간과 같아야 한다 (milestones 성공 지표) —
+   * 갈리면 마일스톤 롤업과 주간 카드가 같은 사실에 다른 숫자를 말한다.
+   *
+   * **분모가 없다** (ADR-030 §3). 롤업은 `이번 주 3/8` 이 아니라 `이번 주 3시간 20분`
+   * 이며, 그 분모였던 `sum(est_pomos)` 는 통화와 함께 죽었다.
+   */
+  measuredSec: number
 }
 
 /**
@@ -336,22 +322,21 @@ export type ReviewWeekFact = {
   week: string
   /** focus 세션이 있었던 서로 다른 날짜 수. */
   studiedDays: number
-  /** 그 주 focus 세션 전체. 폐기·삭제가 줄이지 않는다 (ADR-027 §2). */
-  spentPomos: number
-  /** 그 주 스냅샷 예산. 행이 없거나 NULL 이면 `null` = "기록 없음" (ADR-018 §1·§2). */
-  budget: number | null
-  /** 계획에 없던 집중 — **차액**이다. `주 소진 − Σ(목록에 보이는 항목의 소진)`. */
-  unplannedPomos: number
+  /** 그 주 측정 시간 총합(초). 폐기·삭제가 줄이지 않는다 (ADR-027 §2). */
+  measuredSec: number
+  /**
+   * 계획에 없던 집중(초) — **차액**이다 (ADR-031 §2).
+   * `주 총 focus 초 − Σ(목록에 보이는 항목의 focus 초)`. 주간 카드 기타 행과 같은 값이다.
+   */
+  unplannedMeasuredSec: number
 }
 
 export type PendingItemRow = {
   id: string
   week: string
   title: string
-  /** **항목 est** 다 — 하위 조각 est 의 합이 아니다 (Q13). */
-  estPomos: number
-  /** 그 항목의 주에 기록된 focus 세션만 (ADR-012 §1). */
-  spentPomos: number
+  /** 그 항목의 그 주 측정 시간(초) — 그 항목의 주에 기록된 focus 세션만 (ADR-012 §1). */
+  measuredSec: number
   /** 최초 생성 주. 이월 배지 `N주째` 의 재료 — 사슬 길이가 아니다 (Q12). */
   originWeek: string
   /** 이월이 승계한다 (R35). M3b 에서는 항상 null 이다. */
@@ -362,12 +347,13 @@ export type CompletedItemRow = {
   id: string
   week: string
   title: string
-  spentPomos: number
+  /** 그 항목의 그 주 측정 시간(초). */
+  measuredSec: number
 }
 
 export interface ReviewRepository {
   /**
-   * 기록이 있는 가장 이른 주 = `min(sessions.local_week, week_items.week, weeks.week)`.
+   * 기록이 있는 가장 이른 주 = `min(sessions.local_week, week_items.week)`.
    * 아무 기록도 없으면 `null`.
    *
    * 워터마크 부트스트랩의 **유실 폴백**에만 쓴다 (weekly-review R28). 키가 없는데 기록이
@@ -387,12 +373,12 @@ export interface ReviewRepository {
    */
   weekFacts(from: string, to: string): ReviewWeekFact[]
   /**
-   * focus 세션이 있는 **가장 최근 주**와 그 소진. 없으면 `null`.
+   * focus 세션이 있는 **가장 최근 주**와 그 주의 측정 시간(초). 없으면 `null`.
    *
    * **정산 범위와 무관하게** 조회한다 (R31) — 공백 기간을 말할 때 "마지막으로 공부한
    * 주"는 범위 밖일 수 있고, 그게 이 값이 존재하는 이유다.
    */
-  lastStudied(): { week: string; spentPomos: number } | null
+  lastStudied(): { week: string; measuredSec: number } | null
   /**
    * 3택 대상. 주·생성순으로만 정렬한다 — "3주 이상 먼저"는 **표시 정렬**이라 화면이 한다
    * (ux-spec §5.0). 남은 몫·`N주째` 도 여기서 계산하지 않는다: 규칙은 서비스가 갖는다.
@@ -404,19 +390,18 @@ export interface ReviewRepository {
    */
   listCompleted(from: string, to: string): CompletedItemRow[]
   /**
-   * 확정의 쓰기 전부 — **호출자가 결정을 이미 끝낸 상태**로 들어온다. 클램프·이월 est
-   * 계산·예외 흡수는 서비스가 하고 여기는 실행만 한다 (ADR-015 §1).
+   * 확정의 쓰기 전부 — **호출자가 결정을 이미 끝낸 상태**로 들어온다. 예외 흡수는
+   * 서비스가 하고 여기는 실행만 한다 (ADR-015 §1).
+   *
+   * **주 스냅샷을 쓰는 경로가 없다** (ADR-030 §4). 박제하던 예산·가용량·길이가 전부
+   * 폐기된 통화라 `weeks` 테이블 자체가 사라졌다.
    *
    * 반드시 트랜잭션 안에서 부른다. 중간 실패 시 반쯤 정산된 상태가 남지 않아야 한다 (R22).
    */
   applySettlement(input: {
     targetWeek: string
-    /** 새로 만드는 `weeks` 행에 박제할 값. 이미 있는 행에는 쓰이지 않는다. */
-    snapshot: WeekSnapshot
-    /** `settled_at` 을 찍을 정산 범위의 주들. */
-    rangeWeeks: readonly string[]
     drops: readonly string[]
-    carries: readonly { sourceId: string; estPomos: number }[]
+    carries: readonly { sourceId: string }[]
     /** 순간 (UTC ISO). 한 번 읽어 넘긴다 (ADR-022 §1). */
     at: string
   }): { carried: { sourceItemId: string; newItemId: string }[] }
@@ -424,7 +409,6 @@ export interface ReviewRepository {
 
 export interface Repositories {
   settings: SettingsRepository
-  weeks: WeeksRepository
   weekItems: WeekItemsRepository
   today: TodayRepository
   tasks: TasksRepository
