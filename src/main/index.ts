@@ -123,11 +123,13 @@ function boot(): void {
       registerReviewHandlers(uow)
       registerCalendarHandlers(uow)
       registerMilestoneHandlers(uow)
-      registerSettingsHandlers(uow, () => mainWindow)
       // 타이머는 창보다 먼저 산다 — renderer 가 죽어도 main 의 타이머는 계속 돈다 (R12).
       const timerHost = startTimerHost(uow, () => mainWindow)
       stopTimerHost = timerHost.stop
       registerTimerHandlers(timerHost.engine, uow)
+      // 설정은 타이머 뒤에 등록한다 — 길이 저장이 대기 중인 다이얼을 갱신해야 하고,
+      // 그러려면 엔진이 이미 살아 있어야 한다 (ADR-029, engine.refreshBaseline).
+      registerSettingsHandlers(uow, () => mainWindow, timerHost.engine)
       // 종료 확인 조건 (timer R13): focus 가 running/paused 일 때만 묻는다.
       mainWindow = createWindow(initialTheme, () => {
         const snap = timerHost.engine.getSnapshot()

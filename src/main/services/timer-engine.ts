@@ -245,6 +245,37 @@ export class TimerEngine {
     return snap
   }
 
+  /**
+   * 전역 길이가 편집됐다 — **대기 중인 다이얼을 새 길이로 맞춘다** (ADR-029).
+   *
+   * 이것이 없으면 다이얼이 다음 세션 길이를 틀리게 말한다. 25분에서 40분으로 바꾼
+   * 사용자가 `25:00` 을 보다가 시작을 누르는 순간 `40:00` 으로 튀는 것을 봤다.
+   *
+   * **1.x 에서는 이 구멍이 거의 보이지 않았다.** 그때 유효 베이스라인은 그 주 `weeks`
+   * 스냅샷이었고, 행이 있는 주에서는 편집이 다음 주까지 효력이 없어 옛 길이를 그리는
+   * 것이 오히려 사실과 맞았다. ADR-029 가 효력을 다음 세션으로 당기면서 "다이얼은
+   * 그대로 둔다"는 전제가 죽었다.
+   *
+   * 두 경우에 아무것도 하지 않는다:
+   * - **idle 이 아니다.** 진행 중·일시정지 세션의 길이는 그 세션이 시작될 때 확정된
+   *   값이며, 편집이 그것을 건드리지 않는 것이 ADR-029 의 "적용은 다음 세션부터"다.
+   * - **idle 에서 ± 칩을 눌러 뒀다.** 사용자가 이 세션에 대해 명시한 값이 전역
+   *   기본값을 이긴다 — `start()` 가 쓰는 규칙과 같은 것이며, 여기서 덮으면 조절이
+   *   조용히 사라진다.
+   *
+   * 값이 그대로면 전이를 쏘지 않는다. 길이 외의 필드만 바꾼 저장이 renderer 를
+   * 흔들지 않게 하려는 것이다.
+   */
+  refreshBaseline(): TimerSnapshot | null {
+    if (this.phase !== 'idle' || this.idleAdjusted) return null
+
+    const next = this.baselineSec(this.mode)
+    if (next === this.durationSec) return null
+
+    this.durationSec = next
+    return this.emit()
+  }
+
   /** 세션의 끝 — 대상은 자유 집중으로 돌아가고(§1.1 수명) 길이는 베이스라인으로. */
   private enterIdle(): void {
     this.phase = 'idle'

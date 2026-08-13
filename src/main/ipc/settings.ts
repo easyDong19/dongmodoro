@@ -2,6 +2,7 @@ import type { BrowserWindow } from 'electron'
 import { CHANNELS } from '@shared/ipc/channels'
 import { contracts } from '@shared/ipc/contracts'
 import type { UnitOfWork } from '../services/ports'
+import type { TimerEngine } from '../services/timer-engine'
 import { globalBaseline, writeBaseline } from '../services/baseline'
 import { readTheme, setTheme } from '../services/theme'
 import { handleIpc } from './handle'
@@ -19,7 +20,8 @@ import { handleIpc } from './handle'
  */
 export function registerSettingsHandlers(
   uow: UnitOfWork,
-  getWindow: () => BrowserWindow | null
+  getWindow: () => BrowserWindow | null,
+  engine: Pick<TimerEngine, 'refreshBaseline'>
 ): void {
   handleIpc(CHANNELS.settings.getTheme, contracts.settings.getTheme, () => ({
     theme: readTheme(uow)
@@ -33,7 +35,17 @@ export function registerSettingsHandlers(
     uow.run(globalBaseline)
   )
 
-  handleIpc(CHANNELS.settings.setBaseline, contracts.settings.setBaseline, (form) =>
-    writeBaseline(uow, form)
-  )
+  handleIpc(CHANNELS.settings.setBaseline, contracts.settings.setBaseline, (form) => {
+    const saved = writeBaseline(uow, form)
+    /**
+     * 저장 **뒤에** 부른다 — 엔진이 새 길이를 읽어야 하는데 그 출처가 방금 쓴 settings 다.
+     *
+     * 여기서 전이가 나가면 renderer 의 타이머 카드가 그것으로 갱신된다. 쿼리 무효화로
+     * 하지 않는 이유는 다이얼이 쿼리에서 오는 값이 아니라 **엔진 상태**이기 때문이다
+     * (invalidate.ts 의 `baseline-changed` 가 타이머를 대상에서 뺀 그 근거는 유효하다 —
+     * 바뀐 것은 "엔진이 스스로 다시 읽을 때까지 기다린다"는 판단 쪽이다).
+     */
+    engine.refreshBaseline()
+    return saved
+  })
 }
