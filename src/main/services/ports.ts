@@ -26,34 +26,6 @@ export interface SettingsRepository {
 
 export type Baseline = { focusMin: number; shortBreakMin: number; longBreakMin: number }
 
-/**
- * `weeks` 행이 처음 생길 때 채워지는 값 (weekly-review R37).
- *
- * **좁혀진 타입이다.** 길이 스냅샷은 아무도 읽지 않고(ADR-029 §2), 계획 의사
- * (`capacity`·`budget`)는 폐기된 통화라 **항상 `null` 로만 쓴다** (ADR-030). 타입으로
- * 못 박아 두면, 값을 되살리는 코드가 컴파일 단계에서 막힌다.
- */
-export type WeekSnapshot = Baseline & {
-  capacity: null
-  budget: null
-}
-
-export interface WeeksRepository {
-  /** 그 주 스냅샷 3종. 행이 없으면 null (폴백은 여기서 하지 않는다 — baseline.ts 소관). */
-  baseline(week: string): Baseline | null
-  /**
-   * 행이 없을 때만 생성 + 스냅샷 5종 박제 (ADR-013 §2). 멱등.
-   *
-   * **이미 있는 행의 스냅샷 컬럼은 어떤 값으로도 덮지 않는다** (ADR-013 §3) — 이 한 줄이
-   * "지각 정산이 진행 중인 주의 단위를 바꾼다"는 결함을 스키마 레벨에서 닫는다.
-   *
-   * **읽는 메서드가 하나뿐인 것이 지금 상태다** — 계획 스냅샷 조회(`plan`)와 예산 저장
-   * (`setPlan`)은 폐기된 통화와 함께 죽었다 (ADR-030 §4). 이 인터페이스가 남아 있는
-   * 유일한 이유는 `sessions.local_week` FK 다.
-   */
-  ensure(week: string, snapshot: WeekSnapshot): void
-}
-
 export type WeekItemRow = {
   id: string
   title: string
@@ -381,7 +353,7 @@ export type CompletedItemRow = {
 
 export interface ReviewRepository {
   /**
-   * 기록이 있는 가장 이른 주 = `min(sessions.local_week, week_items.week, weeks.week)`.
+   * 기록이 있는 가장 이른 주 = `min(sessions.local_week, week_items.week)`.
    * 아무 기록도 없으면 `null`.
    *
    * 워터마크 부트스트랩의 **유실 폴백**에만 쓴다 (weekly-review R28). 키가 없는데 기록이
@@ -421,9 +393,8 @@ export interface ReviewRepository {
    * 확정의 쓰기 전부 — **호출자가 결정을 이미 끝낸 상태**로 들어온다. 예외 흡수는
    * 서비스가 하고 여기는 실행만 한다 (ADR-015 §1).
    *
-   * **`weeks` 행을 만들지도 갱신하지도 않는다** (ADR-030 §4). 스냅샷·예산은 폐기된
-   * 통화이고 `settled_at` 은 어떤 화면도 읽지 않는다. 세션이 필요로 하는 행은
-   * 세션 기록 경로(`services/sessions.ts`)가 계속 만든다 — FK 는 그것으로 충족된다.
+   * **주 스냅샷을 쓰는 경로가 없다** (ADR-030 §4). 박제하던 예산·가용량·길이가 전부
+   * 폐기된 통화라 `weeks` 테이블 자체가 사라졌다.
    *
    * 반드시 트랜잭션 안에서 부른다. 중간 실패 시 반쯤 정산된 상태가 남지 않아야 한다 (R22).
    */
@@ -438,7 +409,6 @@ export interface ReviewRepository {
 
 export interface Repositories {
   settings: SettingsRepository
-  weeks: WeeksRepository
   weekItems: WeekItemsRepository
   today: TodayRepository
   tasks: TasksRepository

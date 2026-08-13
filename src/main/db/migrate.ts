@@ -60,6 +60,8 @@ function backup(sqlite: Database.Database, dbPath: string, backupDir: string): v
  * 1. 무결성 검사가 **마이그레이션보다 먼저** — 깨진 파일 위에서 스키마를 바꾸면 손상이 번진다.
  * 2. 버전 비교가 **백업보다 먼저** — 다운그레이드면 아무것도 건드리지 않고 멈춘다.
  * 3. 백업이 **마이그레이션 직전** — 데이터를 바꾸는 유일한 순간 앞에 되돌릴 지점을 찍는다.
+ * 4. `foreign_key_check` 가 **`user_version` 갱신보다 먼저** (ADR-032 §2) — 무결성이
+ *    깨졌으면 버전을 올리지 않아 다음 실행이 같은 마이그레이션을 다시 시도한다.
  *
  * `migrationsDir` 를 인자로 받는 이유: 번들 산출물(`out/main/index.js`)과 소스(`src/main/db/`)의
  * 상대 깊이가 달라 이 파일이 자기 위치에서 폴더를 유도할 수 없다. 호출부가 자기 환경에서
@@ -105,12 +107,46 @@ export function migrateDb(
     backup(sqlite, dbPath, backupDir)
   }
 
+  /**
+   * FK 를 끄는 자리가 **트랜잭션 바깥**인 것이 이 블록의 전부다 (ADR-032 §1).
+   *
+   * 파괴적 마이그레이션은 SQLite 12단계 ALTER TABLE 절차를 따라 테이블을 재생성하는데,
+   * 그 사이의 `DROP TABLE` 은 자식 행이 있으면 참조 위반으로 죽는다. 생성물이 넣는
+   * `PRAGMA foreign_keys=OFF` 로는 못 막는다 — drizzle 의 마이그레이터가 전체를
+   * `BEGIN`…`COMMIT` 으로 감싸고, 이 pragma 는 트랜잭션 안에서 **no-op** 이다.
+   * `defer_foreign_keys` 도 안 된다: `DROP TABLE` 이 올린 지연 위반 카운터를 뒤이은
+   * `RENAME TO` 가 내리지 않아 `COMMIT` 에서 터진다.
+   *
+   * `finally` 로 되돌리는 이유는 실패한 마이그레이션이 FK 없이 도는 세션을 남기지
+   * 않기 위해서다. `open.ts` 가 시작 시 켜 둔 값을 여기서 잠깐 빌렸다가 갚는다.
+   */
+  sqlite.pragma('foreign_keys = OFF')
   try {
     migrate(db, { migrationsFolder: migrationsDir })
   } catch (e) {
     throw new MigrationError(`Migration failed: ${e instanceof Error ? e.message : String(e)}`, {
       cause: e
     })
+  } finally {
+    sqlite.pragma('foreign_keys = ON')
+  }
+
+  /**
+   * 무결성 회귀 검사 — ADR-020 §4 의 실패 3갈래에 붙는 네 번째 관문이다 (ADR-032 §2).
+   *
+   * FK 를 끄고 도는 구간이 생긴 이상 그 구간이 고아 행을 남기지 않았음을 증명해야
+   * 한다. SQLite 는 꺼진 동안 아무것도 대신 막아주지 않는다.
+   *
+   * **`user_version` 을 올리기 전**에 두는 것이 핵심이다. 검사에 걸린 DB 는 다음
+   * 실행에서 같은 마이그레이션을 다시 시도하며, 버전만 올라간 채 고아 행을 안고 사는
+   * 상태가 되지 않는다. 마이그레이션 자체는 이미 커밋된 뒤라 이 검사가 되돌리지는
+   * 못한다 — 그래서 복귀선은 백업 파일뿐이고, 자동 복원은 하지 않는다 (ADR-020 §4).
+   */
+  const violations = sqlite.pragma('foreign_key_check') as unknown[]
+  if (violations.length > 0) {
+    throw new MigrationError(
+      `Migration left ${violations.length} foreign key violation(s): ${JSON.stringify(violations.slice(0, 5))}`
+    )
   }
 
   sqlite.pragma(`user_version = ${appVersion}`)

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { v7 as uuidv7 } from 'uuid'
-import { ensureWeeks, testUow } from './test-helpers'
-import type { Repositories, UnitOfWork } from '../../services/ports'
+import { testUow } from './test-helpers'
+import type { Repositories } from '../../services/ports'
 
 const AUG = '2026-08'
 const SEP = '2026-09'
@@ -69,10 +69,6 @@ function addTask(repos: Repositories, weekItemId: string): string {
   const id = uuidv7()
   repos.tasks.create({ id, weekItemId, title: '조각' })
   return id
-}
-
-function seedWeek(uow: UnitOfWork, ...weeks: string[]) {
-  ensureWeeks(uow, ...weeks)
 }
 
 describe('milestones.listForMonth — 생성 순 고정, 보관 제외 (R10·R11)', () => {
@@ -182,7 +178,6 @@ describe('milestones.carryCandidates — 미완료, 보관 무관 (R22)', () => 
 describe('milestones.remove — 물리 삭제와 SET NULL (R8 · A8)', () => {
   it('삭제하면 연결된 할당은 남고 집중 기록도 그대로다', () => {
     const { uow } = testUow()
-    seedWeek(uow, W_AUG)
     uow.run((repos) => {
       const m = addMilestone(repos, AUG, '결과물')
       const item = addItem(repos, { week: W_AUG, title: '할당', milestoneId: m })
@@ -203,7 +198,6 @@ describe('milestones.remove — 물리 삭제와 SET NULL (R8 · A8)', () => {
 describe('milestones.rollup — 주 단위 파생 (R16·R17)', () => {
   it('연결된 할당의 그 주 측정 시간 합을 준다', () => {
     const { uow } = testUow()
-    seedWeek(uow, W_AUG)
     uow.run((repos) => {
       const m = addMilestone(repos, AUG, '결과물')
       const [i1, i2] = addItems(repos, W_AUG, [
@@ -220,7 +214,6 @@ describe('milestones.rollup — 주 단위 파생 (R16·R17)', () => {
 
   it('연결되지 않은 할당은 롤업에 들어가지 않는다 (R13)', () => {
     const { uow } = testUow()
-    seedWeek(uow, W_AUG)
     uow.run((repos) => {
       const m = addMilestone(repos, AUG, '결과물')
       const loose = addItem(repos, { week: W_AUG, title: '미연결' })
@@ -236,7 +229,6 @@ describe('milestones.rollup — 주 단위 파생 (R16·R17)', () => {
    */
   it('할당의 주와 다른 주에 기록된 세션은 롤업을 올리지 않는다 (A14)', () => {
     const { uow } = testUow()
-    seedWeek(uow, W_AUG, '2026-08-10')
     uow.run((repos) => {
       const m = addMilestone(repos, AUG, '결과물')
       const item = addItem(repos, { week: W_AUG, title: 'a', milestoneId: m })
@@ -250,7 +242,6 @@ describe('milestones.rollup — 주 단위 파생 (R16·R17)', () => {
 
   it('지난주 집중은 이번 주 롤업에 없다 (A15)', () => {
     const { uow } = testUow()
-    seedWeek(uow, '2026-07-27', W_AUG)
     uow.run((repos) => {
       const m = addMilestone(repos, AUG, '결과물')
       const last = addItem(repos, {
@@ -272,7 +263,6 @@ describe('milestones.rollup — 주 단위 파생 (R16·R17)', () => {
   it('타월 연결의 소진은 마일스톤이 놓인 달 카드로 올라간다 (A13 · R15)', () => {
     const { uow } = testUow()
     const wSep = '2026-09-07'
-    seedWeek(uow, wSep)
     uow.run((repos) => {
       const m = addMilestone(repos, AUG, '8월 결과물')
       const item = addItem(repos, { week: wSep, title: '9월 주 할당', milestoneId: m })
@@ -287,7 +277,6 @@ describe('milestones.rollup — 주 단위 파생 (R16·R17)', () => {
 
   it('달을 넘긴 주(8/31~9/6)의 9월 날짜 세션도 그 주 롤업이다 — 주는 쪼개지지 않는다 (R18)', () => {
     const { uow } = testUow()
-    seedWeek(uow, W_AUG_LAST)
     uow.run((repos) => {
       const m = addMilestone(repos, AUG, '결과물')
       const item = addItem(repos, { week: W_AUG_LAST, title: 'a', milestoneId: m })
@@ -301,7 +290,6 @@ describe('milestones.rollup — 주 단위 파생 (R16·R17)', () => {
 
   it('폐기된 할당은 롤업에서 빠진다 — 화면에 없는 할당의 집중을 설명할 자리가 없다', () => {
     const { uow } = testUow()
-    seedWeek(uow, W_AUG)
     uow.run((repos) => {
       const m = addMilestone(repos, AUG, '결과물')
       const item = addItem(repos, { week: W_AUG, title: 'a', milestoneId: m })
@@ -316,7 +304,6 @@ describe('milestones.rollup — 주 단위 파생 (R16·R17)', () => {
 describe('milestones.linkedMilestone · setWeekItemMilestone (R13·R15)', () => {
   it('연결이 없으면 null 이다 — 오류 상태가 아니다 (R13)', () => {
     const { uow } = testUow()
-    seedWeek(uow, W_AUG)
     uow.run((repos) => {
       const item = addItem(repos, { week: W_AUG, title: 'a' })
       expect(repos.milestones.linkedMilestone(item)).toBeNull()
@@ -325,7 +312,6 @@ describe('milestones.linkedMilestone · setWeekItemMilestone (R13·R15)', () => 
 
   it('연결과 해제가 왕복한다', () => {
     const { uow } = testUow()
-    seedWeek(uow, W_AUG)
     uow.run((repos) => {
       const m = addMilestone(repos, AUG, '결과물')
       const item = addItem(repos, { week: W_AUG, title: 'a' })
@@ -341,7 +327,6 @@ describe('milestones.linkedMilestone · setWeekItemMilestone (R13·R15)', () => 
   it('타월 연결도 그대로 읽힌다 — 후보 밖이어도 지워지지 않는다 (R15)', () => {
     const { uow } = testUow()
     const wSep = '2026-09-07'
-    seedWeek(uow, wSep)
     uow.run((repos) => {
       const m = addMilestone(repos, AUG, '8월 결과물')
       const item = addItem(repos, { week: wSep, title: 'a', milestoneId: m })

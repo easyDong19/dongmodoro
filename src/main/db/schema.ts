@@ -1,8 +1,9 @@
 /**
- * DB 스키마 — 테이블 7종.
+ * DB 스키마 — 테이블 6종.
  *
  * **이 파일은 스키마의 원본이 아니다.** 원본은 ADR 이며, 읽는 순서는
- * ADR-011(골격) → ADR-012·013·014(정정) → ADR-018·019·020(실행분, 최신)이다.
+ * ADR-011(골격) → ADR-012·013·014(정정) → ADR-018·019·020(실행분) →
+ * ADR-030·031·032(측정 시간 전환, 최신)이다.
  * 충돌하면 번호가 큰 쪽이 이긴다. 값·식을 바꿔야 하면 ADR 을 먼저 고친다.
  *
  * 제약을 전부 여기 넣는 이유(ADR-011 §6): SQLite 는 CHECK·FK·NOT NULL 을 나중에
@@ -113,89 +114,6 @@ export const settings = sqliteTable(
 )
 
 // ---------------------------------------------------------------------------
-// weeks — 주간 스냅샷
-// ---------------------------------------------------------------------------
-
-/**
- * 한 행이 두 종류의 스냅샷을 담는다(ADR-018 §1). 값의 존재 조건이 다르다.
- *
- * | 스냅샷 | 컬럼 | 항상 있는가 |
- * |---|---|---|
- * | 길이 기준 | `focus_min`·`short_break_min`·`long_break_min` | **있다** (전역 기본값 25/5/15) |
- * | 계획 의사 | `capacity`·`budget` | **없을 수 있다** (정한 적 없으면 NULL) |
- *
- * 행은 ① 계획 ② 정산 ③ **그 주의 첫 세션** 중 가장 먼저 오는 때 생긴다(ADR-013 §2).
- * 온보딩을 건너뛴 사용자가 첫 뽀모를 완주하면 계획 의사 없이 행이 먼저 생기므로,
- * 그때 `capacity`·`budget` 은 NULL 이다 — 0 을 지어내지 않는다.
- *
- * `created_at`·`updated_at` 이 있는 것은 ADR-006 §2 의 mutable 목록을 ADR-022 §3 이
- * 정정한 결과다. 불변인 것은 **행이 아니라 스냅샷 컬럼**(`budget`·`capacity`·`focus_min`·
- * `short_break_min`·`long_break_min`)이며(ADR-013 §3), 행 자체는 계획 확정·주중 재수정·
- * 정산으로 UPDATE 된다(ADR-013 §2, week-plan R23).
- *
- * `planned_at` 으로 갱신 시각을 대신할 수 없다 — week-plan R23 이 "`planned_at` 은 최초
- * 확정 시각만 담고 주중 재수정으로 다시 확정해도 갱신하지 않는다"고 못박았으므로,
- * 재수정으로 `budget` 이 바뀌어도 시각 흔적이 남지 않는다.
- *
- * 다른 테이블은 PK 가 UUID v7 이라 생성 시각이 ID 에 내장되지만(ADR-006 §1), `weeks` 의
- * PK 는 자연키(그 주 월요일 날짜)라 **생성 시각을 복원할 방법이 없는 유일한 테이블**이다.
- */
-export const weeks = sqliteTable(
-  'weeks',
-  {
-    /** 그 주 월요일 날짜 `'YYYY-MM-DD'` (ADR-010 §2). */
-    week: text('week').primaryKey(),
-    /** NULL = 계획 의사 없음 = "기록 없음". 0 은 "예산 0 으로 하겠다"는 별개의 사실이다. */
-    budget: integer('budget'),
-    /** 요일별 가용 뽀모 JSON `[월..일]`. 인덱스 0 = 월요일 (ADR-010 §1). */
-    capacity: text('capacity'),
-    focusMin: integer('focus_min').notNull(),
-    shortBreakMin: integer('short_break_min').notNull(),
-    longBreakMin: integer('long_break_min').notNull(),
-    /** 순간. 주간 계획 확정 시각. */
-    plannedAt: text('planned_at'),
-    /** 순간. 정산 시각. 정산 필요 **판정**은 워터마크 단독이며 이 값은 이력 전용이다. */
-    settledAt: text('settled_at'),
-    createdAt: text('created_at').notNull().$defaultFn(now),
-    updatedAt: text('updated_at').notNull().$defaultFn(now).$onUpdate(now)
-  },
-  (t) => [
-    check('weeks_week_monday', weekKeyCheck(t.week)),
-    // ADR-019 §3 — nullable 이 된 두 컬럼은 NULL 을 허용하되 값이 있으면 검사한다.
-    check(
-      'weeks_budget_range',
-      sql`${t.budget} IS NULL OR (${isInt(t.budget)} AND ${t.budget} >= 0)`
-    ),
-    /**
-     * 길이 7 만 보면 `'["a",...]'`·`'[-1,...]'`·`'[null,...]'` 이 통과한다
-     * (pomo-baseline R7: "각 원소는 0 이상의 정수"). 특히 7개 전부 null 인 배열은
-     * ADR-018 §1 이 구분하려던 "미설정"과 "0" 사이에 **세 번째 모호한 상태**를 만든다.
-     *
-     * `json_each` 는 테이블 값 함수라 CHECK 안에서 쓸 수 없으므로 `json_extract` 를
-     * 7번 편다 (ADR-021 §3).
-     */
-    check(
-      'weeks_capacity_shape',
-      sql`${t.capacity} IS NULL OR (json_valid(${t.capacity}) AND json_array_length(${t.capacity}) = 7 AND ${sql.join(
-        [0, 1, 2, 3, 4, 5, 6].map(
-          (i) =>
-            sql`typeof(json_extract(${t.capacity}, ${sql.raw(`'$[${i}]'`)})) = 'integer' AND json_extract(${t.capacity}, ${sql.raw(`'$[${i}]'`)}) >= 0`
-        ),
-        sql` AND `
-      )})`
-    ),
-    check(
-      'weeks_baseline_range',
-      sql`${isInt(t.focusMin)} AND ${t.focusMin} >= 1 AND ${isInt(t.shortBreakMin)} AND ${t.shortBreakMin} >= 1 AND ${isInt(t.longBreakMin)} AND ${t.longBreakMin} >= 1`
-    ),
-    check('weeks_planned_at_format', nullableInstant(t.plannedAt)),
-    check('weeks_settled_at_format', nullableInstant(t.settledAt)),
-    check('weeks_created_at_format', instant(t.createdAt)),
-    check('weeks_updated_at_format', instant(t.updatedAt))
-  ]
-)
-
-// ---------------------------------------------------------------------------
 // milestones — 월 단위 결과물
 // ---------------------------------------------------------------------------
 
@@ -245,8 +163,10 @@ export const milestones = sqliteTable(
  *
  * `is_system = 1` 은 주차별 시스템 "기타" 항목이다(ADR-011 §4). 부모 없는 task(오늘
  * 목록 직접 추가, 사후 캡처로 소급 생성)를 여기 붙여 `tasks.week_item_id` NOT NULL 을
- * 유지한다. `est_pomos = 0` 이라 과적 경고·요일 부하에 산입되지 않고, 정산 3택에서
- * 제외되며, 실제 필요할 때만 생성된다(lazy).
+ * 유지한다. 정산 3택에서 제외되며, 실제 필요할 때만 생성된다(lazy).
+ *
+ * `est_pomos` 는 없다 (ADR-030 §1). 추정 개수는 폐기된 통화이고, 그것을 분모로 삼던
+ * 과적 경고·요일 부하도 함께 죽었다.
  */
 export const weekItems = sqliteTable(
   'week_items',
@@ -255,7 +175,6 @@ export const weekItems = sqliteTable(
     /** 이 항목이 속한 주 (월요일 날짜). */
     week: text('week').notNull(),
     title: text('title').notNull(),
-    estPomos: integer('est_pomos').notNull(),
     /**
      * 마일스톤은 물리 삭제이고 연결은 선택이므로 `ON DELETE SET NULL` 이다
      * (ADR-014 §3) — 마일스톤을 지워도 주간 항목은 사라지지 않고 미연결이 된다.
@@ -287,17 +206,6 @@ export const weekItems = sqliteTable(
      * 누락도 산술적으로 불가능"이라던 성질을 깨뜨린다.
      */
     check('week_items_is_system_bool', sql`${t.isSystem} IN (0, 1)`),
-    /**
-     * week-plan R9 의 "est 는 정수 >= 1, 단 기타 항목은 est = 0" 예외를 컬럼 제약으로
-     * 표현한 것이다(ADR-019 §2·§3).
-     *
-     * 하한 1 은 이월 est = `max(1, 남은 몫)` 규칙(ADR-019 §1)에 의존한다. 그 규칙을
-     * 바꾸면 이 제약도 함께 봐야 한다.
-     */
-    check(
-      'week_items_est_by_kind',
-      sql`${isInt(t.estPomos)} AND ((${t.isSystem} = 0 AND ${t.estPomos} >= 1) OR (${t.isSystem} = 1 AND ${t.estPomos} = 0))`
-    ),
     check('week_items_days_json', sql`json_valid(${t.days}) AND json_type(${t.days}) = 'array'`),
     check('week_items_completed_at_format', nullableInstant(t.completedAt)),
     check('week_items_dropped_at_format', nullableInstant(t.droppedAt)),
@@ -347,8 +255,6 @@ export const tasks = sqliteTable(
       .notNull()
       .references(() => weekItems.id),
     title: text('title').notNull(),
-    /** NULL = 추정 없음. 값이 있으면 1 이상이다(ADR-019 §3). */
-    estPomos: integer('est_pomos'),
     /** 순간. NULL = 미완료 (ADR-011 §5). */
     completedAt: text('completed_at'),
     createdAt: text('created_at').notNull().$defaultFn(now),
@@ -356,10 +262,6 @@ export const tasks = sqliteTable(
     deletedAt: text('deleted_at')
   },
   (t) => [
-    check(
-      'tasks_est_pomos_range',
-      sql`${t.estPomos} IS NULL OR (${isInt(t.estPomos)} AND ${t.estPomos} >= 1)`
-    ),
     check('tasks_completed_at_format', nullableInstant(t.completedAt)),
     check('tasks_created_at_format', instant(t.createdAt)),
     check('tasks_updated_at_format', instant(t.updatedAt)),
@@ -406,13 +308,13 @@ export const sessions = sqliteTable(
      * 그 날짜가 속한 주(월요일 날짜). ADR-012 §1 의 집계 술어
      * `sessions.local_week = week_items.week` 가 이 컬럼을 쓴다.
      *
-     * ADR-019 §4 — `weeks(week)` FK 로 "세션이 있는 주는 반드시 자기 스냅샷을 가진다"
-     * (pomo-baseline R17)를 코드 규율에서 DB 강제로 승격한다. 깨지면 "행 없으면
-     * 전역값" 폴백이 되살아나 과거 주가 최신 전역값으로 해석된다.
+     * **FK 가 없다.** ADR-019 §4 는 이 컬럼을 `weeks(week)` 에 묶어 "세션이 있는 주는
+     * 반드시 자기 스냅샷을 가진다"를 DB 로 강제했지만, 지킬 스냅샷 자체가 폐기된
+     * 통화와 함께 사라졌다 (ADR-030 §4). 값의 유효성은 아래 두 CHECK 이 계속 본다 —
+     * 월요일인가(`sessions_local_week_monday`), `local_date` 와 짝이 맞는가
+     * (`sessions_local_calendar_consistent`).
      */
-    localWeek: text('local_week')
-      .notNull()
-      .references(() => weeks.week),
+    localWeek: text('local_week').notNull(),
     updatedAt: text('updated_at').notNull().$defaultFn(now).$onUpdate(now)
   },
   (t) => [

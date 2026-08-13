@@ -1,0 +1,676 @@
+{
+  "version": "6",
+  "dialect": "sqlite",
+  "id": "7ffafe89-fca1-4273-9b72-114f0953e0cc",
+  "prevId": "29fc7dca-1da7-44fa-91c5-c3314eb22a88",
+  "tables": {
+    "milestones": {
+      "name": "milestones",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "month": {
+          "name": "month",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "title": {
+          "name": "title",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "completed_at": {
+          "name": "completed_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "sort_order": {
+          "name": "sort_order",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "archived_at": {
+          "name": "archived_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "milestones_month_format": {
+          "name": "milestones_month_format",
+          "value": "\"milestones\".\"month\" IS strftime('%Y-%m', \"milestones\".\"month\" || '-01')"
+        },
+        "milestones_sort_order_int": {
+          "name": "milestones_sort_order_int",
+          "value": "typeof(\"milestones\".\"sort_order\") = 'integer'"
+        },
+        "milestones_completed_at_format": {
+          "name": "milestones_completed_at_format",
+          "value": "\"milestones\".\"completed_at\" IS NULL OR (\"milestones\".\"completed_at\" GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]T[0-9][0-9]:[0-9][0-9]:[0-9][0-9].[0-9][0-9][0-9]Z' AND \"milestones\".\"completed_at\" IS strftime('%Y-%m-%dT%H:%M:%fZ', \"milestones\".\"completed_at\"))"
+        },
+        "milestones_archived_at_format": {
+          "name": "milestones_archived_at_format",
+          "value": "\"milestones\".\"archived_at\" IS NULL OR (\"milestones\".\"archived_at\" GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]T[0-9][0-9]:[0-9][0-9]:[0-9][0-9].[0-9][0-9][0-9]Z' AND \"milestones\".\"archived_at\" IS strftime('%Y-%m-%dT%H:%M:%fZ', \"milestones\".\"archived_at\"))"
+        },
+        "milestones_created_at_format": {
+          "name": "milestones_created_at_format",
+          "value": "\"milestones\".\"created_at\" GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]T[0-9][0-9]:[0-9][0-9]:[0-9][0-9].[0-9][0-9][0-9]Z' AND \"milestones\".\"created_at\" IS strftime('%Y-%m-%dT%H:%M:%fZ', \"milestones\".\"created_at\")"
+        },
+        "milestones_updated_at_format": {
+          "name": "milestones_updated_at_format",
+          "value": "\"milestones\".\"updated_at\" GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]T[0-9][0-9]:[0-9][0-9]:[0-9][0-9].[0-9][0-9][0-9]Z' AND \"milestones\".\"updated_at\" IS strftime('%Y-%m-%dT%H:%M:%fZ', \"milestones\".\"updated_at\")"
+        }
+      }
+    },
+    "sessions": {
+      "name": "sessions",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "started_at": {
+          "name": "started_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "ended_at": {
+          "name": "ended_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "duration_sec": {
+          "name": "duration_sec",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "kind": {
+          "name": "kind",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "task_id": {
+          "name": "task_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "note": {
+          "name": "note",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "local_date": {
+          "name": "local_date",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "local_week": {
+          "name": "local_week",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "idx_sessions_local_date": {
+          "name": "idx_sessions_local_date",
+          "columns": [
+            "local_date"
+          ],
+          "isUnique": false
+        },
+        "idx_sessions_local_week": {
+          "name": "idx_sessions_local_week",
+          "columns": [
+            "local_week"
+          ],
+          "isUnique": false
+        },
+        "idx_sessions_task": {
+          "name": "idx_sessions_task",
+          "columns": [
+            "task_id"
+          ],
+          "isUnique": false,
+          "where": "\"sessions\".\"task_id\" IS NOT NULL"
+        }
+      },
+      "foreignKeys": {
+        "sessions_task_id_tasks_id_fk": {
+          "name": "sessions_task_id_tasks_id_fk",
+          "tableFrom": "sessions",
+          "tableTo": "tasks",
+          "columnsFrom": [
+            "task_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "sessions_kind_enum": {
+          "name": "sessions_kind_enum",
+          "value": "\"sessions\".\"kind\" IN ('focus', 'short', 'long')"
+        },
+        "sessions_started_at_format": {
+          "name": "sessions_started_at_format",
+          "value": "\"sessions\".\"started_at\" GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]T[0-9][0-9]:[0-9][0-9]:[0-9][0-9].[0-9][0-9][0-9]Z' AND \"sessions\".\"started_at\" IS strftime('%Y-%m-%dT%H:%M:%fZ', \"sessions\".\"started_at\")"
+        },
+        "sessions_ended_at_format": {
+          "name": "sessions_ended_at_format",
+          "value": "\"sessions\".\"ended_at\" GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]T[0-9][0-9]:[0-9][0-9]:[0-9][0-9].[0-9][0-9][0-9]Z' AND \"sessions\".\"ended_at\" IS strftime('%Y-%m-%dT%H:%M:%fZ', \"sessions\".\"ended_at\")"
+        },
+        "sessions_updated_at_format": {
+          "name": "sessions_updated_at_format",
+          "value": "\"sessions\".\"updated_at\" GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]T[0-9][0-9]:[0-9][0-9]:[0-9][0-9].[0-9][0-9][0-9]Z' AND \"sessions\".\"updated_at\" IS strftime('%Y-%m-%dT%H:%M:%fZ', \"sessions\".\"updated_at\")"
+        },
+        "sessions_ended_after_started": {
+          "name": "sessions_ended_after_started",
+          "value": "\"sessions\".\"ended_at\" >= \"sessions\".\"started_at\""
+        },
+        "sessions_duration_range": {
+          "name": "sessions_duration_range",
+          "value": "typeof(\"sessions\".\"duration_sec\") = 'integer' AND \"sessions\".\"duration_sec\" >= 0"
+        },
+        "sessions_local_date_format": {
+          "name": "sessions_local_date_format",
+          "value": "\"sessions\".\"local_date\" IS date(\"sessions\".\"local_date\")"
+        },
+        "sessions_local_week_monday": {
+          "name": "sessions_local_week_monday",
+          "value": "\"sessions\".\"local_week\" IS date(\"sessions\".\"local_week\") AND strftime('%w', \"sessions\".\"local_week\") = '1'"
+        },
+        "sessions_local_calendar_consistent": {
+          "name": "sessions_local_calendar_consistent",
+          "value": "\"sessions\".\"local_week\" IS date(\"sessions\".\"local_date\", '-6 days', 'weekday 1')"
+        }
+      }
+    },
+    "settings": {
+      "name": "settings",
+      "columns": {
+        "key": {
+          "name": "key",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "value": {
+          "name": "value",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "settings_value_json": {
+          "name": "settings_value_json",
+          "value": "json_valid(\"settings\".\"value\")"
+        },
+        "settings_updated_at_format": {
+          "name": "settings_updated_at_format",
+          "value": "\"settings\".\"updated_at\" GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]T[0-9][0-9]:[0-9][0-9]:[0-9][0-9].[0-9][0-9][0-9]Z' AND \"settings\".\"updated_at\" IS strftime('%Y-%m-%dT%H:%M:%fZ', \"settings\".\"updated_at\")"
+        }
+      }
+    },
+    "task_pulls": {
+      "name": "task_pulls",
+      "columns": {
+        "task_id": {
+          "name": "task_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "pull_date": {
+          "name": "pull_date",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "removed_at": {
+          "name": "removed_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "idx_task_pulls_date": {
+          "name": "idx_task_pulls_date",
+          "columns": [
+            "pull_date"
+          ],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "task_pulls_task_id_tasks_id_fk": {
+          "name": "task_pulls_task_id_tasks_id_fk",
+          "tableFrom": "task_pulls",
+          "tableTo": "tasks",
+          "columnsFrom": [
+            "task_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "task_pulls_task_id_pull_date_pk": {
+          "columns": [
+            "task_id",
+            "pull_date"
+          ],
+          "name": "task_pulls_task_id_pull_date_pk"
+        }
+      },
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "task_pulls_pull_date_format": {
+          "name": "task_pulls_pull_date_format",
+          "value": "\"task_pulls\".\"pull_date\" IS date(\"task_pulls\".\"pull_date\")"
+        },
+        "task_pulls_removed_at_format": {
+          "name": "task_pulls_removed_at_format",
+          "value": "\"task_pulls\".\"removed_at\" IS NULL OR (\"task_pulls\".\"removed_at\" GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]T[0-9][0-9]:[0-9][0-9]:[0-9][0-9].[0-9][0-9][0-9]Z' AND \"task_pulls\".\"removed_at\" IS strftime('%Y-%m-%dT%H:%M:%fZ', \"task_pulls\".\"removed_at\"))"
+        },
+        "task_pulls_created_at_format": {
+          "name": "task_pulls_created_at_format",
+          "value": "\"task_pulls\".\"created_at\" GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]T[0-9][0-9]:[0-9][0-9]:[0-9][0-9].[0-9][0-9][0-9]Z' AND \"task_pulls\".\"created_at\" IS strftime('%Y-%m-%dT%H:%M:%fZ', \"task_pulls\".\"created_at\")"
+        },
+        "task_pulls_updated_at_format": {
+          "name": "task_pulls_updated_at_format",
+          "value": "\"task_pulls\".\"updated_at\" GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]T[0-9][0-9]:[0-9][0-9]:[0-9][0-9].[0-9][0-9][0-9]Z' AND \"task_pulls\".\"updated_at\" IS strftime('%Y-%m-%dT%H:%M:%fZ', \"task_pulls\".\"updated_at\")"
+        }
+      }
+    },
+    "tasks": {
+      "name": "tasks",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "week_item_id": {
+          "name": "week_item_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "title": {
+          "name": "title",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "completed_at": {
+          "name": "completed_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "deleted_at": {
+          "name": "deleted_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "idx_tasks_week_item": {
+          "name": "idx_tasks_week_item",
+          "columns": [
+            "week_item_id"
+          ],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "tasks_week_item_id_week_items_id_fk": {
+          "name": "tasks_week_item_id_week_items_id_fk",
+          "tableFrom": "tasks",
+          "tableTo": "week_items",
+          "columnsFrom": [
+            "week_item_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "tasks_completed_at_format": {
+          "name": "tasks_completed_at_format",
+          "value": "\"tasks\".\"completed_at\" IS NULL OR (\"tasks\".\"completed_at\" GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]T[0-9][0-9]:[0-9][0-9]:[0-9][0-9].[0-9][0-9][0-9]Z' AND \"tasks\".\"completed_at\" IS strftime('%Y-%m-%dT%H:%M:%fZ', \"tasks\".\"completed_at\"))"
+        },
+        "tasks_created_at_format": {
+          "name": "tasks_created_at_format",
+          "value": "\"tasks\".\"created_at\" GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]T[0-9][0-9]:[0-9][0-9]:[0-9][0-9].[0-9][0-9][0-9]Z' AND \"tasks\".\"created_at\" IS strftime('%Y-%m-%dT%H:%M:%fZ', \"tasks\".\"created_at\")"
+        },
+        "tasks_updated_at_format": {
+          "name": "tasks_updated_at_format",
+          "value": "\"tasks\".\"updated_at\" GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]T[0-9][0-9]:[0-9][0-9]:[0-9][0-9].[0-9][0-9][0-9]Z' AND \"tasks\".\"updated_at\" IS strftime('%Y-%m-%dT%H:%M:%fZ', \"tasks\".\"updated_at\")"
+        },
+        "tasks_deleted_at_format": {
+          "name": "tasks_deleted_at_format",
+          "value": "\"tasks\".\"deleted_at\" IS NULL OR (\"tasks\".\"deleted_at\" GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]T[0-9][0-9]:[0-9][0-9]:[0-9][0-9].[0-9][0-9][0-9]Z' AND \"tasks\".\"deleted_at\" IS strftime('%Y-%m-%dT%H:%M:%fZ', \"tasks\".\"deleted_at\"))"
+        }
+      }
+    },
+    "week_items": {
+      "name": "week_items",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "week": {
+          "name": "week",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "title": {
+          "name": "title",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "milestone_id": {
+          "name": "milestone_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "days": {
+          "name": "days",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "carry_from_id": {
+          "name": "carry_from_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "origin_week": {
+          "name": "origin_week",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "is_system": {
+          "name": "is_system",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": 0
+        },
+        "completed_at": {
+          "name": "completed_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "dropped_at": {
+          "name": "dropped_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "deleted_at": {
+          "name": "deleted_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "idx_week_items_week_created": {
+          "name": "idx_week_items_week_created",
+          "columns": [
+            "week",
+            "created_at"
+          ],
+          "isUnique": false
+        },
+        "idx_week_items_one_system": {
+          "name": "idx_week_items_one_system",
+          "columns": [
+            "week"
+          ],
+          "isUnique": true,
+          "where": "\"week_items\".\"is_system\" = 1 AND \"week_items\".\"deleted_at\" IS NULL"
+        }
+      },
+      "foreignKeys": {
+        "week_items_milestone_id_milestones_id_fk": {
+          "name": "week_items_milestone_id_milestones_id_fk",
+          "tableFrom": "week_items",
+          "tableTo": "milestones",
+          "columnsFrom": [
+            "milestone_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        },
+        "week_items_carry_from_id_week_items_id_fk": {
+          "name": "week_items_carry_from_id_week_items_id_fk",
+          "tableFrom": "week_items",
+          "tableTo": "week_items",
+          "columnsFrom": [
+            "carry_from_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "week_items_week_monday": {
+          "name": "week_items_week_monday",
+          "value": "\"week_items\".\"week\" IS date(\"week_items\".\"week\") AND strftime('%w', \"week_items\".\"week\") = '1'"
+        },
+        "week_items_origin_week_monday": {
+          "name": "week_items_origin_week_monday",
+          "value": "\"week_items\".\"origin_week\" IS date(\"week_items\".\"origin_week\") AND strftime('%w', \"week_items\".\"origin_week\") = '1'"
+        },
+        "week_items_is_system_bool": {
+          "name": "week_items_is_system_bool",
+          "value": "\"week_items\".\"is_system\" IN (0, 1)"
+        },
+        "week_items_days_json": {
+          "name": "week_items_days_json",
+          "value": "json_valid(\"week_items\".\"days\") AND json_type(\"week_items\".\"days\") = 'array'"
+        },
+        "week_items_completed_at_format": {
+          "name": "week_items_completed_at_format",
+          "value": "\"week_items\".\"completed_at\" IS NULL OR (\"week_items\".\"completed_at\" GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]T[0-9][0-9]:[0-9][0-9]:[0-9][0-9].[0-9][0-9][0-9]Z' AND \"week_items\".\"completed_at\" IS strftime('%Y-%m-%dT%H:%M:%fZ', \"week_items\".\"completed_at\"))"
+        },
+        "week_items_dropped_at_format": {
+          "name": "week_items_dropped_at_format",
+          "value": "\"week_items\".\"dropped_at\" IS NULL OR (\"week_items\".\"dropped_at\" GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]T[0-9][0-9]:[0-9][0-9]:[0-9][0-9].[0-9][0-9][0-9]Z' AND \"week_items\".\"dropped_at\" IS strftime('%Y-%m-%dT%H:%M:%fZ', \"week_items\".\"dropped_at\"))"
+        },
+        "week_items_created_at_format": {
+          "name": "week_items_created_at_format",
+          "value": "\"week_items\".\"created_at\" GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]T[0-9][0-9]:[0-9][0-9]:[0-9][0-9].[0-9][0-9][0-9]Z' AND \"week_items\".\"created_at\" IS strftime('%Y-%m-%dT%H:%M:%fZ', \"week_items\".\"created_at\")"
+        },
+        "week_items_updated_at_format": {
+          "name": "week_items_updated_at_format",
+          "value": "\"week_items\".\"updated_at\" GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]T[0-9][0-9]:[0-9][0-9]:[0-9][0-9].[0-9][0-9][0-9]Z' AND \"week_items\".\"updated_at\" IS strftime('%Y-%m-%dT%H:%M:%fZ', \"week_items\".\"updated_at\")"
+        },
+        "week_items_deleted_at_format": {
+          "name": "week_items_deleted_at_format",
+          "value": "\"week_items\".\"deleted_at\" IS NULL OR (\"week_items\".\"deleted_at\" GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]T[0-9][0-9]:[0-9][0-9]:[0-9][0-9].[0-9][0-9][0-9]Z' AND \"week_items\".\"deleted_at\" IS strftime('%Y-%m-%dT%H:%M:%fZ', \"week_items\".\"deleted_at\"))"
+        }
+      }
+    }
+  },
+  "views": {},
+  "enums": {},
+  "_meta": {
+    "schemas": {},
+    "tables": {},
+    "columns": {}
+  },
+  "internal": {
+    "indexes": {}
+  }
+}

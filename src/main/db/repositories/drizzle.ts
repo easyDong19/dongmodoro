@@ -2,7 +2,7 @@ import { and, asc, desc, eq, gt, gte, isNotNull, isNull, lte, sql } from 'drizzl
 import type { SQL } from 'drizzle-orm'
 import type { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3'
 import { v7 as uuidv7 } from 'uuid'
-import { settings, weeks, weekItems, tasks, taskPulls, sessions, milestones } from '../schema'
+import { settings, weekItems, tasks, taskPulls, sessions, milestones } from '../schema'
 import { now } from '../../../shared/time'
 import type { Repositories, SessionRow, UnitOfWork } from '../../services/ports'
 
@@ -33,43 +33,6 @@ function makeRepos(tx: Tx): Repositories {
           .get()?.updatedAt ?? null
     },
 
-    weeks: {
-      baseline: (week) => {
-        const row = tx
-          .select({
-            focusMin: weeks.focusMin,
-            shortBreakMin: weeks.shortBreakMin,
-            longBreakMin: weeks.longBreakMin
-          })
-          .from(weeks)
-          .where(eq(weeks.week, week))
-          .get()
-        return row ?? null
-      },
-
-      /**
-       * 행이 없을 때만 만든다. `onConflictDoNothing` 이 곧 "있는 행의 스냅샷은 덮지
-       * 않는다"는 규칙의 구현이다 (ADR-013 §3) — `DoUpdate` 로 바꾸는 순간 지각 정산이
-       * 진행 중인 주의 단위를 바꾸게 된다.
-       *
-       * capacity 는 JSON 문자열로 넣는다. 스키마의 `weeks_capacity_shape` CHECK 가
-       * 길이 7 · 원소 전부 0 이상 정수를 재검증한다 (ADR-021 §3).
-       */
-      ensure: (week, snapshot) => {
-        tx.insert(weeks)
-          .values({
-            week,
-            focusMin: snapshot.focusMin,
-            shortBreakMin: snapshot.shortBreakMin,
-            longBreakMin: snapshot.longBreakMin,
-            capacity: snapshot.capacity === null ? null : JSON.stringify(snapshot.capacity),
-            budget: snapshot.budget
-          })
-          .onConflictDoNothing({ target: weeks.week })
-          .run()
-      }
-    },
-
     weekItems: {
       ensureSystemItem: (week) => {
         const existing = tx
@@ -87,7 +50,6 @@ function makeRepos(tx: Tx): Repositories {
             id,
             week,
             title: '기타',
-            estPomos: 0,
             days: '[]',
             originWeek: week,
             isSystem: 1
@@ -269,13 +231,6 @@ function makeRepos(tx: Tx): Repositories {
                 id,
                 week,
                 title: item.title,
-                /**
-                 * **아무도 읽지 않는 자리 채움이다** — `applySettlement` 의 이월 INSERT 와
-                 * 같은 이유다. est 는 폐기된 통화지만(ADR-030 §4) 컬럼이 `NOT NULL` 이고
-                 * `week_items_est_pomos_range` CHECK 가 사용자 항목에 `>= 1` 을 요구하므로,
-                 * 컬럼을 걷는 마이그레이션이 오기 전까지는 값을 하나 써야 한다.
-                 */
-                estPomos: 1,
                 days,
                 // 신규는 이 주가 최초 생성 주다. 이월만 원본 값을 승계한다 (R11) — 그 경로는
                 // 정산(M3b)이 별도로 만든다. 이 메서드를 이월에 재사용하면 배지가 1 로 리셋된다.
@@ -477,7 +432,6 @@ function makeRepos(tx: Tx): Repositories {
             id: t.id,
             weekItemId: t.weekItemId,
             title: t.title,
-            // `tasks.est_pomos` 는 nullable 이라 자리 채움조차 필요 없다 (ADR-030 §4).
             completedAt: t.completedAt ?? null
           })
           .run()
@@ -810,13 +764,16 @@ function makeRepos(tx: Tx): Repositories {
 
     review: {
       /**
-       * 세 테이블의 최소 주 키. 달력 키는 사전순 = 시간순이라 `MIN()` 이 곧 가장 이른
-       * 주다 (ADR-009 §1). UNION 이 아니라 스칼라 3개의 최소를 쓰는 이유는, 세 컬럼의
-       * 의미가 서로 다르고("세션이 있었다"·"계획이 있었다"·"주 행이 생겼다") 어느
-       * 하나만 있어도 "기록이 있다"로 쳐야 하기 때문이다 (R28).
+       * 두 테이블의 최소 주 키. 달력 키는 사전순 = 시간순이라 `MIN()` 이 곧 가장 이른
+       * 주다 (ADR-009 §1). UNION 이 아니라 스칼라 2개의 최소를 쓰는 이유는, 두 컬럼의
+       * 의미가 서로 다르고("세션이 있었다"·"계획이 있었다") 어느 하나만 있어도
+       * "기록이 있다"로 쳐야 하기 때문이다 (R28).
        *
-       * `week_items` 는 삭제된 행을 빼지 않는다 — 삭제됐어도 **그 주에 무언가 있었다는
-       * 사실**은 남고, 폴백은 정산 범위를 넓히는 쪽이 안전하다.
+       * **세 번째 후보였던 `weeks.week` 는 테이블과 함께 사라졌다** (ADR-030 §4). 잃는
+       * 것은 "계획만 있고 세션도 항목도 없는 주"가 최초 기록인 경우인데, 계획 확정은
+       * 항목을 만들거나 이미 있는 항목을 그 주에 두므로 `week_items` 가 그 자리를
+       * 대신한다. 남는 공백은 항목 0개로 확정한 주뿐이고, 폴백이 좁아지는 방향이라
+       * 정산 범위가 그만큼 늦게 시작된다.
        */
       earliestRecordedWeek: () => {
         const min = (value: string | null | undefined): string | null => value ?? null
@@ -831,12 +788,6 @@ function makeRepos(tx: Tx): Repositories {
             tx
               .select({ w: sql<string | null>`min(${weekItems.week})` })
               .from(weekItems)
-              .get()?.w
-          ),
-          min(
-            tx
-              .select({ w: sql<string | null>`min(${weeks.week})` })
-              .from(weeks)
               .get()?.w
           )
         ].filter((w): w is string => w !== null)
@@ -1008,13 +959,6 @@ function makeRepos(tx: Tx): Repositories {
               id: newId,
               week: targetWeek,
               title: src.title,
-              /**
-               * **아무도 읽지 않는 자리 채움이다.** est 는 폐기된 통화지만(ADR-030 §4)
-               * 컬럼이 `NOT NULL` 이고 `week_items_est_pomos_range` CHECK 가 사용자
-               * 항목에 `>= 1` 을 요구하므로, 컬럼을 걷는 마이그레이션이 오기 전까지는
-               * 값을 하나 써야 한다. 이월 규모를 이 숫자로 말하는 화면은 없다.
-               */
-              estPomos: 1,
               milestoneId: src.milestoneId, // 마일스톤 승계 (ADR-012 §3)
               days: '[]', // 요일 배치는 플래너에서 다시 (week-plan)
               originWeek: src.originWeek, // 박제 승계 — 배지의 근거 (Q12)
@@ -1051,10 +995,8 @@ function makeRepos(tx: Tx): Repositories {
          * **6단계가 없다.** 예전에는 정산 범위의 각 주와 계획 대상 주에 `weeks` 행을
          * 만들고 `settled_at` 을 찍었다. 박제하던 것(예산·가용량·길이)이 전부 폐기된
          * 통화이고(ADR-030 §4), `settled_at` 은 어떤 화면도 읽지 않는다 — 정산 필요
-         * 판정은 `settings.last_settled_week` 워터마크 단독이다.
-         *
-         * FK(`sessions.local_week` → `weeks.week`)는 세션 기록 경로가 계속 충족한다:
-         * 세션이 없는 주에는 애초에 참조도 없다.
+         * 판정은 `settings.last_settled_week` 워터마크 단독이다. 그 행을 요구하던
+         * FK(`sessions.local_week` → `weeks.week`)도 테이블과 함께 사라졌다.
          */
         return { carried }
       }

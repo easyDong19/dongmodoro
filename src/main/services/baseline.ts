@@ -1,4 +1,4 @@
-import type { Baseline, Repositories, UnitOfWork, WeekSnapshot } from './ports'
+import type { Baseline, Repositories, UnitOfWork } from './ports'
 
 /** settings 값은 JSON 문자열이다 (ADR-018 §5) — `'25'` 를 파싱해 정수로 되돌린다. */
 function readIntSetting(repos: Repositories, key: string): number {
@@ -28,13 +28,11 @@ export function globalBaseline(repos: Repositories): Baseline {
 }
 
 /**
- * 길이 3종을 갱신한다 (ADR-029 §1). **`weeks` 에 접근하지 않는다.**
+ * 길이 3종을 갱신한다 (ADR-029 §1). 저장소는 `settings` 전역값 하나뿐이다 — 주별
+ * 길이 스냅샷을 담던 `weeks` 테이블은 0001 마이그레이션이 걷어냈다.
  *
- * 접근할 이유가 없어졌다 — 길이의 저장소는 전역값 하나뿐이고 스냅샷을 읽는 경로가
- * 없다. 여기서 `weeks` 를 건드리면 아무도 읽지 않는 컬럼에 쓰는 코드가 될 뿐이다.
- *
- * `weekly_capacity` 쓰기 경로는 제거했다 (ADR-030 — 가용량은 폐기된 통화다).
- * `settings` 의 그 행 자체는 스키마 정리 단계가 지운다.
+ * `weekly_capacity` 쓰기 경로는 제거했고 (ADR-030 — 가용량은 폐기된 통화다),
+ * `settings` 의 그 행은 0001 마이그레이션이 지웠다.
  */
 export function writeBaseline(uow: UnitOfWork, form: Baseline): Baseline {
   return uow.run((repos) => {
@@ -43,16 +41,4 @@ export function writeBaseline(uow: UnitOfWork, form: Baseline): Baseline {
     repos.settings.set('long_break_min', JSON.stringify(form.longBreakMin))
     return globalBaseline(repos)
   })
-}
-
-/**
- * `weeks` 행을 처음 만들 때 박제할 값 (weekly-review R37).
- *
- * **축소된 함수다.** 길이 스냅샷은 아무도 읽지 않고(ADR-029 §2), `capacity`·`budget` 은
- * 폐기된 통화라 항상 `null` 이다 (ADR-030). 그럼에도 행 생성 경로가 남아 있는 이유는
- * `sessions.local_week` 가 `weeks.week` 를 FK 로 참조하기 때문이다 (ADR-019 §6) —
- * 그 FK 를 걷는 마이그레이션이 오기 전까지 행은 계속 생겨야 한다.
- */
-export function weekSnapshot(repos: Repositories): WeekSnapshot {
-  return { ...globalBaseline(repos), capacity: null, budget: null }
 }

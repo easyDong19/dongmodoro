@@ -38,9 +38,7 @@ function drizzleUowOnMemoryDb(): { uow: UnitOfWork; db: ReturnType<typeof drizzl
  * 이 파일은 db/repositories 아래라 스키마를 직접 다룰 수 있다. */
 function seedWeekItem(db: ReturnType<typeof drizzle>, week: string, title: string): string {
   const id = uuidv7()
-  db.insert(weekItems)
-    .values({ id, week, title, estPomos: 1, days: '[]', originWeek: week, isSystem: 0 })
-    .run()
+  db.insert(weekItems).values({ id, week, title, days: '[]', originWeek: week, isSystem: 0 }).run()
   return id
 }
 

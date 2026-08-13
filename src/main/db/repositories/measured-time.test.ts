@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { recordSession } from '../../services/sessions'
 import { otherRowMeasuredSec, weekSummary } from '../../services/week-plan'
-import { ensureWeeks, testUow } from './test-helpers'
+import { testUow } from './test-helpers'
 
 /**
  * 측정 시간 파생 조회 (ADR-031 §2·§3). 합산 대상은 **완료 focus 세션뿐**이고, 차액은
@@ -33,7 +33,6 @@ function focusSession(
 describe('측정 시간 합산 — 정의역 (ADR-031 §3)', () => {
   it('휴식 세션은 산입하지 않는다 — 개수에도 초에도', () => {
     const { uow } = testUow()
-    ensureWeeks(uow, WEEK)
     uow.run((repos) => {
       const itemId = repos.weekItems.confirmPlan({
         week: WEEK,
@@ -53,7 +52,6 @@ describe('측정 시간 합산 — 정의역 (ADR-031 §3)', () => {
 
   it('완료되지 않은 세션은 행 자체가 없으므로 산입되지 않는다 (ADR-031 §3)', () => {
     const { uow } = testUow()
-    ensureWeeks(uow, WEEK)
 
     // 진행 중·중단된 세션은 `recordSession` 을 거치지 않는다 — 그것이 유일한 INSERT
     // 경로이므로 완료 전까지 어떤 조회에도 나타날 수 없다. 계약에 `runningSec` 를
@@ -73,7 +71,6 @@ describe('측정 시간 합산 — 정의역 (ADR-031 §3)', () => {
 
   it('항목 측정 시간은 그 항목의 주에 기록된 세션만 센다 (ADR-012 §1)', () => {
     const { uow } = testUow()
-    ensureWeeks(uow, WEEK, NEXT)
     uow.run((repos) => {
       const itemId = repos.weekItems.confirmPlan({
         week: WEEK,
@@ -95,7 +92,6 @@ describe('측정 시간 합산 — 정의역 (ADR-031 §3)', () => {
 describe('기타 행 차액 — 초 단계 계산 (ADR-031 §2)', () => {
   it('폐기된 항목의 시간이 차액으로 흘러든다 (ADR-027 A24 의 시간판)', () => {
     const { uow } = testUow()
-    ensureWeeks(uow, WEEK)
     uow.run((repos) => {
       const { createdIds } = repos.weekItems.confirmPlan({
         week: WEEK,
@@ -125,7 +121,6 @@ describe('기타 행 차액 — 초 단계 계산 (ADR-031 §2)', () => {
 
   it('차액은 초에서 계산된다 — 분으로 접고 빼면 없던 1분이 생기는 배치에서 검증', () => {
     const { uow } = testUow()
-    ensureWeeks(uow, WEEK)
     uow.run((repos) => {
       const { createdIds } = repos.weekItems.confirmPlan({
         week: WEEK,
@@ -152,7 +147,6 @@ describe('기타 행 차액 — 초 단계 계산 (ADR-031 §2)', () => {
 
   it('미분류 집중은 항목 합에 없고 차액으로만 나타난다', () => {
     const { uow } = testUow()
-    ensureWeeks(uow, WEEK)
     uow.run((repos) => {
       repos.weekItems.confirmPlan({
         week: WEEK,
@@ -171,7 +165,6 @@ describe('기타 행 차액 — 초 단계 계산 (ADR-031 §2)', () => {
 describe('이월 재부모화와 귀속 (ADR-012 §3)', () => {
   it('재부모화해도 과거 주의 측정 시간은 소급 이동하지 않는다', () => {
     const { uow } = testUow()
-    ensureWeeks(uow, WEEK, NEXT)
 
     const { sourceId, newItemId } = uow.run((repos) => {
       const itemId = repos.weekItems.confirmPlan({
@@ -214,7 +207,6 @@ describe('이월 재부모화와 귀속 (ADR-012 §3)', () => {
 describe('마일스톤 롤업 — 측정 시간 (milestones R17)', () => {
   it('연결된 할당들의 측정 시간을 그 주 기준으로 합한다', () => {
     const { uow } = testUow()
-    ensureWeeks(uow, WEEK)
     uow.run((repos) => {
       repos.milestones.create({ id: 'm1', month: '2026-08', title: '논문', sortOrder: 0 })
       const { createdIds } = repos.weekItems.confirmPlan({
@@ -240,7 +232,6 @@ describe('마일스톤 롤업 — 측정 시간 (milestones R17)', () => {
 
   it('폐기된 할당은 롤업에서 빠진다 — 주간 카드에서 사라진 시간이 롤업에만 남지 않는다', () => {
     const { uow } = testUow()
-    ensureWeeks(uow, WEEK)
     uow.run((repos) => {
       repos.milestones.create({ id: 'm1', month: '2026-08', title: '논문', sortOrder: 0 })
       const itemId = repos.weekItems.confirmPlan({

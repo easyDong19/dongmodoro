@@ -1,6 +1,5 @@
 import { v7 as uuidv7 } from 'uuid'
 import { localKeys, monthOfWeek, now } from '../../shared/time'
-import { weekSnapshot } from './baseline'
 import type { ChildTaskRow, MilestoneRow, PlanDraftItem, UnitOfWork, WeekItemRow } from './ports'
 
 /**
@@ -33,9 +32,6 @@ export function confirmWeekPlan(
   input: { week: string; items: readonly PlanDraftItem[] }
 ): { week: string; droppedCount: number } {
   return uow.run((repos) => {
-    // 행이 없으면 만든다 (ADR-013 §2). 있으면 덮지 않는다. **저장할 계획 의사는 없다** —
-    // 예산·가용량이 폐기된 통화라 이 행은 이제 FK 를 만족시키는 껍데기다 (ADR-030 §4).
-    repos.weeks.ensure(input.week, weekSnapshot(repos))
     const { droppedIds } = repos.weekItems.confirmPlan({ week: input.week, items: input.items })
     return { week: input.week, droppedCount: droppedIds.length }
   })

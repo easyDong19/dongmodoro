@@ -8,6 +8,13 @@
       "when": 1785985641740,
       "tag": "0000_initial_schema",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1786594080989,
+      "tag": "0001_drop_pomo_counts",
+      "breakpoints": true
     }
   ]
 }

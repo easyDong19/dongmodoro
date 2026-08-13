@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { backdateOriginWeek, ensureWeeks, testUow } from '../db/repositories/test-helpers'
+import { backdateOriginWeek, testUow } from '../db/repositories/test-helpers'
 import {
   bootstrapWatermark,
   evaluateSettlement,
@@ -352,7 +352,6 @@ describe('reviewPending — 패널 데이터', () => {
 
   function seeded(): ReturnType<typeof testUow> {
     const t = testUow()
-    ensureWeeks(t.uow, W1, W2)
     t.uow.run((repos) => repos.settings.set('last_settled_week', JSON.stringify('2026-08-03')))
     return t
   }
@@ -452,17 +451,8 @@ describe('reviewPending — 패널 데이터', () => {
     expect(panel(uow, SUNDAY).pending[0].carryWeeks).toBe(4)
   })
 
-  it('길이는 계획 대상 주의 스냅샷이 아니라 전역 설정값이다 (ADR-013 §3)', () => {
+  it('길이는 전역 설정값이다 (ADR-029 §2)', () => {
     const { uow } = seeded()
-    uow.run((repos) => {
-      repos.weeks.ensure(TARGET, {
-        focusMin: 50,
-        shortBreakMin: 10,
-        longBreakMin: 30,
-        capacity: null,
-        budget: null
-      })
-    })
     expect(panel(uow, SUNDAY).baseline.focusMin).toBe(25)
   })
 
@@ -475,7 +465,6 @@ describe('reviewPending — 패널 데이터', () => {
 
   it('A25 — 마지막으로 공부한 주는 정산 범위 밖이어도 실려 온다', () => {
     const { uow } = seeded()
-    ensureWeeks(uow, '2026-08-03')
     uow.run((repos) => {
       repos.sessions.insert({
         id: 'old',
@@ -509,7 +498,6 @@ describe('settle — 확정 (R22 · 트랜잭션 1개)', () => {
 
   function seeded(): ReturnType<typeof testUow> {
     const t = testUow()
-    ensureWeeks(t.uow, W1)
     t.uow.run((repos) => repos.settings.set('last_settled_week', JSON.stringify('2026-08-03')))
     return t
   }
@@ -604,21 +592,6 @@ describe('settle — 확정 (R22 · 트랜잭션 1개)', () => {
     const out = settle(t.uow, NOW, input())
     expect(out.carriedItemIds).toEqual([])
     expect(out.settledThrough).toBe('2026-08-24')
-  })
-
-  /**
-   * R37 이 요구하던 "범위의 주와 계획 대상 주에 `weeks` 행을 만든다"는 죽었다 —
-   * 박제하던 값(예산·가용량·길이)이 전부 폐기된 통화이기 때문이다 (ADR-030 §4).
-   * 확정은 이제 그 테이블을 건드리지 않는다.
-   */
-  it('확정은 weeks 행을 만들지 않는다 (ADR-030 §4)', () => {
-    const t = seeded()
-    settle(t.uow, NOW, input())
-    t.uow.run((repos) => {
-      for (const w of ['2026-08-17', '2026-08-24', TARGET]) {
-        expect(repos.weeks.baseline(w)).toBeNull()
-      }
-    })
   })
 
   it('시나리오 8 — 계획 대상 주에 이미 항목이 있으면 행을 추가할 뿐 병합하지 않는다', () => {

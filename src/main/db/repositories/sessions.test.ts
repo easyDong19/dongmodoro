@@ -24,7 +24,7 @@ function makeUow(): UnitOfWork {
   const db = drizzle(sqlite)
   migrate(db, { migrationsFolder: REPO_MIGRATIONS })
   const uow = makeDrizzleUow(db)
-  // effectiveBaseline 의 폴백 원천 (ADR-013 §2) — 값은 JSON 문자열이다 (ADR-018 §5)
+  // globalBaseline 의 원천 — 값은 JSON 문자열이다 (ADR-018 §5)
   uow.run((r) => {
     r.settings.set('focus_min', '25')
     r.settings.set('short_break_min', '5')
@@ -37,10 +37,14 @@ function makeUow(): UnitOfWork {
 const TUE_2350 = new Date(2026, 0, 6, 23, 50, 0).getTime() // 2026-01-06 (화) 23:50 로컬
 const TUE_WEEK = '2026-01-05' // 그 주 월요일
 
-describe('recordSession — ADR-013 §2 + ADR-026 §2', () => {
-  it('그 주 weeks 행이 없으면 유효 베이스라인으로 만들고 나서 INSERT 한다', () => {
+describe('recordSession — ADR-026 §2', () => {
+  /**
+   * 예전에는 이 경로가 세션 INSERT 앞에 그 주 `weeks` 행을 먼저 만들었다. 스냅샷도
+   * 그것을 요구하던 FK 도 폐기된 통화와 함께 사라졌으므로(ADR-030 §4), 남은 사실은
+   * **선행 행 없이도 세션이 들어간다**는 것이다.
+   */
+  it('선행 행 없이 바로 INSERT 한다', () => {
     const uow = makeUow()
-    expect(uow.run((r) => r.weeks.baseline(TUE_WEEK))).toBeNull()
 
     const payload = recordSession(uow, {
       kind: 'focus',
@@ -50,13 +54,6 @@ describe('recordSession — ADR-013 §2 + ADR-026 §2', () => {
       taskId: null
     })
 
-    // 주 스냅샷이 유효 베이스라인 값으로 박제됐다
-    expect(uow.run((r) => r.weeks.baseline(TUE_WEEK))).toEqual({
-      focusMin: 25,
-      shortBreakMin: 5,
-      longBreakMin: 15
-    })
-    // 세션 1행 — FK(local_week → weeks)가 성립했다는 뜻이기도 하다
     const row = uow.run((r) => r.sessions.get(payload.sessionId))
     expect(row).not.toBeNull()
     expect(row?.kind).toBe('focus')

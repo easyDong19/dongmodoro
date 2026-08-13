@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { otherRowMeasuredSec } from '../../services/week-plan'
-import { ensureWeeks, testUow } from './test-helpers'
+import { testUow } from './test-helpers'
 
 const WEEK = '2026-08-03' // 월요일
 const NEXT = '2026-08-10' // 그 다음 월요일
@@ -21,7 +21,6 @@ function focusSession(id: string, taskId: string | null, localDate: string, loca
 describe('weekItems.listForWeek — 측정 시간 집계 (R8)', () => {
   it('항목 측정 시간은 그 항목의 주에 기록된 focus 세션만 합한다 (A10)', () => {
     const { uow } = testUow()
-    ensureWeeks(uow, WEEK, NEXT) // 두 주 모두 — sessions.local_week FK
 
     uow.run((repos) => {
       const itemId = repos.weekItems.confirmPlan({
@@ -45,7 +44,6 @@ describe('weekItems.listForWeek — 측정 시간 집계 (R8)', () => {
 
   it('focus 가 아닌 세션은 합하지 않는다', () => {
     const { uow } = testUow()
-    ensureWeeks(uow, WEEK)
     uow.run((repos) => {
       const itemId = repos.weekItems.confirmPlan({
         week: WEEK,
@@ -59,7 +57,6 @@ describe('weekItems.listForWeek — 측정 시간 집계 (R8)', () => {
 
   it('폐기·시스템 항목은 목록에서 빠지고 생성순으로 정렬된다 (R10·R18)', () => {
     const { uow } = testUow()
-    ensureWeeks(uow, WEEK)
     uow.run((repos) => {
       repos.weekItems.ensureSystemItem(WEEK)
       const { createdIds } = repos.weekItems.confirmPlan({
@@ -84,7 +81,6 @@ describe('weekItems.listForWeek — 측정 시간 집계 (R8)', () => {
 
   it('자식 조각 완료/전체 수를 함께 돌려준다 (완료 제안의 재료)', () => {
     const { uow } = testUow()
-    ensureWeeks(uow, WEEK)
     uow.run((repos) => {
       const itemId = repos.weekItems.confirmPlan({
         week: WEEK,
@@ -102,7 +98,6 @@ describe('weekItems.listForWeek — 측정 시간 집계 (R8)', () => {
 
   it('자식이 0개면 childTotal·childDone 이 0 이다 (SUM 의 NULL 폴백)', () => {
     const { uow } = testUow()
-    ensureWeeks(uow, WEEK)
     uow.run((repos) => {
       repos.weekItems.confirmPlan({
         week: WEEK,
@@ -118,7 +113,6 @@ describe('weekItems.listForWeek — 측정 시간 집계 (R8)', () => {
 describe('weekItems.confirmPlan — 선언형 확정', () => {
   it('id 가 있으면 ID 로 매칭해 갱신하고 자식·origin_week 를 유지한다 (R23·A30)', () => {
     const { uow } = testUow()
-    ensureWeeks(uow, WEEK)
     uow.run((repos) => {
       const id = repos.weekItems.confirmPlan({
         week: WEEK,
@@ -142,7 +136,6 @@ describe('weekItems.confirmPlan — 선언형 확정', () => {
 
   it('목록에서 빠진 기존 항목은 폐기되고 자식·세션이 전부 남는다 (R24·A32)', () => {
     const { uow } = testUow()
-    ensureWeeks(uow, WEEK)
     uow.run((repos) => {
       const id = repos.weekItems.confirmPlan({
         week: WEEK,
@@ -164,7 +157,6 @@ describe('weekItems.confirmPlan — 선언형 확정', () => {
 
   it('폐기 항목의 집중이 기타 행 차액으로 나타난다 (A24 · ADR-027 §1)', () => {
     const { uow } = testUow()
-    ensureWeeks(uow, WEEK)
     uow.run((repos) => {
       const { createdIds } = repos.weekItems.confirmPlan({
         week: WEEK,
@@ -196,7 +188,6 @@ describe('weekItems.confirmPlan — 선언형 확정', () => {
 
   it('다른 주 항목 id 를 보내면 거부한다', () => {
     const { uow } = testUow()
-    ensureWeeks(uow, WEEK, NEXT)
     uow.run((repos) => {
       const id = repos.weekItems.confirmPlan({
         week: NEXT,
@@ -215,7 +206,6 @@ describe('weekItems.confirmPlan — 선언형 확정', () => {
 describe('weekItems.hasUnplannedActivity — 기타 행 표시 조건 ①② (ADR-027 §3)', () => {
   it('집중 0 이어도 부모 없는 조각이 있으면 true (A23)', () => {
     const { uow } = testUow()
-    ensureWeeks(uow, WEEK)
     uow.run((repos) => {
       const sysId = repos.weekItems.ensureSystemItem(WEEK)
       repos.tasks.create({ id: 't1', weekItemId: sysId, title: '직접 추가' })
@@ -226,7 +216,6 @@ describe('weekItems.hasUnplannedActivity — 기타 행 표시 조건 ①② (AD
 
   it('미분류 세션(task 미연결)만 있어도 true', () => {
     const { uow } = testUow()
-    ensureWeeks(uow, WEEK) // 세션 FK
     uow.run((repos) => {
       repos.sessions.insert(focusSession('s1', null, '2026-08-04', WEEK))
       expect(repos.weekItems.hasUnplannedActivity(WEEK)).toBe(true)
@@ -235,7 +224,6 @@ describe('weekItems.hasUnplannedActivity — 기타 행 표시 조건 ①② (AD
 
   it('폐기 항목의 집중만 있는 주는 이 술어로 false 다 — 세 번째 갈래가 필요한 이유', () => {
     const { uow } = testUow()
-    ensureWeeks(uow, WEEK)
     uow.run((repos) => {
       const id = repos.weekItems.confirmPlan({
         week: WEEK,
@@ -255,7 +243,6 @@ describe('weekItems.hasUnplannedActivity — 기타 행 표시 조건 ①② (AD
 
   it('세션도 조각도 없는 주는 false', () => {
     const { uow } = testUow()
-    ensureWeeks(uow, WEEK)
     uow.run((repos) => expect(repos.weekItems.hasUnplannedActivity(WEEK)).toBe(false))
   })
 })
@@ -268,7 +255,6 @@ describe('weekItems.hasUnplannedActivity — 기타 행 표시 조건 ①② (AD
 describe('weekItems.hasHiddenFocus — 기타 행 표시 조건 ③', () => {
   it('목록에 보이는 항목의 집중만 있으면 false', () => {
     const { uow } = testUow()
-    ensureWeeks(uow, WEEK)
     uow.run((repos) => {
       const id = repos.weekItems.confirmPlan({
         week: WEEK,
@@ -282,7 +268,6 @@ describe('weekItems.hasHiddenFocus — 기타 행 표시 조건 ③', () => {
 
   it('0초 세션만 붙은 항목을 폐기해도 true — 차액은 0 인데 집중은 실재한다', () => {
     const { uow } = testUow()
-    ensureWeeks(uow, WEEK)
     uow.run((repos) => {
       const id = repos.weekItems.confirmPlan({
         week: WEEK,
@@ -299,7 +284,6 @@ describe('weekItems.hasHiddenFocus — 기타 행 표시 조건 ③', () => {
 
   it('휴식 세션은 잡지 않는다', () => {
     const { uow } = testUow()
-    ensureWeeks(uow, WEEK)
     uow.run((repos) => {
       repos.sessions.insert({ ...focusSession('s1', null, '2026-08-04', WEEK), kind: 'short' })
       expect(repos.weekItems.hasHiddenFocus(WEEK)).toBe(false)
@@ -310,7 +294,6 @@ describe('weekItems.hasHiddenFocus — 기타 행 표시 조건 ③', () => {
 describe('weekItems.nextPullable — 원클릭 pull 대상', () => {
   it('유자격 = 미완료·미삭제·오늘 pull 없음, 생성순 첫 번째', () => {
     const { uow } = testUow()
-    ensureWeeks(uow, WEEK)
     uow.run((repos) => {
       const id = repos.weekItems.confirmPlan({
         week: WEEK,
@@ -329,7 +312,6 @@ describe('weekItems.nextPullable — 원클릭 pull 대상', () => {
 
   it('치운 조각은 다시 유자격이다 — removed_at 분기 (today-tasks R14)', () => {
     const { uow } = testUow()
-    ensureWeeks(uow, WEEK)
     uow.run((repos) => {
       const id = repos.weekItems.confirmPlan({
         week: WEEK,
@@ -351,7 +333,6 @@ describe('weekItems.nextPullable — 원클릭 pull 대상', () => {
 describe('weekItems.childTasks — 드로어 목록 (§6.2)', () => {
   it('조각별 소진과 오늘 목록 상태를 함께 준다', () => {
     const { uow } = testUow()
-    ensureWeeks(uow, WEEK)
     uow.run((repos) => {
       const id = repos.weekItems.confirmPlan({
         week: WEEK,
@@ -385,7 +366,6 @@ describe('weekItems.childTasks — 드로어 목록 (§6.2)', () => {
 describe('weekItems.header — 드로어 헤더 (폐기 항목도 열린다)', () => {
   it('폐기된 항목의 주·완료 시각을 읽을 수 있다', () => {
     const { uow } = testUow()
-    ensureWeeks(uow, WEEK)
     uow.run((repos) => {
       const id = repos.weekItems.confirmPlan({
         week: WEEK,

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { contracts } from '@shared/ipc/contracts'
-import { ensureWeeks, testUow } from '../db/repositories/test-helpers'
+import { testUow } from '../db/repositories/test-helpers'
 import {
   confirmWeekPlan,
   dropItem,
@@ -21,7 +21,6 @@ const WEEK = '2026-08-03'
 describe('week 계약 왕복', () => {
   it('응답 9종이 전부 계약을 통과한다', () => {
     const { uow } = testUow()
-    ensureWeeks(uow, WEEK)
 
     const confirmed = confirmWeekPlan(uow, {
       week: WEEK,

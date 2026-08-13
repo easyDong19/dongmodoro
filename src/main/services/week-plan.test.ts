@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { ensureWeeks, testUow } from '../db/repositories/test-helpers'
+import { testUow } from '../db/repositories/test-helpers'
 import {
   confirmWeekPlan,
   dropItem,
@@ -27,16 +27,17 @@ describe('otherRowMeasuredSec (ADR-027 §1 + ADR-031 §2)', () => {
 
 describe('confirmWeekPlan', () => {
   /**
-   * 확정이 만드는 것은 **항목뿐이다.** 예산·가용량이 폐기돼(ADR-030 §4) `weeks` 행은
-   * FK 를 만족시키는 껍데기가 됐고, 확정이 그 행에 쓰는 계획 의사는 하나도 없다.
+   * 확정이 만드는 것은 **항목뿐이다.** 예산·가용량이 폐기돼(ADR-030 §4) 껍데기만
+   * 남았던 `weeks` 행 생성 경로는 0001 마이그레이션과 함께 걷혔다. 빈 목록으로 다시
+   * 확정해도 항목이 비워질 뿐 다른 부수효과가 없다.
    */
-  it('그 주 행이 없으면 만들고, 있으면 다시 만들지 않는다', () => {
+  it('빈 목록으로 다시 확정하면 항목만 비워진다', () => {
     const { uow } = testUow()
     confirmWeekPlan(uow, { week: WEEK, items: [{ id: null, title: 'A', days: [] }] })
-    expect(uow.run((r) => r.weeks.baseline(WEEK))).not.toBeNull()
+    expect(uow.run((r) => r.weekItems.listForWeek(WEEK))).toHaveLength(1)
 
     confirmWeekPlan(uow, { week: WEEK, items: [] })
-    expect(uow.run((r) => r.weeks.baseline(WEEK))).not.toBeNull()
+    expect(uow.run((r) => r.weekItems.listForWeek(WEEK))).toHaveLength(0)
   })
 
   it('항목이 몇 개든 확정은 성공한다 — 막는 경로가 없다', () => {
@@ -125,7 +126,6 @@ describe('itemDrawer', () => {
 describe('dropItem — 폐기는 삭제가 아니다 (ADR-014 §1·ADR-027 §2)', () => {
   it('목록에서 빠지되 그 소진이 주간 총 소진에 남아 기타 행으로 흡수된다 (A24)', () => {
     const { uow } = testUow()
-    ensureWeeks(uow, WEEK) // 세션 FK
     const id = uow.run(
       (r) =>
         r.weekItems.confirmPlan({
@@ -161,7 +161,6 @@ describe('dropItem — 폐기는 삭제가 아니다 (ADR-014 §1·ADR-027 §2)'
 describe('setItemCompleted (R25·R27·R28)', () => {
   it('완료 후 세션이 더 붙어도 completed_at 이 변하지 않는다 (A37)', () => {
     const { uow } = testUow()
-    ensureWeeks(uow, WEEK)
     const id = uow.run(
       (r) =>
         r.weekItems.confirmPlan({
@@ -196,7 +195,6 @@ describe('setItemCompleted (R25·R27·R28)', () => {
 
   it('완료를 해제하면 NULL 로 돌아간다', () => {
     const { uow } = testUow()
-    ensureWeeks(uow, WEEK)
     const id = uow.run(
       (r) =>
         r.weekItems.confirmPlan({
@@ -212,7 +210,6 @@ describe('setItemCompleted (R25·R27·R28)', () => {
 describe('pullFromDrawer — R7·R27 을 서비스에서 강제한다', () => {
   it('완료된 항목에서는 pull 할 수 없다 (R27)', () => {
     const { uow } = testUow()
-    ensureWeeks(uow, WEEK)
     const id = uow.run(
       (r) =>
         r.weekItems.confirmPlan({
@@ -228,7 +225,6 @@ describe('pullFromDrawer — R7·R27 을 서비스에서 강제한다', () => {
 
   it('완료된 조각은 pull 하지 않는다 (R7)', () => {
     const { uow } = testUow()
-    ensureWeeks(uow, WEEK)
     const id = uow.run(
       (r) =>
         r.weekItems.confirmPlan({
@@ -245,7 +241,6 @@ describe('pullFromDrawer — R7·R27 을 서비스에서 강제한다', () => {
 
   it('다른 항목의 조각을 끼워 넣을 수 없다', () => {
     const { uow } = testUow()
-    ensureWeeks(uow, WEEK)
     const { createdIds } = uow.run((r) =>
       r.weekItems.confirmPlan({
         week: WEEK,
@@ -265,7 +260,6 @@ describe('pullFromDrawer — R7·R27 을 서비스에서 강제한다', () => {
 describe('weekSummary — 한 화면 = 한 응답', () => {
   it('등식이 성립한다: Σ(보이는 항목) + 기타 행 = 주 총 측정 시간 (성공 지표)', () => {
     const { uow } = testUow()
-    ensureWeeks(uow, WEEK)
     const id = uow.run(
       (r) =>
         r.weekItems.confirmPlan({
@@ -303,7 +297,6 @@ describe('weekSummary — 한 화면 = 한 응답', () => {
 
   it('폐기 항목의 집중만 있는 주에도 기타 행이 보인다 (A24 · ADR-027 §3 세 번째 갈래)', () => {
     const { uow } = testUow()
-    ensureWeeks(uow, WEEK)
     const id = uow.run(
       (r) =>
         r.weekItems.confirmPlan({
@@ -341,7 +334,6 @@ describe('weekSummary — 한 화면 = 한 응답', () => {
    */
   it('0초 세션만 붙은 항목을 폐기해도 기타 행이 보인다', () => {
     const { uow } = testUow()
-    ensureWeeks(uow, WEEK)
     const id = uow.run(
       (r) =>
         r.weekItems.confirmPlan({ week: WEEK, items: [{ id: null, title: 'A', days: [] }] })
@@ -370,7 +362,6 @@ describe('weekSummary — 한 화면 = 한 응답', () => {
 
   it('세션도 조각도 없으면 기타 행을 숨긴다', () => {
     const { uow } = testUow()
-    ensureWeeks(uow, WEEK)
     expect(weekSummary(uow, WEEK).otherRow.visible).toBe(false)
   })
 })
@@ -435,7 +426,6 @@ describe('setItemMilestone — 후보 제한을 서비스가 강제한다 (miles
 
   it('그 주가 귀속된 달의 마일스톤에는 연결된다', () => {
     const { uow } = testUow()
-    ensureWeeks(uow, AUG_WEEK)
     const m = makeMilestone(uow, '2026-08', 'aug')
     const item = makeItem(uow, AUG_WEEK)
 
@@ -452,7 +442,6 @@ describe('setItemMilestone — 후보 제한을 서비스가 강제한다 (miles
    */
   it('다른 달 마일스톤에 새로 매달면 거부한다 (A12)', () => {
     const { uow } = testUow()
-    ensureWeeks(uow, AUG_WEEK)
     const sep = makeMilestone(uow, '2026-09', 'sep')
     const item = makeItem(uow, AUG_WEEK)
 
@@ -464,7 +453,6 @@ describe('setItemMilestone — 후보 제한을 서비스가 강제한다 (miles
 
   it('보관된 마일스톤에도 새로 매달 수 없다 (R14)', () => {
     const { uow } = testUow()
-    ensureWeeks(uow, AUG_WEEK)
     const m = makeMilestone(uow, '2026-08', 'archived')
     uow.run((r) => r.milestones.archive(m, '2026-08-20T00:00:00.000Z'))
     const item = makeItem(uow, AUG_WEEK)
@@ -480,7 +468,6 @@ describe('setItemMilestone — 후보 제한을 서비스가 강제한다 (miles
    */
   it('달을 넘긴 주의 할당은 주 키의 달을 따른다 (R18)', () => {
     const { uow } = testUow()
-    ensureWeeks(uow, '2026-08-31')
     const aug = makeMilestone(uow, '2026-08', 'aug')
     const item = makeItem(uow, '2026-08-31')
 
@@ -491,7 +478,6 @@ describe('setItemMilestone — 후보 제한을 서비스가 강제한다 (miles
 
   it('해제는 언제나 허용된다 — 타월 연결도 끊을 수 있어야 한다 (R13·R15)', () => {
     const { uow } = testUow()
-    ensureWeeks(uow, SEP_WEEK)
     const aug = makeMilestone(uow, '2026-08', 'aug')
     const item = makeItem(uow, SEP_WEEK)
     // 이월 승계가 만드는 것과 같은 타월 연결을 저장소로 직접 만든다.
@@ -514,7 +500,6 @@ describe('setItemMilestone — 후보 제한을 서비스가 강제한다 (miles
 describe('itemDrawer — 후보를 서버가 좁혀 보낸다 (R14 · A12)', () => {
   it('그 주가 귀속된 달의 미보관 마일스톤만 후보다', () => {
     const { uow } = testUow()
-    ensureWeeks(uow, '2026-08-03')
     const item = uow.run(
       (repos) =>
         repos.weekItems.confirmPlan({
