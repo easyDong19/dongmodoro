@@ -4,6 +4,7 @@ import { Play, Plus, X } from 'lucide-react'
 import { api } from '@renderer/shared/api'
 import { keys } from '@renderer/shared/query/keys'
 import { Button } from '@renderer/shared/ui/button'
+import { Checkbox } from '@renderer/shared/ui/Checkbox'
 import { MeasuredTime } from '@renderer/shared/ui/MeasuredTime'
 import { useToday } from './useToday'
 
@@ -26,45 +27,62 @@ function TodayRowItem({
 }) {
   const isDone = row.completedAt !== null
   return (
-    <li
-      className={`flex items-center gap-3 rounded-md px-2 py-2 ${isDone ? 'opacity-[0.55]' : ''}`}
-    >
-      <input
-        type="checkbox"
-        checked={isDone}
-        onChange={() => onToggle(row.taskId)}
-        aria-label={`${row.title} 완료 토글`}
-        className="size-4"
-      />
-      <span className="flex-1 truncate text-sm text-ink" data-testid="today-row-title">
-        {row.title}
-      </span>
-      <span className="text-xs text-ink-dim">{row.sourceTitle ?? '기타'}</span>
-      {/* 항목당 누적 측정 시간 (today-tasks R3·R3-3). 조각 단위라 **주 조건이 없다** —
-          이월된 조각이 지난 주에 쌓은 시간도 여기 그대로 남는다. */}
-      <MeasuredTime sec={row.measuredSec} />
-      {canPlay && !isDone ? (
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon-sm"
-          aria-label="타이머 시작"
-          onClick={() => onPlay(row.taskId)}
+    // **2단이다** — 한 줄에 6개를 넣으면 폭이 모자란 쪽은 언제나 제목이었다. 카드 폭은
+    // 360px 고정이고(App.tsx) 그 안에서 `sourceTitle` 은 truncate 도 shrink 도 없었으므로,
+    // 부모 항목 제목이 길면 정작 읽어야 할 할 일 제목이 잘렸다. 주간 카드 행(WeekItemRow)과
+    // 정산 패널 행(PendingSection)이 이미 쓰던 문법으로 맞춘다: 제목 줄 + 들여쓴 메타 줄.
+    <li className="flex flex-col gap-0.5 rounded-md px-2 py-2">
+      <div className="flex items-center gap-2">
+        <Checkbox
+          checked={isDone}
+          onCheckedChange={() => onToggle(row.taskId)}
+          aria-label={`${row.title} 완료 토글`}
+        />
+        <span
+          data-testid="today-row-title"
+          // 완료 표현을 행 전체 opacity 로 하지 않는다 — 그러면 아직 눌러야 하는
+          // 체크박스와 읽어야 하는 측정 시간까지 대비 하한 아래로 떨어진다.
+          // 취소선 + `--ink-dim` 은 주간 카드 행과 같은 표현이다.
+          className={`flex-1 truncate text-sm ${isDone ? 'text-ink-dim line-through' : 'text-ink'}`}
         >
-          <Play />
-        </Button>
-      ) : null}
-      {canRemove ? (
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon-sm"
-          aria-label="치우기"
-          onClick={() => onRemove(row.taskId)}
-        >
-          <X />
-        </Button>
-      ) : null}
+          {row.title}
+        </span>
+        {canPlay && !isDone ? (
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-sm"
+            aria-label="타이머 시작"
+            onClick={() => onPlay(row.taskId)}
+          >
+            <Play />
+          </Button>
+        ) : null}
+        {canRemove ? (
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-sm"
+            aria-label="치우기"
+            onClick={() => onRemove(row.taskId)}
+          >
+            <X />
+          </Button>
+        ) : null}
+      </div>
+
+      {/* 메타 줄. 체크박스 폭(24px) + gap(8px) 만큼 들여써 제목 아래에 정렬한다. */}
+      <div className="flex items-center gap-2 pl-8">
+        {/* 출처가 없는 항목(직접 추가)은 자리를 그리지 않는다 — `기타` 는 데이터의 시스템
+            항목 이름이지 사용자가 고른 분류가 아니라, 라벨로 쓰면 없는 분류를 있는 것처럼
+            읽힌다. 있는 경우에도 제목보다 먼저 줄어들도록 truncate 를 건다. */}
+        {row.sourceTitle !== null ? (
+          <span className="min-w-0 truncate text-xs text-ink-dim">{row.sourceTitle}</span>
+        ) : null}
+        {/* 항목당 누적 측정 시간 (today-tasks R3·R3-3). 조각 단위라 **주 조건이 없다** —
+            이월된 조각이 지난 주에 쌓은 시간도 여기 그대로 남는다. */}
+        <MeasuredTime sec={row.measuredSec} className="shrink-0 text-xs text-ink-dim" />
+      </div>
     </li>
   )
 }

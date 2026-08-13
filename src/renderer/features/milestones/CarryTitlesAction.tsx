@@ -2,6 +2,7 @@ import { useState } from 'react'
 import type { contracts } from '@shared/ipc/contracts'
 import type { z } from 'zod'
 import { Button } from '@renderer/shared/ui/button'
+import { Checkbox } from '@renderer/shared/ui/Checkbox'
 
 type MonthRes = z.infer<typeof contracts.milestones.forMonth.res>
 type Candidate = MonthRes['carryCandidates'][number]
@@ -56,10 +57,10 @@ export function CarryTitlesAction({
         {candidates.map((c) => (
           <li key={c.id}>
             <label className="flex items-center gap-2 text-xs text-ink">
-              <input
-                type="checkbox"
+              <Checkbox
                 checked={picked.has(c.id)}
-                onChange={() => toggle(c.id)}
+                onCheckedChange={() => toggle(c.id)}
+                aria-label={c.title}
                 data-testid="carry-candidate"
               />
               <span className="truncate">{c.title}</span>
