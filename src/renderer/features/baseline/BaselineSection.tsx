@@ -11,7 +11,8 @@ import { useBaseline } from './useBaseline'
  * 생긴다. 저장 후 그 표시를 갱신하는 것은 `baseline-changed` 무효화의 몫이다.
  *
  * **길이 저장은 정산 확정과 무관하다** (ux-spec §6). 여기서 저장한 값은 정산을 확정하지
- * 않고 패널을 닫아도 남고, 반대로 정산을 확정해도 진행 중인 주의 값은 바뀌지 않는다.
+ * 않고 패널을 닫아도 남고, 저장 즉시 효력을 가진다 — 적용 시점은 다음 세션 시작이다
+ * (ADR-029 §1).
  */
 export function BaselineSection() {
   const [open, setOpen] = useState(false)

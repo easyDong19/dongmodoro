@@ -24,7 +24,7 @@ export function recordSession(uow: UnitOfWork, input: RecordSessionInput): Sessi
   const sessionId = uuidv7()
   uow.run((repos) => {
     // 세션이 있는 주는 반드시 자기 길이 스냅샷을 가진다 (ADR-013 §2) — INSERT 보다 먼저.
-    repos.weeks.ensure(localWeek, weekSnapshot(repos, localWeek))
+    repos.weeks.ensure(localWeek, weekSnapshot(repos))
     repos.sessions.insert({
       id: sessionId,
       startedAt: instantFromMs(input.startedAtMs),

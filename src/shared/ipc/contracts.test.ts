@@ -71,16 +71,16 @@ describe('settings.getTheme · setTheme contract (design-system ADR-010 §1)', (
   })
 })
 
-describe('settings.setBaseline contract (pomo-baseline R5·R7·R8)', () => {
-  const form = { focusMin: 25, shortBreakMin: 5, longBreakMin: 15, capacity: null }
+describe('settings.setBaseline contract (pomo-baseline R5)', () => {
+  const form = { focusMin: 25, shortBreakMin: 5, longBreakMin: 15 }
 
-  it('accepts the seeded defaults with capacity unset', () => {
+  it('accepts the seeded defaults', () => {
     expect(contracts.settings.setBaseline.req.parse([form])).toEqual([form])
   })
 
-  it('accepts a seven-slot capacity array, index 0 being Monday', () => {
-    const withCapacity = { ...form, capacity: [4, 2, 4, 2, 4, 0, 8] }
-    expect(contracts.settings.setBaseline.req.parse([withCapacity])).toEqual([withCapacity])
+  /** 가용량은 폐기된 통화다 (ADR-030) — strictObject 가 남은 필드를 경계에서 되돌린다. */
+  it('rejects a leftover capacity field', () => {
+    expect(() => contracts.settings.setBaseline.req.parse([{ ...form, capacity: null }])).toThrow()
   })
 
   /**
@@ -95,50 +95,27 @@ describe('settings.setBaseline contract (pomo-baseline R5·R7·R8)', () => {
     const { focusMin: _dropped, ...rest } = form
     expect(() => contracts.settings.setBaseline.req.parse([rest])).toThrow()
   })
-
-  it.each([6, 8])('rejects a capacity array of length %p', (len) => {
-    const capacity = Array.from({ length: len }, () => 1)
-    expect(() => contracts.settings.setBaseline.req.parse([{ ...form, capacity }])).toThrow()
-  })
-
-  /** 가용량은 0 을 허용한다 — "그날은 안 한다"는 정상적인 계획 의사다 (R7). */
-  it('accepts zero in a capacity slot but not a negative one', () => {
-    const zeroed = { ...form, capacity: [0, 0, 0, 0, 0, 0, 0] }
-    expect(contracts.settings.setBaseline.req.parse([zeroed])).toEqual([zeroed])
-    expect(() =>
-      contracts.settings.setBaseline.req.parse([{ ...form, capacity: [-1, 0, 0, 0, 0, 0, 0] }])
-    ).toThrow()
-  })
 })
 
-describe('settings.getBaseline contract (pomo-baseline R26)', () => {
-  const res = {
-    focusMin: 25,
-    shortBreakMin: 5,
-    longBreakMin: 15,
-    capacity: null,
-    basisPomos: null,
-    basisSource: null
-  }
+describe('settings.getBaseline contract (pomo-baseline R6)', () => {
+  const res = { focusMin: 25, shortBreakMin: 5, longBreakMin: 15 }
 
   it('takes no arguments', () => {
     expect(contracts.settings.getBaseline.req.parse([])).toEqual([])
     expect(() => contracts.settings.getBaseline.req.parse([1])).toThrow()
   })
 
-  /** 기준 개수 없음은 오류가 아니다 (A25) — 화면이 비교를 생략할 뿐이다. */
-  it('allows the basis to be absent', () => {
+  it('returns the three lengths and nothing else', () => {
     expect(contracts.settings.getBaseline.res.parse(res)).toEqual(res)
   })
 
-  it('carries where the basis came from', () => {
-    const fromBudget = { ...res, basisPomos: 24, basisSource: 'budget' as const }
-    expect(contracts.settings.getBaseline.res.parse(fromBudget)).toEqual(fromBudget)
-  })
-
-  it('rejects an unknown basis source', () => {
+  /**
+   * 시간 비교의 기준 개수는 그 분모(유효 예산·가용량 합)와 함께 폐기됐다
+   * (ADR-029 §3). 파생 필드가 다시 붙으면 여기가 먼저 깨져야 한다.
+   */
+  it('rejects the retired basis fields', () => {
     expect(() =>
-      contracts.settings.getBaseline.res.parse({ ...res, basisPomos: 24, basisSource: 'guess' })
+      contracts.settings.getBaseline.res.parse({ ...res, basisPomos: 24, basisSource: 'budget' })
     ).toThrow()
   })
 })

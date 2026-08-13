@@ -23,10 +23,7 @@ function withQuery(node: ReactNode) {
       getBaseline: vi.fn().mockResolvedValue({
         focusMin: 25,
         shortBreakMin: 5,
-        longBreakMin: 15,
-        capacity: null,
-        basisPomos: null,
-        basisSource: null
+        longBreakMin: 15
       }),
       setBaseline: vi.fn()
     }
@@ -153,7 +150,7 @@ describe('ReviewPanel — 안내 (§6)', () => {
     renderPanel()
     expect(screen.getByText('뽀모 길이 — 집중 25 · 짧은 휴식 5 · 긴 휴식 15')).toBeInTheDocument()
     expect(
-      screen.getByText('바꾼 길이는 다음 주부터 적용돼요 · 이번 주 기록은 그대로예요')
+      screen.getByText('바꾼 길이는 다음 세션부터 적용돼요 · 진행 중인 세션은 그대로예요')
     ).toBeInTheDocument()
   })
 

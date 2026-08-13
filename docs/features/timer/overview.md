@@ -21,5 +21,5 @@
 - [ADR-009](../../architecture/decisions/adr-009-time-format-convention.md): 세션 기록의 시간 포맷 (순간 UTC / 달력 키 불변 / 길이 초)
 - [ADR-011](../../architecture/decisions/adr-011-schema-final.md): sessions 스키마, 사후 캡처의 소급 task 가 붙는 "기타" 항목
 - [ADR-012](../../architecture/decisions/adr-012-aggregation-predicate.md): 집계 술어 — 세션의 주가 귀속을 결정하고, 사후 캡처의 "기타"는 세션의 주 기준
-- [ADR-013](../../architecture/decisions/adr-013-baseline-budget-effect.md): 베이스라인 편집은 상시, 효력은 다음 주 경계부터
+- [ADR-029](../../architecture/decisions/adr-029-baseline-immediate-effect.md): 뽀모 길이 편집은 상시이고 **저장 즉시 효력을 가진다** — 적용 시점은 다음 세션 시작이다 (진행 중인 세션은 시작할 때 읽은 길이로 끝까지 돈다). ADR-013 의 "효력은 다음 주 경계부터"를 폐기
 - [ADR-014](../../architecture/decisions/adr-014-deletion-and-archive.md): 세션은 삭제하지 않는다 (§2)

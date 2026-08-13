@@ -34,20 +34,18 @@ const clockBoundarySchema = z.strictObject({
 const themeSchema = z.enum(['light', 'dark'])
 
 /**
- * 분모의 전역값 — 편집 폼이 주고받는 모든 것 (pomo-baseline R5·R7·R8).
+ * 뽀모 길이 3종 — 편집 폼이 주고받는 모든 것 (pomo-baseline R5·R6).
  *
  * 하한이 여기 있는 것이 **첫 번째 거부 지점**이다 (두 번째는 SQLite CHECK, ADR-011 §6).
  * 길이는 1분 이상 정수이며 0·음수·비정수·빈 값은 경계에서 막힌다 (A5).
  *
- * `capacity` 의 `null` 은 **"미설정을 유지한다"** 이지 **"설정을 지운다"가 아니다.**
- * 해제는 v1 범위 밖이고, 이 구분이 없으면 다음 사람이 null 을 삭제 신호로 읽어 R8 이
- * 지키려던 "미설정 ≠ 예산 0"이 흐려진다. 인덱스 0 은 월요일이다 (R7 · ADR-010 §1).
+ * `capacity` 가 없다 — 요일별 가용량은 폐기된 통화다 (ADR-030). 저장 즉시 효력을 가지며
+ * 적용 시점은 다음 세션 시작이므로, 계약에 효력 시점을 말하는 필드도 없다 (ADR-029 §1).
  */
 const baselineFormSchema = z.strictObject({
   focusMin: z.int().min(1),
   shortBreakMin: z.int().min(1),
-  longBreakMin: z.int().min(1),
-  capacity: z.array(z.int().min(0)).length(7).nullable()
+  longBreakMin: z.int().min(1)
 })
 
 /** `TodayRow`(main/services/ports.ts) 를 그대로 미러링한다 — 필드·nullable 이 어긋나면
@@ -562,22 +560,11 @@ export const contracts = {
      */
     setTheme: { req: z.tuple([themeSchema]), res: z.strictObject({ theme: themeSchema }) },
     /**
-     * 분모의 전역값 조회 (pomo-baseline R6·R7). 응답에 붙는 `basisPomos` 는 저장값이
-     * 아니라 **R26 의 시간 비교용 기준 개수**이며, 그 결정 순서(유효 예산 → 가용량 합 →
-     * 없음)는 main 서비스에만 있다. 렌더러가 고르게 하면 순서가 화면으로 새어나간다.
+     * 길이 3종 조회 (pomo-baseline R6). 응답은 **저장된 값 그대로**이며 파생 필드가
+     * 붙지 않는다 — 시간 비교의 기준 개수(`basisPomos`·`basisSource`)는 그 분모였던
+     * 유효 예산·가용량과 함께 폐기됐다 (ADR-029 §3).
      */
-    getBaseline: {
-      req: z.tuple([]),
-      res: baselineFormSchema.extend({
-        /** `null` 이면 시간 비교를 렌더하지 않는다. 오류가 아니다 (A25). */
-        basisPomos: z.int().nullable(),
-        /**
-         * 기준 개수의 출처. `'capacity'` 면 폼에서 가용량을 고치는 순간 기준도 함께
-         * 움직여야 하므로, 렌더러가 편집 중인 배열로 다시 합산한다 (A23).
-         */
-        basisSource: z.enum(['budget', 'capacity']).nullable()
-      })
-    },
+    getBaseline: { req: z.tuple([]), res: baselineFormSchema },
     /**
      * 응답이 `void` 가 아니라 **저장된 값**인 이유는 `setTheme` 과 같다 — 화면이 낙관적
      * 추측이 아니라 사실로 갱신하게 한다.
@@ -611,7 +598,7 @@ export const eventContracts = {
 /** `'light' | 'dark'`. 스키마에서 파생하므로 둘이 어긋날 수 없다. */
 export type Theme = z.infer<typeof themeSchema>
 
-/** 편집 폼이 주고받는 전역 분모값. 같은 이유로 스키마에서 파생한다. */
+/** 편집 폼이 주고받는 길이 3종. 같은 이유로 스키마에서 파생한다. */
 export type BaselineForm = z.infer<typeof baselineFormSchema>
 
 export type TimerSnapshotWire = z.infer<typeof timerSnapshotSchema>

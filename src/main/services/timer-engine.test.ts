@@ -104,14 +104,27 @@ describe('TimerEngine — ux-spec §2 상태 기계', () => {
     expect(h.transitions).toHaveLength(1)
   })
 
+  /**
+   * 길이 편집은 저장 즉시 효력을 갖고, 적용 시점은 **다음 세션 시작**이다 (ADR-029 §1).
+   * 그 규칙을 만드는 것이 이 재조회다 — 진행 중인 세션은 시작할 때 읽은 길이로 끝까지
+   * 돌고, 바로 다음 세션이 새 길이로 시작한다.
+   */
   it('start: 세션 시작 시점에 베이스라인을 다시 읽는다 (timer R1)', () => {
     let focusMin = 25
     const h = makeHarness({
       getBaseline: () => ({ focusMin, shortBreakMin: 5, longBreakMin: 15 })
     })
-    focusMin = 50 // 주 경계에서 유효 베이스라인이 바뀌었다
-    const snap = h.engine.start()
-    expect(snap.durationSec).toBe(50 * 60)
+
+    expect(h.engine.start().durationSec).toBe(25 * 60)
+
+    focusMin = 50 // 진행 중에 `조정` 에서 길이를 바꿨다
+    expect(h.engine.getSnapshot().durationSec).toBe(25 * 60) // 진행 중인 세션은 그대로
+
+    h.advance(25 * 60 * 1000)
+    h.firePending() // 자연 만료 → 휴식 idle
+    h.engine.setMode('focus')
+
+    expect(h.engine.start().durationSec).toBe(50 * 60) // 다음 세션부터 새 길이
   })
 
   it('start: idle 에서 조절한 길이는 시작 시 베이스라인으로 덮이지 않는다 (R2)', () => {

@@ -36,17 +36,15 @@ export type WeekPlan = {
 }
 
 /**
- * `weeks` 행이 처음 생길 때 함께 박제되는 값 전부 (ADR-013 §2, weekly-review R37).
+ * `weeks` 행이 처음 생길 때 채워지는 값 (weekly-review R37).
  *
- * 길이 3종과 계획 의사(capacity·budget)를 한 타입에 담는 이유는 **행 생성이 한 번뿐**
- * 이기 때문이다. 길이만 먼저 박고 나중에 계획 의사를 채우는 경로를 열어 두면, 그 사이에
- * 생긴 행이 "가용량을 정한 적 없는 주"인지 "정했는데 아직 안 박힌 주"인지 구분되지 않는다.
+ * **좁혀진 타입이다.** 길이 스냅샷은 아무도 읽지 않고(ADR-029 §2), 계획 의사
+ * (`capacity`·`budget`)는 폐기된 통화라 **항상 `null` 로만 쓴다** (ADR-030). 타입으로
+ * 못 박아 두면, 값을 되살리는 코드가 컴파일 단계에서 막힌다.
  */
 export type WeekSnapshot = Baseline & {
-  /** 요일별 가용 뽀모 `[월..일]`. 정한 적 없으면 null — `[0,…]` 을 지어내지 않는다. */
-  capacity: number[] | null
-  /** 위 배열의 합을 **그 시점에 해석해** 저장한 값 (ADR-013 §1). 미설정이면 null. */
-  budget: number | null
+  capacity: null
+  budget: null
 }
 
 export interface WeeksRepository {

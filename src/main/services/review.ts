@@ -317,7 +317,7 @@ export function settle(
 
     const { carried } = repos.review.applySettlement({
       targetWeek: st.targetWeek,
-      snapshot: weekSnapshot(repos, st.targetWeek),
+      snapshot: weekSnapshot(repos),
       rangeWeeks: weeksBetween(st.from, st.to),
       drops: decisions.drops,
       carries: decisions.carries.map((c) => ({ sourceId: c.sourceId, estPomos: c.estPomos })),

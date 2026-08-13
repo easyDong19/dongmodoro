@@ -3,10 +3,9 @@ import { budgetPrefill, effectiveBudget, weekSnapshot } from './baseline'
 import type { Repositories, WeekPlan } from './ports'
 
 // SQL 이 아니라 **결정 순서**를 검증한다 — 페이크로 충분하다.
-// (effectiveBaseline 이 폴백 순서를 갖는 것과 달리, effectiveBudget 은 폴백이 없다는
-//  것 자체가 계약이므로 그 부재를 테스트가 지킨다.)
+// (`effectiveBudget` 은 폴백이 없다는 것 자체가 계약이므로 그 부재를 테스트가 지킨다.)
 function fakeRepos(o: { plan?: WeekPlan | null; settings?: Record<string, string> }): Repositories {
-  // 길이 3종은 시딩된 상태를 기본으로 둔다 — effectiveBaseline 은 없으면 throw 한다.
+  // 길이 3종은 시딩된 상태를 기본으로 둔다 — globalBaseline 은 없으면 throw 한다.
   const settings: Record<string, string> = {
     focus_min: '25',
     short_break_min: '5',
@@ -53,13 +52,12 @@ describe('budgetPrefill (pomo-baseline R12)', () => {
 })
 
 /**
- * R37. M3a 는 `ensure` 에 길이 3종만 넘겼다 — capacity 가 항상 NULL 이라 무해했지만,
- * 그대로 두면 **플래너가 만든 주와 정산이 만든 주의 스냅샷이 비대칭**이 된다.
+ * 축소된 함수다 (ADR-029·ADR-030). 남은 책임은 FK 를 만족시킬 `weeks` 행을 만들 때
+ * 넘길 값을 주는 것뿐이고, 계획 의사는 통화가 폐기됐으므로 항상 NULL 이다.
  */
-describe('weekSnapshot — 행 생성 시 함께 박제할 값 (weekly-review R37)', () => {
-  it('capacity 가 미설정이면 두 컬럼 모두 null — [0,…] 이나 0 을 지어내지 않는다', () => {
-    const snap = weekSnapshot(fakeRepos({}), '2026-08-03')
-    expect(snap).toEqual({
+describe('weekSnapshot — 행 생성 시 넘길 값 (weekly-review R37)', () => {
+  it('길이 3종만 담고 계획 의사는 언제나 null 이다', () => {
+    expect(weekSnapshot(fakeRepos({}))).toEqual({
       focusMin: 25,
       shortBreakMin: 5,
       longBreakMin: 15,
@@ -68,19 +66,9 @@ describe('weekSnapshot — 행 생성 시 함께 박제할 값 (weekly-review R3
     })
   })
 
-  it('capacity 가 있으면 배열과 그 합을 함께 담는다 (ADR-013 §1 — 해석된 값을 저장)', () => {
+  /** 남아 있는 `weekly_capacity` 행을 다시 읽어들이지 않는다 — 폐기된 통화다. */
+  it('`weekly_capacity` 가 남아 있어도 무시한다', () => {
     const repos = fakeRepos({ settings: { weekly_capacity: '[4,4,4,4,4,0,0]' } })
-    expect(weekSnapshot(repos, '2026-08-03')).toMatchObject({
-      capacity: [4, 4, 4, 4, 4, 0, 0],
-      budget: 20
-    })
-  })
-
-  it('capacity 합이 0 이면 budget 은 0 이다 — null 이 아니다 (ADR-018 §1)', () => {
-    const repos = fakeRepos({ settings: { weekly_capacity: '[0,0,0,0,0,0,0]' } })
-    expect(weekSnapshot(repos, '2026-08-03')).toMatchObject({
-      capacity: [0, 0, 0, 0, 0, 0, 0],
-      budget: 0
-    })
+    expect(weekSnapshot(repos)).toMatchObject({ capacity: null, budget: null })
   })
 })

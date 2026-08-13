@@ -42,7 +42,7 @@ export function confirmWeekPlan(
     // 행이 없으면 그 시점 유효값을 박제해 만든다 (ADR-013 §2). 있으면 덮지 않는다.
     // 길이뿐 아니라 가용량·예산까지 함께 박는다 (weekly-review R37) — 정산이 만드는
     // 행과 같은 모양이어야 두 경로가 만든 주가 비대칭이 되지 않는다.
-    repos.weeks.ensure(input.week, weekSnapshot(repos, input.week))
+    repos.weeks.ensure(input.week, weekSnapshot(repos))
     repos.weeks.setPlan(input.week, input.budget)
     const { droppedIds } = repos.weekItems.confirmPlan({ week: input.week, items: input.items })
     return { week: input.week, droppedCount: droppedIds.length }
