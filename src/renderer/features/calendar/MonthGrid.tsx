@@ -87,6 +87,21 @@ export function MonthGrid({
             </button>
           )
         })}
+
+        {/* 뒤 빈 칸으로 항상 6주 = 42칸을 채운다 — 5주 달과 6주 달 사이에서 그리드 높이가
+            바뀌면 아래 날짜 패널이 달 전환마다 튄다 (실측: 전환당 layout-shift 2건).
+            빈 칸만 있는 마지막 줄은 내용이 없어 접히므로, 날짜 셀의 세로 구조(패딩·숫자
+            줄·점 자리)를 보이지 않게 복제해 줄 높이를 날짜 줄과 같게 만든다. */}
+        {Array.from({ length: 42 - data.leadingBlanks - data.days.length }, (_, i) => (
+          <div
+            key={`trail${i}`}
+            aria-hidden="true"
+            className="flex min-h-[var(--target-min)] flex-col items-center justify-center gap-0.5 border border-transparent py-1"
+          >
+            <span className="invisible font-mono text-xs tabular-nums">0</span>
+            <span className="flex h-[5px]" />
+          </div>
+        ))}
       </div>
     </div>
   )
