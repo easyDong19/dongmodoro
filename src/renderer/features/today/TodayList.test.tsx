@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, cleanup } from '@testing-library/react'
 import type {} from '@testing-library/jest-dom/vitest'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import type { Api } from '@shared/ipc/api'
@@ -166,6 +166,41 @@ describe('TodayList — 렌더 계약 (Task 9)', () => {
     const box = await screen.findByRole('checkbox', { name: '문서 작성 완료 토글' })
     expect(box.tagName).not.toBe('INPUT')
     expect(box.querySelector('span')?.className).toContain('border-control-border')
+  })
+
+  it('액션 자리는 타이머 상태와 무관하게 같은 폭으로 남는다 — 제목 폭이 흔들리지 않는다', async () => {
+    setup({
+      rows: [makeRow({ taskId: 'todo', completedAt: null })],
+      timer: { ...idleFocusSnapshot, phase: 'running' }
+    })
+
+    await screen.findAllByTestId('today-row-title')
+    // 버튼이 하나도 렌더되지 않는 구간에서도 자리는 남아 있어야 한다.
+    expect(screen.queryByRole('button', { name: '타이머 시작' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: '치우기' })).not.toBeInTheDocument()
+    expect(screen.getByTestId('today-row-actions')).toBeInTheDocument()
+  })
+
+  it('액션 자리의 폭은 두 버튼이 다 보일 때와 하나도 없을 때가 같다', async () => {
+    setup({
+      rows: [makeRow({ taskId: 'todo', completedAt: null })],
+      timer: idleFocusSnapshot
+    })
+    await screen.findAllByTestId('today-row-title')
+    const bothVisible = screen.getByTestId('today-row-actions').className
+
+    cleanup()
+
+    setup({
+      rows: [makeRow({ taskId: 'todo', completedAt: null })],
+      timer: { ...idleFocusSnapshot, phase: 'running' }
+    })
+    await screen.findAllByTestId('today-row-title')
+    const noneVisible = screen.getByTestId('today-row-actions').className
+
+    expect(noneVisible).toBe(bothVisible)
+    // 폭이 내용에 따라 변하지 않도록 고정 폭 + shrink 금지여야 한다.
+    expect(bothVisible).toContain('shrink-0')
   })
 
   it('타이머가 running 이면 치우기 버튼이 하나도 없다', async () => {
