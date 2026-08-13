@@ -162,19 +162,25 @@ export function TodayList() {
 
   return (
     <div className="flex flex-col gap-4 rounded-lg p-4">
-      <ul className="flex flex-col gap-1" data-testid="today-incomplete">
-        {incomplete.map((row) => (
-          <TodayRowItem
-            key={row.taskId}
-            row={row}
-            canPlay={canPlay}
-            canRemove={canRemove}
-            onToggle={handleToggle}
-            onRemove={handleRemove}
-            onPlay={handlePlay}
-          />
-        ))}
-      </ul>
+      {/* 두 목록 다 **비면 아예 그리지 않는다.** 부모가 `gap-4` 라 빈 `ul` 도 앞뒤로
+          간격을 차지한다 — 마지막 미완료 항목을 체크하는 순간 그 항목이 완료 목록으로
+          내려가면서, 빈 채로 남은 미완료 목록의 간격 16px 만큼 아래 내용 전체가 툭 밀렸다.
+          내용이 0인 자리는 간격도 0이어야 한다. */}
+      {incomplete.length > 0 ? (
+        <ul className="flex flex-col gap-1" data-testid="today-incomplete">
+          {incomplete.map((row) => (
+            <TodayRowItem
+              key={row.taskId}
+              row={row}
+              canPlay={canPlay}
+              canRemove={canRemove}
+              onToggle={handleToggle}
+              onRemove={handleRemove}
+              onPlay={handlePlay}
+            />
+          ))}
+        </ul>
+      ) : null}
       {completed.length > 0 ? (
         <ul className="flex flex-col gap-1" data-testid="today-completed">
           {completed.map((row) => (
