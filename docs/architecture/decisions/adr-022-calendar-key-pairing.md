@@ -1,6 +1,10 @@
 # ADR-022: 달력 키 짝 보장 — 시간 모듈 진입점·정합성 CHECK·weeks 갱신 시각
 
-- 상태: accepted (2026-08-06)
+- 상태: accepted (2026-08-06) · **§3 폐기됨 (2026-08-13, [ADR-030](adr-030-time-as-progress-currency.md))**
+  - §3 이 추가한 `weeks.created_at`·`updated_at` 은 테이블째 사라진다. 이로써 §3 이
+    ADR-006 §2 의 mutable 목록에 넣은 `weeks` 항목도 함께 죽는다.
+  - **§1(시간 모듈 진입점)·§2(정합성 CHECK)·§4 는 유효하다** — 달력 키 짝 보장은
+    `sessions`·`tasks` 에 그대로 남는다.
 - 관계:
   - [ADR-021](adr-021-constraint-type-enforcement.md) §5 가 "알고도 미뤘다"고 기록한 두 건을
     실행한다. §5 에 적힌 정합성 **식은 틀렸으므로** 그대로 쓰지 않는다 (§5 아래).

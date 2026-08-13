@@ -9,6 +9,11 @@
   - §5 가 "미뤘다"고 기록한 두 건은 ADR-022 가 **실행했다** — 정합성 CHECK(§2),
     `weeks.created_at`·`updated_at`(§3). §5 의 "미룬다"는 판단은 이로써 종료됐다.
   - §1~§4 와 §6, Consequences 는 유효하다.
+- **부분 폐기됨 (2026-08-13, [ADR-030](adr-030-time-as-progress-currency.md))**
+  - **죽는 것**: §1 의 typeof CHECK 대상 목록 중 `weeks.budget`·`week_items.est_pomos`·
+    `tasks.est_pomos` 세 컬럼 · §3 의 `weeks.capacity` 원소 검사 — 대상 컬럼·테이블이
+    사라진다.
+  - **사는 것**: §1 의 typeof 강제라는 결정 자체와 나머지 대상 컬럼, §2·§4·§6.
 - 관계: [ADR-019](adr-019-constraint-implementation.md) 의 **결정을 뒤집지 않고 식을 정정한다.**
   §2(순간 컬럼의 GLOB)와 §3(값 범위 CHECK)이 의도한 것을 실제로 막지 못함이 실증돼,
   ADR-019 의 상태 줄에 정정을 단다. §7(부분 UNIQUE 인덱스)의 조건 하나를 넓힌다.

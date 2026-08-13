@@ -1,6 +1,14 @@
 # ADR-019: 스키마 제약 실행분 확정 — CHECK·FK·인덱스와 "남은 몫" 정의 통일
 
 - 상태: accepted (2026-08-05) · **§2·§3·§7 식 정정됨 (2026-08-06, [ADR-021](adr-021-constraint-type-enforcement.md))**
+  · **부분 폐기됨 (2026-08-13, [ADR-030](adr-030-time-as-progress-currency.md)·[ADR-031](adr-031-settlement-without-est.md)·[ADR-032](adr-032-destructive-migration-safety.md))**
+  - **죽는 것**: `week_items.est_pomos`·`tasks.est_pomos` 의 CHECK 2종과 `weeks.budget`·
+    `weeks.capacity` 의 CHECK (ADR-030 §4 가 컬럼·테이블을 제거) · §1 의 "남은 몫" 정의와
+    이월 est 하한 `max(1, remaining)` (ADR-031 §1 이 처분을 2택으로 줄여 남은 몫이라는
+    개념 자체가 사라진다) · §6 의 `sessions.local_week → weeks.week` FK (제거 절차는
+    ADR-032 가 소유한다).
+  - **사는 것**: 나머지 CHECK·FK·인덱스 전부, §9 의 `foreign_keys = ON` 기본값 결정
+    (ADR-032 §1 은 마이그레이션 구간에서만 한시적으로 끈다).
   - **결정은 전부 유효하다** — 식만 정정된다. 본문은 이력으로 그대로 둔다.
   - §2 의 순간 GLOB 은 **자릿수만 보고 값의 범위를 보지 않는다**: `'2026-13-45T99:99:99.999Z'`
     가 순간 컬럼 22개 중 21개에서 통과했다. 실행 형태는 GLOB 에 `IS strftime('%Y-%m-%dT%H:%M:%fZ', col)`
