@@ -12,12 +12,14 @@ type TodayRow = Awaited<ReturnType<typeof api.today.list>>['rows'][number]
 function TodayRowItem({
   row,
   canPlay,
+  canRemove,
   onToggle,
   onRemove,
   onPlay
 }: {
   row: TodayRow
   canPlay: boolean
+  canRemove: boolean
   onToggle: (taskId: string) => void
   onRemove: (taskId: string) => void
   onPlay: (taskId: string) => void
@@ -52,15 +54,17 @@ function TodayRowItem({
           <Play />
         </Button>
       ) : null}
-      <Button
-        type="button"
-        variant="ghost"
-        size="icon-sm"
-        aria-label="치우기"
-        onClick={() => onRemove(row.taskId)}
-      >
-        <X />
-      </Button>
+      {canRemove ? (
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon-sm"
+          aria-label="치우기"
+          onClick={() => onRemove(row.taskId)}
+        >
+          <X />
+        </Button>
+      ) : null}
     </li>
   )
 }
@@ -76,6 +80,9 @@ export function TodayList() {
   const [draft, setDraft] = useState('')
 
   const canPlay = timerQuery.data?.mode === 'focus' && timerQuery.data?.phase === 'idle'
+  // 세션이 도는 동안(running·paused) 치우기를 누르면 타이머는 계속 도는데 행만 사라진다 —
+  // 타이머가 꺼진(idle) 뒤에만 치우기를 노출한다.
+  const canRemove = timerQuery.data?.phase === 'idle'
   // query.data 가 아직 undefined 인 "로딩 중"과 "조회 결과 0건"은 다른 상태다 — 합치면
   // 첫 마운트에서 실제로는 행이 있는데도 빈 상태 카피가 잠깐 깜빡인다.
   const isLoading = query.data === undefined
@@ -136,6 +143,7 @@ export function TodayList() {
             key={row.taskId}
             row={row}
             canPlay={canPlay}
+            canRemove={canRemove}
             onToggle={handleToggle}
             onRemove={handleRemove}
             onPlay={handlePlay}
@@ -149,6 +157,7 @@ export function TodayList() {
               key={row.taskId}
               row={row}
               canPlay={canPlay}
+              canRemove={canRemove}
               onToggle={handleToggle}
               onRemove={handleRemove}
               onPlay={handlePlay}
