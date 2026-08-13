@@ -122,8 +122,9 @@
 
 - 링 진행은 상태 변화의 결과 전달이므로 허용. `prefers-reduced-motion: reduce` 시
   전이 애니메이션 없이 즉시 반영 (principles §4).
-- 이모지 금지. 아이콘이 필요한 곳(알림·버튼)은 lucide-react, 뽀모 개수 표현은
-  커스텀 뽀모 도트 컴포넌트 (principles §6).
+- 이모지 금지. 아이콘이 필요한 곳(알림·버튼)은 lucide-react (principles §6).
+  뽀모 도트는 2.0.0 에서 소비자가 전멸해 제거됐다 — 진행은 측정 시간 텍스트로 표시한다
+  ([ADR-030](../../architecture/decisions/adr-030-time-as-progress-currency.md)).
 
 ## 9. 반응형
 

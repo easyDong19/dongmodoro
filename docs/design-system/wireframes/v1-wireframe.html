@@ -280,7 +280,6 @@ body::before {
   display: inline-flex; align-items: center; gap: 3px;
 }
 .badge.carry { color: var(--amber); border-color: var(--glass-border-soft); }
-.badge.over { color: var(--amber); border-color: var(--glass-border-soft); }
 .seg { display: inline-flex; background: var(--glass); border: 1px solid var(--glass-border-soft); border-radius: var(--radius-md); padding: 2px; backdrop-filter: var(--control-backdrop); }
 .seg button {
   font: inherit; font-size: var(--text-sm); color: var(--ink-dim); background: transparent;
@@ -289,30 +288,24 @@ body::before {
 /* 선택 상태에 보더가 필수다 — 배경은 고대비 모드에서 사라진다 (ADR-006 §3) */
 .seg button { min-height: var(--target-min); border: 1px solid transparent; }
 .seg button[aria-pressed="true"] { background: var(--glass-strong); border-color: var(--glass-border); color: var(--teal); }
-.seg button[aria-pressed="true"].warm { color: var(--amber); }
 .seg button[aria-pressed="true"].drop { color: var(--ink); }        /* 라벨은 --ink */
 .seg button[aria-pressed="true"].drop .icon { color: var(--danger); } /* 아이콘만 danger */
-/* 입력·체크박스·스테퍼는 컴포넌트 경계이므로 --control-border (3:1) — ADR-003 §4 */
+/* 입력·체크박스는 컴포넌트 경계이므로 --control-border (3:1) — ADR-003 §4.
+   스테퍼(.stepper)는 2.0.0 에서 소비자가 전멸해 제거됐다 — est 입력과 정산 축소가 유일한 사용처였다 */
 .input {
   background: var(--glass); border: 1px solid var(--control-border); color: var(--ink);
   border-radius: var(--radius-md); padding: 8px 10px; font: inherit; font-size: var(--text-sm); width: 100%;
   min-height: var(--target-min);
 }
 .input::placeholder { color: var(--ink-dim); }   /* placeholder 는 읽어야 하는 텍스트 */
-.stepper { display: inline-flex; align-items: center; gap: 6px; }
-.stepper button {
-  font: inherit; width: var(--target-min); height: var(--target-min);
-  border-radius: var(--radius-sm); background: var(--glass);
-  border: 1px solid var(--control-border); color: var(--ink-dim); cursor: pointer;
-}
 .icon { width: 13px; height: 13px; flex-shrink: 0; }
 .icon.lg { width: 15px; height: 15px; }
 
-/* 뽀모 도트 — 토큰 기반 커스텀 컴포넌트 (이모지 금지, principles §6) */
-.dots { display: inline-flex; gap: 3px; align-items: center; }
-.dot { width: 7px; height: 7px; border-radius: 50%; border: 1px solid var(--ink-faint); }  /* 미채움 = 부재. 숫자 병기가 정보를 전달한다 */
-.dot.fill { background: var(--teal); border-color: var(--teal); }
-.dot.extra { background: var(--amber); border-color: var(--amber); box-shadow: 0 0 5px var(--glow-amber); }
+/* 측정 시간 — 2.0.0 의 진행 표시. 뽀모 도트(.dots/.dot)를 대체했다.
+   도트는 est 라는 분모가 있어야 "채움/미채움/초과"가 성립했는데 그 분모가 폐기됐다.
+   숫자 하나에는 색 외 제2 신호가 필요 없다 (텍스트 자체가 신호다) — principles §3.5 */
+.measured { font-family: var(--font-mono); font-variant-numeric: tabular-nums; color: var(--ink-dim); }
+.measured.zero { color: var(--ink-faint); }  /* `0분` 은 사실이다. `—`(값 없음)와 구분해서 쓴다 */
 
 /* 요일 핍 — 월요일 시작 (ADR-010).
    색과 모양 두 채널로 구분한다 — 불투명도 차이로 "지난"을 표현하지 않는다 (ADR-006 §3) */
@@ -339,11 +332,10 @@ body::before {
   width: var(--target-min); height: var(--target-min); padding: 0;
 }
 
-/* 게이지 */
-.gauge { flex-shrink: 0; padding-top: 10px; border-top: 1px solid var(--glass-border-soft); }
-.bar { height: 5px; border-radius: var(--radius-sm); background: var(--glass-strong); overflow: hidden; margin: 6px 0; }
-.bar > span { display: block; height: 100%; background: var(--teal); border-radius: var(--radius-sm); }
-.bar > span.over { background: var(--amber); box-shadow: 0 0 8px var(--glow-amber); }
+/* 예산 게이지(.gauge/.bar)는 2.0.0 에서 제거됐다 — 분모가 없는 값에 진행 바를 붙이면
+   사용자가 없는 목표를 추측하게 된다 (week-plan ux-spec §7). 그 자리는 카드 헤더의
+   측정 시간 합 한 줄이 대신하며, 카드에 하단 고정 요소가 사라졌다. */
+.week-total { margin-left: auto; font-family: var(--font-mono); font-variant-numeric: tabular-nums; font-size: var(--text-sm); color: var(--ink-dim); }
 
 /* 타이머 */
 .timer { align-items: center; justify-content: center; gap: 14px; text-align: center; }
@@ -433,14 +425,8 @@ body::before {
 .section-title { font-size: var(--text-md); font-weight: var(--weight-semibold); margin: 12px 0 6px; display: flex; align-items: center; gap: 6px; }  /* 굵기 혼자 섹션을 가르지 않는다 (design-system ADR-009) */
 .step { border-top: 1px solid var(--glass-border-soft); padding-top: 10px; margin-top: 10px; }
 .step-no { font-size: var(--text-xs); letter-spacing: var(--tracking-normal); color: var(--ink-dim); }  /* 한글 단계 라벨 (design-system ADR-009) */
-.load { display: grid; grid-template-columns: repeat(7, 1fr); gap: 5px; align-items: end; height: 62px; margin-top: 8px; position: relative; }
-.load .colbar { display: flex; flex-direction: column; align-items: center; gap: 3px; height: 100%; justify-content: flex-end; }
-.load .colbar > .load-n { font-size: var(--text-2xs); color: var(--ink-dim); }
-.load .colbar > .load-bar { width: 100%; background: var(--teal); border-radius: 3px 3px 0 0; }
-.load .colbar.over > .load-bar { background: var(--amber); box-shadow: 0 0 8px var(--glow-amber); }
-.load .colbar.over > .load-n { color: var(--amber); }
-.load .colbar > .load-d { font-size: var(--text-2xs); color: var(--ink-dim); }
-.baseline { position: absolute; left: 0; right: 0; border-top: 1px dashed var(--glass-border); }
+/* 요일별 부하 막대(.load/.colbar/.baseline)는 2.0.0 에서 제거됐다 — 막대의 높이가
+   예상 뽀모였고 기준선이 가용량이었다. 둘 다 사라져 그릴 값이 없다. */
 .draft { display: flex; align-items: center; gap: 7px; font-size: var(--text-sm); padding: 6px 0; border-bottom: 1px solid var(--glass-border-soft); }
 .draft.dropping { color: var(--ink-dim); text-decoration: line-through; }
 .drawer { background: var(--glass); border: 1px solid var(--glass-border-soft); border-radius: var(--radius-md); padding: 10px; margin: 4px 0 6px; }
@@ -508,7 +494,7 @@ body::before {
     <symbol id="i-chevron-left" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></symbol>
     <symbol id="i-play" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="6 3 20 12 6 21 6 3"/></symbol>
     <symbol id="i-pause" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="14" y="4" width="4" height="16" rx="1"/><rect x="6" y="4" width="4" height="16" rx="1"/></symbol>
-    <symbol id="i-flame" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/></symbol>
+    <!-- i-flame (초과 배지 동반 아이콘) 은 2.0.0 에서 제거됐다 — 초과라는 상태가 없다 -->
     <symbol id="i-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></symbol>
     <symbol id="i-x" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12"/></symbol>
     <symbol id="i-panel-left" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M9 3v18"/></symbol>
@@ -523,6 +509,7 @@ body::before {
     <h1>dongmodoro — v1 와이어프레임</h1>
     <p>docs/features 8종 · docs/design-system 토큰 기준. 색·폰트·radius·유리 표면은 tokens.md 토큰만, 아이콘은 lucide 컴포넌트만(이모지 0), 요일은 전부 월요일 시작.</p>
     <p><b>이 문서는 명세가 아니다</b> — 기능 문서와 어긋나면 ux-spec·prd 가 이긴다. 디자인이 바뀌면 이 파일을 갱신한다(날짜 스냅샷을 새로 만들지 않는다).</p>
+    <p><b>2.0.0 갱신 (2026-08-13)</b> — 진행의 통화가 뽀모 개수에서 <b>측정 시간</b>으로 바뀌었다. 이 그림에서 사라진 것: 뽀모 도트 · 예산 게이지 · 예상 뽀모 스테퍼 · 과적 경고 · 요일별 부하 막대 · 요일별 가용량 7칸 · 정산의 <span class="dim">줄여서</span> 3택. 근거는 <b>ADR-030 · ADR-031</b> 이고, 사라진 자리에 무엇이 오는지는 각 뷰의 주석에 적었다.</p>
     <p>접근성 기준선 (ADR-003~006): 텍스트 대비 4.5:1 · 비텍스트 3:1 · 포커스 링 · 히트 영역 24px · 색 외 제2 신호. 폰트만 rem, 루트 62.5% (ADR-007). 다크·라이트 2테마 (ADR-008).</p>
   </div>
 
@@ -545,7 +532,7 @@ body::before {
 
 <!-- ══════════════════════════ 0. 플로우 ══════════════════════════ -->
 <section class="view on" id="v-flow">
-  <div class="note"><b>레이어 3층</b> — 월(MONTH)은 결과물, 주(WEEK)는 얼마만큼, 오늘(TODAY)은 지금 뭐부터. 숫자가 처음 나오는 층은 주(週)다. 아래→위 단방향 파생이라 소진량은 어디에도 저장되지 않는다.</div>
+  <div class="note"><b>레이어 3층</b> — 월(MONTH)은 결과물, 주(WEEK)는 무엇을, 오늘(TODAY)은 지금 뭐부터. <b>계획 시점에 숫자를 입력하는 자리가 없다</b>(2.0.0) — 화면의 모든 숫자는 완료된 focus 세션의 측정 시간에서 아래→위로 파생되며 어디에도 저장되지 않는다.</div>
 
   <div class="flow">
     <div class="lane">
@@ -553,9 +540,9 @@ body::before {
       <div class="flow-row">
         <div class="node"><h2>월 마일스톤</h2><p>결과물 2~3개. 수치 입력 필드 없음</p></div>
         <div class="arrow">→</div>
-        <div class="node"><h2>주간 플래너</h2><p>ⓞ 대상 주 → ① 예산 → ② 항목+est → ③ 요일 → ④ 경고</p></div>
+        <div class="node"><h2>주간 플래너</h2><p>ⓞ 대상 주 → ① 항목(제목만) → ② 요일. 숫자 입력 단계가 없다</p></div>
         <div class="arrow">→</div>
-        <div class="node"><h2>이번 주 할당</h2><p>항목 목록 + 예산 게이지</p></div>
+        <div class="node"><h2>이번 주 할당</h2><p>항목 목록 + 헤더의 이번 주 측정 시간 합</p></div>
         <div class="arrow">→</div>
         <div class="node"><h2>항목 드로어</h2><p>조각 쪼개기 → <span class="teal">오늘로 가져오기</span></p></div>
         <div class="arrow">→</div>
@@ -568,7 +555,7 @@ body::before {
       <div class="flow-row">
         <div class="node accent"><h2>타이머</h2><p>집중 25 → 짧은 휴식 5 → (4회차) 긴 휴식 15. 자동 전환은 하지만 <b>자동 시작은 안 한다</b></p></div>
         <div class="arrow">→</div>
-        <div class="node"><h2>세션 기록</h2><p>1뽀모 = focus 1회 완료(길이 무관). local_date·local_week 를 1회 계산해 불변 저장</p></div>
+        <div class="node"><h2>세션 기록</h2><p><b>duration_sec</b> = 타이머가 실제로 돈 시간. local_date·local_week 를 1회 계산해 불변 저장. 중단·초기화된 세션은 행이 남지 않는다</p></div>
         <div class="arrow">→</div>
         <div class="node"><h2>사후 캡처 바</h2><p>자유 집중일 때만 — "이 N분, 뭐 했는지 한 줄 남길래요?"</p></div>
         <div class="arrow">→</div>
@@ -581,9 +568,9 @@ body::before {
       <div class="flow-row">
         <div class="node"><h2>정산 배너</h2><p>주간 카드 상단, 앰버. 무시해도 카드가 정상 동작</p></div>
         <div class="arrow">→</div>
-        <div class="node"><h2>정산 패널</h2><p>1 요약 → 2 끝낸 것들 → 3 남은 것들 3택 → 4 안내 → 5 확정</p></div>
+        <div class="node"><h2>정산 패널</h2><p>1 요약 → 2 끝낸 것들 → 3 남은 것들 2택 → 4 안내 → 5 확정</p></div>
         <div class="arrow">→</div>
-        <div class="node"><h2>3택</h2><p><span class="teal">다음 주로</span>(기본) / <span class="amber">줄여서</span> / 보내주기</p></div>
+        <div class="node"><h2>2택</h2><p><span class="teal">다음 주로</span>(기본) / 보내주기. <span class="dim">줄여서</span> 는 줄일 대상(est)이 사라져 폐기됐다</p></div>
         <div class="arrow">→</div>
         <div class="node"><h2>확정</h2><p>이월 항목이 다음 주로. 클릭 1회로 끝나도 합리적 결과</p></div>
         <div class="arrow">→</div>
@@ -605,7 +592,7 @@ body::before {
     </div>
   </div>
 
-  <div class="note">설계상 <b>막는 화면이 없다</b>: 과적이어도 확정은 항상 성공, 정산 패널·드로어·MONTH 오버레이 전부 모달 아님, 계획 0개도 정상 상태. 초과는 <span class="amber">앰버 + 불꽃</span>으로 긍정 처리하고 <span style="color:var(--danger)">--danger</span> 는 "없애는 행위"에만 쓴다.</div>
+  <div class="note">설계상 <b>막는 화면이 없다</b>: 계획 확정은 항상 성공, 정산 패널·드로어·MONTH 오버레이 전부 모달 아님, 계획 0개도 정상 상태. <b>2.0.0 에서 초과라는 상태 자체가 사라졌다</b> — 예산이 폐기돼 넘길 분모가 없다. 앰버는 휴식·온기·캘린더 강조에만 남고, <span style="color:var(--danger)">--danger</span> 는 "없애는 행위"에만 쓴다.</div>
 </section>
 
 <!-- ══════════════════════════ 1. 와이드 ══════════════════════════ -->
@@ -743,6 +730,7 @@ body::before {
             <span class="eyebrow">WEEK</span>
             <span class="card-title">이번 주 할당</span>
             <span class="card-meta">8/3 – 8/9</span>
+            <span class="week-total">6시간 40분</span>
           </div>
 
           <div class="scrollarea">
@@ -754,8 +742,7 @@ body::before {
                 <button class="btn small" style="margin-left:auto">+ 오늘로</button>
               </div>
               <div class="item-sub">
-                <span class="dots"><span class="dot fill"></span><span class="dot fill"></span><span class="dot fill"></span><span class="dot fill"></span><span class="dot fill"></span><span class="dot fill"></span><span class="dot"></span><span class="dot"></span></span>
-                <span class="mono xs">6/8</span>
+                <span class="measured">2시간 30분</span>
                 <span>· 조각 2/4</span>
                 <span class="pips"><span class="pip past"></span><span class="pip today"></span><span class="pip"></span><span class="pip next"></span><span class="pip"></span><span class="pip"></span><span class="pip"></span></span>
               </div>
@@ -770,8 +757,7 @@ body::before {
                 <button class="btn small" style="margin-left:auto">+ 오늘로</button>
               </div>
               <div class="item-sub">
-                <span class="dots"><span class="dot fill"></span><span class="dot fill"></span><span class="dot fill"></span><span class="dot fill"></span><span class="dot"></span><span class="dot"></span></span>
-                <span class="mono xs">4/6</span>
+                <span class="measured">1시간 40분</span>
                 <span>· 조각 1/3</span>
                 <span class="pips"><span class="pip"></span><span class="pip"></span><span class="pip next"></span><span class="pip"></span><span class="pip next"></span><span class="pip"></span><span class="pip"></span></span>
               </div>
@@ -784,8 +770,7 @@ body::before {
                 <button class="btn small" style="margin-left:auto">+ 오늘로</button>
               </div>
               <div class="item-sub">
-                <span class="dots"><span class="dot"></span><span class="dot"></span></span>
-                <span class="mono xs">0/2</span>
+                <span class="measured zero">0분</span>
                 <span class="pips"><span class="pip"></span><span class="pip"></span><span class="pip"></span><span class="pip"></span><span class="pip"></span><span class="pip next"></span><span class="pip"></span></span>
               </div>
             </div>
@@ -794,12 +779,10 @@ body::before {
               <div class="item-top">
                 <button class="caret" aria-label="펼치기"><svg class="icon"><use href="#i-chevron-right"/></svg></button>
                 <span class="item-title done">발표 자료</span>
-                <span class="badge over"><svg class="icon"><use href="#i-flame"/></svg> +2</span>
                 <span class="badge" style="margin-left:auto">완료됨</span>
               </div>
               <div class="item-sub">
-                <span class="dots"><span class="dot fill"></span><span class="dot fill"></span><span class="dot fill"></span><span class="dot extra"></span><span class="dot extra"></span></span>
-                <span class="mono xs">5/3</span>
+                <span class="measured">2시간 5분</span>
                 <span>· 조각 3/3</span>
               </div>
             </div>
@@ -810,16 +793,10 @@ body::before {
                 <span class="item-title dim">기타 — 계획에 없던 집중</span>
               </div>
               <div class="item-sub">
-                <span class="dots"><span class="dot fill"></span><span class="dot fill"></span><span class="dot fill"></span></span>
-                <span class="mono xs">3</span>
+                <span class="measured">25분</span>
+                <span class="dim">차액 — 주 총합에서 위 항목들을 뺀 나머지</span>
               </div>
             </div>
-          </div>
-
-          <div class="gauge">
-            <div class="sm"><span class="mono">18 / 24</span></div>
-            <div class="bar"><span style="width:75%"></span></div>
-            <div class="sm dim">예산은 추정치예요 — 넘어가도 괜찮아요</div>
           </div>
         </div>
 
@@ -835,8 +812,7 @@ body::before {
               <span>
                 <span class="sm">라우팅 정리</span>
                 <span class="xs dim" style="display:block">포트폴리오 리팩터 ·
-                  <span class="dots"><span class="dot fill"></span><span class="dot"></span><span class="dot"></span></span>
-                  <span class="mono xs">1/3</span>
+                  <span class="measured">50분</span>
                 </span>
               </span>
               <button class="remove" aria-label="목록에서 빼기"><svg class="icon"><use href="#i-x"/></svg></button>
@@ -846,8 +822,7 @@ body::before {
               <span>
                 <span class="sm">DP 5문제</span>
                 <span class="xs dim" style="display:block">알고리즘 60제 ·
-                  <span class="dots"><span class="dot fill"></span><span class="dot"></span></span>
-                  <span class="mono xs">1/2</span>
+                  <span class="measured">25분</span>
                 </span>
               </span>
               <button class="remove" aria-label="목록에서 빼기"><svg class="icon"><use href="#i-x"/></svg></button>
@@ -857,8 +832,7 @@ body::before {
               <span>
                 <span class="sm" style="text-decoration:line-through;color:var(--ink-dim)">레이아웃 정리</span>
                 <span class="xs dim" style="display:block">포트폴리오 리팩터 ·
-                  <span class="dots"><span class="dot fill"></span><span class="dot fill"></span></span>
-                  <span class="mono xs">2/2</span>
+                  <span class="measured">1시간 40분</span>
                 </span>
               </span>
               <button class="remove" aria-label="목록에서 빼기"><svg class="icon"><use href="#i-x"/></svg></button>
@@ -871,7 +845,7 @@ body::before {
     </div>
   </div>
   </div>
-  <div class="note">읽는 순서가 곧 사용 순서다 — <b>왼쪽(왜)</b> → <b>가운데(지금)</b> → <b>오른쪽(무엇을 얼마나)</b>. 완료 항목은 목록에서 사라지지 않고 취소선으로 남으며(발표 자료), 초과분 <span class="amber">+2</span> 도 완료 후에도 계속 표시된다(사실이므로 숨기지 않는다).</div>
+  <div class="note">읽는 순서가 곧 사용 순서다 — <b>왼쪽(왜)</b> → <b>가운데(지금)</b> → <b>오른쪽(무엇을)</b>. 완료 항목은 목록에서 사라지지 않고 취소선으로 남는다(발표 자료). 헤더의 <b>6시간 40분</b>은 항목 4개 + 기타 행의 합과 초에서 정확히 같다 — 기타 행이 차액으로 정의되기 때문이다. <b>바(진행률)를 그리지 않는다</b>: 분모가 없는 값에 바를 붙이면 없는 목표를 추측하게 된다.</div>
 </section>
 
 <!-- ══════════════════════════ 2. 콜드 스타트 ══════════════════════════ -->
@@ -951,12 +925,8 @@ body::before {
         <div class="card grow">
           <div class="card-head"><span class="eyebrow">WEEK</span><span class="card-title">이번 주 할당</span><span class="card-meta">8/3 – 8/9</span></div>
           <div class="empty">
-            <p>이번 주 할당을 잡으면 뽀모 예산이 여기 보여요</p>
+            <p>이번 주 할당을 잡으면 여기서 집중한 시간이 쌓여요</p>
             <button class="btn small">+ 이번 주 할당 잡기</button>
-          </div>
-          <div class="gauge">
-            <div class="sm"><span class="mono">0 / 미설정</span></div>
-            <div class="sm dim">예산을 정하면 예산 대비 소진이 보여요</div>
           </div>
         </div>
         <div class="card grow">
@@ -972,7 +942,7 @@ body::before {
     </div>
   </div>
   </div>
-  <div class="note">빈 상태에 <b>경고색·경고 아이콘·"데이터 없음"·"설정이 필요합니다" 를 쓰지 않는다.</b> 계획 0개는 오류가 아니라 "아직 안 정했음"이다. 예산 게이지 문구가 "주간 계획을 잡으면"이 아니라 <b>"예산을 정하면"</b> 인 것도 규칙(계획을 잡고 예산만 비운 경우도 같은 상태라서).</div>
+  <div class="note">빈 상태에 <b>경고색·경고 아이콘·"데이터 없음"·"설정이 필요합니다" 를 쓰지 않는다.</b> 계획 0개는 오류가 아니라 "아직 안 정했음"이다. WEEK 카드에 <b>하단 고정 게이지가 없다</b> — 2.0.0 에서 예산이 폐기되며 사라졌고, 옛 판의 <span class="dim">예산을 정하면 예산 대비 소진이 보여요</span> 를 대체하는 문구도 두지 않는다(없는 목표를 상기시키는 문장이 된다 — week-plan ux-spec §8).</div>
 </section>
 
 <!-- ══════════════════════════ 3. WEEK 3모드 ══════════════════════════ -->
@@ -984,7 +954,7 @@ body::before {
     <div>
       <div class="frame-label">일반 뷰 · 드로어 펼침 (모달 아님)</div>
       <div class="card" style="width:360px">
-        <div class="card-head"><span class="eyebrow">WEEK</span><span class="card-title">이번 주 할당</span><span class="card-meta">8/3 – 8/9</span></div>
+        <div class="card-head"><span class="eyebrow">WEEK</span><span class="card-title">이번 주 할당</span><span class="card-meta">8/3 – 8/9</span><span class="week-total">6시간 40분</span></div>
         <div class="item today-assigned">
           <div class="item-top">
             <button class="caret" aria-label="펼치기"><svg class="icon"><use href="#i-chevron-down"/></svg></button>
@@ -992,8 +962,7 @@ body::before {
             <span class="badge">M1</span>
           </div>
           <div class="item-sub">
-            <span class="dots"><span class="dot fill"></span><span class="dot fill"></span><span class="dot fill"></span><span class="dot fill"></span><span class="dot fill"></span><span class="dot fill"></span><span class="dot"></span><span class="dot"></span></span>
-            <span class="mono xs">6/8</span><span>· 조각 2/4</span>
+            <span class="measured">2시간 30분</span><span>· 조각 2/4</span>
             <span class="pips"><span class="pip past"></span><span class="pip today"></span><span class="pip"></span><span class="pip next"></span><span class="pip"></span><span class="pip"></span><span class="pip"></span></span>
           </div>
         </div>
@@ -1003,14 +972,12 @@ body::before {
           <div class="task-row">
             <button class="check" aria-pressed="true" aria-label="완료"><svg class="icon"><use href="#i-check"/></svg></button>
             <span>라우팅 정리</span>
-            <span class="dots" style="margin-left:auto"><span class="dot fill"></span><span class="dot"></span><span class="dot"></span></span>
-            <span class="mono xs">1/3</span>
+            <span class="measured" style="margin-left:auto">50분</span>
           </div>
           <div class="task-row">
             <button class="check" aria-pressed="false" aria-label="완료"></button>
             <span>토큰 CSS 이관</span>
-            <span class="dots" style="margin-left:auto"><span class="dot"></span><span class="dot"></span></span>
-            <span class="mono xs">0/2</span>
+            <span class="measured zero" style="margin-left:auto">0분</span>
           </div>
           <div class="task-row faint">
             <button class="check" aria-pressed="false" aria-label="완료"></button>
@@ -1023,10 +990,9 @@ body::before {
             <span class="xs" style="margin-left:auto">완료</span>
           </div>
           <div class="hr"></div>
-          <div class="xs dim" style="margin-bottom:5px">또는 새 조각 추가</div>
+          <div class="xs dim" style="margin-bottom:5px">또는 새 조각 추가 — 제목만 적으면 끝난다(2.0.0: est 입력 제거)</div>
           <div style="display:flex;gap:6px;align-items:center">
             <input class="input" placeholder="제목" style="flex:1" aria-label="제목">
-            <span class="stepper"><button>−</button><span class="mono xs">1</span><button>+</button></span>
           </div>
           <div class="hr"></div>
           <div style="display:flex;gap:6px;align-items:center">
@@ -1046,22 +1012,15 @@ body::before {
             <span class="badge">M2</span><span class="badge carry">3주째</span>
           </div>
           <div class="item-sub">
-            <span class="dots"><span class="dot fill"></span><span class="dot fill"></span><span class="dot fill"></span><span class="dot fill"></span><span class="dot"></span><span class="dot"></span></span>
-            <span class="mono xs">4/6</span>
+            <span class="measured">1시간 40분</span>
           </div>
-        </div>
-
-        <div class="gauge">
-          <div class="sm"><span class="mono">18 / 24</span></div>
-          <div class="bar"><span style="width:75%"></span></div>
-          <div class="sm dim">예산은 추정치예요 — 넘어가도 괜찮아요</div>
         </div>
       </div>
     </div>
 
     <!-- 플래너 -->
     <div>
-      <div class="frame-label">플래너 모드 · 5단계 한 화면 (마법사 아님)</div>
+      <div class="frame-label">플래너 모드 · 3단계 한 화면 (마법사 아님) — 2.0.0 에서 5단계에서 줄었다</div>
       <div class="card" style="width:380px">
         <div class="card-head"><span class="eyebrow">WEEK</span><span class="card-title">이번 주 계획</span><span class="card-meta">8/3 – 8/9</span></div>
 
@@ -1075,63 +1034,35 @@ body::before {
         </div>
 
         <div class="step">
-          <div class="step-no">① 이번 주 예산 (추정치)</div>
-          <div style="display:flex;gap:8px;align-items:center;margin-top:5px">
-            <input class="input mono" value="24" style="width:70px" aria-label="값">
-            <span class="xs dim">요일별 가용 합 22</span>
-          </div>
-        </div>
-
-        <div class="step">
-          <div class="step-no">② 항목 추가</div>
+          <div class="step-no">① 항목 추가 — 제목만</div>
           <div style="display:flex;gap:6px;align-items:center;margin-top:5px">
             <input class="input" placeholder="제목" style="flex:1" aria-label="제목">
-            <span class="stepper"><button>−</button><span class="mono xs">3</span><button>+</button></span>
           </div>
           <div style="display:flex;gap:5px;margin-top:6px;flex-wrap:wrap">
             <button class="chip on">M1</button><button class="chip">M2</button><button class="chip">마일스톤 없음</button>
             <button class="btn small primary" style="margin-left:auto">항목 추가</button>
           </div>
           <div style="margin-top:8px">
-            <div class="draft"><span class="badge">M1</span> 포트폴리오 리팩터 <span class="xs dim">월수금</span> <span class="xs dim">(뽀모 8)</span>
+            <div class="draft"><span class="badge">M1</span> 포트폴리오 리팩터 <span class="xs dim">월수금</span>
               <button class="remove" style="margin-left:auto" aria-label="목록에서 빼기"><svg class="icon"><use href="#i-x"/></svg></button></div>
-            <div class="draft"><span class="badge">M2</span> 알고리즘 60제 <span class="xs dim">수금</span> <span class="xs dim">(뽀모 6)</span>
+            <div class="draft"><span class="badge">M2</span> 알고리즘 60제 <span class="xs dim">수금</span>
               <button class="remove" style="margin-left:auto" aria-label="목록에서 빼기"><svg class="icon"><use href="#i-x"/></svg></button></div>
-            <div class="draft">블로그 글 2편 <span class="xs dim">미배치</span> <span class="xs dim">(뽀모 2)</span>
+            <div class="draft">블로그 글 2편 <span class="xs dim">미배치</span>
               <button class="remove" style="margin-left:auto" aria-label="목록에서 빼기"><svg class="icon"><use href="#i-x"/></svg></button></div>
-            <div class="draft dropping">발표 자료 <span class="xs dim">(뽀모 3)</span>
+            <div class="draft dropping">발표 자료
               <span class="xs" style="margin-left:auto;text-decoration:none">보내줄 예정 · <span class="teal">되돌리기</span></span></div>
           </div>
         </div>
 
         <div class="step">
-          <div class="step-no">③ 언제 (선택)</div>
+          <div class="step-no">② 언제 (선택)</div>
           <div style="display:flex;gap:4px;margin-top:5px">
             <button class="chip on">월</button><button class="chip">화</button><button class="chip on">수</button>
             <button class="chip">목</button><button class="chip on">금</button><button class="chip">토</button><button class="chip">일</button>
           </div>
         </div>
 
-        <div class="step">
-          <div class="step-no">④ 경고 확인</div>
-          <div class="sm" style="margin-top:6px">계획 합계 <span class="mono amber">26</span> / 예산 <span class="mono">24</span></div>
-          <div class="bar"><span class="over" style="width:100%"></span></div>
-          <div class="sm dim">+2 과적이에요. 예상 뽀모를 줄일까요, 항목을 덜어낼까요?</div>
-
-          <div class="sm" style="margin-top:10px;display:flex;align-items:baseline">
-            요일별 부하 <span class="xs amber" style="margin-left:auto">화·목 넘침</span>
-          </div>
-          <div class="load">
-            <div class="baseline" style="bottom:38px"></div>
-            <div class="colbar"><span class="load-n">3</span><span class="load-bar" style="height:42%"></span><span class="load-d">월</span></div>
-            <div class="colbar over"><span class="load-n">5</span><span class="load-bar" style="height:72%"></span><span class="load-d">화</span></div>
-            <div class="colbar"><span class="load-n">4</span><span class="load-bar" style="height:56%"></span><span class="load-d">수</span></div>
-            <div class="colbar over"><span class="load-n">6</span><span class="load-bar" style="height:86%"></span><span class="load-d">목</span></div>
-            <div class="colbar"><span class="load-n">4</span><span class="load-bar" style="height:56%"></span><span class="load-d">금</span></div>
-            <div class="colbar"><span class="load-n">2</span><span class="load-bar" style="height:28%"></span><span class="load-d">토</span></div>
-            <div class="colbar"><span class="load-n">0</span><span class="load-bar" style="height:2%"></span><span class="load-d">일</span></div>
-          </div>
-        </div>
+        <div class="note" style="margin:10px 0 0">2.0.0 에서 <b>③ 이번 주 예산 · 예상 뽀모 스테퍼 · ④ 과적 경고 · 요일별 부하 막대</b>가 전부 사라졌다. 계획 시점에 매기는 숫자가 없어졌으므로 넘칠 분모도, 부하를 잴 기준선(가용량)도 없다. 대체 신호는 <b>두지 않는다</b> — 필요해지면 그때 결정한다(결정 원장 §미결 1).</div>
 
         <div class="hr"></div>
         <div style="display:flex;gap:8px;justify-content:flex-end">
@@ -1148,77 +1079,59 @@ body::before {
         <div class="card-head"><span class="eyebrow">WEEK</span><span class="card-title">주간 정산</span><span class="card-meta">W32</span></div>
 
         <div class="section-title">1 · 요약</div>
-        <div class="sm">이번 주 마감 — 4일 공부, 뽀모 <span class="mono">18</span> 소진 <span class="dim">(예산 24)</span></div>
-        <div class="dots" style="margin-top:6px">
-          <span class="dot fill"></span><span class="dot fill"></span><span class="dot fill"></span><span class="dot fill"></span><span class="dot fill"></span>
-          <span class="dot fill"></span><span class="dot fill"></span><span class="dot fill"></span><span class="dot fill"></span><span class="dot fill"></span>
-          <span class="dot fill"></span><span class="dot fill"></span><span class="dot fill"></span><span class="dot fill"></span><span class="dot fill"></span>
-          <span class="dot fill"></span><span class="dot fill"></span><span class="dot fill"></span><span class="dot"></span><span class="dot"></span>
-        </div>
+        <div class="sm">이번 주 마감 — 4일 공부, 집중한 시간 <span class="measured">6시간 40분</span></div>
+        <div class="xs dim" style="margin-top:4px">계획 대비를 말하지 않는다 — 비교할 분모가 없다. 정산은 사실만 요약한다.</div>
 
         <div class="section-title">2 · 끝낸 것들 <svg class="icon teal"><use href="#i-chevron-down"/></svg></div>
-        <div class="task-row"><span class="teal" style="display:flex"><svg class="icon"><use href="#i-check"/></svg></span> 발표 자료 <span class="xs dim" style="margin-left:auto">뽀모 5</span></div>
+        <div class="task-row"><span class="teal" style="display:flex"><svg class="icon"><use href="#i-check"/></svg></span> 발표 자료 <span class="measured" style="margin-left:auto">2시간 5분</span></div>
 
         <div class="section-title">3 · 남은 것들</div>
-        <div class="xs dim" style="margin:-2px 0 6px">3주 이상 넘어온 항목 1건</div>
+        <div class="xs dim" style="margin:-2px 0 6px">이월 3건 · 3주 이상 넘어온 항목 1건</div>
 
         <div class="item" style="border-color:var(--glass-border-soft)">
           <div class="item-top">
             <span class="item-title">알고리즘 60제</span>
             <span class="badge">3주째</span>
           </div>
-          <div class="item-sub" style="margin-left:0">
-            <span class="dots"><span class="dot"></span><span class="dot"></span></span><span>뽀모 2 남음</span>
-          </div>
           <div class="seg" style="margin-top:7px">
             <button aria-pressed="true">다음 주로</button>
-            <button aria-pressed="false" class="warm">줄여서</button>
             <button aria-pressed="false" class="drop">보내주기</button>
           </div>
         </div>
 
         <div class="item" style="border-color:var(--glass-border-soft)">
           <div class="item-top"><span class="item-title">포트폴리오 리팩터</span></div>
-          <div class="item-sub" style="margin-left:0">
-            <span class="dots"><span class="dot"></span><span class="dot"></span></span><span>뽀모 2 남음</span>
-          </div>
           <div class="seg" style="margin-top:7px">
-            <button aria-pressed="false">다음 주로</button>
-            <button aria-pressed="true" class="warm">줄여서</button>
+            <button aria-pressed="true">다음 주로</button>
             <button aria-pressed="false" class="drop">보내주기</button>
           </div>
-          <div class="stepper" style="margin-top:7px"><button>−</button><span class="mono xs">1</span><button>+</button></div>
         </div>
 
         <div class="item faint" style="border-color:var(--glass-border-soft)">
           <div class="item-top"><span class="item-title">블로그 글 2편</span></div>
-          <div class="item-sub" style="margin-left:0">
-            <span class="dots"><span class="dot"></span><span class="dot"></span></span><span>뽀모 2 남음</span>
-          </div>
           <div class="seg" style="margin-top:7px">
             <button aria-pressed="false">다음 주로</button>
-            <button aria-pressed="false" class="warm">줄여서</button>
             <button aria-pressed="true" class="drop"><svg class="icon"><use href="#i-archive-x"/></svg> 보내주기</button>
           </div>
         </div>
 
         <div class="section-title">4 · 안내</div>
-        <div class="sm dim">계획에 없던 집중 3은 기록으로만 남아요. 할당이 틀린 건 실패가 아니라 정보예요.</div>
+        <div class="sm dim">계획에 없던 집중 25분은 기록으로만 남아요. 할당이 틀린 건 실패가 아니라 정보예요.</div>
         <div class="hr"></div>
         <div class="sm" style="display:flex;align-items:center;gap:8px">
           뽀모 길이 — 집중 <span class="mono">25</span> · 짧은 휴식 <span class="mono">5</span> · 긴 휴식 <span class="mono">15</span>
           <button class="btn small" style="margin-left:auto">조정</button>
         </div>
-        <div class="sm dim" style="margin-top:4px">바꾼 길이는 다음 주부터 적용돼요 · 이번 주 기록은 그대로예요</div>
+        <div class="sm dim" style="margin-top:4px">바꾸면 바로 저장돼요 · 다음 세션부터 새 길이로 시작해요</div>
 
         <div class="hr"></div>
-        <div class="xs dim">이월 3 · 다음 주 예산 20</div>
-        <button class="btn primary" style="margin-top:7px;justify-content:center">다음 주 시작 (이월 뽀모 3 포함)</button>
+        <div class="xs dim">이월 2건</div>
+        <button class="btn primary" style="margin-top:7px;justify-content:center">다음 주 시작 (이월 2건)</button>
       </div>
     </div>
   </div>
 
-  <div class="note">플래너·정산에서는 <b>예산 게이지를 숨긴다</b>(플래너 안에 계획 합계 바가 따로 있고, 정산은 요약이 그 역할을 한다). 정산 3택의 기본값은 전부 <span class="teal">다음 주로</span> — 아무것도 건드리지 않고 확정 버튼만 눌러도 합리적 결과가 나온다. <span style="color:var(--danger)">--danger</span> 는 "보내주기" <b>선택 상태</b>에만 쓰고, 아이콘·문구가 의미를 함께 전달한다.</div>
+  <div class="note">2.0.0 에서 이 세 모드가 함께 얇아졌다 — <b>일반 뷰</b>는 하단 게이지를 잃고 헤더의 측정 시간 합 하나만 갖는다. <b>플래너</b>는 5단계에서 3단계로, <b>정산</b>은 3택에서 <b>2택</b>으로 줄었다(<span class="dim">줄여서</span> 는 줄일 대상인 est 가 사라져 폐기됐다 — ADR-031 §1). 남은 2택의 기본값은 전부 <span class="teal">다음 주로</span> — 아무것도 건드리지 않고 확정 버튼만 눌러도 합리적 결과가 나온다. <b>이월 규모는 시간이 아니라 건수로 말한다</b>: 아직 하지 않은 일의 측정 시간은 정의상 0이라 시간으로는 표현할 수 없다. <span style="color:var(--danger)">--danger</span> 는 "보내주기" <b>선택 상태</b>에만 쓰고, 아이콘·문구가 의미를 함께 전달한다.</div>
 </section>
 
 <!-- ══════════════════════════ 4. 미디엄 ══════════════════════════ -->
@@ -1268,7 +1181,7 @@ body::before {
 
       <div class="col">
         <div class="card grow">
-          <div class="card-head"><span class="eyebrow">WEEK</span><span class="card-title">이번 주 할당</span><span class="card-meta">8/3 – 8/9</span></div>
+          <div class="card-head"><span class="eyebrow">WEEK</span><span class="card-title">이번 주 할당</span><span class="card-meta">8/3 – 8/9</span><span class="week-total">6시간 40분</span></div>
           <div class="banner">
             <svg class="icon lg"><use href="#i-calendar-clock"/></svg>
             이번 주 마감이 기다려요 · 다음 주로 넘어갈 3건
@@ -1279,18 +1192,14 @@ body::before {
               <div class="item-top"><button class="caret" aria-label="펼치기"><svg class="icon"><use href="#i-chevron-right"/></svg></button>
                 <span class="item-title">포트폴리오 리팩터</span><span class="badge">M1</span>
                 <button class="btn small" style="margin-left:auto">+ 오늘로</button></div>
-              <div class="item-sub"><span class="dots"><span class="dot fill"></span><span class="dot fill"></span><span class="dot fill"></span><span class="dot fill"></span><span class="dot fill"></span><span class="dot fill"></span><span class="dot"></span><span class="dot"></span></span><span class="mono xs">6/8</span></div>
+              <div class="item-sub"><span class="measured">2시간 30분</span></div>
             </div>
             <div class="item">
               <div class="item-top"><button class="caret" aria-label="펼치기"><svg class="icon"><use href="#i-chevron-right"/></svg></button>
                 <span class="item-title">알고리즘 60제</span><span class="badge carry">3주째</span>
                 <button class="btn small" style="margin-left:auto">+ 오늘로</button></div>
-              <div class="item-sub"><span class="dots"><span class="dot fill"></span><span class="dot fill"></span><span class="dot fill"></span><span class="dot fill"></span><span class="dot"></span><span class="dot"></span></span><span class="mono xs">4/6</span></div>
+              <div class="item-sub"><span class="measured">1시간 40분</span></div>
             </div>
-          </div>
-          <div class="gauge">
-            <div class="sm"><span class="mono">18 / 24</span></div>
-            <div class="bar"><span style="width:75%"></span></div>
           </div>
         </div>
 
@@ -1425,28 +1334,23 @@ body::before {
         </div>
         <div class="narrow-body">
           <div class="card grow" style="padding:12px">
-            <div class="card-head"><span class="eyebrow">WEEK</span><span class="card-title">이번 주 할당</span><span class="card-meta">8/3 – 8/9</span></div>
+            <div class="card-head"><span class="eyebrow">WEEK</span><span class="card-title">이번 주 할당</span><span class="card-meta">8/3 – 8/9</span><span class="week-total">6시간 40분</span></div>
             <div class="banner"><svg class="icon lg"><use href="#i-calendar-clock"/></svg> 넘어갈 3건 <button class="btn small">정산 시작</button></div>
             <div class="scrollarea">
               <div class="item today-assigned">
                 <div class="item-top"><button class="caret" aria-label="펼치기"><svg class="icon"><use href="#i-chevron-right"/></svg></button><span class="item-title">포트폴리오 리팩터</span>
                   <button class="btn small" style="margin-left:auto">+ 오늘로</button></div>
-                <div class="item-sub"><span class="dots"><span class="dot fill"></span><span class="dot fill"></span><span class="dot fill"></span><span class="dot fill"></span><span class="dot fill"></span><span class="dot fill"></span><span class="dot"></span><span class="dot"></span></span><span class="mono xs">6/8</span>
+                <div class="item-sub"><span class="measured">2시간 30분</span>
                   <span class="pips"><span class="pip past"></span><span class="pip today"></span><span class="pip"></span><span class="pip next"></span><span class="pip"></span><span class="pip"></span><span class="pip"></span></span></div>
               </div>
               <div class="item">
                 <div class="item-top"><button class="caret" aria-label="펼치기"><svg class="icon"><use href="#i-chevron-right"/></svg></button><span class="item-title">알고리즘 60제</span><span class="badge carry">3주째</span></div>
-                <div class="item-sub"><span class="dots"><span class="dot fill"></span><span class="dot fill"></span><span class="dot fill"></span><span class="dot fill"></span><span class="dot"></span><span class="dot"></span></span><span class="mono xs">4/6</span></div>
+                <div class="item-sub"><span class="measured">1시간 40분</span></div>
               </div>
               <div class="item other">
                 <div class="item-top"><button class="caret" aria-label="펼치기"><svg class="icon"><use href="#i-chevron-right"/></svg></button><span class="item-title dim">기타 — 계획에 없던 집중</span></div>
-                <div class="item-sub"><span class="dots"><span class="dot fill"></span><span class="dot fill"></span><span class="dot fill"></span></span><span class="mono xs">3</span></div>
+                <div class="item-sub"><span class="measured">25분</span></div>
               </div>
-            </div>
-            <div class="gauge">
-              <div class="sm"><span class="mono">18 / 24</span></div>
-              <div class="bar"><span style="width:75%"></span></div>
-              <div class="sm dim">예산은 추정치예요 — 넘어가도 괜찮아요</div>
             </div>
           </div>
         </div>
@@ -1477,7 +1381,7 @@ body::before {
           <div class="card" style="padding:12px">
             <div class="card-head"><span class="eyebrow">MONTH</span><span class="card-title">8월 결과물</span></div>
             <div class="item"><div class="item-top"><button class="check" aria-pressed="true" aria-label="완료"><svg class="icon"><use href="#i-check"/></svg></button><span class="badge">M1</span><span class="item-title done">포트폴리오 v2 배포</span></div>
-              <div class="item-sub"><span class="xs dim">이번 주 3/8</span></div></div>
+              <div class="item-sub"><span class="xs dim">이번 주 <span class="measured">3시간 20분</span></span></div></div>
             <div class="item"><div class="item-top"><button class="check" aria-pressed="false" aria-label="완료"></button><span class="badge">M2</span><span class="item-title">알고리즘 60제 완주</span></div>
               <div class="item-sub"><span class="xs dim">이번 주 4/6</span></div></div>
           </div>
@@ -1507,7 +1411,7 @@ body::before {
       </div>
     </div>
   </div>
-  <div class="note">축약형 좌측 모드 텍스트에는 <b>버튼·탭의 시각 어포던스를 일절 주지 않는다</b>(보더·배경·hover·포인터 없음) — 표시 전용인데 눌러보게 되는 죽은 어포던스를 피하기 위한 규칙. 진행은 축약형 하단 2px 인디케이터로만 암시하고 초과 강조는 없다.</div>
+  <div class="note">축약형 좌측 모드 텍스트에는 <b>버튼·탭의 시각 어포던스를 일절 주지 않는다</b>(보더·배경·hover·포인터 없음) — 표시 전용인데 눌러보게 되는 죽은 어포던스를 피하기 위한 규칙. 진행은 축약형 하단 2px 인디케이터로만 암시한다 — 색은 <span class="teal">--teal</span> 하나이고 강조 분기가 없다.</div>
 </section>
 
 <!-- ══════════════════════════ 6. 온보딩·다이얼로그 ══════════════════════════ -->
@@ -1527,19 +1431,7 @@ body::before {
           <span><span class="xs dim" style="display:block">긴 휴식</span><input class="input mono" value="15" style="width:64px" aria-label="값"></span>
         </div>
 
-        <div class="xs dim">요일별 가용 뽀모 (개수)</div>
-        <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:5px;margin-top:7px">
-          <span class="xs dim" style="text-align:center">월</span><span class="xs dim" style="text-align:center">화</span><span class="xs dim" style="text-align:center">수</span>
-          <span class="xs dim" style="text-align:center">목</span><span class="xs dim" style="text-align:center">금</span><span class="xs dim" style="text-align:center">토</span><span class="xs dim" style="text-align:center">일</span>
-          <input class="input mono" value="4" style="text-align:center;padding:6px 0" aria-label="값">
-          <input class="input mono" value="2" style="text-align:center;padding:6px 0" aria-label="값">
-          <input class="input mono" value="4" style="text-align:center;padding:6px 0" aria-label="값">
-          <input class="input mono" value="2" style="text-align:center;padding:6px 0" aria-label="값">
-          <input class="input mono" value="4" style="text-align:center;padding:6px 0" aria-label="값">
-          <input class="input mono" value="0" style="text-align:center;padding:6px 0" aria-label="값">
-          <input class="input mono" value="8" style="text-align:center;padding:6px 0" aria-label="값">
-        </div>
-        <div class="sm dim" style="margin-top:7px">합 24 — 예산 입력의 기본값으로 쓰여요</div>
+        <div class="sm dim">이 화면이 묻는 값은 길이 3종뿐이다 — <b>요일별 가용량 7칸은 2.0.0 에서 사라졌다.</b> 온보딩 화면 자체는 아직 구현되지 않았다(자리 예약).</div>
 
         <div class="hr"></div>
         <div style="display:flex;gap:8px;justify-content:flex-end">
@@ -1550,7 +1442,7 @@ body::before {
     </div>
 
     <div>
-      <div class="frame-label">뽀모 길이 조정 — 확정 전 시간 비교 (ADR-013 §4)</div>
+      <div class="frame-label">뽀모 길이 조정 — 저장 즉시 효력, 적용은 다음 세션부터 (ADR-029)</div>
       <div class="card" style="width:360px">
         <div class="card-head"><span class="card-title">뽀모 길이</span></div>
         <div style="display:flex;gap:14px;margin-bottom:12px">
@@ -1558,8 +1450,8 @@ body::before {
           <span><span class="xs dim" style="display:block">짧은 휴식</span><input class="input mono" value="5" style="width:64px" aria-label="값"></span>
           <span><span class="xs dim" style="display:block">긴 휴식</span><input class="input mono" value="15" style="width:64px" aria-label="값"></span>
         </div>
-        <div class="sm">주 <span class="mono">24</span>개 · 지금 <span class="mono">10시간</span> → 바꾸면 <span class="mono">20시간</span></div>
-        <div class="sm dim" style="margin-top:5px">바꾼 길이는 다음 주부터 적용돼요 · 이번 주 기록은 그대로예요</div>
+        <div class="sm dim">바꾸면 바로 저장돼요 · 다음 세션부터 새 길이로 시작해요</div>
+        <div class="xs dim" style="margin-top:5px">변경 전/후 주간 총 집중 시간 비교(R26)는 사라졌다 — 곱할 가용량이 없다.</div>
         <div class="hr"></div>
         <div style="display:flex;gap:8px;justify-content:flex-end">
           <button class="btn">취소</button>
@@ -1605,26 +1497,23 @@ body::before {
     </div>
 
     <div class="card"><h2>정산 요약 4종</h2>
-      <div class="sm">이번 주 마감 — 4일 공부, 뽀모 <span class="mono">18</span> 소진 <span class="dim">(예산 24)</span></div><div class="hr"></div>
-      <div class="sm">지난 주(W31) — 3일 공부, 뽀모 <span class="mono">11</span> 소진 <span class="dim">(예산 24)</span></div><div class="hr"></div>
-      <div class="sm">W29–W31 — 뽀모 <span class="mono">26</span> 소진</div>
-      <div class="xs dim" style="margin-top:3px">W29 · 2일 공부, 뽀모 6<br>W31 · 4일 공부, 뽀모 20</div><div class="hr"></div>
-      <div class="sm">2주 쉬었어요 · 마지막으로 공부한 주(W29) 뽀모 <span class="mono">20</span> 소진</div>
-      <div class="xxs dim" style="margin-top:6px">완전히 빈 주는 행을 만들지 않고 "N주 쉬었어요" 문장으로만 센다. 달성률 %는 크게 띄우지 않는다.</div>
+      <div class="sm">이번 주 마감 — 4일 공부, 집중한 시간 <span class="measured">6시간 40분</span></div><div class="hr"></div>
+      <div class="sm">지난 주(W31) — 3일 공부, 집중한 시간 <span class="measured">4시간 5분</span></div><div class="hr"></div>
+      <div class="sm">W29–W31 — 집중한 시간 <span class="measured">9시간 50분</span></div>
+      <div class="xs dim" style="margin-top:3px">W29 · 2일 공부, 2시간 20분<br>W31 · 4일 공부, 7시간 30분</div><div class="hr"></div>
+      <div class="sm">2주 쉬었어요 · 마지막으로 공부한 주(W29) <span class="measured">7시간 20분</span></div>
+      <div class="xxs dim" style="margin-top:6px">완전히 빈 주는 행을 만들지 않고 "N주 쉬었어요" 문장으로만 센다. <b>계획 대비·달성률을 말하지 않는다</b> — 비교할 분모가 2.0.0 에서 사라졌다.</div>
     </div>
 
-    <div class="card"><h2>예산 게이지 3상태</h2>
-      <div class="sm"><span class="mono">18 / 24</span></div>
-      <div class="bar"><span style="width:75%"></span></div>
-      <div class="sm dim">예산은 추정치예요 — 넘어가도 괜찮아요</div>
-      <div class="hr"></div>
-      <div class="sm"><span class="mono">27 / 24</span> <span class="badge over"><svg class="icon"><use href="#i-flame"/></svg> +3</span></div>
-      <div class="bar"><span class="over" style="width:100%"></span></div>
-      <div class="sm dim">예산은 추정치예요 — 넘어가도 괜찮아요</div>
-      <div class="hr"></div>
-      <div class="sm"><span class="mono">6 / 미설정</span></div>
-      <div class="sm dim" style="margin-top:5px">예산을 정하면 예산 대비 소진이 보여요</div>
-      <div class="xxs dim" style="margin-top:6px">초과 상태도 문구가 같다. 빨간색·경고 아이콘 금지 — 초과는 실패가 아니다.</div>
+    <div class="card"><h2>측정 시간 표기 — 게이지 4상태를 대체한 것</h2>
+      <div class="xxs dim" style="margin-bottom:6px">예산 게이지의 4상태(여유·초과·예산 없음·예산 0)가 통째로 죽고, 표기 규칙 한 벌이 그 자리를 대신한다 (week-plan ux-spec §0 이 원본).</div>
+      <div class="sm"><span class="measured">6시간 40분</span> <span class="dim xs">· 주 헤더</span></div>
+      <div class="sm" style="margin-top:5px"><span class="measured">1시간 0분</span> <span class="dim xs">· 정각도 분을 적는다</span></div>
+      <div class="sm" style="margin-top:5px"><span class="measured">1분 미만</span> <span class="dim xs">· 0초 초과 60초 미만. 내림의 짝</span></div>
+      <div class="sm" style="margin-top:5px"><span class="measured zero">0분</span> <span class="dim xs">· 세션이 정말 0. 사실이므로 적는다</span></div>
+      <div class="sm" style="margin-top:5px"><span class="measured">—</span> <span class="dim xs">· 값 없음(롤업 없음). `0분` 과 다른 사실이다</span></div>
+      <div class="sm" style="margin-top:5px"><span class="measured">128시간 30분</span> <span class="dim xs">· 세 자리. 정산은 여러 주를 병합한다</span></div>
+      <div class="xxs dim" style="margin-top:6px">반올림은 <b>내림</b>이고 표시 직전 한 번뿐이다. 합산·차액은 전부 초 단계에서 끝나므로 화면 사이에 모순이 생기지 않는다 — 표시된 분끼리는 ±1분 어긋날 수 있다.</div>
     </div>
 
     <div class="card"><h2>오늘 목록 빈 상태 2종 + 자정 힌트 2종</h2>
@@ -1641,11 +1530,11 @@ body::before {
     <div class="card"><h2>주간 카드 빈 상태 4종</h2>
       <div class="empty" style="padding:8px 0"><p>마일스톤을 이번 주 몫으로 쪼개볼까요?</p><button class="btn small">+ 이번 주 할당 잡기</button></div>
       <div class="hr"></div>
-      <div class="empty" style="padding:8px 0"><p>이번 주 할당을 잡으면 뽀모 예산이 여기 보여요</p><button class="btn small">+ 다음 주 할당 잡기</button></div>
+      <div class="empty" style="padding:8px 0"><p>이번 주 할당을 잡으면 여기서 집중한 시간이 쌓여요</p><button class="btn small">+ 다음 주 할당 잡기</button></div>
       <div class="hr"></div>
       <div class="item other" style="margin-bottom:6px">
         <div class="item-top"><span class="item-title dim">기타 — 계획에 없던 집중</span></div>
-        <div class="item-sub" style="margin-left:0"><span class="dots"><span class="dot fill"></span><span class="dot fill"></span></span><span class="mono xs">2</span></div>
+        <div class="item-sub" style="margin-left:0"><span class="measured">50분</span></div>
       </div>
       <div class="sm dim">계획이 없어도 기록은 남아요</div>
       <div class="hr"></div>
@@ -1656,7 +1545,7 @@ body::before {
     <div class="card"><h2>마일스톤 카드 표시 모드</h2>
       <div class="sm">이번 달 · 편집</div>
       <div class="item"><div class="item-top"><button class="check" aria-pressed="false" aria-label="완료"></button><span class="badge">M1</span><span class="item-title">포트폴리오 v2 배포</span></div>
-        <div class="item-sub"><span class="xs dim">이번 주 3/8</span></div></div>
+        <div class="item-sub"><span class="xs dim">이번 주 <span class="measured">3시간 20분</span></span></div></div>
       <div class="hr"></div>
       <div class="sm">진행 중인 주가 이번 달에 안 속한 동안</div>
       <div class="sm dim">이번 주(8/31~9/6)는 8월에 속한 주예요</div>

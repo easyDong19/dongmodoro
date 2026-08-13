@@ -4,6 +4,16 @@
 > 이 문서가 확정 스택·프로세스 구조·미결정 사항의 유일한 출처다.
 > 개별 선택의 근거는 [decisions/](decisions/) 의 ADR 참조.
 
+## 현황 (2.0.0)
+
+진행 통화가 **뽀모 개수에서 측정 시간으로 교체됐다.** 스키마에서 `weeks` 테이블과
+`week_items.est_pomos`·`tasks.est_pomos` 컬럼이 사라졌고(테이블 6개), `sessions.local_week`
+의 FK 도 함께 걷혔다. 계획 시점에 숫자를 입력하는 자리가 앱에 없으며, 모든 진행 표시는
+완료 focus 세션의 `duration_sec` 합에서 조회 시점에 파생된다.
+
+이 변경은 **되돌릴 수 없다** — 마이그레이션이 컬럼과 테이블을 지운다. 복귀선과 사용자
+안내는 [릴리스 노트 2.0.0](../release-notes/2.0.0.md) 이 소유한다.
+
 ## 확정 스택
 
 | 영역 | 선택 | 근거 ADR |
@@ -18,9 +28,11 @@
 | PK · 갱신 추적 | UUID v7 (TEXT) + mutable 테이블 `updated_at` (sessions 포함 — ADR-011 이 부분 정정) | [ADR-006](decisions/adr-006-schema-sync-insurance.md) |
 | 시간 포맷 | 4종 분류 (순간 UTC ISO / 달력 키 로컬 불변 / 길이 INTEGER / 런타임 epoch ms 비저장) + 시간 모듈 초크포인트 | [ADR-009](decisions/adr-009-time-format-convention.md) |
 | 주 정의 | 주 시작 월요일, 주 키 = 그 주 월요일 날짜 `'YYYY-MM-DD'`, 계획일 = `plan_lead_days` 모델 | [ADR-010](decisions/adr-010-week-definition.md) |
-| 스키마 (계획 단계 확정) | `weeks`·`task_pulls` 신설, 불변 달력 키, `completed_at` 통일, 제약·PRAGMA 세트, 시작 시 백업·버전 검사 | [ADR-011](decisions/adr-011-schema-final.md) (ADR-012~014 이 부분 정정) |
-| 집계 술어 | 항목 소진은 `sessions.local_week = week_items.week` 조건으로 계산 → 게이지 = 항목 합 + 미분류가 정의상 성립. pull 주 제한 폐기 | [ADR-012](decisions/adr-012-aggregation-predicate.md) |
-| 베이스라인·예산 | 예산·capacity·길이를 `weeks` 행에 확정 저장(첫 세션 시에도 생성). 편집은 상시, 효력은 다음 주 경계부터 | [ADR-013](decisions/adr-013-baseline-budget-effect.md) |
+| 스키마 (계획 단계 확정) | `task_pulls` 신설, 불변 달력 키, `completed_at` 통일, 제약·PRAGMA 세트, 시작 시 백업·버전 검사 | [ADR-011](decisions/adr-011-schema-final.md) (ADR-012~014 이 부분 정정, `weeks`·`est_pomos` 는 ADR-030 이 폐기) |
+| 집계 술어 | 항목 귀속은 `sessions.local_week = week_items.week` 조건으로 계산 → 총합 = 항목 합 + 차액이 정의상 성립. pull 주 제한 폐기 | [ADR-012](decisions/adr-012-aggregation-predicate.md) (§4 수식은 ADR-027·031 이 정정) |
+| **진행 통화** | 계획 시점의 숫자(est·예산·가용량)를 없애고, 진행은 완료 focus 세션의 `duration_sec` 합을 **조회 시점에 파생**한다 | [ADR-030](decisions/adr-030-time-as-progress-currency.md) · [ADR-031](decisions/adr-031-settlement-without-est.md) |
+| 뽀모 길이 | 길이 3종은 `settings` 전역 값 직독. 저장 즉시 효력, 적용은 다음 세션부터. 주별 스냅샷 없음 | [ADR-029](decisions/adr-029-baseline-immediate-effect.md) — [ADR-013](decisions/adr-013-baseline-budget-effect.md) 은 **전체 폐기됐다** |
+| 파괴적 마이그레이션 | FK 토글은 트랜잭션 바깥, 성공 직후 `foreign_key_check`, 데이터가 든 DB 로 테스트 | [ADR-032](decisions/adr-032-destructive-migration-safety.md) |
 | 삭제·보관 | `week_items`·`tasks` 만 soft delete, sessions 불삭제, milestones 물리 삭제 + `ON DELETE SET NULL`. 보관은 집계 중립 | [ADR-014](decisions/adr-014-deletion-and-archive.md) |
 | IPC 계약 | 도메인 명령형 API + zod 런타임 검증 | [ADR-007](decisions/adr-007-ipc-contract.md) |
 | 코드 구조 | main 3층 + renderer FSD-lite | [ADR-008](decisions/adr-008-code-structure.md) (DB 접근은 ADR-015 가 정정) |
@@ -66,8 +78,10 @@ as-built 스냅샷은 [diagrams/](diagrams/README.md) 에 있다 — 둘이 어�
    도달해도 아무 일도 일어나지 않는다 — 사실을 만드는 것은 main 의 `timer:done` 뿐.
 3. **renderer 는 SQL 도 스키마도 모른다.** 유스케이스 단위 API 만 호출하며,
    트랜잭션 경계는 그 유스케이스 하나다.
-4. **DB 가 source of truth.** renderer 의 Query 캐시는 캐시다. 집계값(소진 등)은
-   저장하지 않고 항상 쿼리로 파생한다 (PRD 원칙 8).
+4. **DB 가 source of truth.** renderer 의 Query 캐시는 캐시다. 집계값(측정 시간 등)은
+   저장하지 않고 항상 쿼리로 파생한다 (PRD 원칙 8). 합산·차액은 main 이 **초 단계**에서
+   끝내고 renderer 는 받은 초를 포맷만 한다 — 반올림은 표시 직전 한 번뿐이다
+   ([ADR-031](decisions/adr-031-settlement-without-est.md) §2).
 5. **마이그레이션은 앱 시작 시 적용.** drizzle-kit 이 생성한 SQL 마이그레이션을
    main 이 DB 연결 직후 순서대로 적용한다.
 
@@ -78,7 +92,7 @@ as-built 스냅샷은 [diagrams/](diagrams/README.md) 에 있다 — 둘이 어�
 
 | 상태 종류 | 예시 | 도구 |
 |---|---|---|
-| DB 파생 상태 | 오늘 목록, 주간 할당, 소진 집계, 캘린더 점 | TanStack Query — IPC 호출을 queryFn 으로, mutation 후 invalidate |
+| DB 파생 상태 | 오늘 목록, 주간 할당, 측정 시간 합산, 캘린더 점 | TanStack Query — IPC 호출을 queryFn 으로, mutation 후 invalidate |
 | 타이머 상태 | phase, startedAt, durationSec, 집중 대상 | TanStack Query — 전이 이벤트가 `setQueryData(['timer'])`, 재마운트 시 queryFn 이 스냅샷 pull |
 | 일시적 UI 상태 | 모달 열림, 선택된 날짜, 사후 캡처 바 | React 로컬 state |
 
@@ -98,7 +112,7 @@ src/
 ├── preload/       # contextBridge 화이트리스트
 ├── renderer/      # FSD-lite: features / entities / shared
 └── shared/        # IPC 채널·zod 계약 + 양 프로세스 공유 순수 계산
-                  #   (타이머 남은 시간, 요일별 부하 분산)
+                  #   (타이머 남은 시간, 달력 키·주 키 계산)
                   #   Node/DOM API import 금지 — 순수 TS 만
 ```
 
@@ -124,7 +138,11 @@ src/
 
 | 항목 | 선택지 | 결정 시점 |
 |---|---|---|
-| macOS 코드 서명·공증 | 미서명 배포 vs Apple Developer 계정 + notarization | 패키징 단계 (M4) |
+| 과적을 대신할 계획 시점 신호 | 없이 간다 vs 지난 몇 주의 측정 시간 평균 대비 | 없이 써 본 뒤 ([결정 원장 §미결 1](../decision-log/2026-08-12-time-currency-session.md)) |
+| 시간 단위 예산의 재도입 | 만들지 않는다 vs `주 20시간` 류 기준선 | 측정 시간이 쌓인 뒤 (같은 원장 §미결 3) |
+
+macOS 코드 서명·공증은 [ADR-028](decisions/adr-028-code-signing.md) 이 닫았다 —
+애드혹 서명으로 내고 남에게 배포할 필요가 생기면 재검토한다.
 
 Query invalidation 키 계층은 [ADR-025](decisions/adr-025-query-key-hierarchy.md),
 main→renderer 이벤트 채널 규칙은 [ADR-026](decisions/adr-026-main-to-renderer-events.md)

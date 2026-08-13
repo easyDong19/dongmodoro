@@ -396,10 +396,7 @@ function settle(input): SettleResult {
         id: newId,
         week: input.targetWeek,
         title: src.title,
-        // est_pomos 는 **아무도 읽지 않는 자리 채움**이다 — 컬럼이 NOT NULL 이고
-        // CHECK 가 사용자 항목에 >= 1 을 요구하므로, 컬럼을 걷는 마이그레이션
-        // 전까지만 상수 1 을 쓴다 (ADR-030 §4).
-        est_pomos: 1,
+        // est_pomos 컬럼은 2.0.0 마이그레이션이 걷어 갔다 — 쓰지 않는다.
         milestone_id: src.milestone_id,      // 마일스톤 연결 승계 (ADR-012 §3)
         days: '[]',                          // 요일 배치는 플래너에서 다시 (week-plan)
         origin_week: src.origin_week,        // 박제 승계 — 배지의 근거 (Q12)
@@ -419,10 +416,10 @@ function settle(input): SettleResult {
       // 재정산은 워터마크(7단계)가 막으므로 원본이 다시 범위에 들어오지 않는다.
     }
 
-    // 6. **주별 행을 건드리지 않는다** (ADR-030 §4). 박제하던 예산·가용량·길이가
-    //    전부 폐기된 통화이고, settled_at 은 어떤 화면도 읽지 않는다 — 정산 필요
-    //    판정은 워터마크 단독이다. 세션이 필요로 하는 weeks 행은 세션 기록 경로가
-    //    계속 만든다.
+    // 6. **주별 행이라는 단계 자체가 없다.** `weeks` 테이블은 2.0.0 마이그레이션이
+    //    지웠다 (ADR-030 §4 · ADR-032). 박제하던 예산·가용량·길이가 전부 폐기된
+    //    통화였고, settled_at 은 어떤 화면도 읽지 않았다 — 정산 필요 판정은
+    //    워터마크 단독이다.
 
     // 7. 워터마크 전진 — 정산한 주가 아니라 targetWeek − 7일 (= st.to)
     writeSetting('last_settled_week', st.to);
@@ -455,9 +452,9 @@ function settle(input): SettleResult {
 
 (이 절은 이력이다 — 축소 이월이 사라져 비대칭 자체가 없어졌다. ADR-031 §1)
 
-`drop` 은 `dropped_at` 으로 이력에 남지만, **축소 이월로 잘려나간 몫은 어디에도
+~~`drop` 은 `dropped_at` 으로 이력에 남지만, **축소 이월로 잘려나간 몫은 어디에도
 남지 않는다** — 새 항목의 `est_pomos` 가 작아질 뿐이고 원본의 est 와의 차이를 기록하는
-컬럼이 없다. v1 은 이 차이를 보정하지 않는다 (PRD R36).
+컬럼이 없다. v1 은 이 차이를 보정하지 않는다 (PRD R36).~~
 
 ---
 
