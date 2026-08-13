@@ -74,6 +74,12 @@ export type WeekItemRow = {
   completedAt: string | null
   /** R8 술어 — 저장값이 아니라 파생. */
   spentPomos: number
+  /**
+   * 그 항목의 **측정 시간(초)** — `spentPomos` 와 **같은 술어**로 `duration_sec` 를
+   * 합한 값이다 (ADR-031 §3). 개수와 초가 같은 세션 집합에서 나와야 두 숫자가
+   * 어긋나지 않는다. 반올림하지 않는다 — 분으로 접는 것은 표시 직전 renderer 다.
+   */
+  measuredSec: number
   childTotal: number
   childDone: number
 }
@@ -99,6 +105,14 @@ export interface WeekItemsRepository {
   listForWeek(week: string): WeekItemRow[]
   /** 그 주 focus 세션 전체. 폐기·삭제가 줄이지 않는다 (ADR-027 §2). */
   weekTotalSpent(week: string): number
+  /**
+   * 그 주 **측정 시간 총합(초)** — 완료 focus 세션의 `duration_sec` 합이며 정의역은
+   * `weekTotalSpent` 와 같다 (ADR-027 §2 — 폐기·삭제가 줄이지 않는다).
+   *
+   * 기타 행 차액의 피감수다. **초로 돌려준다** — 분으로 접어 넘기면 차액이 접힌 값에서
+   * 계산되어 ADR-031 §2 가 닫으려던 검산 어긋남이 되살아난다.
+   */
+  weekTotalMeasuredSec(week: string): number
   /** 기타 행 표시 조건 ①② — 미분류 세션 또는 부모 없는 조각이 있는가. ③은 서비스가 본다. */
   hasUnplannedActivity(week: string): boolean
   /**
@@ -128,6 +142,11 @@ export type ChildTaskRow = {
   title: string
   estPomos: number | null
   spentPomos: number
+  /**
+   * 그 조각의 측정 시간(초). **주 조건이 없다** — `spentPomos` 와 같은 술어이며
+   * 이유·대가는 today-tasks R3-3 이 소유한다.
+   */
+  measuredSec: number
   completedAt: string | null
   /** 그 날짜에 활성 pull 행이 있는가 (§6.2 `오늘 목록에`). */
   inToday: boolean
@@ -142,6 +161,11 @@ export type TodayRow = {
   estPomos: number | null
   /** 그 task 에 연결된 focus 세션 수 — 저장값이 아니라 파생 (원칙 8, today-tasks R3). */
   spentPomos: number
+  /**
+   * 그 조각의 측정 시간(초). `spentPomos` 와 같은 술어라 **주 조건이 없다** —
+   * 이월된 조각의 이력이 끊기지 않게 하는 의도된 비대칭이다 (today-tasks R3-3).
+   */
+  measuredSec: number
   completedAt: string | null
   pulledAt: string
 }
@@ -224,6 +248,12 @@ export type MilestoneBadge = {
 export type MilestoneRollupRow = {
   milestoneId: string
   spentPomos: number
+  /**
+   * 그 주 귀속 측정 시간(초). 연결된 **폐기·삭제되지 않은** 할당들의 측정 시간 합이며,
+   * 술어는 `listForWeek` 의 항목 측정 시간과 같아야 한다 (milestones 성공 지표) —
+   * 갈리면 마일스톤 롤업과 주간 카드가 같은 사실에 다른 숫자를 말한다.
+   */
+  measuredSec: number
   /** 그 주의 계획 대비 — 연결된 할당들의 `est_pomos` 합. 0 이면 화면이 분수를 만들지 않는다. */
   plannedPomos: number
 }

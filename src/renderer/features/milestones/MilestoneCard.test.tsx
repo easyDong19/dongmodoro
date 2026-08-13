@@ -185,7 +185,7 @@ describe('롤업 (R17 · A16·A17)', () => {
       makeRes({
         mode: 'edit',
         rollupWeek: WEEK,
-        items: [item({ rollup: { spentPomos: 3, plannedPomos: 8 } })]
+        items: [item({ rollup: { spentPomos: 3, plannedPomos: 8, measuredSec: 4500 } })]
       })
     )
     expect(screen.getByText('이번 주 3/8')).toBeInTheDocument()
@@ -196,7 +196,7 @@ describe('롤업 (R17 · A16·A17)', () => {
       makeRes({
         mode: 'edit',
         rollupWeek: WEEK,
-        items: [item({ rollup: { spentPomos: 2, plannedPomos: 0 } })]
+        items: [item({ rollup: { spentPomos: 2, plannedPomos: 0, measuredSec: 3000 } })]
       })
     )
     expect(screen.getByText('이번 주 2')).toBeInTheDocument()
@@ -349,7 +349,7 @@ describe('부정 프레임과 이모지 금지 (R23·R25 · A24·A25)', () => {
       makeRes({
         mode: 'edit',
         rollupWeek: WEEK,
-        items: [item({ rollup: { spentPomos: 1, plannedPomos: 2 } })]
+        items: [item({ rollup: { spentPomos: 1, plannedPomos: 2, measuredSec: 1500 } })]
       })
     )
     expect(container.textContent ?? '').not.toMatch(/\p{Extended_Pictographic}/u)

@@ -17,6 +17,7 @@ function makeRow(over: Partial<Row> = {}): Row {
     originWeek: WEEK,
     completedAt: null,
     spentPomos: 0,
+    measuredSec: 0,
     childTotal: 0,
     childDone: 0,
     ...over

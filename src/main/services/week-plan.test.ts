@@ -320,10 +320,15 @@ describe('weekSummary — 한 화면 = 한 응답', () => {
     const summary = weekSummary(uow, WEEK)
     expect(summary.totalSpent).toBe(3)
     expect(summary.items).toHaveLength(1)
-    expect(summary.otherRow).toEqual({ visible: true, spentPomos: 2 })
+    expect(summary.otherRow).toEqual({ visible: true, spentPomos: 2, measuredSec: 3000 })
     expect(summary.items.reduce((n, i) => n + i.spentPomos, 0) + summary.otherRow.spentPomos).toBe(
       summary.totalSpent
     )
+    // 같은 등식이 초에서도 성립한다 (ADR-031 §2) — 반올림은 표시 직전 한 번뿐이므로
+    // 이 항등식은 분으로 접기 전 단계에서 참이어야 한다.
+    expect(
+      summary.items.reduce((n, i) => n + i.measuredSec, 0) + summary.otherRow.measuredSec
+    ).toBe(summary.totalMeasuredSec)
   })
 
   it('폐기 항목의 소진만 있는 주에도 기타 행이 보인다 (A24 · ADR-027 §3 세 번째 갈래)', () => {
@@ -356,7 +361,7 @@ describe('weekSummary — 한 화면 = 한 응답', () => {
     const summary = weekSummary(uow, WEEK)
     expect(summary.items).toHaveLength(0)
     // 미분류 세션도 부모 없는 조각도 없지만 차액이 3 이므로 행을 보여야 한다.
-    expect(summary.otherRow).toEqual({ visible: true, spentPomos: 3 })
+    expect(summary.otherRow).toEqual({ visible: true, spentPomos: 3, measuredSec: 4500 })
   })
 
   it('세션도 조각도 없으면 기타 행을 숨긴다', () => {

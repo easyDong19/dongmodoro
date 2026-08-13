@@ -32,6 +32,7 @@ function makeRow(overrides: Partial<TodayRow> = {}): TodayRow {
     sourceWeek: '2026-08-03',
     estPomos: 2,
     spentPomos: 1,
+    measuredSec: 1500,
     completedAt: null,
     pulledAt: '2026-08-07T00:00:00.000Z',
     ...overrides

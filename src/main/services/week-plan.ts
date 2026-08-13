@@ -20,6 +20,27 @@ export function otherRowSpent(
 }
 
 /**
+ * 기타 행 **측정 시간** — 차액이며 통화만 바뀌었다 (ADR-031 §2).
+ *
+ * ```
+ * 기타 행 측정 시간(초) = 주 총 focus 초 − Σ(화면에 보이는 항목의 focus 초)
+ * ```
+ *
+ * **초 단계에서 계산한다.** 분으로 접은 값끼리 빼면 항목 3개가 각 90초일 때 Σ 가 6분이
+ * 되어 총합 270초(=4분)보다 커지고, 차액이 음수가 된다 — 반올림을 표시 직전 한 번으로
+ * 미루는 이유가 이것이다 (ADR-031 §2).
+ *
+ * `otherRowSpent` 와 마찬가지로 클램프하지 않는다. 술어가 옳으면 음수가 될 수 없고,
+ * 음수가 나온다면 숨겨야 할 값이 아니라 드러나야 할 버그다.
+ */
+export function otherRowMeasuredSec(
+  weekTotalMeasuredSec: number,
+  visibleItems: readonly Pick<WeekItemRow, 'measuredSec'>[]
+): number {
+  return weekTotalMeasuredSec - visibleItems.reduce((sum, item) => sum + item.measuredSec, 0)
+}
+
+/**
  * 항목의 남은 몫 (R9·A12). 기준은 **항목 est** 이며 자식 조각 est 합이 아니다.
  * 0 에서 클램프한다 — 소진이 est 를 넘긴 항목의 남은 몫은 음수가 아니라 0 이다.
  *
@@ -53,8 +74,10 @@ export type WeekSummary = {
   week: string
   budget: number | null
   totalSpent: number
+  /** 그 주 측정 시간 총합(초). 분으로 접지 않는다 — 포맷은 renderer 의 몫이다. */
+  totalMeasuredSec: number
   items: WeekItemRow[]
-  otherRow: { visible: boolean; spentPomos: number }
+  otherRow: { visible: boolean; spentPomos: number; measuredSec: number }
 }
 
 /** 일반 뷰 한 화면 = 응답 하나. 화면이 조각을 모아 조립하지 않게 한다. */
@@ -62,17 +85,29 @@ export function weekSummary(uow: UnitOfWork, week: string): WeekSummary {
   return uow.run((repos) => {
     const items = repos.weekItems.listForWeek(week)
     const totalSpent = repos.weekItems.weekTotalSpent(week)
+    const totalMeasuredSec = repos.weekItems.weekTotalMeasuredSec(week)
     const spentPomos = otherRowSpent(totalSpent, items)
+    const measuredSec = otherRowMeasuredSec(totalMeasuredSec, items)
     return {
       week,
       budget: effectiveBudget(repos, week),
       totalSpent,
+      totalMeasuredSec,
       items,
       otherRow: {
-        // 표시 조건 세 갈래 (ADR-027 §3). 세 번째(`spentPomos > 0`)가 폐기·삭제로
-        // 흘러든 소진을 잡는다 — 앞의 두 갈래만 보면 A24 가 깨진다.
-        visible: repos.weekItems.hasUnplannedActivity(week) || spentPomos > 0,
-        spentPomos
+        /**
+         * 표시 조건 세 갈래 (ADR-027 §3). 세 번째가 폐기·삭제로 흘러든 집중을 잡는다 —
+         * 앞의 두 갈래만 보면 A24 가 깨진다.
+         *
+         * 세 번째 갈래를 **`차액 > 0` 으로 읽는 것이 통화 전환 후의 규칙**(ADR-031 §2)
+         * 이므로 `measuredSec > 0` 이 본선이다. 개수 쪽(`spentPomos > 0`)을 아직 OR 로
+         * 남겨 두는 이유는 **`duration_sec = 0` 인 세션**이다 — 시작 직후 완료 처리로
+         * 만들어지는 정상 경로이고, 그 항목을 폐기하면 차액은 0초인데 집중은 실재한다.
+         * 개수 통화가 계약에서 걷힐 때(Task 4) 이 갈래도 함께 죽는다.
+         */
+        visible: repos.weekItems.hasUnplannedActivity(week) || spentPomos > 0 || measuredSec > 0,
+        spentPomos,
+        measuredSec
       }
     }
   })

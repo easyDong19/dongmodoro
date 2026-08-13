@@ -57,6 +57,11 @@ const todayRowSchema = z.strictObject({
   sourceWeek: z.string(),
   estPomos: z.int().nullable(),
   spentPomos: z.int(),
+  /**
+   * 측정 시간은 **초**로만 오간다 (ADR-031 §2) — 분으로 접힌 값을 계약에 담으면
+   * 합산·차액이 접힌 값 위에서 일어나고, 반올림이 표시 직전 한 번이라는 규칙이 깨진다.
+   */
+  measuredSec: z.int().min(0),
   completedAt: z.string().nullable(),
   pulledAt: z.string()
 })
@@ -70,6 +75,8 @@ const weekItemRowSchema = z.strictObject({
   originWeek: z.string(),
   completedAt: z.string().nullable(),
   spentPomos: z.int(),
+  /** 그 항목의 측정 시간(초). `spentPomos` 와 같은 술어에서 나온다. */
+  measuredSec: z.int().min(0),
   childTotal: z.int(),
   childDone: z.int()
 })
@@ -110,6 +117,8 @@ const childTaskSchema = z.strictObject({
   title: z.string(),
   estPomos: z.int().nullable(),
   spentPomos: z.int(),
+  /** 조각 단위라 **주 조건이 없는** 합이다 (today-tasks R3-3). */
+  measuredSec: z.int().min(0),
   completedAt: z.string().nullable(),
   inToday: z.boolean()
 })
@@ -258,8 +267,18 @@ export const contracts = {
         week: z.string(),
         budget: z.int().nullable(),
         totalSpent: z.int(),
+        /** 그 주 측정 시간 총합(초). 기타 행 차액의 피감수이며 분으로 접지 않는다. */
+        totalMeasuredSec: z.int().min(0),
         items: z.array(weekItemRowSchema),
-        otherRow: z.strictObject({ visible: z.boolean(), spentPomos: z.int() })
+        /**
+         * `measuredSec` 는 **차액**이다 (ADR-031 §2). 하한을 걸지 않는다 — 음수는
+         * 술어 버그이고, 계약이 막아 주면 그 버그가 조용해진다.
+         */
+        otherRow: z.strictObject({
+          visible: z.boolean(),
+          spentPomos: z.int(),
+          measuredSec: z.int()
+        })
       })
     },
     planDraft: {
@@ -349,7 +368,12 @@ export const contracts = {
           milestoneSchema.extend({
             /** `null` 은 "이 카드에 롤업이 없다"이며 0 과 다르다 (R17·R18). */
             rollup: z
-              .strictObject({ spentPomos: z.int().min(0), plannedPomos: z.int().min(0) })
+              .strictObject({
+                spentPomos: z.int().min(0),
+                plannedPomos: z.int().min(0),
+                /** 그 주 귀속 측정 시간(초). `null` 롤업과 `0` 은 다른 사실이다 (R17·R18). */
+                measuredSec: z.int().min(0)
+              })
               .nullable()
           })
         ),

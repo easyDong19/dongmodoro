@@ -15,6 +15,7 @@ function makeTask(over: Partial<Task> = {}): Task {
     title: '초안 쓰기',
     estPomos: 2,
     spentPomos: 0,
+    measuredSec: 0,
     completedAt: null,
     inToday: false,
     ...over

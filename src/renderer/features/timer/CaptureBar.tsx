@@ -6,6 +6,7 @@ import { keys } from '@renderer/shared/query/keys'
 import { dispatchInvalidation } from '@renderer/shared/query/invalidate'
 import { clearCapturePending } from '@renderer/shared/query/events'
 import { Button } from '@renderer/shared/ui/button'
+import { formatMeasured } from '@renderer/shared/lib/measured-time'
 
 const MAX_LEN = 60
 
@@ -44,7 +45,11 @@ export function CaptureBar() {
 
   if (!pending) return null
 
-  const minutes = Math.round(pending.durationSec / 60)
+  /**
+   * 표기는 앱 전체 한 벌이다 (week-plan ux-spec §0) — 여기서 `Math.round(sec / 60)` 를
+   * 따로 굴리면 같은 세션이 캡처 바에서는 `1분`, 주간 카드에서는 `1분 미만` 이 된다.
+   */
+  const measured = formatMeasured(pending.durationSec)
 
   const submit = () => {
     const trimmed = title.trim()
@@ -67,7 +72,7 @@ export function CaptureBar() {
         onKeyDown={(e) => {
           if (e.key === 'Escape') dismiss()
         }}
-        placeholder={`이 ${minutes}분, 뭐 했는지 한 줄 남길래요?`}
+        placeholder={`이 ${measured}, 뭐 했는지 한 줄 남길래요?`}
         className="flex-1 rounded-md border border-control-border bg-glass px-3 py-1.5 text-sm text-ink"
       />
       <Button type="button" variant="default" size="sm" onClick={submit}>

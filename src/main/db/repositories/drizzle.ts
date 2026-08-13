@@ -163,19 +163,28 @@ function makeRepos(tx: Tx): Repositories {
            * `weekTotalSpent` 는 그대로라, 차액이 조용히 기타 행으로 새어 A24 가 깨진다.
            * 비대칭이 버그로 보여도 고치지 말 것 — 차액 항등식이 이것에 의존한다 (ADR-027 §2).
            */
-          const spentPomos =
-            tx
-              .select({ n: sql<number>`count(*)` })
-              .from(sessions)
-              .innerJoin(tasks, eq(sessions.taskId, tasks.id))
-              .where(
-                and(
-                  eq(tasks.weekItemId, r.id),
-                  eq(sessions.kind, 'focus'),
-                  eq(sessions.localWeek, week)
-                )
+          const totals = tx
+            .select({
+              n: sql<number>`count(*)`,
+              /**
+               * 측정 시간(초)은 **같은 술어에서** 나온다 (ADR-031 §3) — 개수와 초가 다른
+               * 세션 집합에서 나오면 두 숫자가 서로를 반증한다. 0행이면 SQLite 의 sum()
+               * 이 NULL 이라 `coalesce` 로 0 을 만든다.
+               */
+              sec: sql<number>`coalesce(sum(${sessions.durationSec}), 0)`
+            })
+            .from(sessions)
+            .innerJoin(tasks, eq(sessions.taskId, tasks.id))
+            .where(
+              and(
+                eq(tasks.weekItemId, r.id),
+                eq(sessions.kind, 'focus'),
+                eq(sessions.localWeek, week)
               )
-              .get()?.n ?? 0
+            )
+            .get()
+          const spentPomos = totals?.n ?? 0
+          const measuredSec = totals?.sec ?? 0
 
           // 자식 0행이면 SQLite 의 sum() 은 NULL 을 돌려준다 — count 는 0 이므로 total 만으로
           // 판정하지 않고 done 쪽에 폴백을 둔다.
@@ -198,6 +207,7 @@ function makeRepos(tx: Tx): Repositories {
             originWeek: r.originWeek,
             completedAt: r.completedAt,
             spentPomos,
+            measuredSec,
             childTotal: counts?.total ?? 0,
             childDone: counts?.done ?? 0
           }
@@ -210,6 +220,18 @@ function makeRepos(tx: Tx): Repositories {
           .from(sessions)
           .where(and(eq(sessions.localWeek, week), eq(sessions.kind, 'focus')))
           .get()?.n ?? 0,
+
+      /**
+       * 주 총 측정 시간(초). 정의역은 `weekTotalSpent` 와 **같다** — `task_id` 를 거르지
+       * 않으므로 미분류 집중이 들어오고, 항목의 폐기·삭제가 이 값을 줄이지 않는다
+       * (ADR-027 §2). 기타 행 차액의 피감수이므로 이 정의역이 어긋나면 차액이 틀린다.
+       */
+      weekTotalMeasuredSec: (week) =>
+        tx
+          .select({ sec: sql<number>`coalesce(sum(${sessions.durationSec}), 0)` })
+          .from(sessions)
+          .where(and(eq(sessions.localWeek, week), eq(sessions.kind, 'focus')))
+          .get()?.sec ?? 0,
 
       hasUnplannedActivity: (week) => {
         const looseSession = tx
@@ -309,14 +331,19 @@ function makeRepos(tx: Tx): Repositories {
           .all()
 
         return rows.map((r) => {
-          // 조각 단위 소진에는 주 조건을 걸지 않는다 — 이 숫자가 답하는 질문은 "이 조각으로
-          // 몇 뽀모 했나"이지 "이 주에 몇 뽀모 했나"가 아니다. 주 조건은 항목 소진(R8)의 것이다.
-          const spentPomos =
-            tx
-              .select({ n: sql<number>`count(*)` })
-              .from(sessions)
-              .where(and(eq(sessions.taskId, r.taskId), eq(sessions.kind, 'focus')))
-              .get()?.n ?? 0
+          // 조각 단위 합산에는 주 조건을 걸지 않는다 — 이 숫자가 답하는 질문은 "이 조각으로
+          // 얼마나 했나"이지 "이 주에 얼마나 했나"가 아니다. 주 조건은 항목 소진(R8)의 것이다.
+          // 이 비대칭은 의도된 것이며 근거·대가는 today-tasks R3-3 이 소유한다.
+          const totals = tx
+            .select({
+              n: sql<number>`count(*)`,
+              sec: sql<number>`coalesce(sum(${sessions.durationSec}), 0)`
+            })
+            .from(sessions)
+            .where(and(eq(sessions.taskId, r.taskId), eq(sessions.kind, 'focus')))
+            .get()
+          const spentPomos = totals?.n ?? 0
+          const measuredSec = totals?.sec ?? 0
 
           const active = tx
             .select({ taskId: taskPulls.taskId })
@@ -330,7 +357,7 @@ function makeRepos(tx: Tx): Repositories {
             )
             .get()
 
-          return { ...r, spentPomos, inToday: active !== undefined }
+          return { ...r, spentPomos, measuredSec, inToday: active !== undefined }
         })
       },
 
@@ -397,12 +424,16 @@ function makeRepos(tx: Tx): Repositories {
           .all()
 
         return rows.map((r) => {
-          const spentPomos =
-            tx
-              .select({ n: sql<number>`count(*)` })
-              .from(sessions)
-              .where(and(eq(sessions.taskId, r.taskId), eq(sessions.kind, 'focus')))
-              .get()?.n ?? 0
+          // 조각 단위 합산이라 주 조건이 없다 (today-tasks R3-3). 개수와 초는 같은
+          // 술어에서 나온다 — 갈리면 두 숫자가 서로를 반증한다.
+          const totals = tx
+            .select({
+              n: sql<number>`count(*)`,
+              sec: sql<number>`coalesce(sum(${sessions.durationSec}), 0)`
+            })
+            .from(sessions)
+            .where(and(eq(sessions.taskId, r.taskId), eq(sessions.kind, 'focus')))
+            .get()
 
           return {
             taskId: r.taskId,
@@ -410,7 +441,8 @@ function makeRepos(tx: Tx): Repositories {
             sourceTitle: r.isSystem === 1 ? null : r.sourceTitle,
             sourceWeek: r.sourceWeek,
             estPomos: r.estPomos,
-            spentPomos,
+            spentPomos: totals?.n ?? 0,
+            measuredSec: totals?.sec ?? 0,
             completedAt: r.completedAt,
             pulledAt: r.pulledAt
           }
@@ -759,7 +791,8 @@ function makeRepos(tx: Tx): Repositories {
           .select({
             milestoneId: milestones.id,
             plannedPomos: sql<number>`coalesce(sum(${weekItems.estPomos}), 0)`,
-            spentPomos: sql<number>`coalesce(sum(${itemSpent()}), 0)`
+            spentPomos: sql<number>`coalesce(sum(${itemSpent()}), 0)`,
+            measuredSec: sql<number>`coalesce(sum(${itemMeasuredSec()}), 0)`
           })
           .from(milestones)
           .innerJoin(
@@ -1075,6 +1108,23 @@ function itemSpent(): SQL<number> {
    */
   return sql<number>`(
     SELECT count(*) FROM sessions s
+      JOIN tasks t ON s.task_id = t.id
+     WHERE t.week_item_id = week_items.id
+       AND s.kind = 'focus'
+       AND s.local_week = week_items.week
+  )`
+}
+
+/**
+ * 항목 측정 시간(초)의 상관 서브쿼리. `itemSpent()` 와 **술어가 한 글자도 다르지 않아야
+ * 한다** — 개수와 초가 다른 세션 집합에서 나오면 마일스톤 롤업과 주간 카드가 같은 사실에
+ * 다른 숫자를 말한다 (ADR-012 §1, milestones 성공 지표).
+ *
+ * raw SQL 인 이유도 `itemSpent()` 와 같다 — 상관 참조는 테이블명으로 수식해야 한다.
+ */
+function itemMeasuredSec(): SQL<number> {
+  return sql<number>`(
+    SELECT coalesce(sum(s.duration_sec), 0) FROM sessions s
       JOIN tasks t ON s.task_id = t.id
      WHERE t.week_item_id = week_items.id
        AND s.kind = 'focus'

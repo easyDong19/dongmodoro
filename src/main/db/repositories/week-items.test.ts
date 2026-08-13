@@ -320,6 +320,7 @@ describe('weekItems.childTasks — 드로어 목록 (§6.2)', () => {
           title: '조각1',
           estPomos: 2,
           spentPomos: 1,
+          measuredSec: 1500,
           completedAt: null,
           inToday: false
         },
@@ -328,6 +329,7 @@ describe('weekItems.childTasks — 드로어 목록 (§6.2)', () => {
           title: '조각2',
           estPomos: null,
           spentPomos: 0,
+          measuredSec: 0,
           completedAt: null,
           inToday: true
         }
