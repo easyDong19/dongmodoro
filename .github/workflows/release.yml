@@ -60,7 +60,12 @@ jobs:
           name: dmg
           path: release/*.dmg
           if-no-files-found: ignore
-          retention-days: 7
+          # 이 아티팩트는 **사람이 한 번 확인하면 역할이 끝난다** — 리허설에서는 `.dmg` 가
+          # 나왔다는 증거이고, 태그 실행에서는 같은 파일이 릴리스 에셋으로 따로 올라간다.
+          # 7일을 두니 실행마다 207MB 가 겹쳐 쌓여 1.2GB 가 됐다. 릴리스 에셋과 달리
+          # 아티팩트는 저장 용량에 산입되므로(릴리스 쪽은 무제한·무과금), 확인에 필요한
+          # 만큼만 남긴다.
+          retention-days: 2
 
       # 태그로 들어온 실행만 배포한다. 리허설(`workflow_dispatch`)은 위의 아티팩트까지다.
       - name: Publish release
