@@ -1,5 +1,6 @@
 import { BaselineSection } from '@renderer/features/baseline/BaselineSection'
 import { Button } from '@renderer/shared/ui/button'
+import { MeasuredTime } from '@renderer/shared/ui/MeasuredTime'
 import type { ReviewPending } from './useReview'
 
 type Panel = Extract<ReviewPending, { needed: true }>
@@ -8,7 +9,9 @@ type Panel = Extract<ReviewPending, { needed: true }>
  * 안내 (ux-spec §6). 섹션 4 이며 **스크롤 영역 안**에 있다 — 확정 버튼만 하단 고정이다 (§10).
  */
 export function GuidanceSection({ data }: { data: Panel }) {
-  const unplanned = data.summary.weeks.reduce((sum, w) => sum + w.unplannedPomos, 0)
+  // 초 단계에서 더한다 — 주별 값을 분으로 접어 합치면 주간 카드 기타 행과 어긋난다
+  // (ADR-031 §2).
+  const unplannedSec = data.summary.weeks.reduce((sum, w) => sum + w.unplannedMeasuredSec, 0)
   const { focusMin, shortBreakMin, longBreakMin } = data.baseline
 
   return (
@@ -20,9 +23,11 @@ export function GuidanceSection({ data }: { data: Panel }) {
           적었지만 은/는은 숫자를 읽은 소리에 따라 갈린다 (2 는 `이` 라 `는`, 3 은 `삼` 이라
           `은`) — 실물에서 `집중 2은` 이 나왔다. 주간 카드의 pull 토스트가 같은 이유로
           제목 뒤 조사를 뺐고(week-plan ux-spec §3.1), 여기도 같은 방식으로 끊는다. */}
-      {unplanned > 0 ? (
+      {unplannedSec > 0 ? (
         <p className="text-xs text-ink-dim">
-          {`계획에 없던 집중 ${unplanned} — 기록으로만 남아요. 할당이 틀린 건 실패가 아니라 정보예요.`}
+          {'계획에 없던 집중 '}
+          <MeasuredTime sec={unplannedSec} />
+          {' — 기록으로만 남아요. 할당이 틀린 건 실패가 아니라 정보예요.'}
         </p>
       ) : null}
 
@@ -62,15 +67,18 @@ export function GuidanceSection({ data }: { data: Panel }) {
  */
 export function ConfirmSection({
   data,
-  carriedPomos,
+  carriedCount,
   pending,
   error,
   onConfirm,
   onClose
 }: {
   data: Panel
-  /** 지금 선택 기준의 이월 뽀모 합. 라벨과 중립 사실 줄이 이 값에서 나온다. */
-  carriedPomos: number
+  /**
+   * 지금 선택 기준으로 넘어갈 **건수**. 규모를 시간으로 말할 수 없어서 건수다
+   * (ADR-031 §1) — 이월 항목의 측정 시간은 정의상 0 이라 합이 언제나 `0분` 이 된다.
+   */
+  carriedCount: number
   pending: boolean
   error: 'stale' | 'failed' | null
   onConfirm: () => void
@@ -80,15 +88,12 @@ export function ConfirmSection({
 
   return (
     <div className="flex flex-col gap-2">
-      {/* 3주 만에 복귀해 60뽀모가 한 주로 들어오는 상황과 한 주를 알차게 보낸 상황에
-          같은 시각 언어(앰버 글로우 + 불꽃)를 쓰지 않기 위한 줄이다 (R40). 막지도,
-          캡을 두지도, 줄이라고 권하지도 않는다 — 두 숫자를 나란히 놓기만 한다. */}
-      {carriedPomos > 0 ? (
-        <p className="font-mono text-xs tabular-nums text-ink-dim">
-          {`이월 ${carriedPomos}`}
-          {/* 예산이 없으면 숫자를 지어내지 않는다. `예산 0` 은 거짓말이다 (ADR-018 §1). */}
-          {data.targetWeekBudget !== null ? ` · ${weekWord} 예산 ${data.targetWeekBudget}` : ''}
-        </p>
+      {/* 3주 만에 복귀해 한 주로 쏟아지는 상황을 사실로 알리는 줄이다 (R40). 규모를
+          시간으로 말할 수 없으므로(이월분의 측정 시간은 0) **건수**로 적는다. 나란히
+          놓던 `다음 주 예산` 은 함께 죽었다 — 예산은 폐기된 통화다 (ADR-030 §1).
+          막지도, 캡을 두지도, 줄이라고 권하지도 않는다. */}
+      {carriedCount > 0 ? (
+        <p className="font-mono text-xs tabular-nums text-ink-dim">{`이월 ${carriedCount}건`}</p>
       ) : null}
 
       {error !== null ? (
@@ -101,9 +106,7 @@ export function ConfirmSection({
 
       <div className="flex items-center gap-2">
         <Button type="button" size="sm" disabled={pending} onClick={onConfirm}>
-          {carriedPomos > 0
-            ? `${weekWord} 시작 (이월 뽀모 ${carriedPomos} 포함)`
-            : `${weekWord} 시작`}
+          {carriedCount > 0 ? `${weekWord} 시작 (이월 ${carriedCount}건 포함)` : `${weekWord} 시작`}
         </Button>
         <Button type="button" variant="ghost" size="sm" onClick={onClose}>
           닫기

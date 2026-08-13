@@ -16,8 +16,8 @@ function fact(over: Partial<WeekFact> = {}): WeekFact {
     week: THIS_WEEK,
     studiedDays: 3,
     spentPomos: 12,
-    budget: 20,
-    unplannedPomos: 0,
+    measuredSec: 18000,
+    unplannedMeasuredSec: 0,
     ...over
   }
 }
@@ -27,7 +27,7 @@ function summary(over: Partial<Summary> = {}): Summary {
     weeks: [fact()],
     idleWeekCount: 0,
     lastStudiedWeek: null,
-    lastStudiedPomos: null,
+    lastStudiedMeasuredSec: null,
     ...over
   }
 }
@@ -39,22 +39,22 @@ function renderSummary(over: Partial<Summary> = {}, from = THIS_WEEK, to = THIS_
 }
 
 describe('SummarySection — 한 일을 먼저 (§3 · R9 · A6)', () => {
-  it('범위가 이번 주 하나면 마감 문구와 공부한 날·소진을 적는다', () => {
+  it('범위가 이번 주 하나면 마감 문구와 공부한 날·측정 시간을 적는다', () => {
     renderSummary()
     expect(screen.getByText(/이번 주 마감/)).toBeInTheDocument()
     expect(screen.getByText(/3일 공부/)).toBeInTheDocument()
-    expect(screen.getByText(/뽀모 12 소진/)).toBeInTheDocument()
-    expect(screen.getByText(/예산 20/)).toBeInTheDocument()
+    expect(screen.getByTestId('measured-time')).toHaveTextContent('5시간')
   })
 
-  it('예산이 없으면 예산 괄호를 아예 적지 않는다 — 0 이라고 하지 않는다', () => {
-    renderSummary({ weeks: [fact({ budget: null })] })
-    expect(screen.queryByText(/예산/)).not.toBeInTheDocument()
+  /** 예산은 폐기된 통화다 (ADR-030 §1) — 계획 대비를 말하는 자리가 요약에 없다. */
+  it('예산을 말하지 않는다', () => {
+    const { container } = renderSummary()
+    expect(container.textContent).not.toContain('예산')
   })
 
-  it('예산 0 은 기록 없음과 다르다 — 0 으로 적는다', () => {
-    renderSummary({ weeks: [fact({ budget: 0 })] })
-    expect(screen.getByText(/예산 0/)).toBeInTheDocument()
+  it('세션이 없던 주도 0분 으로 사실을 적는다 (ux-spec §0.5)', () => {
+    renderSummary({ weeks: [fact({ studiedDays: 0, measuredSec: 0 })] })
+    expect(screen.getByTestId('measured-time')).toHaveTextContent('0분')
   })
 
   it('범위가 과거 한 주면 그 주를 날짜로 밝힌다', () => {
@@ -66,17 +66,18 @@ describe('SummarySection — 한 일을 먼저 (§3 · R9 · A6)', () => {
     renderSummary(
       {
         weeks: [
-          fact({ week: '2026-08-10', studiedDays: 2, spentPomos: 6 }),
-          fact({ week: '2026-08-17', studiedDays: 4, spentPomos: 9 })
+          fact({ week: '2026-08-10', studiedDays: 2, measuredSec: 5400 }),
+          fact({ week: '2026-08-17', studiedDays: 4, measuredSec: 9000 })
         ]
       },
       '2026-08-10',
       '2026-08-17'
     )
-    expect(screen.getByText(/뽀모 15 소진/)).toBeInTheDocument()
+    // 합산은 초 단계에서 끝난다 — 5400 + 9000 = 14400 (ADR-031 §2)
+    expect(screen.getByText(/8\/10 – 8\/17 — 집중/)).toBeInTheDocument()
     const rows = screen.getAllByTestId('summary-week-row')
     expect(rows).toHaveLength(2)
-    expect(rows[0]).toHaveTextContent('8/10 · 2일 공부, 뽀모 6')
+    expect(rows[0]).toHaveTextContent('8/10 · 2일 공부, 1시간 30분')
   })
 
   it('달성률 %를 주요 지표로 띄우지 않는다', () => {
@@ -84,25 +85,26 @@ describe('SummarySection — 한 일을 먼저 (§3 · R9 · A6)', () => {
     expect(container.textContent).not.toMatch(/%/)
   })
 
-  it('소진 수를 뽀모 도트와 숫자로 함께 보여준다', () => {
-    renderSummary({ weeks: [fact({ spentPomos: 4, budget: null })] })
-    expect(screen.getAllByTestId('pomo-dot-filled')).toHaveLength(4)
+  it('시간 표기는 앱 전체 한 벌을 따른다 — 60분 이상은 시간으로 접는다 (§0.1)', () => {
+    renderSummary({ weeks: [fact({ measuredSec: 5400 })] })
+    expect(screen.getByTestId('measured-time')).toHaveTextContent('1시간 30분')
   })
 })
 
 describe('SummarySection — 공백과 빈 기록 (R31 · A25)', () => {
   it('공백 주를 판단 없이 사실로만 적는다', () => {
     renderSummary(
-      { idleWeekCount: 2, lastStudiedWeek: '2026-07-27', lastStudiedPomos: 20 },
+      { idleWeekCount: 2, lastStudiedWeek: '2026-07-27', lastStudiedMeasuredSec: 30000 },
       '2026-08-03',
       '2026-08-17'
     )
     expect(screen.getByText(/2주 쉬었어요/)).toBeInTheDocument()
-    expect(screen.getByText(/마지막으로 공부한 주\(7\/27\) 뽀모 20 소진/)).toBeInTheDocument()
+    expect(screen.getByText(/마지막으로 공부한 주\(7\/27\)/)).toBeInTheDocument()
+    expect(screen.getAllByTestId('measured-time').at(-1)).toHaveTextContent('8시간 20분')
   })
 
   it('공부한 적이 없으면 마지막 공부 주 문장을 렌더하지 않는다', () => {
-    renderSummary({ idleWeekCount: 1, lastStudiedWeek: null, lastStudiedPomos: null })
+    renderSummary({ idleWeekCount: 1, lastStudiedWeek: null, lastStudiedMeasuredSec: null })
     expect(screen.queryByText(/마지막으로 공부한 주/)).not.toBeInTheDocument()
   })
 
@@ -123,7 +125,7 @@ describe('SummarySection — 톤 (원칙 6·7)', () => {
     const { container } = renderSummary({
       idleWeekCount: 2,
       lastStudiedWeek: '2026-07-27',
-      lastStudiedPomos: 20
+      lastStudiedMeasuredSec: 30000
     })
     for (const word of ['미달성', '밀린', '숙제', '지연', '실패', '아쉽']) {
       expect(container.textContent).not.toContain(word)
@@ -131,7 +133,7 @@ describe('SummarySection — 톤 (원칙 6·7)', () => {
   })
 
   it('--danger 를 쓰지 않는다', () => {
-    const { container } = renderSummary({ weeks: [fact({ spentPomos: 40, budget: 10 })] })
+    const { container } = renderSummary({ weeks: [fact({ measuredSec: 360000 })] })
     expect(container.innerHTML).not.toMatch(/danger/)
   })
 })

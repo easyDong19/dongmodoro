@@ -51,7 +51,7 @@ export type MilestoneCardItem = MilestoneRow & {
    * 그 마일스톤의 **이번 주** 롤업. `null` 은 "이 카드에 롤업이 없다"이며 0 과 다르다
    * (R17·R18) — 진행 중인 주가 이 달에 귀속되지 않았거나, 애초에 롤업이 없는 모드다.
    */
-  rollup: { spentPomos: number; plannedPomos: number; measuredSec: number } | null
+  rollup: { spentPomos: number; measuredSec: number } | null
 }
 
 export type MonthMilestones = {
@@ -61,7 +61,7 @@ export type MonthMilestones = {
   /** 지난달 배지. `M === 0` 이면 `null` — `0/0 달성` 을 만들지 않는다 (R21 · A22). */
   badge: MilestoneBadge | null
   /**
-   * 롤업이 붙은 주. 화면이 `이번 주 3/8` 의 범위 라벨을 이 값으로 그린다 (R17).
+   * 롤업이 붙은 주. 화면이 `이번 주 3시간 20분` 의 범위 라벨을 이 값으로 그린다 (R17).
    * `null` 이면 라벨을 그릴 주가 없다는 뜻이고, 그때 화면은 숫자 대신 사실 문구를 쓴다.
    */
   rollupWeek: string | null
@@ -96,16 +96,11 @@ export function monthMilestones(uow: UnitOfWork, month: string): MonthMilestones
       mode === 'edit' || mode === 'past' ? (monthOfWeek(weekKey) === month ? weekKey : null) : null
     const rollups =
       rollupWeek === null
-        ? new Map<string, { spentPomos: number; plannedPomos: number; measuredSec: number }>()
+        ? new Map<string, { spentPomos: number; measuredSec: number }>()
         : new Map(
-            repos.milestones.rollup(month, rollupWeek).map((r) => [
-              r.milestoneId,
-              {
-                spentPomos: r.spentPomos,
-                plannedPomos: r.plannedPomos,
-                measuredSec: r.measuredSec
-              }
-            ])
+            repos.milestones
+              .rollup(month, rollupWeek)
+              .map((r) => [r.milestoneId, { spentPomos: r.spentPomos, measuredSec: r.measuredSec }])
           )
 
     return {

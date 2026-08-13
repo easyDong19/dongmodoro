@@ -54,7 +54,7 @@ export function ReviewPanel({
   onSettled: (message: string) => void
   onClose: () => void
 }) {
-  // 3택 상태는 패널이 산다 — 확정 섹션이 같은 상태에서 이월 뽀모 합을 읽어야 하고,
+  // 2택 상태는 패널이 산다 — 확정 섹션이 같은 상태에서 이월 건수를 읽어야 하고,
   // 목록 컴포넌트가 갖고 있으면 그 값을 형제에게 넘길 길이 없다.
   const decisions = useDecisions()
 
@@ -119,9 +119,7 @@ export function ReviewPanel({
           rows={data.pending}
           merged={data.from !== data.to}
           choiceOf={decisions.choiceOf}
-          reduceValueOf={decisions.reduceValueOf}
           onPick={decisions.pick}
-          onReduce={decisions.setReduceValue}
         />
         <GuidanceSection data={data} />
       </div>
@@ -130,7 +128,7 @@ export function ReviewPanel({
       <div className="shrink-0 border-t border-glass-border-soft px-4 py-3">
         <ConfirmSection
           data={data}
-          carriedPomos={decisions.carriedPomosOf(data.pending)}
+          carriedCount={decisions.carriedCountOf(data.pending)}
           pending={settle.isPending}
           error={error}
           onConfirm={onConfirm}

@@ -89,25 +89,36 @@ const planDraftItemSchema = z.strictObject({
   days: z.array(z.int().min(0).max(6))
 })
 
-/** `ReviewWeekFact`(main/services/ports.ts) 미러링 — 정산 요약의 주별 한 줄. */
+/**
+ * `ReviewWeekFact`(main/services/ports.ts) 미러링 — 정산 요약의 주별 한 줄.
+ *
+ * **예산이 없다** (ADR-030 §1 — 폐기된 통화다). `계획 대비` 를 말하던 자리는
+ * 측정 시간이 대신한다. `unplannedMeasuredSec` 는 주간 카드 기타 행과 **같은 차액**
+ * 이며 초 단계에서 계산된다 (ADR-031 §2).
+ */
 const reviewWeekFactSchema = z.strictObject({
   week: z.string(),
   studiedDays: z.int(),
   spentPomos: z.int(),
-  /** NULL = "기록 없음". 0 은 "예산 0 으로 하겠다"는 별개 사실이다 (ADR-018 §1). */
-  budget: z.int().nullable(),
-  unplannedPomos: z.int()
+  /** 그 주 측정 시간 총합(초). 분으로 접지 않는다. */
+  measuredSec: z.int().min(0),
+  /** 계획에 없던 집중(초) — 차액이라 하한을 걸지 않는다 (음수는 드러나야 할 버그다). */
+  unplannedMeasuredSec: z.int()
 })
 
-/** 3택 한 행. `remaining`·`carryWeeks` 는 저장값이 아니라 서비스가 붙인 파생값이다. */
+/**
+ * 2택 한 행 (ADR-031 §1). `carryWeeks` 는 저장값이 아니라 서비스가 붙인 파생값이다.
+ *
+ * **`estPomos`·`remaining` 이 없다** — 줄일 대상이 사라졌으므로 남은 몫이라는 개념도
+ * 함께 죽었다. 그 자리에 그 주에 이 항목으로 실제로 한 시간이 온다.
+ */
 const pendingRowSchema = z.strictObject({
   id: z.string(),
   week: z.string(),
   title: z.string(),
-  estPomos: z.int(),
   spentPomos: z.int(),
-  /** 측정값이라 0 이 될 수 있다 (ADR-019 §1). 이월 est 의 하한 1 은 확정이 건다. */
-  remaining: z.int().min(0),
+  /** 그 항목의 그 주 측정 시간(초). 이월 직후 항목은 정의상 0 이다. */
+  measuredSec: z.int().min(0),
   carryWeeks: z.int().min(1)
 })
 
@@ -366,12 +377,17 @@ export const contracts = {
         mode: z.enum(['far-future', 'lead-edit', 'current-empty', 'edit', 'past', 'past-empty']),
         items: z.array(
           milestoneSchema.extend({
-            /** `null` 은 "이 카드에 롤업이 없다"이며 0 과 다르다 (R17·R18). */
+            /**
+             * `null` 은 "이 카드에 롤업이 없다"이며 0 과 다르다 (R17·R18) — 전자는 숫자
+             * 자리를 그리지 않고 후자는 `0분` 을 적는다 (week-plan ux-spec §0.3).
+             *
+             * **분모가 없다.** `plannedPomos`(연결된 할당의 est 합)는 폐기된 통화였고,
+             * 롤업은 이제 분수가 아니라 측정 시간 하나다 (ADR-030 §3).
+             */
             rollup: z
               .strictObject({
                 spentPomos: z.int().min(0),
-                plannedPomos: z.int().min(0),
-                /** 그 주 귀속 측정 시간(초). `null` 롤업과 `0` 은 다른 사실이다 (R17·R18). */
+                /** 그 주 귀속 측정 시간(초). */
                 measuredSec: z.int().min(0)
               })
               .nullable()
@@ -493,23 +509,20 @@ export const contracts = {
             weeks: z.array(reviewWeekFactSchema),
             idleWeekCount: z.int().min(0),
             lastStudiedWeek: z.string().nullable(),
-            lastStudiedPomos: z.int().nullable()
+            /** 마지막으로 공부한 주의 측정 시간(초). 그런 주가 없으면 `null`. */
+            lastStudiedMeasuredSec: z.int().min(0).nullable()
           }),
           completed: z.array(
             z.strictObject({
               id: z.string(),
               week: z.string(),
               title: z.string(),
-              spentPomos: z.int()
+              spentPomos: z.int(),
+              /** 그 항목의 그 주 측정 시간(초). */
+              measuredSec: z.int().min(0)
             })
           ),
           pending: z.array(pendingRowSchema),
-          /**
-           * **nullable 이다.** technical-spec 초안은 "스냅샷이 없으면 기본 예산(가용량 합)"
-           * 이라고 했지만 `weekly_capacity` 를 시딩하지 않기로 한 이상 그 기본값이 없고,
-           * 0 을 채우면 ADR-018 §1 이 구분하려던 "기록 없음"과 "예산 0"이 뭉개진다.
-           */
-          targetWeekBudget: z.int().nullable(),
           /**
            * 패널이 현재 값을 적는 **표시의 유일한 출처**다. 편집은 `settings.getBaseline`
            * 이 따로 읽는다 — 같은 사실을 두 경로로 그리면 저장 직후 한쪽만 갱신된
@@ -530,42 +543,33 @@ export const contracts = {
      * 보내 서버가 집합 일치를 요구하면 그 정상 사용이 확정을 롤백시킨다.
      *
      * 빈 배열은 누락이 아니라 **"전부 이월"이라는 완전한 의사 표시**다 (R13).
+     *
+     * **예외 종류가 `drop` 하나뿐이다** (ADR-031 §1). `carry_reduced` 는 줄일 대상인
+     * est 와 함께 사라졌고, 시간으로 대체하지 않는다 — 이월 항목의 측정 시간은 정의상
+     * 0 이라 "줄인다"는 조작이 성립하지 않는다. 클램프가 없으니 응답의
+     * `clampedExceptionIds` 도 함께 죽었다.
      */
     settle: {
       req: z.tuple([
         z.strictObject({
           expectedRange: z.strictObject({ from: z.string(), to: z.string() }),
           targetWeek: z.string(),
-          exceptions: z.array(
-            z.discriminatedUnion('kind', [
-              z.strictObject({
-                kind: z.literal('carry_reduced'),
-                itemId: z.string(),
-                // 형식 검증만 여기서 한다. 상한 클램프는 서버가 재조회한 남은 몫으로 하며
-                // 거부하지 않는다 (규칙 4) — 열어둔 패널의 값은 언제든 낡을 수 있다.
-                estPomos: z.int().min(1)
-              }),
-              z.strictObject({ kind: z.literal('drop'), itemId: z.string() })
-            ])
-          )
+          exceptions: z.array(z.strictObject({ kind: z.literal('drop'), itemId: z.string() }))
         })
       ]),
       res: z.strictObject({
         settledThrough: z.string(),
         carriedItemIds: z.array(z.string()),
         droppedItemIds: z.array(z.string()),
-        carriedPomos: z.int(),
         /** 화면이 몰랐을 수 있는 이월. 건수를 숨기지 않는다 (R30). */
         autoCarried: z.array(
           z.strictObject({
             sourceItemId: z.string(),
             newItemId: z.string(),
-            title: z.string(),
-            estPomos: z.int()
+            title: z.string()
           })
         ),
-        ignoredExceptionIds: z.array(z.string()),
-        clampedExceptionIds: z.array(z.string())
+        ignoredExceptionIds: z.array(z.string())
       })
     }
   },

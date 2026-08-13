@@ -10,9 +10,8 @@ function row(over: Partial<PendingRow> & { id: string }): PendingRow {
   return {
     week: '2026-08-17',
     title: over.id,
-    estPomos: 5,
     spentPomos: 0,
-    remaining: 5,
+    measuredSec: 0,
     carryWeeks: 1,
     ...over
   }
@@ -23,16 +22,9 @@ function Host({ rows, merged = false }: { rows: PendingRow[]; merged?: boolean }
   const d = useDecisions()
   return (
     <>
-      <PendingSection
-        rows={rows}
-        merged={merged}
-        choiceOf={d.choiceOf}
-        reduceValueOf={d.reduceValueOf}
-        onPick={d.pick}
-        onReduce={d.setReduceValue}
-      />
+      <PendingSection rows={rows} merged={merged} choiceOf={d.choiceOf} onPick={d.pick} />
       <output data-testid="exceptions">{JSON.stringify(d.exceptionsFor(rows))}</output>
-      <output data-testid="carried">{d.carriedPomosOf(rows)}</output>
+      <output data-testid="carried">{d.carriedCountOf(rows)}</output>
     </>
   )
 }
@@ -72,44 +64,32 @@ describe('PendingSection — 기본 선택과 전송 (R12·R13 · A7)', () => {
   })
 })
 
-describe('PendingSection — 축소 스테퍼 (R15 · A10 · §5.3)', () => {
-  it('줄여서를 고르면 스테퍼가 나오고 기본값이 이월 est 의 절반(올림)이다', async () => {
-    render(<Host rows={[row({ id: 'a', remaining: 5 })]} />)
-    await userEvent.click(screen.getByRole('button', { name: '줄여서' }))
-    expect(screen.getByTestId('stepper-value')).toHaveTextContent('3')
-    expect(exceptions()).toEqual([{ kind: 'carry_reduced', itemId: 'a', estPomos: 3 }])
+describe('PendingSection — 처분은 2택뿐이다 (ADR-031 §1)', () => {
+  it('줄여서 세그먼트가 없다 — 줄일 대상인 est 가 사라졌다', () => {
+    render(<Host rows={[row({ id: 'a' })]} />)
+    expect(screen.queryByRole('button', { name: '줄여서' })).not.toBeInTheDocument()
+    expect(screen.getAllByRole('button')).toHaveLength(2)
   })
 
-  it('하한 1 아래로 내려가지 않고 그 버튼만 비활성된다', async () => {
-    render(<Host rows={[row({ id: 'a', remaining: 1 })]} />)
-    await userEvent.click(screen.getByRole('button', { name: '줄여서' }))
-    expect(screen.getByTestId('stepper-value')).toHaveTextContent('1')
-    expect(screen.getByRole('button', { name: /줄이기/ })).toBeDisabled()
-    expect(screen.getByRole('button', { name: /늘리기/ })).toBeDisabled() // 상한도 1 이다
+  it('스테퍼가 어디에도 없다', () => {
+    render(<Host rows={[row({ id: 'a' })]} />)
+    expect(screen.queryByTestId('stepper-value')).not.toBeInTheDocument()
   })
 
-  it('이월 est 를 넘지 않는다', async () => {
-    render(<Host rows={[row({ id: 'a', remaining: 4 })]} />)
-    await userEvent.click(screen.getByRole('button', { name: '줄여서' }))
-    await userEvent.click(screen.getByRole('button', { name: /늘리기/ }))
-    await userEvent.click(screen.getByRole('button', { name: /늘리기/ }))
-    expect(screen.getByTestId('stepper-value')).toHaveTextContent('4')
-    expect(screen.getByRole('button', { name: /늘리기/ })).toBeDisabled()
+  it('예외로 나가는 것은 보내주기뿐이다', async () => {
+    render(<Host rows={[row({ id: 'a' })]} />)
+    await userEvent.click(screen.getByRole('button', { name: '보내주기' }))
+    expect(exceptions()).toEqual([{ kind: 'drop', itemId: 'a' }])
   })
 
-  it('A9 — 남은 몫이 0 이어도 이월 est 는 1 이라 스테퍼가 1 에서 잠긴다', async () => {
-    render(<Host rows={[row({ id: 'a', estPomos: 2, spentPomos: 5, remaining: 0 })]} />)
-    expect(carried()).toBe(1)
-    await userEvent.click(screen.getByRole('button', { name: '줄여서' }))
-    expect(screen.getByTestId('stepper-value')).toHaveTextContent('1')
+  it('남은 몫 대신 그 항목으로 이미 한 집중을 적는다', () => {
+    render(<Host rows={[row({ id: 'a', measuredSec: 5400 })]} />)
+    expect(screen.getByTestId('measured-time')).toHaveTextContent('1시간 30분')
   })
 
-  it('경고 문구를 붙이지 않는다 — 줄이는 것은 실패가 아니다', async () => {
-    const { container } = render(<Host rows={[row({ id: 'a' })]} />)
-    await userEvent.click(screen.getByRole('button', { name: '줄여서' }))
-    for (const word of ['경고', '주의', '무리']) {
-      expect(container.textContent).not.toContain(word)
-    }
+  it('세션이 없던 항목도 자리를 지킨다 — 0분 이다 (week-plan ux-spec §0.5)', () => {
+    render(<Host rows={[row({ id: 'a', measuredSec: 0 })]} />)
+    expect(screen.getByTestId('measured-time')).toHaveTextContent('0분')
   })
 })
 
@@ -210,16 +190,15 @@ describe('PendingSection — 행 구성과 시각 규칙 (§5.1·§5.2)', () => 
   })
 })
 
-describe('useDecisions — 이월 뽀모 합 (ux-spec §7.1)', () => {
-  it('기본은 이월 est 의 합이다', () => {
-    render(<Host rows={[row({ id: 'a', remaining: 3 }), row({ id: 'b', remaining: 2 })]} />)
-    expect(carried()).toBe(5)
+describe('useDecisions — 이월 건수 (ux-spec §7.1)', () => {
+  it('기본은 목록 전체가 이월이라 건수가 행 수와 같다', () => {
+    render(<Host rows={[row({ id: 'a' }), row({ id: 'b' })]} />)
+    expect(carried()).toBe(2)
   })
 
-  it('보내주기는 0 으로 세고 축소는 자른 값으로 센다', async () => {
-    render(<Host rows={[row({ id: 'a', remaining: 3 }), row({ id: 'b', remaining: 4 })]} />)
+  it('보내주기를 고른 만큼만 빠진다 — 규모를 시간으로 말하지 않는다', async () => {
+    render(<Host rows={[row({ id: 'a' }), row({ id: 'b' })]} />)
     await userEvent.click(within(rowByTitle('a')).getByRole('button', { name: '보내주기' }))
-    await userEvent.click(within(rowByTitle('b')).getByRole('button', { name: '줄여서' }))
-    expect(carried()).toBe(2) // b 의 기본 축소값 ceil(4/2)
+    expect(carried()).toBe(1)
   })
 })

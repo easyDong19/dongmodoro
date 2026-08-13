@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import type { Api } from '@shared/ipc/api'
 import { Button } from '@renderer/shared/ui/button'
-import { PomoDots } from '@renderer/shared/ui/PomoDots'
+import { MeasuredTime } from '@renderer/shared/ui/MeasuredTime'
 import { useReducedMotion } from '@renderer/shared/ui/useReducedMotion'
 
 type Drawer = Awaited<ReturnType<Api['week']['drawer']>>
@@ -47,7 +47,9 @@ function TaskRow({
       >
         {task.title}
       </span>
-      <PomoDots spent={task.spentPomos} est={task.estPomos ?? 0} />
+      {/* 조각의 측정 시간에는 **주 조건이 없다** — 이월된 조각의 이력이 끊기지 않게
+          하는 의도된 비대칭이다 (today-tasks R3-3, ux-spec §6.2). */}
+      <MeasuredTime sec={task.measuredSec} />
       {done ? <span className="text-xs text-ink-dim">완료</span> : null}
       {!done && task.inToday ? <span className="text-xs text-ink-faint">오늘 목록에</span> : null}
     </li>

@@ -8,7 +8,6 @@ import {
   planDraft,
   pullFromDrawer,
   pullNextFromItem,
-  remainingPomos,
   setItemCompleted,
   setItemMilestone,
   weekSummary
@@ -23,16 +22,6 @@ describe('otherRowSpent (ADR-027 §1)', () => {
 
   it('보이는 항목이 없으면 총 소진 전부가 기타 행이다', () => {
     expect(otherRowSpent(4, [])).toBe(4)
-  })
-})
-
-describe('remainingPomos (R9·A12)', () => {
-  it('남은 몫은 est − 소진이다', () => {
-    expect(remainingPomos(5, 2)).toBe(3)
-  })
-
-  it('소진이 est 를 넘어도 음수가 아니라 0 이다', () => {
-    expect(remainingPomos(3, 5)).toBe(0)
   })
 })
 

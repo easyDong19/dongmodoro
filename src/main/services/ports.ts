@@ -252,10 +252,11 @@ export type MilestoneRollupRow = {
    * 그 주 귀속 측정 시간(초). 연결된 **폐기·삭제되지 않은** 할당들의 측정 시간 합이며,
    * 술어는 `listForWeek` 의 항목 측정 시간과 같아야 한다 (milestones 성공 지표) —
    * 갈리면 마일스톤 롤업과 주간 카드가 같은 사실에 다른 숫자를 말한다.
+   *
+   * **분모가 없다** (ADR-030 §3). 롤업은 `이번 주 3/8` 이 아니라 `이번 주 3시간 20분`
+   * 이며, 그 분모였던 `sum(est_pomos)` 는 통화와 함께 죽었다.
    */
   measuredSec: number
-  /** 그 주의 계획 대비 — 연결된 할당들의 `est_pomos` 합. 0 이면 화면이 분수를 만들지 않는다. */
-  plannedPomos: number
 }
 
 /**
@@ -366,20 +367,23 @@ export type ReviewWeekFact = {
   studiedDays: number
   /** 그 주 focus 세션 전체. 폐기·삭제가 줄이지 않는다 (ADR-027 §2). */
   spentPomos: number
-  /** 그 주 스냅샷 예산. 행이 없거나 NULL 이면 `null` = "기록 없음" (ADR-018 §1·§2). */
-  budget: number | null
-  /** 계획에 없던 집중 — **차액**이다. `주 소진 − Σ(목록에 보이는 항목의 소진)`. */
-  unplannedPomos: number
+  /** 그 주 측정 시간 총합(초). 정의역은 `spentPomos` 와 같다. */
+  measuredSec: number
+  /**
+   * 계획에 없던 집중(초) — **차액**이다 (ADR-031 §2).
+   * `주 총 focus 초 − Σ(목록에 보이는 항목의 focus 초)`. 주간 카드 기타 행과 같은 값이다.
+   */
+  unplannedMeasuredSec: number
 }
 
 export type PendingItemRow = {
   id: string
   week: string
   title: string
-  /** **항목 est** 다 — 하위 조각 est 의 합이 아니다 (Q13). */
-  estPomos: number
   /** 그 항목의 주에 기록된 focus 세션만 (ADR-012 §1). */
   spentPomos: number
+  /** 그 항목의 그 주 측정 시간(초). `spentPomos` 와 같은 술어에서 나온다. */
+  measuredSec: number
   /** 최초 생성 주. 이월 배지 `N주째` 의 재료 — 사슬 길이가 아니다 (Q12). */
   originWeek: string
   /** 이월이 승계한다 (R35). M3b 에서는 항상 null 이다. */
@@ -391,6 +395,8 @@ export type CompletedItemRow = {
   week: string
   title: string
   spentPomos: number
+  /** 그 항목의 그 주 측정 시간(초). */
+  measuredSec: number
 }
 
 export interface ReviewRepository {
@@ -420,7 +426,7 @@ export interface ReviewRepository {
    * **정산 범위와 무관하게** 조회한다 (R31) — 공백 기간을 말할 때 "마지막으로 공부한
    * 주"는 범위 밖일 수 있고, 그게 이 값이 존재하는 이유다.
    */
-  lastStudied(): { week: string; spentPomos: number } | null
+  lastStudied(): { week: string; spentPomos: number; measuredSec: number } | null
   /**
    * 3택 대상. 주·생성순으로만 정렬한다 — "3주 이상 먼저"는 **표시 정렬**이라 화면이 한다
    * (ux-spec §5.0). 남은 몫·`N주째` 도 여기서 계산하지 않는다: 규칙은 서비스가 갖는다.
@@ -432,19 +438,19 @@ export interface ReviewRepository {
    */
   listCompleted(from: string, to: string): CompletedItemRow[]
   /**
-   * 확정의 쓰기 전부 — **호출자가 결정을 이미 끝낸 상태**로 들어온다. 클램프·이월 est
-   * 계산·예외 흡수는 서비스가 하고 여기는 실행만 한다 (ADR-015 §1).
+   * 확정의 쓰기 전부 — **호출자가 결정을 이미 끝낸 상태**로 들어온다. 예외 흡수는
+   * 서비스가 하고 여기는 실행만 한다 (ADR-015 §1).
+   *
+   * **`weeks` 행을 만들지도 갱신하지도 않는다** (ADR-030 §4). 스냅샷·예산은 폐기된
+   * 통화이고 `settled_at` 은 어떤 화면도 읽지 않는다. 세션이 필요로 하는 행은
+   * 세션 기록 경로(`services/sessions.ts`)가 계속 만든다 — FK 는 그것으로 충족된다.
    *
    * 반드시 트랜잭션 안에서 부른다. 중간 실패 시 반쯤 정산된 상태가 남지 않아야 한다 (R22).
    */
   applySettlement(input: {
     targetWeek: string
-    /** 새로 만드는 `weeks` 행에 박제할 값. 이미 있는 행에는 쓰이지 않는다. */
-    snapshot: WeekSnapshot
-    /** `settled_at` 을 찍을 정산 범위의 주들. */
-    rangeWeeks: readonly string[]
     drops: readonly string[]
-    carries: readonly { sourceId: string; estPomos: number }[]
+    carries: readonly { sourceId: string }[]
     /** 순간 (UTC ISO). 한 번 읽어 넘긴다 (ADR-022 §1). */
     at: string
   }): { carried: { sourceItemId: string; newItemId: string }[] }

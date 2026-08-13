@@ -779,9 +779,12 @@ function makeRepos(tx: Tx): Repositories {
       },
 
       /**
-       * 롤업 (R16·R17). 마일스톤 → 할당 → 조각 → 세션 사슬을 탄다. 소진은 `itemSpent()`
-       * 와 **같은 술어**여야 마일스톤 롤업과 주간 카드의 항목 소진이 어긋나지 않는다
-       * (성공 지표).
+       * 롤업 (R16·R17). 마일스톤 → 할당 → 조각 → 세션 사슬을 탄다. 측정 시간은
+       * `itemMeasuredSec()` 와 **같은 술어**여야 마일스톤 롤업과 주간 카드의 항목 시간이
+       * 어긋나지 않는다 (성공 지표).
+       *
+       * **분모가 없다** — `sum(est_pomos)` 로 세던 `plannedPomos` 는 폐기된 통화와 함께
+       * 죽었다 (ADR-030 §3). 롤업은 분수가 아니라 측정 시간 하나다.
        *
        * 폐기·삭제된 할당은 뺀다 — 화면에서 사라진 할당의 소진이 롤업에만 남으면 그 숫자를
        * 설명할 자리가 없다.
@@ -790,7 +793,6 @@ function makeRepos(tx: Tx): Repositories {
         tx
           .select({
             milestoneId: milestones.id,
-            plannedPomos: sql<number>`coalesce(sum(${weekItems.estPomos}), 0)`,
             spentPomos: sql<number>`coalesce(sum(${itemSpent()}), 0)`,
             measuredSec: sql<number>`coalesce(sum(${itemMeasuredSec()}), 0)`
           })
@@ -897,6 +899,8 @@ function makeRepos(tx: Tx): Repositories {
           const totals = tx
             .select({
               spent: sql<number>`count(*)`,
+              /** 개수와 **같은 술어**에서 나온 초 (ADR-031 §3). 0행이면 sum() 이 NULL 이다. */
+              sec: sql<number>`coalesce(sum(${sessions.durationSec}), 0)`,
               days: sql<number>`count(distinct ${sessions.localDate})`
             })
             .from(sessions)
@@ -911,40 +915,49 @@ function makeRepos(tx: Tx): Repositories {
            * `tasks.deleted_at` 은 일부러 거르지 않는다 — `listForWeek` 의 항목 소진과
            * 같은 술어여야 차액 항등식이 성립한다 (ADR-027 §2).
            */
-          const planned =
-            tx
-              .select({ n: sql<number>`count(*)` })
-              .from(sessions)
-              .innerJoin(tasks, eq(sessions.taskId, tasks.id))
-              .innerJoin(weekItems, eq(tasks.weekItemId, weekItems.id))
-              .where(
-                and(
-                  eq(sessions.localWeek, w),
-                  eq(sessions.kind, 'focus'),
-                  eq(weekItems.week, w),
-                  eq(weekItems.isSystem, 0),
-                  isNull(weekItems.droppedAt),
-                  isNull(weekItems.deletedAt)
-                )
+          const planned = tx
+            .select({
+              n: sql<number>`count(*)`,
+              sec: sql<number>`coalesce(sum(${sessions.durationSec}), 0)`
+            })
+            .from(sessions)
+            .innerJoin(tasks, eq(sessions.taskId, tasks.id))
+            .innerJoin(weekItems, eq(tasks.weekItemId, weekItems.id))
+            .where(
+              and(
+                eq(sessions.localWeek, w),
+                eq(sessions.kind, 'focus'),
+                eq(weekItems.week, w),
+                eq(weekItems.isSystem, 0),
+                isNull(weekItems.droppedAt),
+                isNull(weekItems.deletedAt)
               )
-              .get()?.n ?? 0
+            )
+            .get()
 
-          const spentPomos = totals?.spent ?? 0
+          const measuredSec = totals?.sec ?? 0
           return {
             week: w,
             studiedDays: totals?.days ?? 0,
-            spentPomos,
-            budget:
-              tx.select({ budget: weeks.budget }).from(weeks).where(eq(weeks.week, w)).get()
-                ?.budget ?? null,
-            unplannedPomos: spentPomos - planned
+            spentPomos: totals?.spent ?? 0,
+            measuredSec,
+            /**
+             * 차액은 **초 단계에서** 낸다 (ADR-031 §2) — 분으로 접은 값끼리 빼면 항목이
+             * 여럿일 때 차액이 음수로 뒤집힌다. 클램프하지 않는 이유도 주간 카드 기타
+             * 행과 같다: 음수는 감출 값이 아니라 드러나야 할 술어 버그다.
+             */
+            unplannedMeasuredSec: measuredSec - (planned?.sec ?? 0)
           }
         })
       },
 
       lastStudied: () => {
         const row = tx
-          .select({ week: sessions.localWeek, spentPomos: sql<number>`count(*)` })
+          .select({
+            week: sessions.localWeek,
+            spentPomos: sql<number>`count(*)`,
+            measuredSec: sql<number>`coalesce(sum(${sessions.durationSec}), 0)`
+          })
           .from(sessions)
           .where(eq(sessions.kind, 'focus'))
           .groupBy(sessions.localWeek)
@@ -960,10 +973,10 @@ function makeRepos(tx: Tx): Repositories {
             id: weekItems.id,
             week: weekItems.week,
             title: weekItems.title,
-            estPomos: weekItems.estPomos,
             originWeek: weekItems.originWeek,
             milestoneId: weekItems.milestoneId,
-            spentPomos: itemSpent()
+            spentPomos: itemSpent(),
+            measuredSec: itemMeasuredSec()
           })
           .from(weekItems)
           .where(pendingPredicate(from, to))
@@ -976,7 +989,8 @@ function makeRepos(tx: Tx): Repositories {
             id: weekItems.id,
             week: weekItems.week,
             title: weekItems.title,
-            spentPomos: itemSpent()
+            spentPomos: itemSpent(),
+            measuredSec: itemMeasuredSec()
           })
           .from(weekItems)
           .where(
@@ -992,7 +1006,7 @@ function makeRepos(tx: Tx): Repositories {
           .orderBy(asc(weekItems.week), asc(weekItems.createdAt), sql`week_items.rowid`)
           .all(),
 
-      applySettlement: ({ targetWeek, snapshot, rangeWeeks, drops, carries, at }) => {
+      applySettlement: ({ targetWeek, drops, carries, at }) => {
         // 4. 폐기 — soft. 원본 행은 남는다 (ADR-014 §1).
         for (const id of drops) {
           tx.update(weekItems)
@@ -1005,7 +1019,7 @@ function makeRepos(tx: Tx): Repositories {
         //    원본을 옮기면 origin_week 박제와 "그 주에 무엇이 남았는가"라는 과거 사실이
         //    동시에 파괴된다 (Q12).
         const carried: { sourceItemId: string; newItemId: string }[] = []
-        for (const { sourceId, estPomos } of carries) {
+        for (const { sourceId } of carries) {
           const src = tx
             .select({
               title: weekItems.title,
@@ -1023,7 +1037,13 @@ function makeRepos(tx: Tx): Repositories {
               id: newId,
               week: targetWeek,
               title: src.title,
-              estPomos,
+              /**
+               * **아무도 읽지 않는 자리 채움이다.** est 는 폐기된 통화지만(ADR-030 §4)
+               * 컬럼이 `NOT NULL` 이고 `week_items_est_pomos_range` CHECK 가 사용자
+               * 항목에 `>= 1` 을 요구하므로, 컬럼을 걷는 마이그레이션이 오기 전까지는
+               * 값을 하나 써야 한다. 이월 규모를 이 숫자로 말하는 화면은 없다.
+               */
+              estPomos: 1,
               milestoneId: src.milestoneId, // 마일스톤 승계 (ADR-012 §3)
               days: '[]', // 요일 배치는 플래너에서 다시 (week-plan)
               originWeek: src.originWeek, // 박제 승계 — 배지의 근거 (Q12)
@@ -1057,27 +1077,14 @@ function makeRepos(tx: Tx): Repositories {
         }
 
         /**
-         * 6. 주별 행 — 정산 범위의 각 주 **+ 계획 대상 주**. 계획 대상 주까지 만드는
-         * 이유는 스냅샷 없는 주가 남으면 그 주의 예산·단위가 나중에 전역 설정값으로
-         * 해석되기 때문이다 (ADR-013 §2). 있는 행은 `settled_at` 만 건드린다.
+         * **6단계가 없다.** 예전에는 정산 범위의 각 주와 계획 대상 주에 `weeks` 행을
+         * 만들고 `settled_at` 을 찍었다. 박제하던 것(예산·가용량·길이)이 전부 폐기된
+         * 통화이고(ADR-030 §4), `settled_at` 은 어떤 화면도 읽지 않는다 — 정산 필요
+         * 판정은 `settings.last_settled_week` 워터마크 단독이다.
+         *
+         * FK(`sessions.local_week` → `weeks.week`)는 세션 기록 경로가 계속 충족한다:
+         * 세션이 없는 주에는 애초에 참조도 없다.
          */
-        for (const week of [...rangeWeeks, targetWeek]) {
-          tx.insert(weeks)
-            .values({
-              week,
-              focusMin: snapshot.focusMin,
-              shortBreakMin: snapshot.shortBreakMin,
-              longBreakMin: snapshot.longBreakMin,
-              capacity: snapshot.capacity === null ? null : JSON.stringify(snapshot.capacity),
-              budget: snapshot.budget
-            })
-            .onConflictDoNothing({ target: weeks.week })
-            .run()
-        }
-        for (const week of rangeWeeks) {
-          tx.update(weeks).set({ settledAt: at }).where(eq(weeks.week, week)).run()
-        }
-
         return { carried }
       }
     }

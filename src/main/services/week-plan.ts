@@ -41,17 +41,6 @@ export function otherRowMeasuredSec(
 }
 
 /**
- * 항목의 남은 몫 (R9·A12). 기준은 **항목 est** 이며 자식 조각 est 합이 아니다.
- * 0 에서 클램프한다 — 소진이 est 를 넘긴 항목의 남은 몫은 음수가 아니라 0 이다.
- *
- * 화면에 그리는 것은 정산(M3b)이지만 규칙의 소유는 week-plan R9 이므로 여기서 만든다.
- * 두 곳에서 각자 클램프하면 한쪽만 고쳐지는 날이 온다.
- */
-export function remainingPomos(estPomos: number, spentPomos: number): number {
-  return Math.max(0, estPomos - spentPomos)
-}
-
-/**
  * 플래너 확정 (R22~R24). **과적 여부와 무관하게 항상 성공한다** — 확정을 막는 경로가
  * 이 함수에 없다 (R22, 차단 0건). 전체가 트랜잭션 하나다 (ADR-015).
  */

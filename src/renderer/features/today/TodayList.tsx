@@ -4,32 +4,10 @@ import { Play, Plus, X } from 'lucide-react'
 import { api } from '@renderer/shared/api'
 import { keys } from '@renderer/shared/query/keys'
 import { Button } from '@renderer/shared/ui/button'
+import { MeasuredTime } from '@renderer/shared/ui/MeasuredTime'
 import { useToday } from './useToday'
 
 type TodayRow = Awaited<ReturnType<typeof api.today.list>>['rows'][number]
-
-/** 뽀모 도트 — 이모지 대신 토큰 색의 원. estPomos 가 없으면 소비량만 채워 보여준다. */
-function PomoDots({ spent, est }: { spent: number; est: number | null }) {
-  const total = est === null ? spent : Math.max(est, spent)
-  if (total === 0) return null
-  return (
-    <span
-      className="flex items-center gap-1"
-      aria-label={`뽀모 ${spent}${est !== null ? `/${est}` : ''}`}
-    >
-      {Array.from({ length: total }, (_, i) => (
-        <span
-          key={i}
-          className="size-2 rounded-full"
-          style={{
-            backgroundColor: i < spent ? 'var(--teal)' : 'transparent',
-            border: i < spent ? 'none' : '1px solid var(--ink-dim)'
-          }}
-        />
-      ))}
-    </span>
-  )
-}
 
 function TodayRowItem({
   row,
@@ -60,7 +38,9 @@ function TodayRowItem({
         {row.title}
       </span>
       <span className="text-xs text-ink-dim">{row.sourceTitle ?? '기타'}</span>
-      <PomoDots spent={row.spentPomos} est={row.estPomos} />
+      {/* 항목당 누적 측정 시간 (today-tasks R3·R3-3). 조각 단위라 **주 조건이 없다** —
+          이월된 조각이 지난 주에 쌓은 시간도 여기 그대로 남는다. */}
+      <MeasuredTime sec={row.measuredSec} />
       {canPlay && !isDone ? (
         <Button
           type="button"

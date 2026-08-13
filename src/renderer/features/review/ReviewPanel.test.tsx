@@ -48,13 +48,13 @@ function panel(over: Partial<Panel> = {}): Panel {
           week: THIS_WEEK,
           studiedDays: 3,
           spentPomos: 12,
-          budget: 20,
-          unplannedPomos: 0
+          measuredSec: 18000,
+          unplannedMeasuredSec: 0
         }
       ],
       idleWeekCount: 0,
       lastStudiedWeek: null,
-      lastStudiedPomos: null
+      lastStudiedMeasuredSec: null
     },
     completed: [],
     pending: [
@@ -62,13 +62,11 @@ function panel(over: Partial<Panel> = {}): Panel {
         id: 'a',
         week: THIS_WEEK,
         title: '논문 3장',
-        estPomos: 5,
         spentPomos: 2,
-        remaining: 3,
+        measuredSec: 3000,
         carryWeeks: 1
       }
     ],
-    targetWeekBudget: 20,
     baseline: { focusMin: 25, shortBreakMin: 5, longBreakMin: 15 },
     ...over
   }
@@ -79,10 +77,8 @@ function result(over: Partial<SettleResult> = {}): SettleResult {
     settledThrough: THIS_WEEK,
     carriedItemIds: ['new-a'],
     droppedItemIds: [],
-    carriedPomos: 3,
-    autoCarried: [{ sourceItemId: 'a', newItemId: 'new-a', title: '논문 3장', estPomos: 3 }],
+    autoCarried: [{ sourceItemId: 'a', newItemId: 'new-a', title: '논문 3장' }],
     ignoredExceptionIds: [],
-    clampedExceptionIds: [],
     ...over
   }
 }
@@ -127,11 +123,13 @@ describe('ReviewPanel — 안내 (§6)', () => {
       panel({
         summary: {
           ...panel().summary,
-          weeks: [{ ...panel().summary.weeks[0], unplannedPomos: 8 }]
+          weeks: [{ ...panel().summary.weeks[0], unplannedMeasuredSec: 12000 }]
         }
       })
     )
-    expect(screen.getByText(/계획에 없던 집중 8 — 기록으로만 남아요/)).toBeInTheDocument()
+    expect(screen.getByText(/계획에 없던 집중/)).toBeInTheDocument()
+    expect(screen.getByText(/기록으로만 남아요/)).toBeInTheDocument()
+    expect(screen.getAllByTestId('measured-time').at(-1)).toHaveTextContent('3시간 20분')
   })
 
   it('"미분류" 라는 단어를 쓰지 않는다', () => {
@@ -139,7 +137,7 @@ describe('ReviewPanel — 안내 (§6)', () => {
       panel({
         summary: {
           ...panel().summary,
-          weeks: [{ ...panel().summary.weeks[0], unplannedPomos: 3 }]
+          weeks: [{ ...panel().summary.weeks[0], unplannedMeasuredSec: 4500 }]
         }
       })
     )
@@ -189,19 +187,19 @@ describe('ReviewPanel — 안내 (§6)', () => {
    * 갈리는데(2 = `이` → 는, 3 = `삼` → 은) 템플릿은 하나뿐이라 반드시 절반이 틀린다.
    * 주간 카드의 pull 토스트가 같은 이유로 조사를 뺐고, 여기도 끊어 쓴다.
    */
-  it('숫자 뒤에 조사를 붙이지 않는다 — 어떤 수에도 어색하지 않아야 한다', () => {
-    for (const n of [1, 2, 3, 6, 9, 10]) {
+  it('숫자 뒤에 조사를 붙이지 않는다 — 어떤 값에도 어색하지 않아야 한다', () => {
+    for (const sec of [30, 60, 1500, 3600, 5400]) {
       const { container, unmount } = renderPanel(
         panel({
           summary: {
             ...panel().summary,
-            weeks: [{ ...panel().summary.weeks[0], unplannedPomos: n }]
+            weeks: [{ ...panel().summary.weeks[0], unplannedMeasuredSec: sec }]
           }
         })
       )
-      expect(container.textContent).toContain(`계획에 없던 집중 ${n} —`)
-      expect(container.textContent).not.toContain(`집중 ${n}은`)
-      expect(container.textContent).not.toContain(`집중 ${n}는`)
+      expect(container.textContent).toContain('계획에 없던 집중')
+      expect(container.textContent).toMatch(/분| — 기록으로만 남아요/)
+      expect(container.textContent).not.toMatch(/(분|시간)(은|는) /)
       unmount()
     }
   })
@@ -216,50 +214,44 @@ describe('ReviewPanel — 안내 (§6)', () => {
 describe('ReviewPanel — 확정 버튼 (§7.1·§7.2)', () => {
   it('계획 대상 주가 다음 주면 라벨이 다음 주다', () => {
     renderPanel()
-    expect(confirmButton()).toHaveTextContent('다음 주 시작 (이월 뽀모 3 포함)')
+    expect(confirmButton()).toHaveTextContent('다음 주 시작 (이월 1건 포함)')
   })
 
   it('계획 대상 주가 오늘의 주면 라벨이 이번 주다', () => {
     renderPanel(panel({ targetWeekIsCurrent: true }))
-    expect(confirmButton()).toHaveTextContent('이번 주 시작 (이월 뽀모 3 포함)')
+    expect(confirmButton()).toHaveTextContent('이번 주 시작 (이월 1건 포함)')
   })
 
-  it('이월 뽀모가 0 이면 괄호를 붙이지 않는다', () => {
+  it('이월 건수가 0 이면 괄호를 붙이지 않는다', () => {
     renderPanel(panel({ pending: [] }))
     expect(confirmButton()).toHaveTextContent('다음 주 시작')
     expect(confirmButton()).not.toHaveTextContent('포함')
   })
 
-  it('A28 — 이월과 예산을 중립 사실로 나란히 놓고 확정을 막지 않는다', () => {
+  /**
+   * R40 의 중립 사실 줄. 규모를 **건수**로 말한다 (ADR-031 §1) — 이월분의 측정 시간은
+   * 0 이라 시간으로는 아무것도 말할 수 없다. 나란히 놓던 예산은 함께 죽었다.
+   */
+  it('A28 — 이월 규모를 건수로 적고 확정을 막지 않는다', () => {
     renderPanel(
       panel({
-        targetWeekBudget: 20,
         pending: [
-          {
-            id: 'big',
-            week: THIS_WEEK,
-            title: '큰 것',
-            estPomos: 60,
-            spentPomos: 0,
-            remaining: 60,
-            carryWeeks: 1
-          }
+          { id: 'x', week: THIS_WEEK, title: '하나', spentPomos: 0, measuredSec: 0, carryWeeks: 1 },
+          { id: 'y', week: THIS_WEEK, title: '둘', spentPomos: 0, measuredSec: 0, carryWeeks: 1 }
         ]
       })
     )
-    expect(screen.getByText('이월 60 · 다음 주 예산 20')).toBeInTheDocument()
+    expect(screen.getByText('이월 2건')).toBeInTheDocument()
     expect(confirmButton()).toBeEnabled()
   })
 
-  it('예산이 없으면 예산 숫자를 지어내지 않는다', () => {
-    renderPanel(panel({ targetWeekBudget: null }))
-    // 요약은 그 주 자신의 예산을 말할 수 있다 — 여기서 보는 것은 확정 위 중립 사실 줄이다.
-    expect(screen.getByText('이월 3')).toBeInTheDocument()
-    expect(screen.queryByText(/이월 3 · /)).not.toBeInTheDocument()
+  it('예산을 말하지 않는다 — 폐기된 통화다 (ADR-030 §1)', () => {
+    const { container } = renderPanel()
+    expect(container.textContent).not.toContain('예산')
   })
 
   it('과적을 막거나 경고하지 않는다 (원칙 4·6)', () => {
-    const { container } = renderPanel(panel({ targetWeekBudget: 1 }))
+    const { container } = renderPanel()
     for (const word of ['예산 초과', '무리', '위험', '경고']) {
       expect(container.textContent).not.toContain(word)
     }
@@ -308,9 +300,9 @@ describe('ReviewPanel — 확정 후 (§7.3)', () => {
           result({
             carriedItemIds: ['new-a', 'new-ghost', 'new-ghost2'],
             autoCarried: [
-              { sourceItemId: 'a', newItemId: 'new-a', title: '논문 3장', estPomos: 3 },
-              { sourceItemId: 'ghost', newItemId: 'new-ghost', title: '몰랐던 것', estPomos: 1 },
-              { sourceItemId: 'ghost2', newItemId: 'new-ghost2', title: '또', estPomos: 1 }
+              { sourceItemId: 'a', newItemId: 'new-a', title: '논문 3장' },
+              { sourceItemId: 'ghost', newItemId: 'new-ghost', title: '몰랐던 것' },
+              { sourceItemId: 'ghost2', newItemId: 'new-ghost2', title: '또' }
             ]
           })
         )
@@ -348,9 +340,9 @@ describe('ReviewPanel — 예외 화면 (§8)', () => {
   it('실패해도 선택이 유지된다 (§8.1)', async () => {
     const { rerender } = renderPanel()
     await userEvent.click(
-      within(screen.getByTestId('pending-row')).getByRole('button', { name: '줄여서' })
+      within(screen.getByTestId('pending-row')).getByRole('button', { name: '보내주기' })
     )
-    expect(screen.getByTestId('stepper-value')).toHaveTextContent('2')
+    expect(screen.getByRole('button', { name: '보내주기' })).toHaveAttribute('aria-pressed', 'true')
 
     rerender(
       withQuery(
@@ -364,12 +356,13 @@ describe('ReviewPanel — 예외 화면 (§8)', () => {
         />
       )
     )
-    expect(screen.getByTestId('stepper-value')).toHaveTextContent('2')
+    expect(screen.getByRole('button', { name: '보내주기' })).toHaveAttribute('aria-pressed', 'true')
   })
 
   /**
    * §8.1. `STALE_RANGE` 후 재조회하면 행 집합이 달라질 수 있다. 살아남은 행의 선택은
-   * id 로 이어지고, 새 행은 기본 이월로 시작하며, 남은 몫이 줄었으면 상한으로 잘린다.
+   * id 로 이어지고, 새 행은 기본 이월로 시작한다. (스테퍼 값의 클램프 규칙은 축소
+   * 처분과 함께 죽었다 — ADR-031 §1.)
    */
   it('범위가 커져도 기존 행의 선택이 살아남고 새 행은 기본 이월이다', async () => {
     const { rerender } = renderPanel()
@@ -386,9 +379,8 @@ describe('ReviewPanel — 예외 화면 (§8)', () => {
           id: 'newcomer',
           week: '2026-08-17',
           title: '새로 들어온 주',
-          estPomos: 2,
           spentPomos: 0,
-          remaining: 2,
+          measuredSec: 0,
           carryWeeks: 1
         }
       ]
@@ -420,24 +412,16 @@ describe('ReviewPanel — 예외 화면 (§8)', () => {
     )
   })
 
-  it('남은 몫이 줄면 스테퍼 값이 새 상한으로 잘린다', async () => {
-    const { rerender } = renderPanel(
-      panel({
-        pending: [{ ...panel().pending[0], estPomos: 8, spentPomos: 0, remaining: 8 }]
-      })
-    )
+  it('그 사이 세션이 돌아 시간이 늘어도 선택은 그대로다', async () => {
+    const { rerender } = renderPanel()
     await userEvent.click(
-      within(screen.getByTestId('pending-row')).getByRole('button', { name: '줄여서' })
+      within(screen.getByTestId('pending-row')).getByRole('button', { name: '보내주기' })
     )
-    expect(screen.getByTestId('stepper-value')).toHaveTextContent('4')
 
-    // 패널을 열어둔 사이 세션이 돌아 남은 몫이 2 로 줄었다
     rerender(
       withQuery(
         <ReviewPanel
-          data={panel({
-            pending: [{ ...panel().pending[0], estPomos: 8, spentPomos: 6, remaining: 2 }]
-          })}
+          data={panel({ pending: [{ ...panel().pending[0], measuredSec: 9000 }] })}
           currentWeek={THIS_WEEK}
           settle={{ mutate: vi.fn(), isPending: false }}
           error={null}
@@ -446,6 +430,9 @@ describe('ReviewPanel — 예외 화면 (§8)', () => {
         />
       )
     )
-    expect(screen.getByTestId('stepper-value')).toHaveTextContent('2')
+    expect(
+      within(screen.getByTestId('pending-row')).getByTestId('measured-time')
+    ).toHaveTextContent('2시간 30분')
+    expect(screen.getByRole('button', { name: '보내주기' })).toHaveAttribute('aria-pressed', 'true')
   })
 })

@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Check, ChevronDown, ChevronRight } from 'lucide-react'
+import { MeasuredTime } from '@renderer/shared/ui/MeasuredTime'
 import type { ReviewPending } from './useReview'
 
 type Completed = Extract<ReviewPending, { needed: true }>['completed']
@@ -35,9 +36,8 @@ export function CompletedSection({ rows }: { rows: Completed }) {
             <li key={row.id} data-testid="completed-row" className="flex items-center gap-2">
               <Check className="size-3 shrink-0 text-teal" aria-hidden />
               <span className="flex-1 truncate text-sm text-ink">{row.title}</span>
-              <span className="font-mono text-xs tabular-nums text-ink-dim">
-                {`뽀모 ${row.spentPomos}`}
-              </span>
+              {/* 끝낸 항목에도 **한 일은 시간으로** 적는다 (ADR-030 §3). */}
+              <MeasuredTime sec={row.measuredSec} />
             </li>
           ))}
         </ul>

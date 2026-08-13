@@ -3,6 +3,7 @@ import { Archive, ArchiveRestore, Check, Trash2 } from 'lucide-react'
 import type { contracts } from '@shared/ipc/contracts'
 import type { z } from 'zod'
 import { Button } from '@renderer/shared/ui/button'
+import { MeasuredTime } from '@renderer/shared/ui/MeasuredTime'
 
 type MonthRes = z.infer<typeof contracts.milestones.forMonth.res>
 type Item = MonthRes['items'][number]
@@ -123,16 +124,16 @@ export function MilestoneRow({
 
       {/*
         롤업은 **언제나 범위 라벨과 함께**다 (R17 · A16). 라벨 없는 숫자를 단독으로 두면
-        주 경계 직후의 0 이 월 진행으로 읽힌다. 분모가 0 이면 분수 대신 개수만 쓴다.
+        주 경계 직후의 `0분` 이 월 진행으로 읽힌다.
+
+        **분수가 아니다** — 분모였던 est 합은 폐기된 통화와 함께 죽었고(ADR-030 §3),
+        남는 것은 그 주에 귀속된 측정 시간 하나다. 롤업이 없는 것(`null`)과 0 은 다른
+        사실이라, 전자는 이 줄 자체를 그리지 않고 후자는 `0분` 을 적는다 (R17·R18).
       */}
       {item.rollup !== null && rollupWeek !== null ? (
-        <p
-          data-testid="milestone-rollup"
-          className="pl-6 font-mono text-[10px] tabular-nums text-ink-dim"
-        >
-          {item.rollup.plannedPomos === 0
-            ? `이번 주 ${item.rollup.spentPomos}`
-            : `이번 주 ${item.rollup.spentPomos}/${item.rollup.plannedPomos}`}
+        <p data-testid="milestone-rollup" className="pl-6 text-[10px] text-ink-dim">
+          {'이번 주 '}
+          <MeasuredTime sec={item.rollup.measuredSec} className="text-[10px] text-ink-dim" />
         </p>
       ) : null}
 

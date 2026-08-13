@@ -84,7 +84,9 @@ describe('review.weekFacts — 주별 사실 (R9·R11·R32·R33)', () => {
 
       const [fact] = repos.review.weekFacts(W1, W1)
       expect(fact.spentPomos).toBe(18)
-      expect(fact.unplannedPomos).toBe(8) // 6 + 2 — 둘이 하나로 합쳐 나온다
+      expect(fact.measuredSec).toBe(18 * 1500)
+      // 6 + 2 — 둘이 하나로 합쳐, 초 단계에서 차액으로 나온다 (ADR-031 §2)
+      expect(fact.unplannedMeasuredSec).toBe(8 * 1500)
       expect(fact.studiedDays).toBe(3)
     })
   })
@@ -107,7 +109,7 @@ describe('review.weekFacts — 주별 사실 (R9·R11·R32·R33)', () => {
 
       const [fact] = repos.review.weekFacts(W1, W1)
       expect(fact.spentPomos).toBe(1)
-      expect(fact.unplannedPomos).toBe(1)
+      expect(fact.unplannedMeasuredSec).toBe(1500)
     })
   })
 
@@ -122,26 +124,6 @@ describe('review.weekFacts — 주별 사실 (R9·R11·R32·R33)', () => {
       repos.sessions.insert(focusSession('s1', null, '2026-08-18', W3))
 
       expect(repos.review.weekFacts(W1, W3).map((f) => f.week)).toEqual([W1, W3])
-    })
-  })
-
-  it('예산이 없는 주는 budget: null 이다 — 0 으로 만들지 않는다 (ADR-018 §1)', () => {
-    const { uow } = testUow()
-    ensureWeeks(uow, W1, W2)
-    uow.run((repos) => {
-      repos.weekItems.confirmPlan({
-        week: W1,
-        items: [{ id: null, title: 'A', estPomos: 1, days: [] }]
-      })
-      repos.weekItems.confirmPlan({
-        week: W2,
-        items: [{ id: null, title: 'B', estPomos: 1, days: [] }]
-      })
-      repos.weeks.setPlan(W2, 0) // "예산 0 으로 하겠다" 는 별개의 사실이다
-
-      const byWeek = new Map(repos.review.weekFacts(W1, W2).map((f) => [f.week, f.budget]))
-      expect(byWeek.get(W1)).toBeNull()
-      expect(byWeek.get(W2)).toBe(0)
     })
   })
 
@@ -160,9 +142,9 @@ describe('review.weekFacts — 주별 사실 (R9·R11·R32·R33)', () => {
 
       const byWeek = new Map(repos.review.weekFacts(W1, W2).map((f) => [f.week, f]))
       // W2 에는 그 항목이 없으므로 s2 는 W2 의 "계획에 없던 집중" 이 된다
-      expect(byWeek.get(W1)?.unplannedPomos).toBe(0)
-      expect(byWeek.get(W2)?.spentPomos).toBe(1)
-      expect(byWeek.get(W2)?.unplannedPomos).toBe(1)
+      expect(byWeek.get(W1)?.unplannedMeasuredSec).toBe(0)
+      expect(byWeek.get(W2)?.measuredSec).toBe(1500)
+      expect(byWeek.get(W2)?.unplannedMeasuredSec).toBe(1500)
     })
   })
 })
@@ -181,7 +163,7 @@ describe('review.lastStudied — 범위 밖도 본다 (R31·A25)', () => {
       repos.sessions.insert(focusSession('b1', null, '2026-08-11', W2))
       repos.sessions.insert(focusSession('b2', null, '2026-08-12', W2))
 
-      expect(repos.review.lastStudied()).toEqual({ week: W2, spentPomos: 2 })
+      expect(repos.review.lastStudied()).toEqual({ week: W2, spentPomos: 2, measuredSec: 3000 })
     })
   })
 
@@ -192,7 +174,7 @@ describe('review.lastStudied — 범위 밖도 본다 (R31·A25)', () => {
       repos.sessions.insert(focusSession('a1', null, '2026-08-04', W1))
       repos.sessions.insert({ ...focusSession('b1', null, '2026-08-11', W2), kind: 'short' })
 
-      expect(repos.review.lastStudied()).toEqual({ week: W1, spentPomos: 1 })
+      expect(repos.review.lastStudied()).toEqual({ week: W1, spentPomos: 1, measuredSec: 1500 })
     })
   })
 })

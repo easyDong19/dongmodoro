@@ -42,11 +42,16 @@ function renderRow(
 }
 
 describe('WeekItemRow — 기본 구성 (§3.1)', () => {
-  it('제목·도트·요일 핍 7개를 렌더한다', () => {
-    renderRow({ spentPomos: 2 })
+  it('제목·측정 시간·요일 핍 7개를 렌더한다', () => {
+    renderRow({ measuredSec: 5400 })
     expect(screen.getByText('설계 문서')).toBeInTheDocument()
-    expect(screen.getAllByTestId('pomo-dot-filled')).toHaveLength(2)
+    expect(screen.getByTestId('measured-time')).toHaveTextContent('1시간 30분')
     expect(screen.getAllByTestId('day-pip')).toHaveLength(7)
+  })
+
+  it('세션이 없는 항목도 자리를 지킨다 — 0분 이다 (ux-spec §0.5)', () => {
+    renderRow({ measuredSec: 0 })
+    expect(screen.getByTestId('measured-time')).toHaveTextContent('0분')
   })
 
   it('자식 조각이 0개면 조각 카운트를 숨긴다', () => {
@@ -191,16 +196,20 @@ describe('WeekItemRow — 완료 상태 (§3.3)', () => {
     expect(screen.getByRole('button', { name: '완료 해제' })).toBeInTheDocument()
   })
 
-  it('완료 후 추가 소진: +N 은 그대로 보이고 완료 제안은 다시 뜨지 않는다 (R28·A37)', () => {
+  /**
+   * R28 의 초과 표시(`+N` · 앰버 도트)는 **비교 대상인 est 와 함께 죽었다** (ADR-030 §1).
+   * 완료 뒤 붙은 집중은 초과가 아니라 그냥 시간이라, 측정 시간이 계속 자랄 뿐이다.
+   * 그래도 완료 제안이 다시 뜨지 않는다는 규칙은 그대로다 (A37).
+   */
+  it('완료 후 추가 집중: 시간은 계속 자라고 완료 제안은 다시 뜨지 않는다 (R28·A37)', () => {
     renderRow({
       completedAt: '2026-08-05T00:00:00.000Z',
-      estPomos: 4,
-      spentPomos: 6,
+      measuredSec: 9000,
       childTotal: 2,
       childDone: 2
     })
-    expect(screen.getByText('+2')).toBeInTheDocument()
-    expect(screen.getAllByTestId('pomo-dot-extra')).toHaveLength(2)
+    expect(screen.getByTestId('measured-time')).toHaveTextContent('2시간 30분')
+    expect(screen.queryByText('+2')).not.toBeInTheDocument()
     expect(screen.queryByText(/이 할당도 완료할까요/)).not.toBeInTheDocument()
   })
 })

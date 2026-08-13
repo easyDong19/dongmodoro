@@ -183,16 +183,8 @@ describe('이월 재부모화와 귀속 (ADR-012 §3)', () => {
 
       const { carried } = repos.review.applySettlement({
         targetWeek: NEXT,
-        snapshot: {
-          focusMin: 25,
-          shortBreakMin: 5,
-          longBreakMin: 15,
-          capacity: null,
-          budget: null
-        },
-        rangeWeeks: [WEEK],
         drops: [],
-        carries: [{ sourceId: itemId, estPomos: 2 }],
+        carries: [{ sourceId: itemId }],
         at: '2026-08-10T00:00:00.000Z'
       })
       return { sourceId: itemId, newItemId: carried[0].newItemId }

@@ -201,7 +201,7 @@ describe('milestones.remove — 물리 삭제와 SET NULL (R8 · A8)', () => {
 })
 
 describe('milestones.rollup — 주 단위 파생 (R16·R17)', () => {
-  it('연결된 할당의 그 주 소진과 est 합을 준다', () => {
+  it('연결된 할당의 그 주 소진과 측정 시간 합을 준다', () => {
     const { uow } = testUow()
     seedWeek(uow, W_AUG)
     uow.run((repos) => {
@@ -215,7 +215,7 @@ describe('milestones.rollup — 주 단위 파생 (R16·R17)', () => {
       focusOn(repos, addTask(repos, i2), '2026-08-05', W_AUG)
 
       expect(repos.milestones.rollup(AUG, W_AUG)).toEqual([
-        { milestoneId: m, plannedPomos: 8, spentPomos: 3, measuredSec: 4500 }
+        { milestoneId: m, spentPomos: 3, measuredSec: 4500 }
       ])
     })
   })
@@ -283,7 +283,7 @@ describe('milestones.rollup — 주 단위 파생 (R16·R17)', () => {
 
       // 8월 마일스톤을 9월 주로 조회하면 그 소진이 잡힌다 — 달이 아니라 마일스톤이 기준이다.
       expect(repos.milestones.rollup(AUG, wSep)).toEqual([
-        { milestoneId: m, plannedPomos: 2, spentPomos: 1, measuredSec: 1500 }
+        { milestoneId: m, spentPomos: 1, measuredSec: 1500 }
       ])
       // 9월 카드에는 그 마일스톤이 없으므로 롤업도 없다.
       expect(repos.milestones.rollup(SEP, wSep)).toEqual([])
