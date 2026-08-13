@@ -35,7 +35,10 @@ export function App() {
               가져온다. 여백과 폭은 여기서 유틸리티로 준다. */}
           <DisplayMonthProvider>
             <div className="flex w-[300px] min-h-0 flex-col gap-6">
-              <section className="card shrink-0 p-4" aria-label="월 결과물">
+              {/* min-h 148px 는 편집 모드(항목 2개) 실측 높이다 — 모드별 내용 높이가
+                  76~146px 로 달라서, 하한이 없으면 달 이동마다 아래 캘린더 카드가 최대
+                  70px 주저앉았다 솟는다 (실측). 내용이 더 길면 자라는 것은 그대로 둔다. */}
+              <section className="card min-h-[148px] shrink-0 p-4" aria-label="월 결과물">
                 <MilestoneCard />
               </section>
               <section className="card min-h-0 flex-1 p-4" aria-label="캘린더">

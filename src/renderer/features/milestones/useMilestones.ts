@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api } from '@renderer/shared/api'
 import { keys } from '@renderer/shared/query/keys'
 import { dispatchInvalidation } from '@renderer/shared/query/invalidate'
@@ -20,7 +20,10 @@ export function useMilestones() {
 
   const query = useQuery({
     queryKey: keys.monthMilestones(month),
-    queryFn: () => api.milestones.forMonth(month)
+    queryFn: () => api.milestones.forMonth(month),
+    // 달 이동 시 카드가 null 로 무너졌다 다시 서지 않게 이전 달 데이터를 자리로 쓴다 —
+    // 무너지는 한 커밋이 왼쪽 컬럼 전체를 주저앉히는 layout-shift 를 만든다 (실측 112px).
+    placeholderData: keepPreviousData
   })
 
   const invalidate = () =>
