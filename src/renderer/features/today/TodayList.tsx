@@ -47,28 +47,35 @@ function TodayRowItem({
         >
           {row.title}
         </span>
-        {canPlay && !isDone ? (
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon-sm"
-            aria-label="타이머 시작"
-            onClick={() => onPlay(row.taskId)}
-          >
-            <Play />
-          </Button>
-        ) : null}
-        {canRemove ? (
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon-sm"
-            aria-label="치우기"
-            onClick={() => onRemove(row.taskId)}
-          >
-            <X />
-          </Button>
-        ) : null}
+        {/* 액션 자리는 **버튼이 없어도 남는다** (icon-sm 32px 두 칸 = w-16). 재생은 focus
+            idle 에서만, 치우기는 idle 에서만 렌더되므로, 자리를 비워두지 않으면 타이머를
+            켜고 끌 때마다 제목이 쓸 수 있는 폭이 64px 씩 출렁인다 — 읽던 줄이 그 자리에서
+            다시 잘리거나 늘어난다. 무엇을 할 수 있는가(렌더 조건)는 그대로 두고 **폭만**
+            상수로 만든다. */}
+        <div data-testid="today-row-actions" className="flex w-16 shrink-0 justify-end">
+          {canPlay && !isDone ? (
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon-sm"
+              aria-label="타이머 시작"
+              onClick={() => onPlay(row.taskId)}
+            >
+              <Play />
+            </Button>
+          ) : null}
+          {canRemove ? (
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon-sm"
+              aria-label="치우기"
+              onClick={() => onRemove(row.taskId)}
+            >
+              <X />
+            </Button>
+          ) : null}
+        </div>
       </div>
 
       {/* 메타 줄. 체크박스 폭(24px) + gap(8px) 만큼 들여써 제목 아래에 정렬한다. */}
