@@ -54,8 +54,6 @@ describe('IPC 등록 완결성 (ADR-007)', () => {
     registerReviewHandlers(uow)
     registerCalendarHandlers(uow)
     registerMilestoneHandlers(uow)
-    // 창은 테마 변경 시에만 필요하고 fn 이 호출되지 않으므로 null 로 충분하다.
-    registerSettingsHandlers(uow, () => null)
     // 엔진은 순수 클래스라 스텁 의존성으로 실물을 세운다 — 핸들러 fn 은 호출되지 않는다.
     const engine = new TimerEngine({
       now: () => 0,
@@ -70,6 +68,9 @@ describe('IPC 등록 완결성 (ADR-007)', () => {
       getTaskTitle: () => null
     })
     registerTimerHandlers(engine, uow)
+    // 창은 테마 변경 시에만 필요하고 fn 이 호출되지 않으므로 null 로 충분하다. 엔진은
+    // index.ts 와 같은 순서로 넘긴다 — 길이 저장이 대기 중인 다이얼을 갱신한다.
+    registerSettingsHandlers(uow, () => null, engine)
 
     const declared = allChannels(CHANNELS).sort()
     expect(declared.length).toBeGreaterThan(0)
