@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import type { Api } from '@shared/ipc/api'
 import { Button } from '@renderer/shared/ui/button'
+import { Checkbox } from '@renderer/shared/ui/Checkbox'
 import { MeasuredTime } from '@renderer/shared/ui/MeasuredTime'
 import { useReducedMotion } from '@renderer/shared/ui/useReducedMotion'
 
@@ -31,13 +32,11 @@ function TaskRow({
       data-testid="drawer-task-row"
       className="flex min-h-[var(--target-min)] items-center gap-2 rounded-md px-2 py-1"
     >
-      <input
-        type="checkbox"
+      <Checkbox
         checked={checked}
         disabled={disabled}
-        onChange={onToggle}
+        onCheckedChange={onToggle}
         aria-label={task.title}
-        className="size-4"
       />
       <span
         data-testid="drawer-task-title"

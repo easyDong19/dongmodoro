@@ -127,6 +127,47 @@ describe('TodayList — 렌더 계약 (Task 9)', () => {
     expect(screen.queryByRole('button', { name: '타이머 시작' })).not.toBeInTheDocument()
   })
 
+  it('제목과 메타(출처·측정 시간)가 다른 줄에 있다 — 제목이 먼저 잘리지 않는다', async () => {
+    setup({
+      rows: [makeRow({ title: '문서 작성', sourceTitle: '인수인계자료 만들기' })],
+      timer: idleFocusSnapshot
+    })
+
+    const title = await screen.findByTestId('today-row-title')
+    const source = screen.getByText('인수인계자료 만들기')
+    // 같은 줄에 있으면 둘의 부모가 같다. 2단이면 다르다.
+    expect(source.parentElement).not.toBe(title.parentElement)
+    // 폭이 모자랄 때 줄어드는 쪽은 출처다.
+    expect(source.className).toContain('truncate')
+  })
+
+  it('직접 추가한 항목은 출처 자리를 그리지 않는다 (`기타` 를 라벨로 쓰지 않는다)', async () => {
+    setup({ rows: [makeRow({ sourceTitle: null })], timer: idleFocusSnapshot })
+
+    await screen.findByTestId('today-row-title')
+    expect(screen.queryByText('기타')).not.toBeInTheDocument()
+  })
+
+  it('완료 행은 행 전체를 흐리지 않고 제목만 취소선으로 표시한다', async () => {
+    setup({
+      rows: [makeRow({ completedAt: '2026-08-07T01:00:00.000Z' })],
+      timer: idleFocusSnapshot
+    })
+
+    const title = await screen.findByTestId('today-row-title')
+    expect(title.className).toContain('line-through')
+    // 아직 눌러야 하는 체크박스와 읽어야 하는 측정 시간이 같이 흐려지면 안 된다.
+    expect(title.closest('li')?.className ?? '').not.toContain('opacity')
+  })
+
+  it('완료 토글은 네이티브 체크박스가 아니라 토큰 스킨 컴포넌트다', async () => {
+    setup({ rows: [makeRow({ title: '문서 작성' })], timer: idleFocusSnapshot })
+
+    const box = await screen.findByRole('checkbox', { name: '문서 작성 완료 토글' })
+    expect(box.tagName).not.toBe('INPUT')
+    expect(box.querySelector('span')?.className).toContain('border-control-border')
+  })
+
   it('타이머가 running 이면 치우기 버튼이 하나도 없다', async () => {
     setup({
       rows: [makeRow({ taskId: 'todo', completedAt: null })],
