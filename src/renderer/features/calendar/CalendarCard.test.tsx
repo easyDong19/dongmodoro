@@ -38,14 +38,19 @@ async function renderCard(o: {
   day?: DayRes
   dayByKey?: Record<string, DayRes>
   septemberMonth?: MonthRes
+  /** true 면 9월 응답을 영원히 보류한다 — 전환 중간 상태를 관찰하는 테스트용. */
+  septemberPending?: boolean
   timerPhase?: 'idle' | 'running'
   timerMode?: 'focus' | 'short' | 'long'
 }) {
-  const monthFn = vi.fn(async (m: string) =>
-    m === '2026-09'
-      ? (o.septemberMonth ?? { month: m, leadingBlanks: 1, days: [] })
-      : (o.month ?? makeMonth())
-  )
+  const monthFn = vi.fn((m: string) => {
+    if (m === '2026-09' && o.septemberPending) return new Promise<MonthRes>(() => {})
+    return Promise.resolve(
+      m === '2026-09'
+        ? (o.septemberMonth ?? { month: m, leadingBlanks: 1, days: [] })
+        : (o.month ?? makeMonth())
+    )
+  })
   const dayFn = vi.fn(async (d: string) => o.dayByKey?.[d] ?? o.day ?? makeDay({ dayKey: d }))
 
   window.api = {
@@ -115,8 +120,26 @@ describe('MonthGrid — 그리드 골격 (R7 · A4)', () => {
   it('앞 빈 칸 수를 서버가 준 값 그대로 그린다 — 화면이 다시 세지 않는다', async () => {
     const { container } = await renderCard({})
     const grid = container.querySelector('[data-testid="month-grid"]')
-    // 빈 칸 5 + 날짜 31
-    expect(grid?.children).toHaveLength(36)
+    // 항상 6주 = 42칸이다 — 앞 빈 칸 5 + 날짜 31 + 뒤 빈 칸 6.
+    // 달마다 5주/6주로 그리드 높이가 달라지면 아래 날짜 패널이 전환 때마다 튄다.
+    expect(grid?.children).toHaveLength(42)
+    expect(screen.getAllByTestId('day-cell')).toHaveLength(31)
+  })
+
+  it('짧은 달도 42칸으로 채운다 — 그리드 높이가 달마다 흔들리지 않는다', async () => {
+    const user = userEvent.setup()
+    const { container } = await renderCard({
+      // 2026-09-01 은 화요일 — 앞 빈 칸 1 + 날짜 2 라면 뒤 빈 칸 39다.
+      septemberMonth: {
+        month: '2026-09',
+        leadingBlanks: 1,
+        days: [blankDay('2026-09-01'), blankDay('2026-09-02')]
+      }
+    })
+    await user.click(screen.getByLabelText('다음 달'))
+    await screen.findByText('2026년 9월')
+    const grid = container.querySelector('[data-testid="month-grid"]')
+    expect(grid?.children).toHaveLength(42)
   })
 })
 
@@ -200,6 +223,19 @@ describe('월 이동 (R8·R9 · A16·A17)', () => {
 
     expect(monthFn).toHaveBeenCalledWith('2026-09')
     expect(screen.queryByTestId('study-dot-basic')).not.toBeInTheDocument()
+  })
+
+  it('새 달 응답이 오기 전에는 이전 달 그리드가 그대로 남아 있다 — 언마운트 깜빡임 금지', async () => {
+    const user = userEvent.setup()
+    await renderCard({ septemberPending: true })
+
+    await user.click(screen.getByLabelText('다음 달'))
+    // 헤더는 컨텍스트에서 즉시 9월로 바뀌지만, 그리드는 응답 전까지 8월을 유지해야 한다.
+    // 여기서 그리드가 사라지면 전환마다 "빈 카드 → 새 그리드" 두 번 커밋이 되어
+    // 화면이 깜빡이고 아래 날짜 패널이 튄다 (계측: 전환당 layout-shift 2건).
+    await screen.findByText('2026년 9월')
+    expect(screen.getByTestId('month-grid')).toBeInTheDocument()
+    expect(cell(TODAY)).toBeInTheDocument()
   })
 
   it('이전 달로도 이동한다 — 하한을 두지 않는다 (R9)', async () => {

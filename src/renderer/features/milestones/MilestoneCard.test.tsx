@@ -6,7 +6,10 @@ import { describe, expect, it, vi } from 'vitest'
 import userEvent from '@testing-library/user-event'
 import type { Api } from '@shared/ipc/api'
 import { MilestoneCard } from './MilestoneCard'
-import { DisplayMonthProvider } from '@renderer/features/calendar/DisplayMonthProvider'
+import {
+  DisplayMonthProvider,
+  useDisplayMonth
+} from '@renderer/features/calendar/DisplayMonthProvider'
 
 const MONTH = '2026-08'
 const TODAY = '2026-08-04'
@@ -123,6 +126,58 @@ describe('표시 모드로만 분기한다 (R20)', () => {
   it('다음 달에는 편집이 열린다 (R6 · A6)', async () => {
     await renderCard(makeRes({ mode: 'lead-edit' }))
     expect(screen.getByTestId('milestone-add')).toBeInTheDocument()
+  })
+})
+
+describe('월 이동 중간 상태 — 언마운트 깜빡임 금지', () => {
+  it('새 달 응답이 오기 전에는 이전 달 내용이 그대로 남아 있다', async () => {
+    const user = userEvent.setup()
+    const res = makeRes({ mode: 'edit', items: [item({ title: '8월 결과물' })] })
+    // 8월만 즉시 응답하고 다른 달은 영원히 보류한다 — 전환 중간 상태를 관찰한다.
+    const forMonth = vi.fn((m: string) =>
+      m === MONTH ? Promise.resolve(res) : new Promise<MonthRes>(() => {})
+    )
+
+    window.api = {
+      clock: {
+        now: vi
+          .fn()
+          .mockResolvedValue({ dayKey: TODAY, weekKey: WEEK, monthKey: MONTH, weekdayIndex: 1 })
+      },
+      milestones: { forMonth }
+    } as unknown as Api
+
+    const qc = new QueryClient({
+      defaultOptions: { queries: { retry: false }, mutations: { retry: false } }
+    })
+    qc.setQueryData(['clock'], { dayKey: TODAY, weekKey: WEEK, monthKey: MONTH, weekdayIndex: 1 })
+
+    // 카드에는 월 이동 버튼이 없다 (R19) — 캘린더가 하는 일을 최소 트리거로 대신한다.
+    function NextMonthTrigger() {
+      const { goNextMonth } = useDisplayMonth()
+      return (
+        <button type="button" onClick={goNextMonth}>
+          다음 달로
+        </button>
+      )
+    }
+
+    render(
+      <QueryClientProvider client={qc}>
+        <DisplayMonthProvider>
+          <MilestoneCard />
+          <NextMonthTrigger />
+        </DisplayMonthProvider>
+      </QueryClientProvider>
+    )
+    await screen.findByText('8월 결과물')
+
+    await user.click(screen.getByText('다음 달로'))
+
+    // 응답이 보류된 동안 카드가 null 로 무너지면, 왼쪽 컬럼 전체가 주저앉았다가
+    // 다시 솟는 점프가 전환마다 일어난다 (계측: 캘린더 카드 y 이동 112px).
+    expect(screen.getByTestId('milestone-card')).toBeInTheDocument()
+    expect(screen.getByText('8월 결과물')).toBeInTheDocument()
   })
 })
 

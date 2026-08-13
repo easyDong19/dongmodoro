@@ -152,10 +152,12 @@ export function MilestoneCard() {
 
       {editable ? (
         adding ? (
+          /* h-8 은 이 입력이 대체하는 추가 버튼(size sm)과 같은 높이다 — 버튼↔입력 전환
+             때 높이가 달라지면 아래 목록이 밀렸다 당겨진다 (실측: 추가 3회에 shift 9건). */
           <input
             autoFocus
             aria-label="새 결과물"
-            className="rounded-md bg-glass-strong px-2 py-1 text-xs text-ink"
+            className="h-8 rounded-md bg-glass-strong px-2 py-1 text-xs text-ink"
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
             onBlur={submitNew}
