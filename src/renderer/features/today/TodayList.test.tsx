@@ -203,6 +203,27 @@ describe('TodayList — 렌더 계약 (Task 9)', () => {
     expect(bothVisible).toContain('shrink-0')
   })
 
+  it('미완료가 0건이면 그 목록 자체를 그리지 않는다 — 빈 목록이 간격만 차지하면 안 된다', async () => {
+    setup({
+      rows: [makeRow({ completedAt: '2026-08-07T01:00:00.000Z' })],
+      timer: idleFocusSnapshot
+    })
+
+    await screen.findByTestId('today-row-title')
+    // 빈 채로 남아 있으면 부모의 gap 이 그대로 붙어, 마지막 항목을 체크하는 순간
+    // 아래 내용이 통째로 밀린다.
+    expect(screen.queryByTestId('today-incomplete')).not.toBeInTheDocument()
+    expect(screen.getByTestId('today-completed')).toBeInTheDocument()
+  })
+
+  it('미완료가 있으면 그 목록을 그린다', async () => {
+    setup({ rows: [makeRow({ completedAt: null })], timer: idleFocusSnapshot })
+
+    await screen.findByTestId('today-row-title')
+    expect(screen.getByTestId('today-incomplete')).toBeInTheDocument()
+    expect(screen.queryByTestId('today-completed')).not.toBeInTheDocument()
+  })
+
   it('타이머가 running 이면 치우기 버튼이 하나도 없다', async () => {
     setup({
       rows: [makeRow({ taskId: 'todo', completedAt: null })],
