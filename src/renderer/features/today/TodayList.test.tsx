@@ -127,6 +127,36 @@ describe('TodayList — 렌더 계약 (Task 9)', () => {
     expect(screen.queryByRole('button', { name: '타이머 시작' })).not.toBeInTheDocument()
   })
 
+  it('타이머가 running 이면 치우기 버튼이 하나도 없다', async () => {
+    setup({
+      rows: [makeRow({ taskId: 'todo', completedAt: null })],
+      timer: { ...idleFocusSnapshot, phase: 'running' }
+    })
+
+    await screen.findAllByTestId('today-row-title')
+    expect(screen.queryByRole('button', { name: '치우기' })).not.toBeInTheDocument()
+  })
+
+  it('타이머가 paused 여도 치우기 버튼이 없다', async () => {
+    setup({
+      rows: [makeRow({ taskId: 'todo', completedAt: null })],
+      timer: { ...idleFocusSnapshot, phase: 'paused', pausedRemainingSec: 300 }
+    })
+
+    await screen.findAllByTestId('today-row-title')
+    expect(screen.queryByRole('button', { name: '치우기' })).not.toBeInTheDocument()
+  })
+
+  it('타이머가 idle 이면 치우기 버튼이 렌더된다', async () => {
+    setup({
+      rows: [makeRow({ taskId: 'todo', completedAt: null })],
+      timer: idleFocusSnapshot
+    })
+
+    await screen.findAllByTestId('today-row-title')
+    expect(screen.getByRole('button', { name: '치우기' })).toBeInTheDocument()
+  })
+
   it('조회가 아직 끝나지 않았으면 빈 상태 카피를 보여주지 않는다 (로딩 ≠ 0건)', () => {
     // 절대 resolve 되지 않는 프로미스 — "아직 모른다"를 고정한 채 동기적으로 단언한다.
     const neverResolves = new Promise<{ dayKey: string; rows: TodayRow[] }>(() => {})
