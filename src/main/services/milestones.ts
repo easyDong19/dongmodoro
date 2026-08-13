@@ -51,7 +51,7 @@ export type MilestoneCardItem = MilestoneRow & {
    * 그 마일스톤의 **이번 주** 롤업. `null` 은 "이 카드에 롤업이 없다"이며 0 과 다르다
    * (R17·R18) — 진행 중인 주가 이 달에 귀속되지 않았거나, 애초에 롤업이 없는 모드다.
    */
-  rollup: { spentPomos: number; measuredSec: number } | null
+  rollup: { measuredSec: number } | null
 }
 
 export type MonthMilestones = {
@@ -96,11 +96,11 @@ export function monthMilestones(uow: UnitOfWork, month: string): MonthMilestones
       mode === 'edit' || mode === 'past' ? (monthOfWeek(weekKey) === month ? weekKey : null) : null
     const rollups =
       rollupWeek === null
-        ? new Map<string, { spentPomos: number; measuredSec: number }>()
+        ? new Map<string, { measuredSec: number }>()
         : new Map(
             repos.milestones
               .rollup(month, rollupWeek)
-              .map((r) => [r.milestoneId, { spentPomos: r.spentPomos, measuredSec: r.measuredSec }])
+              .map((r) => [r.milestoneId, { measuredSec: r.measuredSec }])
           )
 
     return {

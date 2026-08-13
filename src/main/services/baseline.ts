@@ -28,41 +28,6 @@ export function globalBaseline(repos: Repositories): Baseline {
 }
 
 /**
- * 유효 예산(week) 계약. 반환 `null` 은 **"기록 없음"** 이며
- * "예산 0" 이 아니다 — 후자는 `0` 으로 돌아온다 (ADR-018 §1).
- *
- * **조회 시점에 `sum(weekly_capacity)` 로 예산을 파생하는 경로는 이 계약에 없다.**
- * capacity 는 입력 UI 의 프리필 재료일 뿐이다 (`budgetPrefill`). 여기에 폴백을 더하면
- * "정하지 않았다"와 "이만큼으로 정했다"가 화면에서 구분되지 않는다.
- *
- * 폴백이 **없다는 것 자체가 계약**이다.
- *
- * > 예산은 폐기된 통화다 (ADR-030). 이 함수와 아래 `budgetPrefill` 은 플래너·정산이
- * > 아직 읽고 있어 남아 있을 뿐이며, 플래너 다이어트 단계에서 함께 죽는다.
- */
-export function effectiveBudget(repos: Repositories, week: string): number | null {
-  return repos.weeks.plan(week)?.budget ?? null
-}
-
-/**
- * 예산 입력의 기본값 프리필. **조회 계약이 아니라 입력 UI 의 관심사다.**
- * `weekly_capacity` 미설정이면 `null` 을 돌려 필드를 빈 채로 둔다.
- *
- * 이제 미설정 경로만 돈다 — 편집 폼에서 가용량 입력이 사라져 이 키를 쓰는 경로가
- * 없어졌고, 남은 값은 1.x 에서 저장된 것뿐이다.
- */
-export function budgetPrefill(repos: Repositories): number | null {
-  const capacity = capacitySetting(repos)
-  return capacity === null ? null : capacity.reduce((sum, n) => sum + n, 0)
-}
-
-/** 요일별 가용 뽀모 설정. 정한 적 없으면 `null` — `[0,…]` 을 지어내지 않는다. */
-function capacitySetting(repos: Repositories): number[] | null {
-  const raw = repos.settings.get('weekly_capacity')
-  return raw === null ? null : (JSON.parse(raw) as number[])
-}
-
-/**
  * 길이 3종을 갱신한다 (ADR-029 §1). **`weeks` 에 접근하지 않는다.**
  *
  * 접근할 이유가 없어졌다 — 길이의 저장소는 전역값 하나뿐이고 스냅샷을 읽는 경로가

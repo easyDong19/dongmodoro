@@ -288,7 +288,6 @@ describe('resolveDecisions — 예외 흡수 (R29)', () => {
   const row = (o: Partial<PendingDecisionRow> & { id: string }): PendingDecisionRow => ({
     week: '2026-08-10',
     title: o.id,
-    spentPomos: 0,
     measuredSec: 0,
     carryWeeks: 1,
     ...o
@@ -376,11 +375,11 @@ describe('reviewPending — 패널 데이터', () => {
     uow.run((repos) => {
       repos.weekItems.confirmPlan({
         week: W1,
-        items: [{ id: null, title: 'A', estPomos: 3, days: [] }]
+        items: [{ id: null, title: 'A', days: [] }]
       })
       repos.weekItems.confirmPlan({
         week: W2,
-        items: [{ id: null, title: 'B', estPomos: 1, days: [] }]
+        items: [{ id: null, title: 'B', days: [] }]
       })
     })
 
@@ -409,8 +408,8 @@ describe('reviewPending — 패널 데이터', () => {
       const { createdIds } = repos.weekItems.confirmPlan({
         week: W1,
         items: [
-          { id: null, title: '두 번 집중', estPomos: 5, days: [] },
-          { id: null, title: '세 번 집중', estPomos: 1, days: [] }
+          { id: null, title: '두 번 집중', days: [] },
+          { id: null, title: '세 번 집중', days: [] }
         ]
       })
       repos.tasks.create({ id: 'ta', weekItemId: createdIds[0], title: '조각' })
@@ -444,7 +443,7 @@ describe('reviewPending — 패널 데이터', () => {
     uow.run((repos) => {
       repos.weekItems.confirmPlan({
         week: W2,
-        items: [{ id: null, title: '오래된 것', estPomos: 1, days: [] }]
+        items: [{ id: null, title: '오래된 것', days: [] }]
       })
     })
     // 3주 앞(7/27)에 처음 생긴 항목이 두 주를 건너뛰어 8/17 에 와 있는 상태
@@ -520,7 +519,7 @@ describe('settle — 확정 (R22 · 트랜잭션 1개)', () => {
       (repos) =>
         repos.weekItems.confirmPlan({
           week: W1,
-          items: titles.map((title) => ({ id: null, title, estPomos: 3, days: [] }))
+          items: titles.map((title) => ({ id: null, title, days: [] }))
         }).createdIds
     )
   }
@@ -628,7 +627,7 @@ describe('settle — 확정 (R22 · 트랜잭션 1개)', () => {
     t.uow.run((repos) =>
       repos.weekItems.confirmPlan({
         week: TARGET,
-        items: [{ id: null, title: '같은 제목', estPomos: 1, days: [] }]
+        items: [{ id: null, title: '같은 제목', days: [] }]
       })
     )
 

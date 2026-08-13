@@ -12,11 +12,9 @@ function makeRow(over: Partial<Row> = {}): Row {
   return {
     id: 'i1',
     title: '설계 문서',
-    estPomos: 4,
     days: [],
     originWeek: WEEK,
     completedAt: null,
-    spentPomos: 0,
     measuredSec: 0,
     childTotal: 0,
     childDone: 0,

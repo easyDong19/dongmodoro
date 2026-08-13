@@ -15,7 +15,6 @@ function fact(over: Partial<WeekFact> = {}): WeekFact {
   return {
     week: THIS_WEEK,
     studiedDays: 3,
-    spentPomos: 12,
     measuredSec: 18000,
     unplannedMeasuredSec: 0,
     ...over

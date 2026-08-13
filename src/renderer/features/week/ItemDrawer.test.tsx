@@ -13,8 +13,6 @@ function makeTask(over: Partial<Task> = {}): Task {
   return {
     taskId: 't1',
     title: '초안 쓰기',
-    estPomos: 2,
-    spentPomos: 0,
     measuredSec: 0,
     completedAt: null,
     inToday: false,
@@ -25,10 +23,7 @@ function makeTask(over: Partial<Task> = {}): Task {
 function renderDrawer(
   over: Partial<Drawer> = {},
   handlers: {
-    onPull?: (input: {
-      taskIds: string[]
-      newTask: { title: string; estPomos: number } | null
-    }) => void
+    onPull?: (input: { taskIds: string[]; newTask: { title: string } | null }) => void
     onClose?: () => void
     onComplete?: () => void
     onUncomplete?: () => void
@@ -138,7 +133,7 @@ describe('ItemDrawer — 푸터 (§6.1·§6.3)', () => {
 
     expect(onPull).toHaveBeenCalledWith({
       taskIds: ['t1'],
-      newTask: { title: '마무리', estPomos: 1 }
+      newTask: { title: '마무리' }
     })
   })
 

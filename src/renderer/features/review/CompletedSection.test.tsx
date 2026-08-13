@@ -9,8 +9,8 @@ import type { ReviewPending } from './useReview'
 type Completed = Extract<ReviewPending, { needed: true }>['completed']
 
 const rows: Completed = [
-  { id: 'a', week: '2026-08-17', title: '논문 3장', spentPomos: 5, measuredSec: 7500 },
-  { id: 'b', week: '2026-08-24', title: '발표 준비', spentPomos: 2, measuredSec: 3000 }
+  { id: 'a', week: '2026-08-17', title: '논문 3장', measuredSec: 7500 },
+  { id: 'b', week: '2026-08-24', title: '발표 준비', measuredSec: 3000 }
 ]
 
 describe('CompletedSection — 끝낸 것들 (§4)', () => {

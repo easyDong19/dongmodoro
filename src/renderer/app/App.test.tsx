@@ -54,10 +54,9 @@ function setup({ clockNow }: { clockNow: () => Promise<typeof clock> }) {
     week: {
       summary: vi.fn().mockResolvedValue({
         week: clock.weekKey,
-        budget: null,
-        totalSpent: 0,
+        totalMeasuredSec: 0,
         items: [],
-        otherRow: { visible: false, spentPomos: 0 }
+        otherRow: { visible: false, measuredSec: 0 }
       }),
       planDraft: vi.fn(),
       confirmPlan: vi.fn(),

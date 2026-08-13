@@ -10,7 +10,6 @@ function row(over: Partial<PendingRow> & { id: string }): PendingRow {
   return {
     week: '2026-08-17',
     title: over.id,
-    spentPomos: 0,
     measuredSec: 0,
     carryWeeks: 1,
     ...over

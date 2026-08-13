@@ -67,13 +67,6 @@ describe('weeks.ensure — 행 생성 (weekly-review R37)', () => {
    * 때문이다 (ADR-019 §6). 다만 채우는 값은 길이 3종뿐이고 계획 의사는 항상 NULL 이다
    * (ADR-030 — 가용량·예산은 폐기된 통화).
    */
-  it('계획 의사 컬럼을 NULL 로 둔다', () => {
-    const uow = seededUow()
-    uow.run((repos) => {
-      repos.weeks.ensure(WEEK, snapshot())
-      expect(repos.weeks.plan(WEEK)).toEqual({ capacity: null, budget: null, plannedAt: null })
-    })
-  })
 
   it('이미 있는 행은 덮어쓰지 않는다 — 멱등하다', () => {
     const uow = seededUow()

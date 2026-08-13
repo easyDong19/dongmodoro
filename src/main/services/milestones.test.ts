@@ -83,7 +83,7 @@ function row(over: Partial<MilestoneRow> = {}): MilestoneRow {
 function fakeUow(o: {
   rows?: MilestoneRow[]
   badge?: { total: number; completed: number; archivedCount: number }
-  rollup?: { milestoneId: string; spentPomos: number; measuredSec: number }[]
+  rollup?: { milestoneId: string; measuredSec: number }[]
   carry?: MilestoneRow[]
   archived?: MilestoneRow[]
   onRollup?: (month: string, week: string) => void
@@ -152,12 +152,12 @@ describe('monthMilestones — 롤업 게이팅 (R17·R18 · A17)', () => {
       fakeUow({
         rows: [row()],
         badge: { total: 1, completed: 0, archivedCount: 0 },
-        rollup: [{ milestoneId: 'm1', spentPomos: 3, measuredSec: 4500 }]
+        rollup: [{ milestoneId: 'm1', measuredSec: 4500 }]
       }),
       '2026-08'
     )
     expect(res.rollupWeek).toBe('2026-08-03')
-    expect(res.items[0].rollup).toEqual({ spentPomos: 3, measuredSec: 4500 })
+    expect(res.items[0].rollup).toEqual({ measuredSec: 4500 })
   })
 
   /**
@@ -183,14 +183,14 @@ describe('monthMilestones — 롤업 게이팅 (R17·R18 · A17)', () => {
       fakeUow({
         rows: [row()],
         badge: { total: 1, completed: 0, archivedCount: 0 },
-        rollup: [{ milestoneId: 'm1', spentPomos: 2, measuredSec: 3000 }]
+        rollup: [{ milestoneId: 'm1', measuredSec: 3000 }]
       }),
       '2026-08'
     )
     // 8월은 지난달이지만 진행 중인 주가 8월에 귀속돼 있으므로 롤업이 붙는다 (R20 순서 5).
     expect(res.mode).toBe('past')
     expect(res.rollupWeek).toBe('2026-08-31')
-    expect(res.items[0].rollup).toEqual({ spentPomos: 2, measuredSec: 3000 })
+    expect(res.items[0].rollup).toEqual({ measuredSec: 3000 })
   })
 
   it('선행 편집(다음 달)에는 귀속 주가 없으므로 롤업 조회조차 하지 않는다', () => {

@@ -153,7 +153,6 @@ output: z.object({
     weeks: z.array(z.object({          // 범위 안에서 "기록이 있는 주"만. 오름차순
       week: WeekKey,
       studiedDays: z.number().int(),   // distinct sessions.local_date (kind='focus')
-      spentPomos: z.number().int(),    // focus 세션 수
       measuredSec: z.number().int().min(0),  // 그 주 측정 시간(초). **분으로 접지 않는다**
       unplannedMeasuredSec: z.number().int(),// 차액(초) — 파생식 표. 하한 없음(음수는 버그)
     })),
@@ -163,11 +162,10 @@ output: z.object({
   }),
   completed: z.array(z.object({        // 항목의 week 이 범위 안이고 completed_at 이 있는 항목
     id: Id, week: WeekKey, title: z.string(),
-    spentPomos: z.number().int(), measuredSec: z.number().int().min(0),
+    measuredSec: z.number().int().min(0),
   })),
   pending: z.array(z.object({          // 2택 대상
     id: Id, week: WeekKey, title: z.string(),
-    spentPomos: z.number().int(),
     measuredSec: z.number().int().min(0), // 그 항목의 그 주 측정 시간(초)
     carryWeeks: z.number().int().min(1),  // 파생식 표 (Q12)
   })),
@@ -190,6 +188,9 @@ output: z.object({
   포함한다("그 주의 계획이었는가"가 기준). `is_system = 1` 항목은 제외한다.
 - `pending` 은 `is_system = 1` 항목(기타)을 제외한다 (Q7). **`estPomos`·`remaining` 이
   없다** — 남은 몫은 est 위에 서 있던 파생값이라 통화 교체와 함께 죽었다 (ADR-031 §1).
+- **개수 필드가 계약 전체에 없다** (ADR-030 §1). 주 행·항목 행·조각 행 어디에도
+  `spentPomos` 가 없고, 진행을 말하는 필드는 `measuredSec` 하나다. 계약에 없으면 화면이
+  되살릴 수 없다는 것이 이 부재의 목적이다.
 - `baseline` 은 표시 전용이다. 이 값을 바꾸는 것은 `review.settle` 이 아니라
   독립 명령이다 (아래 참고). **전역 설정값을 준다** — 계획 대상 주의 스냅샷이 아니다.
   그 자리는 "앞으로 적용될 값"을 말하는 자리이기 때문이다 (ADR-029 §2).

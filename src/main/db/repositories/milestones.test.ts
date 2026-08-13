@@ -30,11 +30,11 @@ function addMilestone(repos: Repositories, month: string, title: string): string
 function addItems(
   repos: Repositories,
   week: string,
-  items: readonly { title: string; estPomos: number; milestoneId?: string }[]
+  items: readonly { title: string; milestoneId?: string }[]
 ): string[] {
   const { createdIds } = repos.weekItems.confirmPlan({
     week,
-    items: items.map((i) => ({ id: null, title: i.title, estPomos: i.estPomos, days: [] }))
+    items: items.map((i) => ({ id: null, title: i.title, days: [] }))
   })
   createdIds.forEach((id, i) => {
     const m = items[i].milestoneId
@@ -46,7 +46,7 @@ function addItems(
 /** 할당 하나짜리 지름길. */
 function addItem(
   repos: Repositories,
-  o: { week: string; title: string; estPomos: number; milestoneId?: string }
+  o: { week: string; title: string; milestoneId?: string }
 ): string {
   return addItems(repos, o.week, [o])[0]
 }
@@ -180,12 +180,12 @@ describe('milestones.carryCandidates — 미완료, 보관 무관 (R22)', () => 
 })
 
 describe('milestones.remove — 물리 삭제와 SET NULL (R8 · A8)', () => {
-  it('삭제하면 연결된 할당은 남고 소진 기록도 그대로다', () => {
+  it('삭제하면 연결된 할당은 남고 집중 기록도 그대로다', () => {
     const { uow } = testUow()
     seedWeek(uow, W_AUG)
     uow.run((repos) => {
       const m = addMilestone(repos, AUG, '결과물')
-      const item = addItem(repos, { week: W_AUG, title: '할당', estPomos: 4, milestoneId: m })
+      const item = addItem(repos, { week: W_AUG, title: '할당', milestoneId: m })
       const task = addTask(repos, item)
       focusOn(repos, task, '2026-08-04', W_AUG)
 
@@ -194,29 +194,27 @@ describe('milestones.remove — 물리 삭제와 SET NULL (R8 · A8)', () => {
       expect(repos.milestones.listForMonth(AUG)).toEqual([])
       const items = repos.weekItems.listForWeek(W_AUG)
       expect(items).toHaveLength(1)
-      expect(items[0].spentPomos).toBe(1)
+      expect(items[0].measuredSec).toBe(1500)
       expect(repos.milestones.linkedMilestone(item)).toBeNull()
     })
   })
 })
 
 describe('milestones.rollup — 주 단위 파생 (R16·R17)', () => {
-  it('연결된 할당의 그 주 소진과 측정 시간 합을 준다', () => {
+  it('연결된 할당의 그 주 측정 시간 합을 준다', () => {
     const { uow } = testUow()
     seedWeek(uow, W_AUG)
     uow.run((repos) => {
       const m = addMilestone(repos, AUG, '결과물')
       const [i1, i2] = addItems(repos, W_AUG, [
-        { title: 'a', estPomos: 5, milestoneId: m },
-        { title: 'b', estPomos: 3, milestoneId: m }
+        { title: 'a', milestoneId: m },
+        { title: 'b', milestoneId: m }
       ])
       focusOn(repos, addTask(repos, i1), '2026-08-04', W_AUG)
       focusOn(repos, addTask(repos, i2), '2026-08-05', W_AUG)
       focusOn(repos, addTask(repos, i2), '2026-08-05', W_AUG)
 
-      expect(repos.milestones.rollup(AUG, W_AUG)).toEqual([
-        { milestoneId: m, spentPomos: 3, measuredSec: 4500 }
-      ])
+      expect(repos.milestones.rollup(AUG, W_AUG)).toEqual([{ milestoneId: m, measuredSec: 4500 }])
     })
   })
 
@@ -225,7 +223,7 @@ describe('milestones.rollup — 주 단위 파생 (R16·R17)', () => {
     seedWeek(uow, W_AUG)
     uow.run((repos) => {
       const m = addMilestone(repos, AUG, '결과물')
-      const loose = addItem(repos, { week: W_AUG, title: '미연결', estPomos: 9 })
+      const loose = addItem(repos, { week: W_AUG, title: '미연결' })
       focusOn(repos, addTask(repos, loose), '2026-08-04', W_AUG)
       expect(repos.milestones.rollup(AUG, W_AUG)).toEqual([])
       expect(repos.milestones.listForMonth(AUG).map((x) => x.id)).toEqual([m])
@@ -241,16 +239,16 @@ describe('milestones.rollup — 주 단위 파생 (R16·R17)', () => {
     seedWeek(uow, W_AUG, '2026-08-10')
     uow.run((repos) => {
       const m = addMilestone(repos, AUG, '결과물')
-      const item = addItem(repos, { week: W_AUG, title: 'a', estPomos: 4, milestoneId: m })
+      const item = addItem(repos, { week: W_AUG, title: 'a', milestoneId: m })
       const task = addTask(repos, item)
       focusOn(repos, task, '2026-08-04', W_AUG) // 그 주
       focusOn(repos, task, '2026-08-11', '2026-08-10') // 다음 주
 
-      expect(repos.milestones.rollup(AUG, W_AUG)[0].spentPomos).toBe(1)
+      expect(repos.milestones.rollup(AUG, W_AUG)[0].measuredSec).toBe(1500)
     })
   })
 
-  it('지난주 소진은 이번 주 롤업에 없다 (A15)', () => {
+  it('지난주 집중은 이번 주 롤업에 없다 (A15)', () => {
     const { uow } = testUow()
     seedWeek(uow, '2026-07-27', W_AUG)
     uow.run((repos) => {
@@ -258,7 +256,6 @@ describe('milestones.rollup — 주 단위 파생 (R16·R17)', () => {
       const last = addItem(repos, {
         week: '2026-07-27',
         title: '지난주',
-        estPomos: 4,
         milestoneId: m
       })
       focusOn(repos, addTask(repos, last), '2026-07-28', '2026-07-27')
@@ -278,13 +275,11 @@ describe('milestones.rollup — 주 단위 파생 (R16·R17)', () => {
     seedWeek(uow, wSep)
     uow.run((repos) => {
       const m = addMilestone(repos, AUG, '8월 결과물')
-      const item = addItem(repos, { week: wSep, title: '9월 주 할당', estPomos: 2, milestoneId: m })
+      const item = addItem(repos, { week: wSep, title: '9월 주 할당', milestoneId: m })
       focusOn(repos, addTask(repos, item), '2026-09-08', wSep)
 
       // 8월 마일스톤을 9월 주로 조회하면 그 소진이 잡힌다 — 달이 아니라 마일스톤이 기준이다.
-      expect(repos.milestones.rollup(AUG, wSep)).toEqual([
-        { milestoneId: m, spentPomos: 1, measuredSec: 1500 }
-      ])
+      expect(repos.milestones.rollup(AUG, wSep)).toEqual([{ milestoneId: m, measuredSec: 1500 }])
       // 9월 카드에는 그 마일스톤이 없으므로 롤업도 없다.
       expect(repos.milestones.rollup(SEP, wSep)).toEqual([])
     })
@@ -295,21 +290,21 @@ describe('milestones.rollup — 주 단위 파생 (R16·R17)', () => {
     seedWeek(uow, W_AUG_LAST)
     uow.run((repos) => {
       const m = addMilestone(repos, AUG, '결과물')
-      const item = addItem(repos, { week: W_AUG_LAST, title: 'a', estPomos: 4, milestoneId: m })
+      const item = addItem(repos, { week: W_AUG_LAST, title: 'a', milestoneId: m })
       const task = addTask(repos, item)
       focusOn(repos, task, '2026-08-31', W_AUG_LAST)
       focusOn(repos, task, '2026-09-02', W_AUG_LAST)
 
-      expect(repos.milestones.rollup(AUG, W_AUG_LAST)[0].spentPomos).toBe(2)
+      expect(repos.milestones.rollup(AUG, W_AUG_LAST)[0].measuredSec).toBe(2 * 1500)
     })
   })
 
-  it('폐기된 할당은 롤업에서 빠진다 — 화면에 없는 할당의 소진을 설명할 자리가 없다', () => {
+  it('폐기된 할당은 롤업에서 빠진다 — 화면에 없는 할당의 집중을 설명할 자리가 없다', () => {
     const { uow } = testUow()
     seedWeek(uow, W_AUG)
     uow.run((repos) => {
       const m = addMilestone(repos, AUG, '결과물')
-      const item = addItem(repos, { week: W_AUG, title: 'a', estPomos: 4, milestoneId: m })
+      const item = addItem(repos, { week: W_AUG, title: 'a', milestoneId: m })
       focusOn(repos, addTask(repos, item), '2026-08-04', W_AUG)
       repos.weekItems.drop(item)
 
@@ -323,7 +318,7 @@ describe('milestones.linkedMilestone · setWeekItemMilestone (R13·R15)', () => 
     const { uow } = testUow()
     seedWeek(uow, W_AUG)
     uow.run((repos) => {
-      const item = addItem(repos, { week: W_AUG, title: 'a', estPomos: 1 })
+      const item = addItem(repos, { week: W_AUG, title: 'a' })
       expect(repos.milestones.linkedMilestone(item)).toBeNull()
     })
   })
@@ -333,7 +328,7 @@ describe('milestones.linkedMilestone · setWeekItemMilestone (R13·R15)', () => 
     seedWeek(uow, W_AUG)
     uow.run((repos) => {
       const m = addMilestone(repos, AUG, '결과물')
-      const item = addItem(repos, { week: W_AUG, title: 'a', estPomos: 1 })
+      const item = addItem(repos, { week: W_AUG, title: 'a' })
 
       repos.milestones.setWeekItemMilestone(item, m)
       expect(repos.milestones.linkedMilestone(item)?.id).toBe(m)
@@ -349,7 +344,7 @@ describe('milestones.linkedMilestone · setWeekItemMilestone (R13·R15)', () => 
     seedWeek(uow, wSep)
     uow.run((repos) => {
       const m = addMilestone(repos, AUG, '8월 결과물')
-      const item = addItem(repos, { week: wSep, title: 'a', estPomos: 1, milestoneId: m })
+      const item = addItem(repos, { week: wSep, title: 'a', milestoneId: m })
 
       expect(repos.milestones.linkedMilestone(item)?.month).toBe(AUG)
       // 9월 주의 후보(= 9월 마일스톤)에는 그것이 없다 — 새로 매달 수는 없다는 뜻이다 (R14).

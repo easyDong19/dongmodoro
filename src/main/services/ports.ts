@@ -26,15 +26,6 @@ export interface SettingsRepository {
 
 export type Baseline = { focusMin: number; shortBreakMin: number; longBreakMin: number }
 
-export type WeekPlan = {
-  /** NULL = "기록 없음". 0 은 "예산 0 으로 하겠다"는 별개 사실이다 (ADR-018 §1). */
-  budget: number | null
-  /** 요일별 가용 뽀모 `[월..일]`. 미설정이면 null. M3a 에서는 항상 null 이다. */
-  capacity: number[] | null
-  /** 최초 확정 시각. 주중 재수정으로 갱신하지 않는다 (week-plan R23). */
-  plannedAt: string | null
-}
-
 /**
  * `weeks` 행이 처음 생길 때 채워지는 값 (weekly-review R37).
  *
@@ -55,29 +46,26 @@ export interface WeeksRepository {
    *
    * **이미 있는 행의 스냅샷 컬럼은 어떤 값으로도 덮지 않는다** (ADR-013 §3) — 이 한 줄이
    * "지각 정산이 진행 중인 주의 단위를 바꾼다"는 결함을 스키마 레벨에서 닫는다.
+   *
+   * **읽는 메서드가 하나뿐인 것이 지금 상태다** — 계획 스냅샷 조회(`plan`)와 예산 저장
+   * (`setPlan`)은 폐기된 통화와 함께 죽었다 (ADR-030 §4). 이 인터페이스가 남아 있는
+   * 유일한 이유는 `sessions.local_week` FK 다.
    */
   ensure(week: string, snapshot: WeekSnapshot): void
-  /** 그 주 계획 스냅샷. 행이 없으면 null. */
-  plan(week: string): WeekPlan | null
-  /** 예산 저장 + `planned_at` 최초 1회만 기록. 행이 없으면 아무 것도 하지 않는다. */
-  setPlan(week: string, budget: number | null): void
 }
 
 export type WeekItemRow = {
   id: string
   title: string
-  estPomos: number
   /** 요일 배치 의도 `[0..6]`, 0 = 월요일. 빈 배열 = 미배치. */
   days: number[]
   /** 최초 생성 주. 이월 배지 `N주째` 계산의 재료 (R11). */
   originWeek: string
   completedAt: string | null
-  /** R8 술어 — 저장값이 아니라 파생. */
-  spentPomos: number
   /**
-   * 그 항목의 **측정 시간(초)** — `spentPomos` 와 **같은 술어**로 `duration_sec` 를
-   * 합한 값이다 (ADR-031 §3). 개수와 초가 같은 세션 집합에서 나와야 두 숫자가
-   * 어긋나지 않는다. 반올림하지 않는다 — 분으로 접는 것은 표시 직전 renderer 다.
+   * 그 항목의 **측정 시간(초)** — R8 의 집계 술어(주 조건 있음)로 `duration_sec` 를
+   * 합한 값이며 저장값이 아니라 파생이다. 반올림하지 않는다 — 분으로 접는 것은 표시
+   * 직전 renderer 다 (ADR-031 §2).
    */
   measuredSec: number
   childTotal: number
@@ -88,7 +76,6 @@ export type PlanDraftItem = {
   /** null = 이 초안에서 새로 추가된 행. 값이 있으면 기존 항목이다. */
   id: string | null
   title: string
-  estPomos: number
   days: number[]
 }
 
@@ -98,23 +85,32 @@ export interface WeekItemsRepository {
   /** 완료 토글용 — task 의 부모 항목 주 (초크포인트 payload 용). 없으면 null. */
   weekOf(weekItemId: string): string | null
   /**
-   * 일반 뷰에 표시되는 항목 + 소진. **이 술어의 정의역이 곧 ADR-027 §1 의 Σ 다** —
+   * 일반 뷰에 표시되는 항목 + 측정 시간. **이 술어의 정의역이 곧 ADR-027 §1 의 Σ 다** —
    * `is_system = 0 AND dropped_at IS NULL AND deleted_at IS NULL`.
    * 폐기 항목을 포함시키면 A24 가 깨진다.
    */
   listForWeek(week: string): WeekItemRow[]
-  /** 그 주 focus 세션 전체. 폐기·삭제가 줄이지 않는다 (ADR-027 §2). */
-  weekTotalSpent(week: string): number
   /**
-   * 그 주 **측정 시간 총합(초)** — 완료 focus 세션의 `duration_sec` 합이며 정의역은
-   * `weekTotalSpent` 와 같다 (ADR-027 §2 — 폐기·삭제가 줄이지 않는다).
+   * 그 주 **측정 시간 총합(초)** — 그 주의 완료 focus 세션 전부의 `duration_sec` 합이다.
+   * `task_id` 를 거르지 않으므로 미분류 집중이 들어오고, 항목의 폐기·삭제가 이 값을
+   * 줄이지 않는다 (ADR-027 §2).
    *
    * 기타 행 차액의 피감수다. **초로 돌려준다** — 분으로 접어 넘기면 차액이 접힌 값에서
    * 계산되어 ADR-031 §2 가 닫으려던 검산 어긋남이 되살아난다.
    */
   weekTotalMeasuredSec(week: string): number
-  /** 기타 행 표시 조건 ①② — 미분류 세션 또는 부모 없는 조각이 있는가. ③은 서비스가 본다. */
+  /** 기타 행 표시 조건 ①② — 미분류 세션 또는 부모 없는 조각이 있는가. */
   hasUnplannedActivity(week: string): boolean
+  /**
+   * 기타 행 표시 조건 ③ — 그 주 focus 세션 중 **목록에 보이는 항목으로 설명되지 않는
+   * 것**이 하나라도 있는가 (week-plan ux-spec §3.4).
+   *
+   * 존재 판정이지 크기 판정이 아니다. 차액(`> 0`)으로 대신 읽으면 `duration_sec = 0`
+   * 세션만 붙은 항목을 폐기했을 때 차액이 0 초가 되어 행이 사라지고, 실재하는 집중이
+   * 화면에서 증발한다 (week-plan PRD A24). 개수 차액으로 읽던 옛 갈래를 이 술어가
+   * 대신하며, 개수는 계약 밖으로 나갔다.
+   */
+  hasHiddenFocus(week: string): boolean
   /**
    * 선언형 확정 (R23·R24). 요청 목록이 그 주 계획의 **전체**다.
    * - `id` 있음 → **ID 로** 매칭해 갱신. 제목 기준 매칭 금지 (제목을 고치면 이력이 끊긴다).
@@ -140,11 +136,9 @@ export interface WeekItemsRepository {
 export type ChildTaskRow = {
   taskId: string
   title: string
-  estPomos: number | null
-  spentPomos: number
   /**
-   * 그 조각의 측정 시간(초). **주 조건이 없다** — `spentPomos` 와 같은 술어이며
-   * 이유·대가는 today-tasks R3-3 이 소유한다.
+   * 그 조각의 측정 시간(초). **주 조건이 없다** — 이유·대가는 today-tasks R3-3 이
+   * 소유한다.
    */
   measuredSec: number
   completedAt: string | null
@@ -158,12 +152,10 @@ export type TodayRow = {
   /** 부모 주간 항목명. 기타 항목이면 null (화면이 "기타"로 렌더). */
   sourceTitle: string | null
   sourceWeek: string
-  estPomos: number | null
-  /** 그 task 에 연결된 focus 세션 수 — 저장값이 아니라 파생 (원칙 8, today-tasks R3). */
-  spentPomos: number
   /**
-   * 그 조각의 측정 시간(초). `spentPomos` 와 같은 술어라 **주 조건이 없다** —
-   * 이월된 조각의 이력이 끊기지 않게 하는 의도된 비대칭이다 (today-tasks R3-3).
+   * 그 조각의 측정 시간(초) — 저장값이 아니라 파생이다 (원칙 8, today-tasks R3).
+   * **주 조건이 없다** — 이월된 조각의 이력이 끊기지 않게 하는 의도된 비대칭이다
+   * (today-tasks R3-3).
    */
   measuredSec: number
   completedAt: string | null
@@ -180,13 +172,7 @@ export interface TodayRepository {
 }
 
 export interface TasksRepository {
-  create(t: {
-    id: string
-    weekItemId: string
-    title: string
-    estPomos?: number
-    completedAt?: string
-  }): void
+  create(t: { id: string; weekItemId: string; title: string; completedAt?: string }): void
   /** completed ↔ 미완료 토글. 반환은 토글 후 completedAt. task 없으면 throw. */
   toggleComplete(taskId: string): string | null
   titleOf(taskId: string): string | null
@@ -247,7 +233,6 @@ export type MilestoneBadge = {
 /** 마일스톤 하나의 주 단위 롤업 재료 (R17). 저장값이 아니라 매번 파생한다. */
 export type MilestoneRollupRow = {
   milestoneId: string
-  spentPomos: number
   /**
    * 그 주 귀속 측정 시간(초). 연결된 **폐기·삭제되지 않은** 할당들의 측정 시간 합이며,
    * 술어는 `listForWeek` 의 항목 측정 시간과 같아야 한다 (milestones 성공 지표) —
@@ -365,9 +350,7 @@ export type ReviewWeekFact = {
   week: string
   /** focus 세션이 있었던 서로 다른 날짜 수. */
   studiedDays: number
-  /** 그 주 focus 세션 전체. 폐기·삭제가 줄이지 않는다 (ADR-027 §2). */
-  spentPomos: number
-  /** 그 주 측정 시간 총합(초). 정의역은 `spentPomos` 와 같다. */
+  /** 그 주 측정 시간 총합(초). 폐기·삭제가 줄이지 않는다 (ADR-027 §2). */
   measuredSec: number
   /**
    * 계획에 없던 집중(초) — **차액**이다 (ADR-031 §2).
@@ -380,9 +363,7 @@ export type PendingItemRow = {
   id: string
   week: string
   title: string
-  /** 그 항목의 주에 기록된 focus 세션만 (ADR-012 §1). */
-  spentPomos: number
-  /** 그 항목의 그 주 측정 시간(초). `spentPomos` 와 같은 술어에서 나온다. */
+  /** 그 항목의 그 주 측정 시간(초) — 그 항목의 주에 기록된 focus 세션만 (ADR-012 §1). */
   measuredSec: number
   /** 최초 생성 주. 이월 배지 `N주째` 의 재료 — 사슬 길이가 아니다 (Q12). */
   originWeek: string
@@ -394,7 +375,6 @@ export type CompletedItemRow = {
   id: string
   week: string
   title: string
-  spentPomos: number
   /** 그 항목의 그 주 측정 시간(초). */
   measuredSec: number
 }
@@ -421,12 +401,12 @@ export interface ReviewRepository {
    */
   weekFacts(from: string, to: string): ReviewWeekFact[]
   /**
-   * focus 세션이 있는 **가장 최근 주**와 그 소진. 없으면 `null`.
+   * focus 세션이 있는 **가장 최근 주**와 그 주의 측정 시간(초). 없으면 `null`.
    *
    * **정산 범위와 무관하게** 조회한다 (R31) — 공백 기간을 말할 때 "마지막으로 공부한
    * 주"는 범위 밖일 수 있고, 그게 이 값이 존재하는 이유다.
    */
-  lastStudied(): { week: string; spentPomos: number; measuredSec: number } | null
+  lastStudied(): { week: string; measuredSec: number } | null
   /**
    * 3택 대상. 주·생성순으로만 정렬한다 — "3주 이상 먼저"는 **표시 정렬**이라 화면이 한다
    * (ux-spec §5.0). 남은 몫·`N주째` 도 여기서 계산하지 않는다: 규칙은 서비스가 갖는다.

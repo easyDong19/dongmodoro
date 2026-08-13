@@ -1,23 +1,7 @@
 import { v7 as uuidv7 } from 'uuid'
 import { localKeys, monthOfWeek, now } from '../../shared/time'
-import { budgetPrefill, effectiveBudget, weekSnapshot } from './baseline'
+import { weekSnapshot } from './baseline'
 import type { ChildTaskRow, MilestoneRow, PlanDraftItem, UnitOfWork, WeekItemRow } from './ports'
-
-/**
- * 기타 행 소진 — **차액으로 정의한다** (ADR-027 §1).
- *
- * `visibleItems` 는 **화면에 보이는 항목**(= `listForWeek` 의 결과)이어야 한다. 폐기 항목을
- * 넣으면 그 소진이 상쇄되어 어디에도 나타나지 않고 A24 가 깨진다.
- *
- * 클램프하지 않는다 — 술어가 옳으면 음수가 될 수 없고, 음수가 나온다면 그것은 숨겨야 할
- * 값이 아니라 드러나야 할 버그다.
- */
-export function otherRowSpent(
-  weekTotalSpent: number,
-  visibleItems: readonly Pick<WeekItemRow, 'spentPomos'>[]
-): number {
-  return weekTotalSpent - visibleItems.reduce((sum, item) => sum + item.spentPomos, 0)
-}
 
 /**
  * 기타 행 **측정 시간** — 차액이며 통화만 바뀌었다 (ADR-031 §2).
@@ -30,8 +14,8 @@ export function otherRowSpent(
  * 되어 총합 270초(=4분)보다 커지고, 차액이 음수가 된다 — 반올림을 표시 직전 한 번으로
  * 미루는 이유가 이것이다 (ADR-031 §2).
  *
- * `otherRowSpent` 와 마찬가지로 클램프하지 않는다. 술어가 옳으면 음수가 될 수 없고,
- * 음수가 나온다면 숨겨야 할 값이 아니라 드러나야 할 버그다.
+ * **클램프하지 않는다.** 술어가 옳으면 음수가 될 수 없고, 음수가 나온다면 숨겨야 할
+ * 값이 아니라 드러나야 할 버그다 (ux-spec §3.4).
  */
 export function otherRowMeasuredSec(
   weekTotalMeasuredSec: number,
@@ -41,19 +25,17 @@ export function otherRowMeasuredSec(
 }
 
 /**
- * 플래너 확정 (R22~R24). **과적 여부와 무관하게 항상 성공한다** — 확정을 막는 경로가
- * 이 함수에 없다 (R22, 차단 0건). 전체가 트랜잭션 하나다 (ADR-015).
+ * 플래너 확정 (R23·R24). **확정을 막는 경로가 이 함수에 없다** — 막을 근거였던 과적은
+ * 예산과 함께 죽었다 (ADR-030 §3). 전체가 트랜잭션 하나다 (ADR-015).
  */
 export function confirmWeekPlan(
   uow: UnitOfWork,
-  input: { week: string; budget: number | null; items: readonly PlanDraftItem[] }
+  input: { week: string; items: readonly PlanDraftItem[] }
 ): { week: string; droppedCount: number } {
   return uow.run((repos) => {
-    // 행이 없으면 그 시점 유효값을 박제해 만든다 (ADR-013 §2). 있으면 덮지 않는다.
-    // 길이뿐 아니라 가용량·예산까지 함께 박는다 (weekly-review R37) — 정산이 만드는
-    // 행과 같은 모양이어야 두 경로가 만든 주가 비대칭이 되지 않는다.
+    // 행이 없으면 만든다 (ADR-013 §2). 있으면 덮지 않는다. **저장할 계획 의사는 없다** —
+    // 예산·가용량이 폐기된 통화라 이 행은 이제 FK 를 만족시키는 껍데기다 (ADR-030 §4).
     repos.weeks.ensure(input.week, weekSnapshot(repos))
-    repos.weeks.setPlan(input.week, input.budget)
     const { droppedIds } = repos.weekItems.confirmPlan({ week: input.week, items: input.items })
     return { week: input.week, droppedCount: droppedIds.length }
   })
@@ -61,41 +43,43 @@ export function confirmWeekPlan(
 
 export type WeekSummary = {
   week: string
-  budget: number | null
-  totalSpent: number
   /** 그 주 측정 시간 총합(초). 분으로 접지 않는다 — 포맷은 renderer 의 몫이다. */
   totalMeasuredSec: number
   items: WeekItemRow[]
-  otherRow: { visible: boolean; spentPomos: number; measuredSec: number }
+  otherRow: { visible: boolean; measuredSec: number }
 }
 
 /** 일반 뷰 한 화면 = 응답 하나. 화면이 조각을 모아 조립하지 않게 한다. */
 export function weekSummary(uow: UnitOfWork, week: string): WeekSummary {
   return uow.run((repos) => {
     const items = repos.weekItems.listForWeek(week)
-    const totalSpent = repos.weekItems.weekTotalSpent(week)
     const totalMeasuredSec = repos.weekItems.weekTotalMeasuredSec(week)
-    const spentPomos = otherRowSpent(totalSpent, items)
     const measuredSec = otherRowMeasuredSec(totalMeasuredSec, items)
     return {
       week,
-      budget: effectiveBudget(repos, week),
-      totalSpent,
       totalMeasuredSec,
       items,
       otherRow: {
         /**
-         * 표시 조건 세 갈래 (ADR-027 §3). 세 번째가 폐기·삭제로 흘러든 집중을 잡는다 —
-         * 앞의 두 갈래만 보면 A24 가 깨진다.
+         * 표시 조건 세 갈래 (ADR-027 §3, 통화 전환분은 ux-spec §3.4).
          *
-         * 세 번째 갈래를 **`차액 > 0` 으로 읽는 것이 통화 전환 후의 규칙**(ADR-031 §2)
-         * 이므로 `measuredSec > 0` 이 본선이다. 개수 쪽(`spentPomos > 0`)을 아직 OR 로
-         * 남겨 두는 이유는 **`duration_sec = 0` 인 세션**이다 — 시작 직후 완료 처리로
-         * 만들어지는 정상 경로이고, 그 항목을 폐기하면 차액은 0초인데 집중은 실재한다.
-         * 개수 통화가 계약에서 걷힐 때(Task 4) 이 갈래도 함께 죽는다.
+         * ①② 는 `hasUnplannedActivity` — 미분류 세션·부모 없는 조각이면 **값이 0 이어도**
+         * 행을 띄운다. ③ 은 `hasHiddenFocus` 로, 목록에 보이는 항목으로 설명되지 않는
+         * focus 세션의 **존재**를 본다.
+         *
+         * ③ 을 옛 규칙대로 `차액 > 0` 으로 읽지 않는 이유가 `duration_sec = 0` 세션이다 —
+         * 시작 직후 `완료 처리` 가 만드는 정상 경로이고, 그런 세션만 붙은 항목을 폐기하면
+         * 차액이 0 초라 행이 사라진다. 그러면 실재한 집중이 화면에서 증발해 A24 가 깨진다.
+         * 크기가 아니라 존재로 판정하면 그 구멍이 닫힌다.
+         *
+         * 마지막 `measuredSec !== 0` 은 술어 버그를 드러내기 위한 것이다. 정의역이 옳으면
+         * ③ 이 거짓일 때 차액은 정확히 0 이므로, 0 이 아닌데 행이 숨는 상태를 만들지 않는다
+         * (ux-spec §3.4 — 음수를 감추지 않는다).
          */
-        visible: repos.weekItems.hasUnplannedActivity(week) || spentPomos > 0 || measuredSec > 0,
-        spentPomos,
+        visible:
+          repos.weekItems.hasUnplannedActivity(week) ||
+          repos.weekItems.hasHiddenFocus(week) ||
+          measuredSec !== 0,
         measuredSec
       }
     }
@@ -103,20 +87,12 @@ export function weekSummary(uow: UnitOfWork, week: string): WeekSummary {
 }
 
 /** 플래너 진입 시 초안 프리필. 기타 항목은 초안에 넣지 않는다 (R16). */
-export function planDraft(
-  uow: UnitOfWork,
-  week: string
-): { week: string; budget: number | null; prefill: number | null; items: PlanDraftItem[] } {
+export function planDraft(uow: UnitOfWork, week: string): { week: string; items: PlanDraftItem[] } {
   return uow.run((repos) => ({
     week,
-    budget: effectiveBudget(repos, week),
-    prefill: budgetPrefill(repos),
-    items: repos.weekItems.listForWeek(week).map((i) => ({
-      id: i.id,
-      title: i.title,
-      estPomos: i.estPomos,
-      days: i.days
-    }))
+    items: repos.weekItems
+      .listForWeek(week)
+      .map((i) => ({ id: i.id, title: i.title, days: i.days }))
   }))
 }
 
@@ -189,7 +165,7 @@ export function pullFromDrawer(
   input: {
     weekItemId: string
     taskIds: readonly string[]
-    newTask: { title: string; estPomos: number | null } | null
+    newTask: { title: string } | null
   }
 ): { itemWeek: string } {
   const { localDate } = localKeys()
@@ -215,12 +191,7 @@ export function pullFromDrawer(
       const trimmed = input.newTask.title.trim()
       if (trimmed === '') throw new Error('pullFromDrawer: new task title must not be empty')
       const taskId = uuidv7()
-      repos.tasks.create({
-        id: taskId,
-        weekItemId: input.weekItemId,
-        title: trimmed,
-        ...(input.newTask.estPomos === null ? {} : { estPomos: input.newTask.estPomos })
-      })
+      repos.tasks.create({ id: taskId, weekItemId: input.weekItemId, title: trimmed })
       repos.today.pull(taskId, localDate)
     }
     for (const taskId of input.taskIds) repos.today.pull(taskId, localDate)

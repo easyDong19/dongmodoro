@@ -122,7 +122,6 @@ export type PendingDecisionRow = {
   id: string
   week: string
   title: string
-  spentPomos: number
   /** 그 항목의 그 주 측정 시간(초). 화면은 이것을 포맷만 한다. */
   measuredSec: number
   /** 이월 배지 `N주째`. 사슬 길이가 아니라 주차 차이다 (Q12). */
@@ -157,7 +156,6 @@ function pendingRows(repos: Repositories, from: string, to: string): PendingDeci
     id: row.id,
     week: row.week,
     title: row.title,
-    spentPomos: row.spentPomos,
     measuredSec: row.measuredSec,
     carryWeeks: weeksSince(row.originWeek, row.week)
   }))

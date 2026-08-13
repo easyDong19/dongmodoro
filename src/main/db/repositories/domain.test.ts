@@ -75,7 +75,7 @@ describe('TodayRepository', () => {
 
     const rows = uow.run((r) => r.today.list(day))
     expect(rows).toHaveLength(1)
-    expect(rows[0]).toMatchObject({ taskId, sourceTitle: null, sourceWeek: week, spentPomos: 0 })
+    expect(rows[0]).toMatchObject({ taskId, sourceTitle: null, sourceWeek: week, measuredSec: 0 })
 
     // remove with 0 sessions -> deleted -> disappears from list
     uow.run((r) => r.today.remove(taskId, day))

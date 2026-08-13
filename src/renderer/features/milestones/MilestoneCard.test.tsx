@@ -185,7 +185,7 @@ describe('롤업 (R17 · A16·A17)', () => {
       makeRes({
         mode: 'edit',
         rollupWeek: WEEK,
-        items: [item({ rollup: { spentPomos: 3, measuredSec: 12000 } })]
+        items: [item({ rollup: { measuredSec: 12000 } })]
       })
     )
     expect(screen.getByTestId('milestone-rollup')).toHaveTextContent('이번 주 3시간 20분')
@@ -200,7 +200,7 @@ describe('롤업 (R17 · A16·A17)', () => {
       makeRes({
         mode: 'edit',
         rollupWeek: WEEK,
-        items: [item({ rollup: { spentPomos: 0, measuredSec: 0 } })]
+        items: [item({ rollup: { measuredSec: 0 } })]
       })
     )
     expect(screen.getByTestId('milestone-rollup')).toHaveTextContent('이번 주 0분')
@@ -353,7 +353,7 @@ describe('부정 프레임과 이모지 금지 (R23·R25 · A24·A25)', () => {
       makeRes({
         mode: 'edit',
         rollupWeek: WEEK,
-        items: [item({ rollup: { spentPomos: 1, measuredSec: 1500 } })]
+        items: [item({ rollup: { measuredSec: 1500 } })]
       })
     )
     expect(container.textContent ?? '').not.toMatch(/\p{Extended_Pictographic}/u)

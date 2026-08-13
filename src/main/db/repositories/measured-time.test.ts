@@ -37,7 +37,7 @@ describe('측정 시간 합산 — 정의역 (ADR-031 §3)', () => {
     uow.run((repos) => {
       const itemId = repos.weekItems.confirmPlan({
         week: WEEK,
-        items: [{ id: null, title: 'A', estPomos: 2, days: [] }]
+        items: [{ id: null, title: 'A', days: [] }]
       }).createdIds[0]
       repos.tasks.create({ id: 't1', weekItemId: itemId, title: '조각' })
 
@@ -77,7 +77,7 @@ describe('측정 시간 합산 — 정의역 (ADR-031 §3)', () => {
     uow.run((repos) => {
       const itemId = repos.weekItems.confirmPlan({
         week: WEEK,
-        items: [{ id: null, title: 'A', estPomos: 2, days: [] }]
+        items: [{ id: null, title: 'A', days: [] }]
       }).createdIds[0]
       repos.tasks.create({ id: 't1', weekItemId: itemId, title: '조각' })
       repos.sessions.insert(focusSession('s1', 't1', 1500))
@@ -100,8 +100,8 @@ describe('기타 행 차액 — 초 단계 계산 (ADR-031 §2)', () => {
       const { createdIds } = repos.weekItems.confirmPlan({
         week: WEEK,
         items: [
-          { id: null, title: '남길 항목', estPomos: 2, days: [] },
-          { id: null, title: '보낼 항목', estPomos: 3, days: [] }
+          { id: null, title: '남길 항목', days: [] },
+          { id: null, title: '보낼 항목', days: [] }
         ]
       })
       repos.tasks.create({ id: 'keep', weekItemId: createdIds[0], title: 'a' })
@@ -112,7 +112,7 @@ describe('기타 행 차액 — 초 단계 계산 (ADR-031 §2)', () => {
 
       repos.weekItems.confirmPlan({
         week: WEEK,
-        items: [{ id: createdIds[0], title: '남길 항목', estPomos: 2, days: [] }]
+        items: [{ id: createdIds[0], title: '남길 항목', days: [] }]
       })
 
       const visible = repos.weekItems.listForWeek(WEEK)
@@ -130,9 +130,9 @@ describe('기타 행 차액 — 초 단계 계산 (ADR-031 §2)', () => {
       const { createdIds } = repos.weekItems.confirmPlan({
         week: WEEK,
         items: [
-          { id: null, title: 'A', estPomos: 1, days: [] },
-          { id: null, title: 'B', estPomos: 1, days: [] },
-          { id: null, title: 'C', estPomos: 1, days: [] }
+          { id: null, title: 'A', days: [] },
+          { id: null, title: 'B', days: [] },
+          { id: null, title: 'C', days: [] }
         ]
       })
       createdIds.forEach((itemId, i) => {
@@ -156,7 +156,7 @@ describe('기타 행 차액 — 초 단계 계산 (ADR-031 §2)', () => {
     uow.run((repos) => {
       repos.weekItems.confirmPlan({
         week: WEEK,
-        items: [{ id: null, title: 'A', estPomos: 1, days: [] }]
+        items: [{ id: null, title: 'A', days: [] }]
       })
       repos.sessions.insert(focusSession('s1', null, 1500))
     })
@@ -176,7 +176,7 @@ describe('이월 재부모화와 귀속 (ADR-012 §3)', () => {
     const { sourceId, newItemId } = uow.run((repos) => {
       const itemId = repos.weekItems.confirmPlan({
         week: WEEK,
-        items: [{ id: null, title: '논문 3장', estPomos: 3, days: [] }]
+        items: [{ id: null, title: '논문 3장', days: [] }]
       }).createdIds[0]
       repos.tasks.create({ id: 't1', weekItemId: itemId, title: '3장 1절' })
       repos.sessions.insert(focusSession('s1', 't1', 1500))
@@ -220,8 +220,8 @@ describe('마일스톤 롤업 — 측정 시간 (milestones R17)', () => {
       const { createdIds } = repos.weekItems.confirmPlan({
         week: WEEK,
         items: [
-          { id: null, title: '3장', estPomos: 2, days: [] },
-          { id: null, title: '4장', estPomos: 2, days: [] }
+          { id: null, title: '3장', days: [] },
+          { id: null, title: '4장', days: [] }
         ]
       })
       repos.milestones.setWeekItemMilestone(createdIds[0], 'm1')
@@ -235,7 +235,6 @@ describe('마일스톤 롤업 — 측정 시간 (milestones R17)', () => {
       const rollup = repos.milestones.rollup('2026-08', WEEK)
       expect(rollup).toHaveLength(1)
       expect(rollup[0].measuredSec).toBe(2400) // 휴식 300초는 빠진다
-      expect(rollup[0].spentPomos).toBe(2)
     })
   })
 
@@ -246,7 +245,7 @@ describe('마일스톤 롤업 — 측정 시간 (milestones R17)', () => {
       repos.milestones.create({ id: 'm1', month: '2026-08', title: '논문', sortOrder: 0 })
       const itemId = repos.weekItems.confirmPlan({
         week: WEEK,
-        items: [{ id: null, title: '3장', estPomos: 2, days: [] }]
+        items: [{ id: null, title: '3장', days: [] }]
       }).createdIds[0]
       repos.milestones.setWeekItemMilestone(itemId, 'm1')
       repos.tasks.create({ id: 't1', weekItemId: itemId, title: 'a' })

@@ -48,15 +48,18 @@ const baselineFormSchema = z.strictObject({
   longBreakMin: z.int().min(1)
 })
 
-/** `TodayRow`(main/services/ports.ts) 를 그대로 미러링한다 — 필드·nullable 이 어긋나면
- * 여기가 먼저 깨져야 한다 (choke-point payload, ADR-025 §3). */
+/**
+ * `TodayRow`(main/services/ports.ts) 를 그대로 미러링한다 — 필드·nullable 이 어긋나면
+ * 여기가 먼저 깨져야 한다 (choke-point payload, ADR-025 §3).
+ *
+ * **개수 필드가 없다** (ADR-030 §1). `estPomos`·`spentPomos` 는 폐기된 통화이고, 진행을
+ * 말하는 필드는 `measuredSec` 하나다 — 계약에 없으면 화면이 되살릴 수 없다.
+ */
 const todayRowSchema = z.strictObject({
   taskId: z.string(),
   title: z.string(),
   sourceTitle: z.string().nullable(),
   sourceWeek: z.string(),
-  estPomos: z.int().nullable(),
-  spentPomos: z.int(),
   /**
    * 측정 시간은 **초**로만 오간다 (ADR-031 §2) — 분으로 접힌 값을 계약에 담으면
    * 합산·차액이 접힌 값 위에서 일어나고, 반올림이 표시 직전 한 번이라는 규칙이 깨진다.
@@ -66,26 +69,26 @@ const todayRowSchema = z.strictObject({
   pulledAt: z.string()
 })
 
-/** `WeekItemRow`(main/services/ports.ts) 미러링 — 일반 뷰 한 행. */
+/** `WeekItemRow`(main/services/ports.ts) 미러링 — 일반 뷰 한 행. 개수 필드가 없다. */
 const weekItemRowSchema = z.strictObject({
   id: z.string(),
   title: z.string(),
-  estPomos: z.int(),
   days: z.array(z.int().min(0).max(6)),
   originWeek: z.string(),
   completedAt: z.string().nullable(),
-  spentPomos: z.int(),
-  /** 그 항목의 측정 시간(초). `spentPomos` 와 같은 술어에서 나온다. */
+  /** 그 항목의 그 주 측정 시간(초). */
   measuredSec: z.int().min(0),
   childTotal: z.int(),
   childDone: z.int()
 })
 
-// 사용자가 만드는 항목의 est 하한은 1 이다 (R6). 기타 항목은 이 경로를 거치지 않는다.
+/**
+ * 플래너 초안 한 행. **제목·마일스톤 연결·요일 배치가 전부다** (ADR-030 §3) —
+ * 계획 시점에 매기는 숫자가 사라졌으므로 est 하한을 걸 대상도 없다.
+ */
 const planDraftItemSchema = z.strictObject({
   id: z.string().nullable(),
   title: z.string().min(1).max(40),
-  estPomos: z.int().min(1),
   days: z.array(z.int().min(0).max(6))
 })
 
@@ -99,7 +102,6 @@ const planDraftItemSchema = z.strictObject({
 const reviewWeekFactSchema = z.strictObject({
   week: z.string(),
   studiedDays: z.int(),
-  spentPomos: z.int(),
   /** 그 주 측정 시간 총합(초). 분으로 접지 않는다. */
   measuredSec: z.int().min(0),
   /** 계획에 없던 집중(초) — 차액이라 하한을 걸지 않는다 (음수는 드러나야 할 버그다). */
@@ -116,7 +118,6 @@ const pendingRowSchema = z.strictObject({
   id: z.string(),
   week: z.string(),
   title: z.string(),
-  spentPomos: z.int(),
   /** 그 항목의 그 주 측정 시간(초). 이월 직후 항목은 정의상 0 이다. */
   measuredSec: z.int().min(0),
   carryWeeks: z.int().min(1)
@@ -126,8 +127,6 @@ const pendingRowSchema = z.strictObject({
 const childTaskSchema = z.strictObject({
   taskId: z.string(),
   title: z.string(),
-  estPomos: z.int().nullable(),
-  spentPomos: z.int(),
   /** 조각 단위라 **주 조건이 없는** 합이다 (today-tasks R3-3). */
   measuredSec: z.int().min(0),
   completedAt: z.string().nullable(),
@@ -276,18 +275,19 @@ export const contracts = {
       req: z.tuple([z.string()]),
       res: z.strictObject({
         week: z.string(),
-        budget: z.int().nullable(),
-        totalSpent: z.int(),
         /** 그 주 측정 시간 총합(초). 기타 행 차액의 피감수이며 분으로 접지 않는다. */
         totalMeasuredSec: z.int().min(0),
         items: z.array(weekItemRowSchema),
         /**
          * `measuredSec` 는 **차액**이다 (ADR-031 §2). 하한을 걸지 않는다 — 음수는
          * 술어 버그이고, 계약이 막아 주면 그 버그가 조용해진다.
+         *
+         * `visible` 은 값이 아니라 **판정**이다 — 0초짜리 집중이 폐기 항목에 붙어 차액이
+         * 0 인 주에도 행이 떠야 하므로, 판정을 main 이 하고 계약은 결과만 나른다
+         * (week-plan ux-spec §3.4).
          */
         otherRow: z.strictObject({
           visible: z.boolean(),
-          spentPomos: z.int(),
           measuredSec: z.int()
         })
       })
@@ -296,8 +296,6 @@ export const contracts = {
       req: z.tuple([z.string()]),
       res: z.strictObject({
         week: z.string(),
-        budget: z.int().nullable(),
-        prefill: z.int().nullable(),
         items: z.array(planDraftItemSchema)
       })
     },
@@ -305,7 +303,6 @@ export const contracts = {
       req: z.tuple([
         z.strictObject({
           week: z.string(),
-          budget: z.int().min(0).nullable(),
           items: z.array(planDraftItemSchema)
         })
       ]),
@@ -335,9 +332,8 @@ export const contracts = {
         z.strictObject({
           weekItemId: z.string(),
           taskIds: z.array(z.string()),
-          newTask: z
-            .strictObject({ title: z.string().min(1).max(40), estPomos: z.int().min(1).nullable() })
-            .nullable()
+          /** 새 조각은 **제목이 전부다** — 조각에도 계획 숫자를 매기지 않는다 (ADR-030 §3). */
+          newTask: z.strictObject({ title: z.string().min(1).max(40) }).nullable()
         })
       ]),
       res: z.strictObject({ itemWeek: z.string() })
@@ -386,7 +382,6 @@ export const contracts = {
              */
             rollup: z
               .strictObject({
-                spentPomos: z.int().min(0),
                 /** 그 주 귀속 측정 시간(초). */
                 measuredSec: z.int().min(0)
               })
@@ -517,7 +512,6 @@ export const contracts = {
               id: z.string(),
               week: z.string(),
               title: z.string(),
-              spentPomos: z.int(),
               /** 그 항목의 그 주 측정 시간(초). */
               measuredSec: z.int().min(0)
             })

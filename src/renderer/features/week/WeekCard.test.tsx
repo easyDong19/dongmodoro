@@ -17,11 +17,9 @@ function makeItem(over: Partial<Item> = {}): Item {
   return {
     id: 'i1',
     title: '설계 문서',
-    estPomos: 4,
     days: [],
     originWeek: WEEK,
     completedAt: null,
-    spentPomos: 0,
     measuredSec: 0,
     childTotal: 0,
     childDone: 0,
@@ -32,11 +30,9 @@ function makeItem(over: Partial<Item> = {}): Item {
 function makeSummary(over: Partial<Summary> = {}): Summary {
   return {
     week: WEEK,
-    budget: null,
-    totalSpent: 0,
     totalMeasuredSec: 0,
     items: [],
-    otherRow: { visible: false, spentPomos: 0, measuredSec: 0 },
+    otherRow: { visible: false, measuredSec: 0 },
     ...over
   }
 }
@@ -139,9 +135,8 @@ describe('WeekCard — 기타 행 (§3.4)', () => {
   it('visible 이면 목록 맨 아래에 측정 시간으로 렌더된다', async () => {
     await renderCard(
       makeSummary({
-        items: [makeItem({ spentPomos: 1 })],
-        totalSpent: 4,
-        otherRow: { visible: true, spentPomos: 3, measuredSec: 4500 }
+        items: [makeItem({ measuredSec: 1500 })],
+        otherRow: { visible: true, measuredSec: 4500 }
       })
     )
     const other = screen.getByTestId('other-row')
@@ -156,9 +151,7 @@ describe('WeekCard — 기타 행 (§3.4)', () => {
   })
 
   it('요일 핍·이월 배지·pull 버튼이 없다', async () => {
-    await renderCard(
-      makeSummary({ totalSpent: 3, otherRow: { visible: true, spentPomos: 3, measuredSec: 4500 } })
-    )
+    await renderCard(makeSummary({ otherRow: { visible: true, measuredSec: 4500 } }))
     const other = screen.getByTestId('other-row')
     expect(other.querySelectorAll('[data-testid="day-pip"]')).toHaveLength(0)
     expect(other).not.toHaveTextContent('주째')
@@ -167,9 +160,7 @@ describe('WeekCard — 기타 행 (§3.4)', () => {
   })
 
   it('점선 테두리를 쓰되 ink-faint 로 낮추지 않는다 — 실제로 한 집중이다', async () => {
-    await renderCard(
-      makeSummary({ totalSpent: 3, otherRow: { visible: true, spentPomos: 3, measuredSec: 4500 } })
-    )
+    await renderCard(makeSummary({ otherRow: { visible: true, measuredSec: 4500 } }))
     const other = screen.getByTestId('other-row')
     expect(other.className).toMatch(/border-dashed/)
     expect(other.className).not.toMatch(/ink-faint/)
@@ -191,9 +182,7 @@ describe('WeekCard — 빈 상태 (§8)', () => {
   })
 
   it('항목 0 · 기타 행 있음 → 기타 행과 함께 다른 문구를 쓴다', async () => {
-    await renderCard(
-      makeSummary({ totalSpent: 2, otherRow: { visible: true, spentPomos: 2, measuredSec: 3000 } })
-    )
+    await renderCard(makeSummary({ otherRow: { visible: true, measuredSec: 3000 } }))
     expect(screen.getByTestId('other-row')).toBeInTheDocument()
     expect(screen.getByText('계획이 없어도 기록은 남아요')).toBeInTheDocument()
     expect(
@@ -208,12 +197,9 @@ describe('WeekCard — 빈 상태 (§8)', () => {
    */
   it('항목 0 · 기타 행 있음 → 그래도 할당 잡기 CTA 가 있다', async () => {
     const user = userEvent.setup()
-    await renderCard(
-      makeSummary({ totalSpent: 2, otherRow: { visible: true, spentPomos: 2, measuredSec: 3000 } }),
-      {
-        planDraft: vi.fn().mockResolvedValue({ week: WEEK, budget: null, prefill: null, items: [] })
-      }
-    )
+    await renderCard(makeSummary({ otherRow: { visible: true, measuredSec: 3000 } }), {
+      planDraft: vi.fn().mockResolvedValue({ week: WEEK, items: [] })
+    })
 
     const cta = screen.getByRole('button', { name: '+ 이번 주 할당 잡기' })
     await user.click(cta)
@@ -239,9 +225,8 @@ describe('WeekCard — 빈 상태 (§8)', () => {
 describe('WeekCard — 헤더 `수정` 진입 (§2)', () => {
   const draft = {
     week: WEEK,
-    budget: null,
-    prefill: null,
-    items: [{ id: 'i1', title: '설계 문서', estPomos: 4, days: [], milestoneId: null }]
+
+    items: [{ id: 'i1', title: '설계 문서', days: [], milestoneId: null }]
   }
 
   /**
@@ -373,16 +358,14 @@ describe('WeekCard — 드로어 배선 (§6·§3.1)', () => {
   })
 
   it('기타 행에는 캐럿이 없다 — 드릴다운은 이번 마일스톤에서 뺐다', async () => {
-    await renderCard(
-      makeSummary({ totalSpent: 3, otherRow: { visible: true, spentPomos: 3, measuredSec: 4500 } })
-    )
+    await renderCard(makeSummary({ otherRow: { visible: true, measuredSec: 4500 } }))
     const other = screen.getByTestId('other-row')
     expect(other.querySelectorAll('button')).toHaveLength(0)
   })
 })
 
-describe('WeekCard — 플래너 진입과 복귀 (§5.6)', () => {
-  const draft = { week: WEEK, budget: null, prefill: null, items: [] }
+describe('WeekCard — 플래너 진입과 복귀 (§5.4)', () => {
+  const draft = { week: WEEK, items: [] }
 
   it('빈 상태 CTA 로 플래너에 들어간다', async () => {
     const user = userEvent.setup()
@@ -400,7 +383,8 @@ describe('WeekCard — 플래너 진입과 복귀 (§5.6)', () => {
     await user.click(screen.getByRole('button', { name: '+ 이번 주 할당 잡기' }))
     await screen.findByText('이번 주 계획')
     expect(screen.queryByTestId('week-total-measured')).not.toBeInTheDocument()
-    expect(screen.getByTestId('plan-total')).toBeInTheDocument()
+    // 플래너에는 그 자리를 대신할 숫자가 없다 — 총량 바도 함께 죽었다 (ADR-030 §3).
+    expect(screen.getByLabelText('할당 제목')).toBeInTheDocument()
   })
 
   it('취소하면 일반 뷰로 돌아가고 포커스가 열었던 버튼으로 귀속된다', async () => {
@@ -438,7 +422,7 @@ describe('WeekCard — 플래너 진입과 복귀 (§5.6)', () => {
     await user.click(screen.getByRole('button', { name: '+ 이번 주 할당 잡기' }))
     await user.click(await screen.findByRole('button', { name: '이번 주 시작' }))
 
-    expect(confirmPlan).toHaveBeenCalledWith({ week: WEEK, budget: null, items: [] })
+    expect(confirmPlan).toHaveBeenCalledWith({ week: WEEK, items: [] })
     expect(await screen.findByTestId('week-total-measured')).toBeInTheDocument()
     expect(screen.queryByText('이번 주 계획')).not.toBeInTheDocument()
   })
@@ -462,9 +446,7 @@ describe('WeekCard — 타이포와 빈 공간', () => {
   })
 
   it('기타 행만 있는 주도 위에서부터 쌓는다 — 보여줄 기록이 있다', async () => {
-    await renderCard(
-      makeSummary({ totalSpent: 2, otherRow: { visible: true, spentPomos: 2, measuredSec: 3000 } })
-    )
+    await renderCard(makeSummary({ otherRow: { visible: true, measuredSec: 3000 } }))
     expect(screen.getByTestId('week-item-list').className).not.toContain('justify-center')
   })
 })
@@ -516,9 +498,7 @@ describe('WeekCard — 편집 대상 주 기본값 (A3·A5)', () => {
   })
 
   it('그 CTA 로 들어가면 다음 주 초안을 불러온다', async () => {
-    const planDraft = vi
-      .fn()
-      .mockResolvedValue({ week: '2026-08-10', budget: null, prefill: null, items: [] })
+    const planDraft = vi.fn().mockResolvedValue({ week: '2026-08-10', items: [] })
     await renderCard(makeSummary(), { planDraft }, '2026-08-10')
 
     await userEvent.click(await screen.findByRole('button', { name: '+ 다음 주 할당 잡기' }))
@@ -529,9 +509,7 @@ describe('WeekCard — 편집 대상 주 기본값 (A3·A5)', () => {
   it('평일에는 이번 주가 기본이고 세그먼트로 다음 주 초안으로 옮길 수 있다', async () => {
     const planDraft = vi
       .fn()
-      .mockImplementation((week: string) =>
-        Promise.resolve({ week, budget: null, prefill: null, items: [] })
-      )
+      .mockImplementation((week: string) => Promise.resolve({ week, items: [] }))
     await renderCard(makeSummary(), { planDraft }, WEEK)
 
     await userEvent.click(await screen.findByRole('button', { name: '+ 이번 주 할당 잡기' }))

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { otherRowSpent } from '../../services/week-plan'
+import { otherRowMeasuredSec } from '../../services/week-plan'
 import { ensureWeeks, testUow } from './test-helpers'
 
 const WEEK = '2026-08-03' // 월요일
@@ -18,15 +18,15 @@ function focusSession(id: string, taskId: string | null, localDate: string, loca
   }
 }
 
-describe('weekItems.listForWeek — 소진 집계 (R8)', () => {
-  it('항목 소진은 그 항목의 주에 기록된 focus 세션만 센다 (A10)', () => {
+describe('weekItems.listForWeek — 측정 시간 집계 (R8)', () => {
+  it('항목 측정 시간은 그 항목의 주에 기록된 focus 세션만 합한다 (A10)', () => {
     const { uow } = testUow()
     ensureWeeks(uow, WEEK, NEXT) // 두 주 모두 — sessions.local_week FK
 
     uow.run((repos) => {
       const itemId = repos.weekItems.confirmPlan({
         week: WEEK,
-        items: [{ id: null, title: '논문 3장', estPomos: 5, days: [] }]
+        items: [{ id: null, title: '논문 3장', days: [] }]
       }).createdIds[0]
       repos.tasks.create({ id: 't1', weekItemId: itemId, title: '3장 1절' })
 
@@ -36,24 +36,24 @@ describe('weekItems.listForWeek — 소진 집계 (R8)', () => {
 
       const rows = repos.weekItems.listForWeek(WEEK)
       expect(rows).toHaveLength(1)
-      expect(rows[0].spentPomos).toBe(1) // s2 는 이 주 소진이 아니다
-      // 총 소진에는 각자의 주에서 정확히 한 번씩 세어진다
-      expect(repos.weekItems.weekTotalSpent(WEEK)).toBe(1)
-      expect(repos.weekItems.weekTotalSpent(NEXT)).toBe(1)
+      expect(rows[0].measuredSec).toBe(1500) // s2 는 이 주 집중이 아니다
+      // 주 총합에는 각자의 주에서 정확히 한 번씩 들어간다
+      expect(repos.weekItems.weekTotalMeasuredSec(WEEK)).toBe(1500)
+      expect(repos.weekItems.weekTotalMeasuredSec(NEXT)).toBe(1500)
     })
   })
 
-  it('focus 가 아닌 세션은 세지 않는다', () => {
+  it('focus 가 아닌 세션은 합하지 않는다', () => {
     const { uow } = testUow()
     ensureWeeks(uow, WEEK)
     uow.run((repos) => {
       const itemId = repos.weekItems.confirmPlan({
         week: WEEK,
-        items: [{ id: null, title: 'A', estPomos: 2, days: [] }]
+        items: [{ id: null, title: 'A', days: [] }]
       }).createdIds[0]
       repos.tasks.create({ id: 't1', weekItemId: itemId, title: '조각' })
       repos.sessions.insert({ ...focusSession('s1', 't1', '2026-08-04', WEEK), kind: 'short' })
-      expect(repos.weekItems.listForWeek(WEEK)[0].spentPomos).toBe(0)
+      expect(repos.weekItems.listForWeek(WEEK)[0].measuredSec).toBe(0)
     })
   })
 
@@ -65,8 +65,8 @@ describe('weekItems.listForWeek — 소진 집계 (R8)', () => {
       const { createdIds } = repos.weekItems.confirmPlan({
         week: WEEK,
         items: [
-          { id: null, title: '먼저', estPomos: 1, days: [] },
-          { id: null, title: '나중', estPomos: 1, days: [] }
+          { id: null, title: '먼저', days: [] },
+          { id: null, title: '나중', days: [] }
         ]
       })
       // 정렬은 결과가 2개 이상일 때만 검증된다. 폐기 테스트와 정렬 테스트를 한 케이스에
@@ -76,7 +76,7 @@ describe('weekItems.listForWeek — 소진 집계 (R8)', () => {
       // 이제 '먼저'만 남기고 재확정 → '나중'이 폐기되고 시스템 항목도 계속 빠진다
       repos.weekItems.confirmPlan({
         week: WEEK,
-        items: [{ id: createdIds[0], title: '먼저', estPomos: 1, days: [] }]
+        items: [{ id: createdIds[0], title: '먼저', days: [] }]
       })
       expect(repos.weekItems.listForWeek(WEEK).map((r) => r.title)).toEqual(['먼저'])
     })
@@ -88,7 +88,7 @@ describe('weekItems.listForWeek — 소진 집계 (R8)', () => {
     uow.run((repos) => {
       const itemId = repos.weekItems.confirmPlan({
         week: WEEK,
-        items: [{ id: null, title: 'A', estPomos: 3, days: [] }]
+        items: [{ id: null, title: 'A', days: [] }]
       }).createdIds[0]
       repos.tasks.create({ id: 't1', weekItemId: itemId, title: '조각1' })
       repos.tasks.create({ id: 't2', weekItemId: itemId, title: '조각2' })
@@ -106,7 +106,7 @@ describe('weekItems.listForWeek — 소진 집계 (R8)', () => {
     uow.run((repos) => {
       repos.weekItems.confirmPlan({
         week: WEEK,
-        items: [{ id: null, title: 'A', estPomos: 1, days: [] }]
+        items: [{ id: null, title: 'A', days: [] }]
       })
       const row = repos.weekItems.listForWeek(WEEK)[0]
       expect(row.childTotal).toBe(0)
@@ -122,19 +122,18 @@ describe('weekItems.confirmPlan — 선언형 확정', () => {
     uow.run((repos) => {
       const id = repos.weekItems.confirmPlan({
         week: WEEK,
-        items: [{ id: null, title: '원래 제목', estPomos: 3, days: [0] }]
+        items: [{ id: null, title: '원래 제목', days: [0] }]
       }).createdIds[0]
       repos.tasks.create({ id: 't1', weekItemId: id, title: '조각' })
 
       repos.weekItems.confirmPlan({
         week: WEEK,
-        items: [{ id, title: '고친 제목', estPomos: 5, days: [1, 3] }]
+        items: [{ id, title: '고친 제목', days: [1, 3] }]
       })
 
       const row = repos.weekItems.listForWeek(WEEK)[0]
       expect(row.id).toBe(id) // 새 행이 만들어지지 않았다
       expect(row.title).toBe('고친 제목')
-      expect(row.estPomos).toBe(5)
       expect(row.days).toEqual([1, 3])
       expect(row.childTotal).toBe(1) // 자식 조각이 살아 있다
       expect(row.originWeek).toBe(WEEK)
@@ -147,7 +146,7 @@ describe('weekItems.confirmPlan — 선언형 확정', () => {
     uow.run((repos) => {
       const id = repos.weekItems.confirmPlan({
         week: WEEK,
-        items: [{ id: null, title: '보낼 항목', estPomos: 9, days: [] }]
+        items: [{ id: null, title: '보낼 항목', days: [] }]
       }).createdIds[0]
       repos.tasks.create({ id: 't1', weekItemId: id, title: '조각' })
       for (let i = 0; i < 9; i++) {
@@ -158,20 +157,20 @@ describe('weekItems.confirmPlan — 선언형 확정', () => {
 
       expect(droppedIds).toEqual([id])
       expect(repos.weekItems.listForWeek(WEEK)).toHaveLength(0) // 목록에서 사라졌다
-      expect(repos.weekItems.weekTotalSpent(WEEK)).toBe(9) // 총 소진은 줄지 않았다
+      expect(repos.weekItems.weekTotalMeasuredSec(WEEK)).toBe(13500) // 주 총합은 줄지 않았다
       expect(repos.tasks.get('t1')).not.toBeNull() // 조각은 남았다
     })
   })
 
-  it('폐기 항목의 소진이 기타 행 차액으로 나타난다 (A24 · ADR-027 §1)', () => {
+  it('폐기 항목의 집중이 기타 행 차액으로 나타난다 (A24 · ADR-027 §1)', () => {
     const { uow } = testUow()
     ensureWeeks(uow, WEEK)
     uow.run((repos) => {
       const { createdIds } = repos.weekItems.confirmPlan({
         week: WEEK,
         items: [
-          { id: null, title: '남길 항목', estPomos: 2, days: [] },
-          { id: null, title: '보낼 항목', estPomos: 3, days: [] }
+          { id: null, title: '남길 항목', days: [] },
+          { id: null, title: '보낼 항목', days: [] }
         ]
       })
       repos.tasks.create({ id: 'keep', weekItemId: createdIds[0], title: 'a' })
@@ -183,14 +182,15 @@ describe('weekItems.confirmPlan — 선언형 확정', () => {
 
       repos.weekItems.confirmPlan({
         week: WEEK,
-        items: [{ id: createdIds[0], title: '남길 항목', estPomos: 2, days: [] }]
+        items: [{ id: createdIds[0], title: '남길 항목', days: [] }]
       })
 
       const visible = repos.weekItems.listForWeek(WEEK)
-      const total = repos.weekItems.weekTotalSpent(WEEK)
-      expect(total).toBe(4)
-      expect(visible[0].spentPomos).toBe(1)
-      expect(otherRowSpent(total, visible)).toBe(3) // 보낸 항목의 3뽀모가 여기 있다
+      const total = repos.weekItems.weekTotalMeasuredSec(WEEK)
+      expect(total).toBe(6000)
+      expect(visible[0].measuredSec).toBe(1500)
+      // 보낸 항목의 75분이 여기 있다
+      expect(otherRowMeasuredSec(total, visible)).toBe(4500)
     })
   })
 
@@ -200,12 +200,12 @@ describe('weekItems.confirmPlan — 선언형 확정', () => {
     uow.run((repos) => {
       const id = repos.weekItems.confirmPlan({
         week: NEXT,
-        items: [{ id: null, title: '다음 주 것', estPomos: 1, days: [] }]
+        items: [{ id: null, title: '다음 주 것', days: [] }]
       }).createdIds[0]
       expect(() =>
         repos.weekItems.confirmPlan({
           week: WEEK,
-          items: [{ id, title: '훔치기', estPomos: 1, days: [] }]
+          items: [{ id, title: '훔치기', days: [] }]
         })
       ).toThrow()
     })
@@ -213,14 +213,14 @@ describe('weekItems.confirmPlan — 선언형 확정', () => {
 })
 
 describe('weekItems.hasUnplannedActivity — 기타 행 표시 조건 ①② (ADR-027 §3)', () => {
-  it('소진 0 이어도 부모 없는 조각이 있으면 true (A23)', () => {
+  it('집중 0 이어도 부모 없는 조각이 있으면 true (A23)', () => {
     const { uow } = testUow()
     ensureWeeks(uow, WEEK)
     uow.run((repos) => {
       const sysId = repos.weekItems.ensureSystemItem(WEEK)
       repos.tasks.create({ id: 't1', weekItemId: sysId, title: '직접 추가' })
       expect(repos.weekItems.hasUnplannedActivity(WEEK)).toBe(true)
-      expect(repos.weekItems.weekTotalSpent(WEEK)).toBe(0)
+      expect(repos.weekItems.weekTotalMeasuredSec(WEEK)).toBe(0)
     })
   })
 
@@ -233,13 +233,13 @@ describe('weekItems.hasUnplannedActivity — 기타 행 표시 조건 ①② (AD
     })
   })
 
-  it('폐기 항목의 소진만 있는 주는 이 술어로 false 다 — 세 번째 갈래가 필요한 이유', () => {
+  it('폐기 항목의 집중만 있는 주는 이 술어로 false 다 — 세 번째 갈래가 필요한 이유', () => {
     const { uow } = testUow()
     ensureWeeks(uow, WEEK)
     uow.run((repos) => {
       const id = repos.weekItems.confirmPlan({
         week: WEEK,
-        items: [{ id: null, title: 'A', estPomos: 1, days: [] }]
+        items: [{ id: null, title: 'A', days: [] }]
       }).createdIds[0]
       repos.tasks.create({ id: 't1', weekItemId: id, title: '조각' })
       repos.sessions.insert(focusSession('s1', 't1', '2026-08-04', WEEK))
@@ -247,8 +247,9 @@ describe('weekItems.hasUnplannedActivity — 기타 행 표시 조건 ①② (AD
 
       // 미분류 세션도 부모 없는 조각도 없다 → 이 술어만으로는 행이 숨겨진다.
       expect(repos.weekItems.hasUnplannedActivity(WEEK)).toBe(false)
-      // 그런데 차액은 1 이다. Task 4 의 weekSummary 가 세 번째 갈래로 이것을 살린다.
-      expect(otherRowSpent(1, repos.weekItems.listForWeek(WEEK))).toBe(1)
+      // 세 번째 갈래가 이것을 살린다: 목록으로 설명되지 않는 집중이 있다.
+      expect(repos.weekItems.hasHiddenFocus(WEEK)).toBe(true)
+      expect(otherRowMeasuredSec(1500, repos.weekItems.listForWeek(WEEK))).toBe(1500)
     })
   })
 
@@ -259,6 +260,53 @@ describe('weekItems.hasUnplannedActivity — 기타 행 표시 조건 ①② (AD
   })
 })
 
+/**
+ * 세 번째 갈래는 **크기가 아니라 존재**를 본다 (ux-spec §3.4). `duration_sec = 0` 인
+ * 세션은 시작 직후 `완료 처리` 가 만드는 정상 경로이고, 그런 세션만 붙은 항목을 폐기하면
+ * 차액이 0 초다 — 차액 크기로 판정하면 그 집중이 화면에서 증발한다 (A24).
+ */
+describe('weekItems.hasHiddenFocus — 기타 행 표시 조건 ③', () => {
+  it('목록에 보이는 항목의 집중만 있으면 false', () => {
+    const { uow } = testUow()
+    ensureWeeks(uow, WEEK)
+    uow.run((repos) => {
+      const id = repos.weekItems.confirmPlan({
+        week: WEEK,
+        items: [{ id: null, title: 'A', days: [] }]
+      }).createdIds[0]
+      repos.tasks.create({ id: 't1', weekItemId: id, title: '조각' })
+      repos.sessions.insert(focusSession('s1', 't1', '2026-08-04', WEEK))
+      expect(repos.weekItems.hasHiddenFocus(WEEK)).toBe(false)
+    })
+  })
+
+  it('0초 세션만 붙은 항목을 폐기해도 true — 차액은 0 인데 집중은 실재한다', () => {
+    const { uow } = testUow()
+    ensureWeeks(uow, WEEK)
+    uow.run((repos) => {
+      const id = repos.weekItems.confirmPlan({
+        week: WEEK,
+        items: [{ id: null, title: 'A', days: [] }]
+      }).createdIds[0]
+      repos.tasks.create({ id: 't1', weekItemId: id, title: '조각' })
+      repos.sessions.insert({ ...focusSession('s1', 't1', '2026-08-04', WEEK), durationSec: 0 })
+      repos.weekItems.confirmPlan({ week: WEEK, items: [] })
+
+      expect(repos.weekItems.hasHiddenFocus(WEEK)).toBe(true)
+      expect(otherRowMeasuredSec(0, repos.weekItems.listForWeek(WEEK))).toBe(0)
+    })
+  })
+
+  it('휴식 세션은 잡지 않는다', () => {
+    const { uow } = testUow()
+    ensureWeeks(uow, WEEK)
+    uow.run((repos) => {
+      repos.sessions.insert({ ...focusSession('s1', null, '2026-08-04', WEEK), kind: 'short' })
+      expect(repos.weekItems.hasHiddenFocus(WEEK)).toBe(false)
+    })
+  })
+})
+
 describe('weekItems.nextPullable — 원클릭 pull 대상', () => {
   it('유자격 = 미완료·미삭제·오늘 pull 없음, 생성순 첫 번째', () => {
     const { uow } = testUow()
@@ -266,7 +314,7 @@ describe('weekItems.nextPullable — 원클릭 pull 대상', () => {
     uow.run((repos) => {
       const id = repos.weekItems.confirmPlan({
         week: WEEK,
-        items: [{ id: null, title: 'A', estPomos: 3, days: [] }]
+        items: [{ id: null, title: 'A', days: [] }]
       }).createdIds[0]
       repos.tasks.create({ id: 't1', weekItemId: id, title: '첫째' })
       repos.tasks.create({ id: 't2', weekItemId: id, title: '둘째' })
@@ -285,7 +333,7 @@ describe('weekItems.nextPullable — 원클릭 pull 대상', () => {
     uow.run((repos) => {
       const id = repos.weekItems.confirmPlan({
         week: WEEK,
-        items: [{ id: null, title: 'A', estPomos: 1, days: [] }]
+        items: [{ id: null, title: 'A', days: [] }]
       }).createdIds[0]
       repos.tasks.create({ id: 't1', weekItemId: id, title: '조각' })
       repos.today.pull('t1', '2026-08-04')
@@ -307,9 +355,9 @@ describe('weekItems.childTasks — 드로어 목록 (§6.2)', () => {
     uow.run((repos) => {
       const id = repos.weekItems.confirmPlan({
         week: WEEK,
-        items: [{ id: null, title: 'A', estPomos: 3, days: [] }]
+        items: [{ id: null, title: 'A', days: [] }]
       }).createdIds[0]
-      repos.tasks.create({ id: 't1', weekItemId: id, title: '조각1', estPomos: 2 })
+      repos.tasks.create({ id: 't1', weekItemId: id, title: '조각1' })
       repos.tasks.create({ id: 't2', weekItemId: id, title: '조각2' })
       repos.today.pull('t2', '2026-08-04')
       repos.sessions.insert(focusSession('s1', 't1', '2026-08-04', WEEK))
@@ -318,8 +366,6 @@ describe('weekItems.childTasks — 드로어 목록 (§6.2)', () => {
         {
           taskId: 't1',
           title: '조각1',
-          estPomos: 2,
-          spentPomos: 1,
           measuredSec: 1500,
           completedAt: null,
           inToday: false
@@ -327,8 +373,6 @@ describe('weekItems.childTasks — 드로어 목록 (§6.2)', () => {
         {
           taskId: 't2',
           title: '조각2',
-          estPomos: null,
-          spentPomos: 0,
           measuredSec: 0,
           completedAt: null,
           inToday: true
@@ -345,7 +389,7 @@ describe('weekItems.header — 드로어 헤더 (폐기 항목도 열린다)', (
     uow.run((repos) => {
       const id = repos.weekItems.confirmPlan({
         week: WEEK,
-        items: [{ id: null, title: 'A', estPomos: 1, days: [] }]
+        items: [{ id: null, title: 'A', days: [] }]
       }).createdIds[0]
       repos.weekItems.confirmPlan({ week: WEEK, items: [] })
       expect(repos.weekItems.header(id)).toEqual({ week: WEEK, completedAt: null })

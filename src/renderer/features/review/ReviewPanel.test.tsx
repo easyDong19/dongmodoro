@@ -47,7 +47,6 @@ function panel(over: Partial<Panel> = {}): Panel {
         {
           week: THIS_WEEK,
           studiedDays: 3,
-          spentPomos: 12,
           measuredSec: 18000,
           unplannedMeasuredSec: 0
         }
@@ -62,7 +61,6 @@ function panel(over: Partial<Panel> = {}): Panel {
         id: 'a',
         week: THIS_WEEK,
         title: '논문 3장',
-        spentPomos: 2,
         measuredSec: 3000,
         carryWeeks: 1
       }
@@ -236,8 +234,8 @@ describe('ReviewPanel — 확정 버튼 (§7.1·§7.2)', () => {
     renderPanel(
       panel({
         pending: [
-          { id: 'x', week: THIS_WEEK, title: '하나', spentPomos: 0, measuredSec: 0, carryWeeks: 1 },
-          { id: 'y', week: THIS_WEEK, title: '둘', spentPomos: 0, measuredSec: 0, carryWeeks: 1 }
+          { id: 'x', week: THIS_WEEK, title: '하나', measuredSec: 0, carryWeeks: 1 },
+          { id: 'y', week: THIS_WEEK, title: '둘', measuredSec: 0, carryWeeks: 1 }
         ]
       })
     )
@@ -379,7 +377,6 @@ describe('ReviewPanel — 예외 화면 (§8)', () => {
           id: 'newcomer',
           week: '2026-08-17',
           title: '새로 들어온 주',
-          spentPomos: 0,
           measuredSec: 0,
           carryWeeks: 1
         }

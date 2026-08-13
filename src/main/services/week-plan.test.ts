@@ -4,7 +4,7 @@ import {
   confirmWeekPlan,
   dropItem,
   itemDrawer,
-  otherRowSpent,
+  otherRowMeasuredSec,
   planDraft,
   pullFromDrawer,
   pullNextFromItem,
@@ -15,50 +15,33 @@ import {
 
 const WEEK = '2026-08-03'
 
-describe('otherRowSpent (ADR-027 §1)', () => {
-  it('총 소진에서 보이는 항목 소진 합을 뺀 값이다', () => {
-    expect(otherRowSpent(18, [{ spentPomos: 10 }])).toBe(8)
+describe('otherRowMeasuredSec (ADR-027 §1 + ADR-031 §2)', () => {
+  it('주 총 측정 시간에서 보이는 항목의 합을 뺀 값이다', () => {
+    expect(otherRowMeasuredSec(5400, [{ measuredSec: 3000 }])).toBe(2400)
   })
 
-  it('보이는 항목이 없으면 총 소진 전부가 기타 행이다', () => {
-    expect(otherRowSpent(4, [])).toBe(4)
+  it('보이는 항목이 없으면 주 총 측정 시간 전부가 기타 행이다', () => {
+    expect(otherRowMeasuredSec(1200, [])).toBe(1200)
   })
 })
 
 describe('confirmWeekPlan', () => {
-  it('planned_at 은 최초 확정만 담고 재확정으로 갱신되지 않는다 (R23·A31)', () => {
+  /**
+   * 확정이 만드는 것은 **항목뿐이다.** 예산·가용량이 폐기돼(ADR-030 §4) `weeks` 행은
+   * FK 를 만족시키는 껍데기가 됐고, 확정이 그 행에 쓰는 계획 의사는 하나도 없다.
+   */
+  it('그 주 행이 없으면 만들고, 있으면 다시 만들지 않는다', () => {
     const { uow } = testUow()
-    confirmWeekPlan(uow, {
-      week: WEEK,
-      budget: 20,
-      items: [{ id: null, title: 'A', estPomos: 1, days: [] }]
-    })
-    const first = uow.run((r) => r.weeks.plan(WEEK)!.plannedAt)
-    expect(first).not.toBeNull()
+    confirmWeekPlan(uow, { week: WEEK, items: [{ id: null, title: 'A', days: [] }] })
+    expect(uow.run((r) => r.weeks.baseline(WEEK))).not.toBeNull()
 
-    confirmWeekPlan(uow, { week: WEEK, budget: 25, items: [] })
-    const second = uow.run((r) => r.weeks.plan(WEEK)!)
-    expect(second.plannedAt).toBe(first) // 갱신되지 않았다
-    expect(second.budget).toBe(25) // 예산은 갱신됐다
+    confirmWeekPlan(uow, { week: WEEK, items: [] })
+    expect(uow.run((r) => r.weeks.baseline(WEEK))).not.toBeNull()
   })
 
-  it('예산을 비운 채 확정하면 budget 이 NULL 로 남는다 (capacity 미설정 경로)', () => {
+  it('항목이 몇 개든 확정은 성공한다 — 막는 경로가 없다', () => {
     const { uow } = testUow()
-    confirmWeekPlan(uow, {
-      week: WEEK,
-      budget: null,
-      items: [{ id: null, title: 'A', estPomos: 1, days: [] }]
-    })
-    expect(uow.run((r) => r.weeks.plan(WEEK)!.budget)).toBeNull()
-  })
-
-  it('과적이어도 확정은 성공한다 (R22 — 차단 0건)', () => {
-    const { uow } = testUow()
-    const result = confirmWeekPlan(uow, {
-      week: WEEK,
-      budget: 2,
-      items: [{ id: null, title: 'A', estPomos: 50, days: [] }]
-    })
+    const result = confirmWeekPlan(uow, { week: WEEK, items: [{ id: null, title: 'A', days: [] }] })
     expect(result.week).toBe(WEEK)
     expect(uow.run((r) => r.weekItems.listForWeek(WEEK))).toHaveLength(1)
   })
@@ -73,7 +56,7 @@ describe('pullNextFromItem — 원클릭 pull (§3.1·R27)', () => {
       (r) =>
         r.weekItems.confirmPlan({
           week: WEEK,
-          items: [{ id: null, title: 'A', estPomos: 3, days: [] }]
+          items: [{ id: null, title: 'A', days: [] }]
         }).createdIds[0]
     )
     uow.run((r) => {
@@ -91,7 +74,7 @@ describe('pullNextFromItem — 원클릭 pull (§3.1·R27)', () => {
       (r) =>
         r.weekItems.confirmPlan({
           week: WEEK,
-          items: [{ id: null, title: 'A', estPomos: 1, days: [] }]
+          items: [{ id: null, title: 'A', days: [] }]
         }).createdIds[0]
     )
     const result = pullNextFromItem(uow, id)
@@ -105,7 +88,7 @@ describe('pullNextFromItem — 원클릭 pull (§3.1·R27)', () => {
       (r) =>
         r.weekItems.confirmPlan({
           week: WEEK,
-          items: [{ id: null, title: 'A', estPomos: 1, days: [] }]
+          items: [{ id: null, title: 'A', days: [] }]
         }).createdIds[0]
     )
     uow.run((r) => r.tasks.create({ id: 't1', weekItemId: id, title: '조각' }))
@@ -122,7 +105,7 @@ describe('itemDrawer', () => {
       (r) =>
         r.weekItems.confirmPlan({
           week: WEEK,
-          items: [{ id: null, title: 'A', estPomos: 1, days: [] }]
+          items: [{ id: null, title: 'A', days: [] }]
         }).createdIds[0]
     )
     uow.run((r) => r.tasks.create({ id: 't1', weekItemId: id, title: '조각' }))
@@ -147,7 +130,7 @@ describe('dropItem — 폐기는 삭제가 아니다 (ADR-014 §1·ADR-027 §2)'
       (r) =>
         r.weekItems.confirmPlan({
           week: WEEK,
-          items: [{ id: null, title: 'A', estPomos: 3, days: [] }]
+          items: [{ id: null, title: 'A', days: [] }]
         }).createdIds[0]
     )
     uow.run((r) => {
@@ -167,8 +150,9 @@ describe('dropItem — 폐기는 삭제가 아니다 (ADR-014 §1·ADR-027 §2)'
     expect(dropItem(uow, id).itemWeek).toBe(WEEK)
     uow.run((r) => {
       expect(r.weekItems.listForWeek(WEEK)).toHaveLength(0) // 목록에서 빠졌다
-      expect(r.weekItems.weekTotalSpent(WEEK)).toBe(1) // 총 소진은 줄지 않는다
-      expect(otherRowSpent(1, r.weekItems.listForWeek(WEEK))).toBe(1) // 기타 행이 받는다
+      expect(r.weekItems.weekTotalMeasuredSec(WEEK)).toBe(1500) // 주 총합은 줄지 않는다
+      // 기타 행이 받는다
+      expect(otherRowMeasuredSec(1500, r.weekItems.listForWeek(WEEK))).toBe(1500)
       expect(r.weekItems.childTasks(id, '2026-08-04')).toHaveLength(1) // 조각도 남았다
     })
   })
@@ -182,7 +166,7 @@ describe('setItemCompleted (R25·R27·R28)', () => {
       (r) =>
         r.weekItems.confirmPlan({
           week: WEEK,
-          items: [{ id: null, title: 'A', estPomos: 3, days: [] }]
+          items: [{ id: null, title: 'A', days: [] }]
         }).createdIds[0]
     )
     uow.run((r) => r.tasks.create({ id: 't1', weekItemId: id, title: '조각' }))
@@ -206,7 +190,7 @@ describe('setItemCompleted (R25·R27·R28)', () => {
     })
 
     const row = uow.run((r) => r.weekItems.listForWeek(WEEK)[0])
-    expect(row.spentPomos).toBe(5) // 소진은 계속 오른다
+    expect(row.measuredSec).toBe(7500) // 측정 시간은 계속 오른다
     expect(row.completedAt).toBe(at) // 완료 시각은 그대로다
   })
 
@@ -217,7 +201,7 @@ describe('setItemCompleted (R25·R27·R28)', () => {
       (r) =>
         r.weekItems.confirmPlan({
           week: WEEK,
-          items: [{ id: null, title: 'A', estPomos: 1, days: [] }]
+          items: [{ id: null, title: 'A', days: [] }]
         }).createdIds[0]
     )
     setItemCompleted(uow, id, true)
@@ -233,7 +217,7 @@ describe('pullFromDrawer — R7·R27 을 서비스에서 강제한다', () => {
       (r) =>
         r.weekItems.confirmPlan({
           week: WEEK,
-          items: [{ id: null, title: 'A', estPomos: 1, days: [] }]
+          items: [{ id: null, title: 'A', days: [] }]
         }).createdIds[0]
     )
     uow.run((r) => r.tasks.create({ id: 't1', weekItemId: id, title: '조각' }))
@@ -249,7 +233,7 @@ describe('pullFromDrawer — R7·R27 을 서비스에서 강제한다', () => {
       (r) =>
         r.weekItems.confirmPlan({
           week: WEEK,
-          items: [{ id: null, title: 'A', estPomos: 1, days: [] }]
+          items: [{ id: null, title: 'A', days: [] }]
         }).createdIds[0]
     )
     uow.run((r) => {
@@ -266,8 +250,8 @@ describe('pullFromDrawer — R7·R27 을 서비스에서 강제한다', () => {
       r.weekItems.confirmPlan({
         week: WEEK,
         items: [
-          { id: null, title: 'A', estPomos: 1, days: [] },
-          { id: null, title: 'B', estPomos: 1, days: [] }
+          { id: null, title: 'A', days: [] },
+          { id: null, title: 'B', days: [] }
         ]
       })
     )
@@ -279,14 +263,14 @@ describe('pullFromDrawer — R7·R27 을 서비스에서 강제한다', () => {
 })
 
 describe('weekSummary — 한 화면 = 한 응답', () => {
-  it('등식이 성립한다: Σ(보이는 항목) + 기타 행 = 총 소진 (성공 지표)', () => {
+  it('등식이 성립한다: Σ(보이는 항목) + 기타 행 = 주 총 측정 시간 (성공 지표)', () => {
     const { uow } = testUow()
     ensureWeeks(uow, WEEK)
     const id = uow.run(
       (r) =>
         r.weekItems.confirmPlan({
           week: WEEK,
-          items: [{ id: null, title: 'A', estPomos: 4, days: [] }]
+          items: [{ id: null, title: 'A', days: [] }]
         }).createdIds[0]
     )
     uow.run((r) => {
@@ -307,27 +291,24 @@ describe('weekSummary — 한 화면 = 한 응답', () => {
     })
 
     const summary = weekSummary(uow, WEEK)
-    expect(summary.totalSpent).toBe(3)
+    expect(summary.totalMeasuredSec).toBe(4500)
     expect(summary.items).toHaveLength(1)
-    expect(summary.otherRow).toEqual({ visible: true, spentPomos: 2, measuredSec: 3000 })
-    expect(summary.items.reduce((n, i) => n + i.spentPomos, 0) + summary.otherRow.spentPomos).toBe(
-      summary.totalSpent
-    )
-    // 같은 등식이 초에서도 성립한다 (ADR-031 §2) — 반올림은 표시 직전 한 번뿐이므로
-    // 이 항등식은 분으로 접기 전 단계에서 참이어야 한다.
+    expect(summary.otherRow).toEqual({ visible: true, measuredSec: 3000 })
+    // 항등식은 **초에서** 성립한다 (ADR-031 §2) — 반올림은 표시 직전 한 번뿐이므로
+    // 이 등식은 분으로 접기 전 단계에서 참이어야 한다.
     expect(
       summary.items.reduce((n, i) => n + i.measuredSec, 0) + summary.otherRow.measuredSec
     ).toBe(summary.totalMeasuredSec)
   })
 
-  it('폐기 항목의 소진만 있는 주에도 기타 행이 보인다 (A24 · ADR-027 §3 세 번째 갈래)', () => {
+  it('폐기 항목의 집중만 있는 주에도 기타 행이 보인다 (A24 · ADR-027 §3 세 번째 갈래)', () => {
     const { uow } = testUow()
     ensureWeeks(uow, WEEK)
     const id = uow.run(
       (r) =>
         r.weekItems.confirmPlan({
           week: WEEK,
-          items: [{ id: null, title: 'A', estPomos: 1, days: [] }]
+          items: [{ id: null, title: 'A', days: [] }]
         }).createdIds[0]
     )
     uow.run((r) => {
@@ -349,19 +330,48 @@ describe('weekSummary — 한 화면 = 한 응답', () => {
 
     const summary = weekSummary(uow, WEEK)
     expect(summary.items).toHaveLength(0)
-    // 미분류 세션도 부모 없는 조각도 없지만 차액이 3 이므로 행을 보여야 한다.
-    expect(summary.otherRow).toEqual({ visible: true, spentPomos: 3, measuredSec: 4500 })
+    // 미분류 세션도 부모 없는 조각도 없지만, 목록으로 설명되지 않는 집중이 있으므로 뜬다.
+    expect(summary.otherRow).toEqual({ visible: true, measuredSec: 4500 })
+  })
+
+  /**
+   * 표시 조건 ③ 이 **크기가 아니라 존재**를 보는 이유의 회귀 (ux-spec §3.4).
+   * `duration_sec = 0` 세션만 붙은 항목을 폐기하면 차액이 0 초라, 차액 크기로 판정하던
+   * 옛 규칙에서는 행이 사라지고 실재한 집중이 화면에서 증발했다 (PRD A24).
+   */
+  it('0초 세션만 붙은 항목을 폐기해도 기타 행이 보인다', () => {
+    const { uow } = testUow()
+    ensureWeeks(uow, WEEK)
+    const id = uow.run(
+      (r) =>
+        r.weekItems.confirmPlan({ week: WEEK, items: [{ id: null, title: 'A', days: [] }] })
+          .createdIds[0]
+    )
+    uow.run((r) => {
+      r.tasks.create({ id: 't1', weekItemId: id, title: '조각' })
+      r.sessions.insert({
+        id: 's1',
+        startedAt: '2026-08-04T01:00:00.000Z',
+        endedAt: '2026-08-04T01:00:00.000Z',
+        durationSec: 0,
+        kind: 'focus',
+        taskId: 't1',
+        localDate: '2026-08-04',
+        localWeek: WEEK
+      })
+    })
+
+    // 아직 목록에 보이므로 기타 행은 필요 없다.
+    expect(weekSummary(uow, WEEK).otherRow.visible).toBe(false)
+
+    dropItem(uow, id)
+    expect(weekSummary(uow, WEEK).otherRow).toEqual({ visible: true, measuredSec: 0 })
   })
 
   it('세션도 조각도 없으면 기타 행을 숨긴다', () => {
     const { uow } = testUow()
     ensureWeeks(uow, WEEK)
     expect(weekSummary(uow, WEEK).otherRow.visible).toBe(false)
-  })
-
-  it('weeks 행이 없으면 budget 이 null 이다 (기록 없음)', () => {
-    const { uow } = testUow()
-    expect(weekSummary(uow, WEEK).budget).toBeNull()
   })
 })
 
@@ -373,37 +383,26 @@ describe('planDraft — 플래너 진입 프리필 (R16)', () => {
       return r.weekItems.confirmPlan({
         week: WEEK,
         items: [
-          { id: null, title: '남길 것', estPomos: 4, days: [1, 3] },
-          { id: null, title: '보낼 것', estPomos: 2, days: [] }
+          { id: null, title: '남길 것', days: [1, 3] },
+          { id: null, title: '보낼 것', days: [] }
         ]
       })
     })
     uow.run((r) =>
       r.weekItems.confirmPlan({
         week: WEEK,
-        items: [{ id: createdIds[0], title: '남길 것', estPomos: 4, days: [1, 3] }]
+        items: [{ id: createdIds[0], title: '남길 것', days: [1, 3] }]
       })
     )
 
     const draft = planDraft(uow, WEEK)
-    expect(draft.items).toEqual([
-      { id: createdIds[0], title: '남길 것', estPomos: 4, days: [1, 3] }
-    ])
+    expect(draft.items).toEqual([{ id: createdIds[0], title: '남길 것', days: [1, 3] }])
   })
 
-  it('capacity 미설정이면 prefill 이 null 이라 플래너 입력이 빈 채로 열린다 (A5)', () => {
-    const { uow } = testUow() // seedSettings 는 weekly_capacity 를 넣지 않는다
-    const draft = planDraft(uow, WEEK)
-    expect(draft.prefill).toBeNull()
-    expect(draft.budget).toBeNull() // 아직 weeks 행이 없다 = 기록 없음
-  })
-
-  it('확정된 예산은 budget 으로, 프리필 후보는 prefill 로 따로 실린다', () => {
+  /** 초안에 담기는 것은 주 키와 항목 목록뿐이다 — 프리필할 숫자가 없다 (ADR-030 §3). */
+  it('숫자 필드를 싣지 않는다', () => {
     const { uow } = testUow()
-    confirmWeekPlan(uow, { week: WEEK, budget: 18, items: [] })
-    const draft = planDraft(uow, WEEK)
-    expect(draft.budget).toBe(18) // 이미 정한 값
-    expect(draft.prefill).toBeNull() // capacity 는 여전히 미설정
+    expect(Object.keys(planDraft(uow, WEEK)).sort()).toEqual(['items', 'week'])
   })
 })
 
@@ -429,7 +428,7 @@ describe('setItemMilestone — 후보 제한을 서비스가 강제한다 (miles
       (repos) =>
         repos.weekItems.confirmPlan({
           week,
-          items: [{ id: null, title: '할당', estPomos: 2, days: [] }]
+          items: [{ id: null, title: '할당', days: [] }]
         }).createdIds[0]
     )
   }
@@ -520,7 +519,7 @@ describe('itemDrawer — 후보를 서버가 좁혀 보낸다 (R14 · A12)', () 
       (repos) =>
         repos.weekItems.confirmPlan({
           week: '2026-08-03',
-          items: [{ id: null, title: '할당', estPomos: 2, days: [] }]
+          items: [{ id: null, title: '할당', days: [] }]
         }).createdIds[0]
     )
     uow.run((repos) => {
