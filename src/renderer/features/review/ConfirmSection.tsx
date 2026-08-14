@@ -1,4 +1,3 @@
-import { BaselineSection } from '@renderer/features/baseline/BaselineSection'
 import { Button } from '@renderer/shared/ui/button'
 import { MeasuredTime } from '@renderer/shared/ui/MeasuredTime'
 import type { ReviewPending } from './useReview'
@@ -12,7 +11,6 @@ export function GuidanceSection({ data }: { data: Panel }) {
   // 초 단계에서 더한다 — 주별 값을 분으로 접어 합치면 주간 카드 기타 행과 어긋난다
   // (ADR-031 §2).
   const unplannedSec = data.summary.weeks.reduce((sum, w) => sum + w.unplannedMeasuredSec, 0)
-  const { focusMin, shortBreakMin, longBreakMin } = data.baseline
 
   return (
     <section className="flex flex-col gap-2">
@@ -30,29 +28,6 @@ export function GuidanceSection({ data }: { data: Panel }) {
           {' — 기록으로만 남아요. 할당이 틀린 건 실패가 아니라 정보예요.'}
         </p>
       ) : null}
-
-      <div className="flex flex-col gap-1">
-        {/* 현재 값은 이 패널의 payload 로 그린다. `조정` 폼도 같은 값을 자기 채널로
-            읽지만, **표시의 출처는 여기 하나뿐이다** — 두 경로가 같은 사실을 그리면
-            저장 직후 한쪽만 갱신된 순간이 화면에 보인다. 저장 후 이 줄을 갱신하는 것은
-            `baseline-changed` 무효화의 몫이다. */}
-        <div className="flex flex-wrap items-center gap-2">
-          <p className="text-xs text-ink-dim">
-            {`뽀모 길이 — 집중 ${focusMin} · 짧은 휴식 ${shortBreakMin} · 긴 휴식 ${longBreakMin}`}
-          </p>
-          <BaselineSection />
-        </div>
-        {/* 완결 문장이므로 메타 토큰(xs)이 아니라 sm 이다 (design-system ADR-009 §2).
-            "정산에서만 바꿔요" 류를 쓰지 않는다 — 길이는 언제든 편집할 수 있고, 정산에
-            있는 것은 진입점일 뿐이다.
-
-            초판은 `바꾼 길이는 다음 주부터 적용돼요 · 이번 주 기록은 그대로예요` 였다.
-            ADR-029 가 효력 지연을 폐지하면서 두 절 다 거짓이 됐다 — 문구의 소유자는
-            weekly-review ux-spec §6 이고, 여기는 그 문장을 그대로 옮긴다. */}
-        <p className="text-sm text-ink-dim">
-          바꾼 길이는 다음 세션부터 적용돼요 · 진행 중인 세션은 그대로예요
-        </p>
-      </div>
     </section>
   )
 }

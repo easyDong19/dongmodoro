@@ -48,24 +48,6 @@ export type InvalidationEvent =
    */
   | { type: 'theme-changed' }
   /**
-   * 전역 분모(길이 3종·가용량)가 바뀌었다. 테마와 마찬가지로 `currentDayKey` 를 갖지 않는다.
-   *
-   * **주간 카드는 대상이 아니다.** 카드는 그 주 `weeks` 스냅샷을 읽고, 이 편집은 스냅샷을
-   * 건드리지 않는다 (pomo-baseline R19·R22). 넣으면 아무것도 안 바뀌는 재조회가 생기고,
-   * 그 재조회가 다음 사람에게 "베이스라인이 주간 카드를 바꾼다"는 오해를 심는다.
-   *
-   * **타이머도 대상이 아니다** — 다만 이유는 "안 바뀌어서"가 아니다. 엔진의
-   * `durationSec` 은 쿼리에서 파생되는 값이 아니라 엔진 상태이므로 **재조회로는 갱신할
-   * 수 없다.** 대기 중인 다이얼은 main 이 저장 직후 `engine.refreshBaseline()` 으로
-   * 맞추고 그 결과가 `timer:transition` 으로 내려온다 (ipc/settings.ts).
-   *
-   * 이 주석은 원래 "새 길이는 다음 세션이 시작될 때 엔진이 스스로 읽으니 앞당기는 것이
-   * 옳지도 않다"고 적혀 있었다. 1.x 에서는 맞았다 — 그때 편집 효력은 다음 주였고
-   * 다이얼이 옛 길이를 그리는 것이 사실과 맞았다. ADR-029 가 효력을 다음 세션으로
-   * 당기면서 그 판단이 죽었고, 다이얼이 다음 세션 길이를 틀리게 말하게 됐다.
-   */
-  | { type: 'baseline-changed' }
-  /**
    * 마일스톤이 추가·수정·완료·보관·삭제·복사됐다. `currentDayKey` 를 갖지 않는다 —
    * 대상 달을 payload 가 이미 들고 있고, 카드가 한 달만 그리므로 화면이 그 달을 안다.
    *
@@ -159,13 +141,6 @@ export function keysToInvalidate(e: InvalidationEvent): readonly (readonly strin
      */
     case 'theme-changed':
       return [keys.settings()]
-    /**
-     * 설정 자신과 정산 패널 둘뿐이다. 패널이 포함되는 이유는 그것이 **현재 길이를 사실로
-     * 표시하는 유일한 화면**이기 때문이고 (weekly-review ux-spec §6), 그 표시가 저장 직후
-     * 옛 숫자로 남아 있으면 사용자는 저장이 실패했다고 읽는다.
-     */
-    case 'baseline-changed':
-      return [keys.baseline(), keys.reviewPending()]
     case 'milestone-changed':
       return [keys.monthMilestones(e.payload.month)]
   }

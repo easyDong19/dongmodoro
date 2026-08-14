@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import type {} from '@testing-library/jest-dom/vitest'
-import { render, screen, waitFor, within } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import userEvent from '@testing-library/user-event'
 import type { ReactNode } from 'react'
@@ -142,37 +142,12 @@ describe('ReviewPanel — 안내 (§6)', () => {
     expect(container.textContent).not.toContain('미분류')
   })
 
-  it('현재 뽀모 길이를 사실로 적고 효력 시점을 밝힌다', () => {
+  it('길이를 다루지 않는다 — 표시도 진입점도 없다 (설계 R6)', () => {
     renderPanel()
-    expect(screen.getByText('뽀모 길이 — 집중 25 · 짧은 휴식 5 · 긴 휴식 15')).toBeInTheDocument()
-    expect(
-      screen.getByText('바꾼 길이는 다음 세션부터 적용돼요 · 진행 중인 세션은 그대로예요')
-    ).toBeInTheDocument()
-  })
 
-  /** 진입점이 열렸다 (pomo-baseline R25). 값을 읽기 전에는 누를 수 없다. */
-  it('조정 버튼이 있고, 값을 읽고 나면 눌러 폼이 열린다', async () => {
-    renderPanel()
-    const adjust = await screen.findByRole('button', { name: '조정' })
-    await waitFor(() => expect(adjust).toBeEnabled())
-
-    await userEvent.click(adjust)
-    expect(screen.getByLabelText('집중 길이 (분)')).toBeInTheDocument()
-  })
-
-  /**
-   * 폼이 열려 있는 동안에도 정산은 그대로 확정할 수 있어야 한다 — 두 저장은 별개다
-   * (ux-spec §6). 폼 버튼이 확정 버튼의 라벨을 빼앗지도 않는다.
-   */
-  it('폼이 열려도 확정 버튼은 그대로 눌린다', async () => {
-    const { mutate } = renderPanel()
-    const adjust = await screen.findByRole('button', { name: '조정' })
-    await waitFor(() => expect(adjust).toBeEnabled())
-    await userEvent.click(adjust)
-
-    expect(confirmButton()).toBeEnabled()
-    await userEvent.click(confirmButton())
-    expect(mutate).toHaveBeenCalledOnce()
+    expect(screen.queryByRole('button', { name: '조정' })).toBeNull()
+    expect(screen.queryByText(/뽀모 길이/)).toBeNull()
+    expect(screen.queryByText(/다음 세션부터 적용돼요/)).toBeNull()
   })
 
   it('"정산에서만 바꿔요" 류를 쓰지 않는다', () => {
