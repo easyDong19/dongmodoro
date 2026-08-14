@@ -29,15 +29,21 @@
    이 단계를 건너뛰면 첫 릴리스를 검증하는 방법이 **"태그를 달아 보는 것"** 뿐이고,
    실패하면 이미 밀어 버린 태그를 지우는 일부터 하게 된다. 리허설은 업로드하지 않고
    아티팩트만 남긴다.
-1. main이 배포 가능한 상태일 때 `release/X.Y` 브랜치를 main에서 생성
-2. **태그를 자르기 전에 `docs/release-notes/<X.Y.Z>.md` 가 그 release 브랜치에 있어야 한다.**
-   이 파일이 곧 릴리스 본문이다 — 형식은
-   [.claude/skills/release-notes/SKILL.md](.claude/skills/release-notes/SKILL.md).
-   main 에 PR 로 넣고 release 브랜치로 cherry-pick 한다.
-3. `vX.Y.Z` 태그를 release 브랜치에서 생성 후 push
+1. **노트를 먼저 main 에 넣는다.** `docs/release-notes/<X.Y.Z>.md` 가 곧 릴리스 본문이다 —
+   형식은 [.claude/skills/release-notes/SKILL.md](.claude/skills/release-notes/SKILL.md).
+   여느 변경과 같이 PR 로 머지한다.
+2. main이 배포 가능한 상태일 때 `release/X.Y` 브랜치를 main에서 생성 — 노트가 이미 그
+   브랜치에 들어 있다. **cherry-pick 하지 않는다.** 브랜치를 노트보다 먼저 자르면 손으로
+   옮기는 단계와 충돌 지점이 하나 늘 뿐이고, cherry-pick 이 정말 필요한 경우는 브랜치가
+   **이미 존재하는** 핫픽스(§3)뿐이다.
+3. **버전 범프는 release 브랜치에서만 한다.** `package.json` 의 `version` 을 `X.Y.Z` 로
+   올리는 커밋(`chore(release): bump version to X.Y.Z`)은 그 브랜치에 두고 main 에는
+   반영하지 않는다 — main 은 배포되지 않아 그 숫자로 만들어지는 산출물이 없고, 미리 올리면
+   "그 버전이라고 적혀 있지만 아직 나오지 않은 코드"가 main 에 남는다.
+4. `vX.Y.Z` 태그를 release 브랜치에서 생성 후 push
    - `git push origin release/X.Y --tags`
-4. 태그 push가 GitHub Actions 릴리스 워크플로우를 트리거함
-5. 워크플로가 릴리스를 **draft 로** 만든다. 산출물과 노트를 확인한 뒤 사람이 publish 한다 —
+5. 태그 push가 GitHub Actions 릴리스 워크플로우를 트리거함
+6. 워크플로가 릴리스를 **draft 로** 만든다. 산출물과 노트를 확인한 뒤 사람이 publish 한다 —
    태그를 미는 것과 남에게 보이는 것 사이에 한 칸을 둔다.
    - **노트는 손으로 붙여 넣지 않는다.** `Resolve release notes` 스텝이 그 버전의 파일을
      찾아 `body_path` 로 넘기고, GitHub 이 자동 생성한 커밋 목록이 그 **아래**에 붙는다.
@@ -46,12 +52,12 @@
      바깥으로 나간 것이 없다. 복귀선이 노트에 도달하지 않는 상태로 publish 되는 일을
      구조적으로 막는 자리다
      ([ADR-032](docs/architecture/decisions/adr-032-destructive-migration-safety.md)).
-6. publish 한 뒤 **설치본으로 한 번 연다** —
+7. publish 한 뒤 **설치본으로 한 번 연다** —
    [.claude/skills/install-release/SKILL.md](.claude/skills/install-release/SKILL.md).
    `pnpm dev` 로는 재현되지 않는 것들(asar 밖으로 뺀 마이그레이션 `.sql`, 네이티브
    바이너리, quarantine)이 여기서만 드러난다. 사용자 데이터는 건드리지 않으므로
    실제 업그레이드와 같은 조건이다.
-7. 태그를 이미 밀었는데 빌드가 깨졌다면 **태그를 옮기지 않는다.** 받은 사람의 이력이
+8. 태그를 이미 밀었는데 빌드가 깨졌다면 **태그를 옮기지 않는다.** 받은 사람의 이력이
    깨진다. 고쳐서 다음 패치 버전으로 낸다.
    - **예외는 하나다 — 릴리스가 만들어지지 않은 경우.** 노트 파일 누락으로 잡이 죽으면
      릴리스도 에셋도 생성되지 않았으므로 받은 사람이 없다. 이때는 노트를 넣고 그 태그를
