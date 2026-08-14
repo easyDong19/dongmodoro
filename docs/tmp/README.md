@@ -18,5 +18,4 @@
 
 | 파일 | 한 줄 요약 |
 |---|---|
-| [prevent-window-drag.md](prevent-window-drag.md) | 앱 창을 마우스 드래그로 옮기지 못하게 막기 |
 | [session-end-dock-bounce-notification.md](session-end-dock-bounce-notification.md) | 세션 종료 시 Dock 아이콘 바운스 + 데스크톱 알림 |
