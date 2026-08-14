@@ -208,6 +208,88 @@ main {
   box-shadow: var(--control-highlight), var(--control-shadow);
 }
 
+/* 스크롤바. 의도의 출처는 docs/origin/pomodoro-mockup-v7.html:718-720 (폭 5px, 투명 트랙)
+   이지만 두 가지를 바꿔서 옮긴다.
+
+   1. 목업의 `rgba(255,255,255,.12)` 를 그대로 쓰지 않는다 — 흰색 알파는 라이트 테마의
+      표면(rgba(255,255,255,0.72)) 위에서 보이지 않는다. `--glass-border` 가 같은 의미를
+      갖고 이미 테마 매핑돼 있다 (다크 0.14 로 목업의 .12 와 사실상 같고, 라이트는
+      잉크 기반). 토큰 주석의 `장식용` 도 스크롤바 썸의 성격과 일치한다.
+   2. 목업엔 호버 상태가 없는데, 5px 짜리 썸은 호버 피드백이 없으면 잡기 어렵다.
+      호버·액티브를 `--control-border` 로 올린다 — 3.50:1 / 3.35:1 로 문서화된 컴포넌트
+      경계 토큰이라 WCAG 1.4.11 비텍스트 대비를 이미 만족한다.
+
+   ⚠️ 여기에 `scrollbar-color` 나 `scrollbar-width` 를 **절대 함께 쓰지 않는다.** Chromium
+   은 둘 중 하나만 존중한다 — 요소에 `scrollbar-color` 가 걸리는 순간 그 요소의
+   `::-webkit-scrollbar` 규칙 전체가 무시된다. 아래 블록이 조용히 죽는다. Firefox 대응이
+   필요해지면 그때 이 주석부터 읽을 것.
+
+   5px 는 새 토큰이 아니다 — tokens.md §10 이 spacing 을 의도적으로 미토큰화 상태로 뒀고,
+   이 파일에는 이미 `gap: 10px`·`height: 38px` 같은 생값이 있다. ADR 이 필요한 것은 새 색
+   값뿐이고, 여기서는 색을 하나도 만들지 않았다.
+
+   전역 선택자인 이유: 스크롤 컨테이너가 여섯 곳(주간·플래너·달력·하루·마일스톤·정산)이고
+   전부 그냥 `overflow-y-auto` 를 쓴다. 스코프 클래스로 두면 일곱 번째 컨테이너에서 잊히는
+   규칙이 된다. 렌더러는 우리 번들만 로드하므로 과잉 적용될 외부 콘텐츠도 없다. */
+::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* --radius-sm(9px) 이 5px 폭에서 알약 모양으로 클램프된다 — 목업의 `999px` 을 새 값 없이
+   얻는 방법이다. transition 은 `prefers-reduced-motion` 을 따로 볼 필요가 없다:
+   tokens.css 가 그 미디어 쿼리 안에서 --motion-fast 를 0ms 로 재정의한다. */
+::-webkit-scrollbar-thumb {
+  background: var(--glass-border);
+  border-radius: var(--radius-sm);
+  transition: background-color var(--motion-fast) var(--ease-standard);
+}
+
+::-webkit-scrollbar-thumb:hover,
+::-webkit-scrollbar-thumb:active {
+  background: var(--control-border);
+}
+
+/* 가로·세로가 함께 스크롤될 때 모서리에 뜨는 기본 회색 사각형을 지운다. */
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+/* 스크롤 영역이 오버플로 경계를 넘나들 때 스크롤바가 나타났다 사라지며 콘텐츠를 5px 씩
+   밀어내는 것을 막는다. 목록에 항목 하나를 더하는 순간 옆 카드까지 흔들리는 종류의 버그로,
+   e14fbde 가 고친 레이아웃 점프와 같은 부류다.
+
+   `overflow-y-auto` 와 같이 쓴다 (대체가 아니다). macOS 의 오버레이 스크롤바에서는 자리를
+   차지하지 않으므로 무효이고, 스크롤바를 항상 표시하는 설정과 Windows·Linux 에서만 효과가
+   있다 — 그래서 위의 색 규칙과 달리 이 클래스는 명시적으로 붙이는 방식으로 둔다. */
+.scroll-area {
+  scrollbar-gutter: stable;
+}
+
+/* 고대비 모드에서는 커스텀 스크롤바 색이 강제 색으로 대체되지 않는다 — Chromium 이
+   의사요소 배경을 forced-colors 대상으로 보지 않기 때문이다. 그대로 두면 우리 토큰 색이
+   살아남아 강제된 Canvas 위에서 사라진다. 시스템 키워드로 직접 매핑한다.
+
+   tokens.css 에도 forced-colors 블록이 있지만 거기에 합치지 않는다 — 그 파일은
+   design-system tokens.md §9 의 포트라서 "여기서 값을 바꾸거나 새 토큰을 만들지 않는다"
+   가 파일 규칙이고, 이건 컴포넌트 규칙이다. */
+@media (forced-colors: active) {
+  ::-webkit-scrollbar-thumb,
+  ::-webkit-scrollbar-thumb:hover,
+  ::-webkit-scrollbar-thumb:active {
+    background: ButtonBorder;
+  }
+
+  ::-webkit-scrollbar-track,
+  ::-webkit-scrollbar-corner {
+    background: Canvas;
+  }
+}
+
 /* :focus-visible 에서만 링을 그린다 — 마우스 클릭에 링이 뜨지 않게 (design-system ADR-004).
    outline 을 대체 표시 없이 지우지 않는다. */
 :focus-visible {

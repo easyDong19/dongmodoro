@@ -1,4 +1,4 @@
-import { app, dialog, shell } from 'electron'
+import { app, dialog, shell, Menu } from 'electron'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import type { BrowserWindow } from 'electron'
@@ -23,7 +23,10 @@ import { makeDrizzleUow } from './db/repositories/drizzle'
 import { seedSettings } from './services/seed'
 import { CorruptError, DowngradeError, MigrationError } from './db/errors'
 import { acquireSingleInstanceLock, focusExistingWindow } from './single-instance'
+import { resetAllData } from './db/reset'
+import { buildAppMenu } from './menu'
 import type { UnitOfWork } from './services/ports'
+import type { TimerEngine } from './services/timer-engine'
 
 /**
  * 마이그레이션 폴더의 자리는 **패키징 여부로 갈린다.** 한 경로로는 둘 다 맞출 수 없다.
@@ -47,6 +50,13 @@ let closeDatabase: (() => void) | undefined
 let mainWindow: BrowserWindow | null = null
 let stopClock: (() => void) | undefined
 let stopTimerHost: (() => void) | undefined
+/**
+ * 초기화가 시작되면 종료 확인을 건너뛴다. 아래 `confirmAndResetAllData` 가 `close()` 가
+ * 아니라 `destroy()` 를 쓰므로 실제로는 확인 경로가 돌지 않지만, 누군가 그것을 `close()`
+ * 로 바꾸는 순간 사용자가 `계속 집중` 을 골라 **데이터를 이미 지운 뒤에 종료가 취소되는**
+ * 상태가 만들어진다. 그 리팩터를 무해하게 만드는 값이다.
+ */
+let resetInProgress = false
 
 /**
  * 시작 실패를 안내하고 종료한다 (ADR-020 §4).
@@ -71,9 +81,20 @@ function failStart(title: string, detail: string, backupDir: string): void {
   app.quit()
 }
 
-function startDb(): { schemaVersion: number; uow: UnitOfWork } {
+/**
+ * `sqlite` 와 `dbPath` 까지 돌려주는 이유: 전체 초기화가 백업을 뜨려면 **열린 원시 핸들**이
+ * 필요하다 (체크포인트 없는 복사는 빈 파일이 된다 — db/migrate.ts). `closeDatabase` 클로저
+ * 안에만 두면 꺼낼 방법이 없다.
+ */
+function startDb(): {
+  schemaVersion: number
+  uow: UnitOfWork
+  sqlite: ReturnType<typeof openDb>['sqlite']
+  dbPath: string
+} {
   const userData = app.getPath('userData')
-  const { db, sqlite } = openDb(join(userData, 'app.db'))
+  const dbPath = join(userData, 'app.db')
+  const { db, sqlite } = openDb(dbPath)
   closeDatabase = () => closeDb(sqlite)
   const { schemaVersion } = migrateDb(sqlite, db, userData, MIGRATIONS_DIR)
   const uow = makeDrizzleUow(db)
@@ -85,7 +106,98 @@ function startDb(): { schemaVersion: number; uow: UnitOfWork } {
   // lost key would be silently re-established on the next focus and quietly skip every
   // unsettled past week.
   bootstrapWatermark(uow, calendarKeys(nowMs()).dayKey)
-  return { schemaVersion, uow }
+  return { schemaVersion, uow, sqlite, dbPath }
+}
+
+/**
+ * 도는 것들만 멈춘다 — **DB 는 열어 둔다.**
+ *
+ * 이 경계가 초기화의 전제다. 백업은 열린 핸들을 요구하는데(체크포인트 후 복사),
+ * 여기서 DB 까지 닫으면 백업이 `The database connection is not open` 으로 죽고
+ * 사용자는 되돌릴 지점 없이 데이터를 잃는다.
+ */
+function stopRuntimeTimers(): void {
+  stopClock?.()
+  stopClock = undefined
+  stopTimerHost?.()
+  stopTimerHost = undefined
+}
+
+/**
+ * 정리 전체. `will-quit` 의 몸통이다.
+ *
+ * 훅을 `undefined` 로 비우는 것이 멱등성의 전부다 — 초기화가 여기를 한 번 지난 뒤
+ * `will-quit` 이 다시 불려도 두 번 실행되지 않는다.
+ */
+function shutdownRuntime(): void {
+  stopRuntimeTimers()
+  closeDatabase?.()
+  closeDatabase = undefined
+}
+
+/**
+ * 모든 데이터를 지우고 앱을 다시 켠다.
+ *
+ * 순서가 위험한 부분 전부다. 특히 두 가지:
+ *
+ * **`close()` 가 아니라 `destroy()`.** `app.quit()` 은 창을 닫으며 window.ts 의 종료 확인
+ * 다이얼로그를 친다. 거기서 사용자가 `계속 집중` 을 고르면 close 가 취소되는데, 그때는
+ * 이미 DB 를 지운 뒤다 — 앱이 없는 파일 위에서 계속 돈다. `destroy()` 는 `close` 를
+ * 발생시키지 않으므로 그 갈림길 자체가 생기지 않는다. 렌더러도 함께 죽어서 진행 중인
+ * `invoke` 가 닫히는 DB 를 칠 일도 없다.
+ *
+ * **`engine.reset()` 이 `stopTimerHost()` 로 대체되지 않는다.** 후자는 `powerMonitor` 의
+ * resume 리스너만 떼고 엔진에 걸린 만료 타이머는 그대로 둔다. 집중 세션이 살아 있는 채로
+ * 초기화하면 그 만료가 나중에 발동해 닫힌 DB 에 기록을 시도하고, main 의 예외는 Electron 이
+ * 에러 박스로 띄우므로 그 모달이 종료를 붙잡아 앱이 멈춘다. `reset()` 이 만료를 지운다.
+ * 이 시점에 DB 는 아직 열려 있어야 한다 — idle 복귀가 baseline 을 읽는다.
+ */
+function confirmAndResetAllData(deps: {
+  sqlite: ReturnType<typeof openDb>['sqlite']
+  dbPath: string
+  engine: TimerEngine
+}): void {
+  const userData = app.getPath('userData')
+  const snap = deps.engine.getSnapshot()
+  const sessionRunning =
+    snap.mode === 'focus' && (snap.phase === 'running' || snap.phase === 'paused')
+
+  // macOS 는 title 을 렌더하지 않는다 — 헤드라인을 message 에, 본문을 detail 에 둔다
+  // (window.ts 의 종료 확인과 같은 이유). 파괴적 동작은 기본 버튼이 아니다.
+  const choice = dialog.showMessageBoxSync({
+    type: 'warning',
+    title: '모든 데이터를 지울까요?',
+    message: '모든 데이터를 지울까요?',
+    detail:
+      '주간 할당, 할 일, 집중 기록, 마일스톤, 설정이 모두 사라지고 앱이 처음 상태로 다시 시작해요.\n' +
+      (sessionRunning ? '진행 중인 이 세션도 기록되지 않아요.\n' : '') +
+      `지우기 직전 상태는 백업으로 남겨 둬요: ${userData}`,
+    buttons: ['취소', '초기화'],
+    defaultId: 0,
+    cancelId: 0
+  })
+  if (choice === 0) return
+
+  resetInProgress = true
+  resetAllData({
+    sqlite: deps.sqlite,
+    dbPath: deps.dbPath,
+    backupDir: userData,
+    quiesce: () => {
+      mainWindow?.destroy()
+      mainWindow = null
+      deps.engine.reset()
+      // DB 를 닫지 않는 `stopRuntimeTimers` 다 — 백업이 아직 열린 핸들을 써야 한다.
+      stopRuntimeTimers()
+    },
+    closeDatabase: () => {
+      closeDatabase?.()
+      closeDatabase = undefined
+    }
+  })
+
+  app.relaunch()
+  app.quit()
 }
 
 /**
@@ -102,7 +214,7 @@ function boot(): void {
     .whenReady()
     .then(() => {
       // DB 가 먼저다 — 열지 못하면 창을 띄우지 않는다.
-      const { schemaVersion, uow } = startDb()
+      const { schemaVersion, uow, sqlite, dbPath } = startDb()
       /**
        * **창보다 먼저 테마를 적용한다** (design-system ADR-010 §3).
        *
@@ -132,11 +244,26 @@ function boot(): void {
       registerSettingsHandlers(uow, () => mainWindow, timerHost.engine)
       // 종료 확인 조건 (timer R13): focus 가 running/paused 일 때만 묻는다.
       mainWindow = createWindow(initialTheme, () => {
+        if (resetInProgress) return false
         const snap = timerHost.engine.getSnapshot()
         return snap.mode === 'focus' && (snap.phase === 'running' || snap.phase === 'paused')
       })
       // 자정 알람은 창이 있어야 보낼 대상이 있다 — 창 생성 후에 시작한다.
       stopClock = startClock(() => mainWindow)
+      /**
+       * 앱 메뉴는 창 뒤에 세운다 — 초기화가 창을 부숴야 하므로 그 대상이 이미 있어야 한다.
+       *
+       * 프레임리스 커스텀 타이틀바라 **Windows·Linux 에는 보이는 메뉴 자리가 없다.** 이
+       * 메뉴는 사실상 macOS 전용이고, 그쪽에서 초기화에 도달할 경로가 아직 없다는 뜻이다
+       * (트레이가 들어올 때 함께 볼 자리다). 그럼에도 setApplicationMenu 를 전 플랫폼에서
+       * 부르는 이유는 편집 메뉴다 — 안 부르면 기본 메뉴가 남고, 부르면서 editMenu 를
+       * 빠뜨리면 입력창의 복사·붙여넣기가 죽는다 (menu.ts).
+       */
+      Menu.setApplicationMenu(
+        buildAppMenu({
+          onResetAllData: () => confirmAndResetAllData({ sqlite, dbPath, engine: timerHost.engine })
+        })
+      )
     })
     .catch((e: unknown) => {
       // 예상 못한 실패도 같은 경로로 보낸다 — 조용한 unhandled rejection 을 남기지 않는다.
@@ -190,15 +317,15 @@ function boot(): void {
  * 동시에 고친다 — 닫힌 DB 를 읽는 일이 없고, 취소된 종료가 시계·타이머·DB 를 꺼 놓은 채
  * 앱을 반쯤 죽은 상태로 남기지도 않는다.
  */
-app.on('will-quit', () => {
-  stopClock?.()
-  stopClock = undefined
-  stopTimerHost?.()
-  stopTimerHost = undefined
-  closeDatabase?.()
-  closeDatabase = undefined
-})
+app.on('will-quit', () => shutdownRuntime())
 
 app.on('window-all-closed', () => {
+  /**
+   * 초기화 중에는 물러난다. 이 핸들러는 `destroy()` 안에서 **동기로** 불리므로, 그대로
+   * `app.quit()` 을 부르면 `will-quit` 이 같은 틱에 DB 를 닫아 버리고 뒤이을 백업이
+   * `The database connection is not open` 으로 죽는다 — 데이터를 지우면서 되돌릴 지점은
+   * 남기지 못하는, 이 기능에서 가장 나쁜 결과다. 종료는 초기화가 끝난 뒤 자기가 부른다.
+   */
+  if (resetInProgress) return
   app.quit() // 트레이 도입(M1 후반, app-shell PRD R29) 전까지는 창 닫기 = 종료
 })
