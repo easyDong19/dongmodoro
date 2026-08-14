@@ -187,3 +187,27 @@ describe('TimerCard — 렌더 계약 (Task 10)', () => {
     expect(document.body.textContent).not.toMatch(/\p{Extended_Pictographic}/u)
   })
 })
+
+describe('± 칩은 대기 중에만 쓸 수 있다 (설계 R3)', () => {
+  it('대기 중에는 활성이다', async () => {
+    setup({ ...baseSnapshot, phase: 'idle' })
+    await screen.findByRole('button', { name: '집중' })
+
+    expect(screen.getByLabelText('+5분')).toBeEnabled()
+  })
+
+  it('실행 중에는 비활성이다 — 사라지지는 않는다', async () => {
+    setup({ ...baseSnapshot, phase: 'running', startedAt: Date.now() })
+    await screen.findByRole('button', { name: '집중' })
+
+    expect(screen.getByLabelText('+5분')).toBeDisabled()
+    expect(screen.getByLabelText('-1분')).toBeDisabled()
+  })
+
+  it('일시정지 중에도 비활성이다', async () => {
+    setup({ ...baseSnapshot, phase: 'paused', pausedRemainingSec: 600 })
+    await screen.findByRole('button', { name: '집중' })
+
+    expect(screen.getByLabelText('+10분')).toBeDisabled()
+  })
+})
