@@ -4,7 +4,7 @@ import { localKeys, nowMs } from '@shared/time'
 import { EVENT_CHANNELS } from '@shared/ipc/channels'
 import { eventContracts } from '@shared/ipc/contracts'
 import { sendEvent } from '../ipc/events'
-import { globalBaseline } from './baseline'
+import { globalBaseline, writeModeLength } from './baseline'
 import type { UnitOfWork } from './ports'
 import { recordSession } from './sessions'
 import { TimerEngine } from './timer-engine'
@@ -26,6 +26,8 @@ export function startTimerHost(
     // 길이는 전역값 하나뿐이다 (ADR-029 §2) — 세션 시작·idle 진입 시점마다 새로 읽히므로
     // 저장 즉시 다음 세션부터 새 길이가 적용된다 (R1 · ADR-029 §1).
     getBaseline: () => uow.run(globalBaseline),
+    // 조절이 곧 기준이다 (설계 R2) — 엔진이 조절을 처리하면서 이 함수로 저장한다.
+    saveModeLength: (mode, minutes) => writeModeLength(uow, mode, minutes),
     getFocusCountToday: () =>
       uow.run((repos) => repos.sessions.countFocusOn(localKeys().localDate)),
     getFocusSinceLastLong: () => uow.run((repos) => repos.sessions.focusCountSinceLastLong()),

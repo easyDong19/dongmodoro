@@ -1,6 +1,7 @@
 import type { TimerMode, TimerPhase, TimerSnapshot } from '@shared/timer/snapshot'
 import { remainingSec } from '@shared/timer/snapshot'
 import type { Baseline } from './ports'
+import { lengthOf } from './baseline'
 
 /**
  * 타이머 상태 기계 (ux-spec §2, ADR-005). main 이 소유하는 유일한 시간 권위다 —
@@ -45,6 +46,11 @@ export type TimerEngineDeps = {
   notify: (completedMode: TimerMode) => void
   /** 유효 베이스라인 — 세션 시작·idle 진입 시점마다 새로 읽는다 (timer R1). */
   getBaseline: () => Baseline
+  /**
+   * 한 모드의 기준 길이를 쓴다 — 조절이 곧 기준이기 때문이다 (설계 R2).
+   * 엔진은 이것이 DB 인지 모른다. 던지면 조절은 실패로 끝나고 상태는 그대로다.
+   */
+  saveModeLength: (mode: TimerMode, minutes: number) => void
   /** 오늘 focus 세션 수 — 스냅샷마다 새로 읽는다 (세션 라벨 `N번째 집중`). */
   getFocusCountToday: () => number
   /** 마지막 long 이후 focus 완료 수 — 스냅샷마다 새로 읽는다 (long 4회차 판정, I-1). */
@@ -52,7 +58,7 @@ export type TimerEngineDeps = {
   getTaskTitle: (taskId: string) => string | null
 }
 
-const MIN_REMAINING_SEC = 60 // 조절 하한 1분 (R2)
+const MIN_REMAINING_SEC = 60 // 조절 하한 1분 (설계 R4)
 
 export class TimerEngine {
   private mode: TimerMode = 'focus'
@@ -65,8 +71,6 @@ export class TimerEngine {
   private pausedRemainingSec: number | null = null
   private taskId: string | null = null
   private taskTitle: string | null = null
-  /** idle 에서 조절 칩을 눌렀는가 — 눌렀다면 start 가 베이스라인으로 덮지 않는다. */
-  private idleAdjusted = false
   private expiryTimer: unknown = null
 
   constructor(private readonly deps: TimerEngineDeps) {
@@ -92,10 +96,8 @@ export class TimerEngine {
     if (this.phase !== 'idle') {
       throw new Error(`timer.start: cannot start from '${this.phase}'`)
     }
-    // 세션 시작 시점의 유효 베이스라인 (R1). 단, idle 조절은 사용자의 명시적 값이라 이긴다.
-    if (!this.idleAdjusted) {
-      this.durationSec = this.baselineSec(this.mode)
-    }
+    // 세션 시작 시점의 유효 베이스라인 (R1). 조절이 곧 기준이므로 값이 이미 반영돼 있다 (설계 R2).
+    this.durationSec = this.baselineSec(this.mode)
     const at = this.deps.now()
     this.startedAt = at
     this.sessionStartedAtMs = at
@@ -111,7 +113,6 @@ export class TimerEngine {
     }
     if (this.mode !== 'focus') {
       this.mode = 'focus'
-      this.idleAdjusted = false // 휴식 idle 의 조절값은 focus 세션과 무관하다
     }
     this.taskId = taskId
     this.taskTitle = this.deps.getTaskTitle(taskId)
@@ -157,26 +158,25 @@ export class TimerEngine {
     return this.emit()
   }
 
-  /** ±분 조절 — idle·running·paused 전부, 남은 시간 하한 60초 (R2). */
+  /**
+   * ±분 조절 — **대기 중에만** 동작하고, 새 길이는 그 즉시 그 모드의 기준이 된다
+   * (설계 R2·R3). 하한 1분.
+   *
+   * 저장이 상태보다 **먼저**다. 저장이 던지면 durationSec 은 옛 값 그대로이고 전이도
+   * 나가지 않는다 — 다이얼과 저장값이 어긋난 상태를 만들지 않기 위해서다.
+   *
+   * 실행·일시정지에서는 아무 일도 하지 않고 현재 스냅샷을 돌려준다. 예외를 던지지
+   * 않는 이유: 칩이 비활성이라 정상 경로로는 도달하지 않고, IPC 계약의 응답이
+   * 스냅샷이라 무시가 곧 정직한 응답이다.
+   */
   adjust(deltaMin: number): TimerSnapshot {
+    if (this.phase !== 'idle') return this.getSnapshot()
+
     const deltaSec = Math.round(deltaMin * 60)
-    if (this.phase === 'idle') {
-      this.durationSec = Math.max(MIN_REMAINING_SEC, this.durationSec + deltaSec)
-      this.idleAdjusted = true
-    } else if (this.phase === 'running') {
-      const rem = this.remaining()
-      const elapsed = this.durationSec - rem
-      const nextRem = Math.max(MIN_REMAINING_SEC, rem + deltaSec)
-      this.durationSec = elapsed + nextRem // 앵커(startedAt)는 그대로 — 남은 시간만 이동
-      this.clearExpiry()
-      this.scheduleExpiry(nextRem * 1000)
-    } else {
-      const rem = this.pausedRemainingSec ?? 0
-      const elapsed = this.durationSec - rem
-      const nextRem = Math.max(MIN_REMAINING_SEC, rem + deltaSec)
-      this.pausedRemainingSec = nextRem
-      this.durationSec = elapsed + nextRem
-    }
+    const nextSec = Math.max(MIN_REMAINING_SEC, this.durationSec + deltaSec)
+
+    this.deps.saveModeLength(this.mode, nextSec / 60)
+    this.durationSec = nextSec
     return this.emit()
   }
 
@@ -267,7 +267,7 @@ export class TimerEngine {
    * 흔들지 않게 하려는 것이다.
    */
   refreshBaseline(): TimerSnapshot | null {
-    if (this.phase !== 'idle' || this.idleAdjusted) return null
+    if (this.phase !== 'idle') return null
 
     const next = this.baselineSec(this.mode)
     if (next === this.durationSec) return null
@@ -285,7 +285,6 @@ export class TimerEngine {
     this.taskId = null
     this.taskTitle = null
     this.durationSec = this.baselineSec(this.mode)
-    this.idleAdjusted = false
   }
 
   private remaining(): number {
@@ -293,9 +292,7 @@ export class TimerEngine {
   }
 
   private baselineSec(mode: TimerMode): number {
-    const b = this.deps.getBaseline()
-    const min = mode === 'focus' ? b.focusMin : mode === 'short' ? b.shortBreakMin : b.longBreakMin
-    return min * 60
+    return lengthOf(this.deps.getBaseline(), mode) * 60
   }
 
   private scheduleExpiry(ms: number): void {

@@ -63,6 +63,7 @@ describe('IPC 등록 완결성 (ADR-007)', () => {
       onComplete: () => 'focus',
       notify: () => {},
       getBaseline: () => ({ focusMin: 25, shortBreakMin: 5, longBreakMin: 15 }),
+      saveModeLength: () => {},
       getFocusCountToday: () => 0,
       getFocusSinceLastLong: () => 0,
       getTaskTitle: () => null

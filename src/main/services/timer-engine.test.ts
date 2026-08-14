@@ -19,6 +19,7 @@ function makeHarness(overrides: Partial<TimerEngineDeps> = {}): {
   completions: CompletionRecord[]
   notified: TimerMode[]
   log: string[]
+  saved: { mode: TimerMode; minutes: number }[]
   setNextFocusMode: (m: 'short' | 'long') => void
   clock: () => number
 } {
@@ -28,6 +29,8 @@ function makeHarness(overrides: Partial<TimerEngineDeps> = {}): {
   const completions: CompletionRecord[] = []
   const notified: TimerMode[] = []
   const log: string[] = []
+  const saved: { mode: TimerMode; minutes: number }[] = []
+  const lengths: Record<TimerMode, number> = { focus: 25, short: 5, long: 15 }
   let nextFocusMode: 'short' | 'long' = 'short'
 
   const deps: TimerEngineDeps = {
@@ -53,7 +56,16 @@ function makeHarness(overrides: Partial<TimerEngineDeps> = {}): {
       notified.push(mode)
       log.push(`notify:${mode}`)
     },
-    getBaseline: () => ({ focusMin: 25, shortBreakMin: 5, longBreakMin: 15 }),
+    getBaseline: () => ({
+      focusMin: lengths.focus,
+      shortBreakMin: lengths.short,
+      longBreakMin: lengths.long
+    }),
+    saveModeLength: (mode, minutes) => {
+      saved.push({ mode, minutes })
+      // 저장된 값이 곧 기준이므로, 이후의 getBaseline 도 그 값을 돌려줘야 한다.
+      lengths[mode] = minutes
+    },
     getFocusCountToday: () => completions.filter((c) => c.mode === 'focus').length,
     // 실제 리포지토리(focusCountSinceLastLong)와 같은 규칙: 마지막 long 완료 이후의 focus 수.
     getFocusSinceLastLong: () => {
@@ -83,6 +95,7 @@ function makeHarness(overrides: Partial<TimerEngineDeps> = {}): {
     completions,
     notified,
     log,
+    saved,
     setNextFocusMode: (m) => {
       nextFocusMode = m
     },
@@ -169,33 +182,12 @@ describe('TimerEngine — ux-spec §2 상태 기계', () => {
     expect(h.engine.getSnapshot().durationSec).toBe(25 * 60)
   })
 
-  /** idle 조절은 사용자가 이 세션에 대해 명시한 값이다 — `start()` 와 같은 규칙. */
-  it('refreshBaseline: idle 에서 조절해 둔 값을 덮지 않는다 (R2)', () => {
-    let focusMin = 25
-    const h = makeHarness({
-      getBaseline: () => ({ focusMin, shortBreakMin: 5, longBreakMin: 15 })
-    })
-
-    h.engine.adjust(-20) // 25분 → 5분
-    focusMin = 50
-
-    expect(h.engine.refreshBaseline()).toBeNull()
-    expect(h.engine.getSnapshot().durationSec).toBe(5 * 60)
-  })
-
   /** 길이가 안 바뀐 저장이 renderer 를 흔들지 않는다. */
   it('refreshBaseline: 값이 그대로면 전이를 쏘지 않는다', () => {
     const h = makeHarness()
 
     expect(h.engine.refreshBaseline()).toBeNull()
     expect(h.transitions).toHaveLength(0)
-  })
-
-  it('start: idle 에서 조절한 길이는 시작 시 베이스라인으로 덮이지 않는다 (R2)', () => {
-    const h = makeHarness()
-    h.engine.adjust(-20) // 25분 → 5분
-    const snap = h.engine.start()
-    expect(snap.durationSec).toBe(5 * 60)
   })
 
   it('pause: 남은 초 박제, resume: 그 값으로 재시작', () => {
@@ -218,28 +210,8 @@ describe('TimerEngine — ux-spec §2 상태 기계', () => {
     expect(h.activeTimers()[0].at).toBe(h.clock() + 24 * 60 * 1000)
   })
 
-  it('adjust: 실행 중에도 동작, 하한 60초 (R2)', () => {
-    const h = makeHarness()
-    h.engine.start()
-    h.advance(100_000) // 남은 1400초
-
-    const bumped = h.engine.adjust(5)
-    expect(remainingSec(bumped, h.clock())).toBe(1400 + 300)
-
-    const floored = h.engine.adjust(-100) // 남은 시간보다 큰 감산
-    expect(remainingSec(floored, h.clock())).toBe(60)
-    expect(h.activeTimers()).toHaveLength(1)
-    expect(h.activeTimers()[0].at).toBe(h.clock() + 60_000) // 만료 재예약
-
-    // paused 에서도 하한이 지켜진다
-    h.engine.pause()
-    const pausedFloor = h.engine.adjust(-100)
-    expect(pausedRemaining(pausedFloor)).toBe(60)
-  })
-
   it('reset: 기준 길이로 idle, 기록 없음', () => {
     const h = makeHarness()
-    h.engine.adjust(-20)
     h.engine.start()
     h.advance(120_000)
 
@@ -436,6 +408,75 @@ describe('TimerEngine — ux-spec §2 상태 기계', () => {
   })
 })
 
-function pausedRemaining(snap: TimerSnapshot): number | null {
-  return snap.pausedRemainingSec
-}
+describe('조절이 곧 기준이다 (설계 R2·R3)', () => {
+  it('회귀: 집중 30분으로 조절 → 짧은 휴식 → 집중 복귀가 30분이다', () => {
+    const h = makeHarness()
+
+    h.engine.adjust(5) // 25 → 30
+    h.engine.setMode('short')
+    const back = h.engine.setMode('focus')
+
+    expect(back.durationSec).toBe(30 * 60)
+  })
+
+  it('대기 중 조절은 그 모드의 길이를 저장한다', () => {
+    const h = makeHarness()
+
+    h.engine.adjust(5)
+    expect(h.saved).toEqual([{ mode: 'focus', minutes: 30 }])
+
+    h.engine.setMode('short')
+    h.engine.adjust(1) // 5 → 6
+    expect(h.saved).toEqual([
+      { mode: 'focus', minutes: 30 },
+      { mode: 'short', minutes: 6 }
+    ])
+  })
+
+  it('실행 중 조절은 저장하지도, 남은 시간을 바꾸지도 않는다', () => {
+    const h = makeHarness()
+    h.engine.start()
+    h.advance(60_000)
+
+    const before = h.engine.getSnapshot()
+    const after = h.engine.adjust(10)
+
+    expect(h.saved).toEqual([])
+    expect(after.durationSec).toBe(before.durationSec)
+    expect(h.transitions).toHaveLength(1) // start 의 전이 하나뿐 — 조절은 전이를 만들지 않는다
+  })
+
+  it('일시정지 중 조절도 아무 일도 하지 않는다', () => {
+    const h = makeHarness()
+    h.engine.start()
+    h.advance(60_000)
+    h.engine.pause()
+
+    const before = h.engine.getSnapshot()
+    h.engine.adjust(-5)
+
+    expect(h.saved).toEqual([])
+    expect(h.engine.getSnapshot().pausedRemainingSec).toBe(before.pausedRemainingSec)
+  })
+
+  it('하한 1분 — 더 줄여도 1분이고 저장 값도 1이다', () => {
+    const h = makeHarness()
+
+    h.engine.adjust(-100)
+
+    expect(h.engine.getSnapshot().durationSec).toBe(60)
+    expect(h.saved).toEqual([{ mode: 'focus', minutes: 1 }])
+  })
+
+  it('저장이 실패하면 상태를 바꾸지 않고 전이도 내보내지 않는다', () => {
+    const h = makeHarness({
+      saveModeLength: () => {
+        throw new Error('disk full')
+      }
+    })
+
+    expect(() => h.engine.adjust(5)).toThrow('disk full')
+    expect(h.engine.getSnapshot().durationSec).toBe(25 * 60)
+    expect(h.transitions).toHaveLength(0)
+  })
+})
