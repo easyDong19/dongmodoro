@@ -26,7 +26,8 @@ allowed-tools: Read, Grep, Glob, Write, Edit
 `docs/release-notes/<X.Y.Z>.md` — `v` 를 붙이지 않는다 (`2.0.1.md`).
 
 태그는 release 브랜치에서 잘리므로 **그 브랜치에도 이 파일이 있어야** 태그가 통과한다.
-main 에 머지한 뒤 cherry-pick 하는 경로를 탄다.
+**노트를 main 에 머지한 뒤 release 브랜치를 자른다** — 그러면 파일이 처음부터 그 브랜치에
+들어 있어 cherry-pick 할 것이 없다 ([CONTRIBUTING §2](../../../CONTRIBUTING.md)).
 
 ## 자동 구간은 쓰지 않는다
 
