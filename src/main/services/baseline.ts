@@ -1,4 +1,5 @@
 import type { Baseline, Repositories, UnitOfWork } from './ports'
+import type { TimerMode } from '@shared/timer/snapshot'
 
 /** settings 값은 JSON 문자열이다 (ADR-018 §5) — `'25'` 를 파싱해 정수로 되돌린다. */
 function readIntSetting(repos: Repositories, key: string): number {
@@ -41,4 +42,32 @@ export function writeBaseline(uow: UnitOfWork, form: Baseline): Baseline {
     repos.settings.set('long_break_min', JSON.stringify(form.longBreakMin))
     return globalBaseline(repos)
   })
+}
+
+/**
+ * 모드 → 설정 키. **이 매핑의 소유자는 이 파일 하나다.**
+ * 엔진도 화면도 자기 매핑을 갖지 않는다 — 세 곳에 흩어지면 한 곳만 고친 순간
+ * 모드마다 다른 값을 읽는 상태가 만들어진다.
+ */
+const MODE_KEY: Record<TimerMode, string> = {
+  focus: 'focus_min',
+  short: 'short_break_min',
+  long: 'long_break_min'
+}
+
+/** 분 단위. 길이를 모드로 고르는 유일한 함수다. */
+export function lengthOf(baseline: Baseline, mode: TimerMode): number {
+  return mode === 'focus'
+    ? baseline.focusMin
+    : mode === 'short'
+      ? baseline.shortBreakMin
+      : baseline.longBreakMin
+}
+
+/**
+ * 한 모드의 길이만 갱신한다 — 조절이 곧 기준이므로 쓰기 단위가 모드 하나다
+ * (설계 R2). 나머지 두 값은 읽지도 쓰지도 않는다.
+ */
+export function writeModeLength(uow: UnitOfWork, mode: TimerMode, minutes: number): void {
+  uow.run((repos) => repos.settings.set(MODE_KEY[mode], JSON.stringify(minutes)))
 }
