@@ -1,4 +1,4 @@
-# 브랜치 전략 및 릴리즈 규칙
+# 브랜치 전략 및 릴리스 규칙
 
 이 레포는 GitLab Flow 변형(main + release 브랜치)을 따른다.
 아래 규칙을 모든 git 작업에서 엄격히 준수할 것.
@@ -22,7 +22,7 @@
 5. 머지 직후 feature 브랜치 삭제 (로컬 + 원격 모두)
    - 스쿼시 머지된 브랜치는 절대 재사용하지 않는다
 
-### 2. 릴리즈
+### 2. 릴리스
 
 0. **리허설을 먼저 돌린다.** [release.yml](.github/workflows/release.yml) 을 GitHub Actions
    에서 `workflow_dispatch` 로 실행해 `.dmg` 가 만들어지는 것을 확인한다.
@@ -30,19 +30,27 @@
    실패하면 이미 밀어 버린 태그를 지우는 일부터 하게 된다. 리허설은 업로드하지 않고
    아티팩트만 남긴다.
 1. main이 배포 가능한 상태일 때 `release/X.Y` 브랜치를 main에서 생성
-2. `vX.Y.0` 태그를 release 브랜치에서 생성 후 push
+2. **태그를 자르기 전에 `docs/release-notes/<X.Y.Z>.md` 가 그 release 브랜치에 있어야 한다.**
+   이 파일이 곧 릴리스 본문이다 — 형식은
+   [.claude/skills/release-notes/SKILL.md](.claude/skills/release-notes/SKILL.md).
+   main 에 PR 로 넣고 release 브랜치로 cherry-pick 한다.
+3. `vX.Y.Z` 태그를 release 브랜치에서 생성 후 push
    - `git push origin release/X.Y --tags`
-3. 태그 push가 GitHub Actions 릴리즈 워크플로우를 트리거함
-4. 워크플로가 릴리스를 **draft 로** 만든다. 산출물과 노트를 확인한 뒤 사람이 publish 한다 —
+4. 태그 push가 GitHub Actions 릴리스 워크플로우를 트리거함
+5. 워크플로가 릴리스를 **draft 로** 만든다. 산출물과 노트를 확인한 뒤 사람이 publish 한다 —
    태그를 미는 것과 남에게 보이는 것 사이에 한 칸을 둔다.
-   - 자동 생성되는 노트는 **커밋 목록뿐**이다. 마이그레이션·데이터·복귀 절차처럼 사용자가
-     알아야 하는 내용은 [docs/release-notes/](docs/release-notes/) 의 해당 버전 파일에
-     미리 써 두고, publish 전에 draft 본문 위에 붙여 넣는다.
-   - **파괴적 마이그레이션이 있는 릴리스는 그 파일이 없으면 publish 하지 않는다.**
-     복귀선(백업 파일 + 이전 버전 설치 파일)이 노트에 도달하지 않으면 사용자가 되돌릴
-     방법을 알 수 없다 ([ADR-032](docs/architecture/decisions/adr-032-destructive-migration-safety.md)).
-5. 태그를 이미 밀었는데 빌드가 깨졌다면 **태그를 옮기지 않는다.** 받은 사람의 이력이
+   - **노트는 손으로 붙여 넣지 않는다.** `Resolve release notes` 스텝이 그 버전의 파일을
+     찾아 `body_path` 로 넘기고, GitHub 이 자동 생성한 커밋 목록이 그 **아래**에 붙는다.
+     사람이 하는 일은 확인과 publish 뿐이다.
+   - **파일이 없으면 빌드 전에 잡이 죽는다.** 릴리스 객체도 draft 도 만들어지지 않으므로
+     바깥으로 나간 것이 없다. 복귀선이 노트에 도달하지 않는 상태로 publish 되는 일을
+     구조적으로 막는 자리다
+     ([ADR-032](docs/architecture/decisions/adr-032-destructive-migration-safety.md)).
+6. 태그를 이미 밀었는데 빌드가 깨졌다면 **태그를 옮기지 않는다.** 받은 사람의 이력이
    깨진다. 고쳐서 다음 패치 버전으로 낸다.
+   - **예외는 하나다 — 릴리스가 만들어지지 않은 경우.** 노트 파일 누락으로 잡이 죽으면
+     릴리스도 에셋도 생성되지 않았으므로 받은 사람이 없다. 이때는 노트를 넣고 그 태그를
+     지운 뒤 다시 자른다.
 
 ### 3. 핫픽스 (upstream first 원칙)
 
@@ -97,6 +105,8 @@
 - 스쿼시 머지 외의 머지 방식 (merge commit, rebase merge 금지)
 - 태그를 main에 직접 생성 (태그는 항상 release 브랜치에서)
 - 사용자 확인 없이 태그 push (태그 push = 배포 트리거이므로)
+- 노트 파일(`docs/release-notes/<X.Y.Z>.md`) 없이 태그 push
+- 릴리스 본문을 손으로 붙여 넣기 (워크플로가 파일에서 넣는다)
 
 ---
 

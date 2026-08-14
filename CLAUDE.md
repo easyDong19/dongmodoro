@@ -76,3 +76,11 @@
 - cherry-pick 충돌 시 즉시 멈추고 보고. 임의 해결 금지.
 
 이 규칙은 `PreToolUse` 훅([.claude/hooks/protect-git-flow.sh](.claude/hooks/protect-git-flow.sh))으로 도구 레벨에서 강제된다. 차단(deny)·확인(ask) 판정을 받으면 우회하지 말고 규칙에 맞는 경로로 다시 수행한다.
+
+## 릴리스 노트는 저장소의 파일이 곧 릴리스 본문이다
+
+- 버전마다 [docs/release-notes/](docs/release-notes/) 에 `<X.Y.Z>.md` 를 둔다. 이 파일은 **변환 없이 그대로** 릴리스 본문 맨 위에 실린다 — 저장소 내부 사정(파일의 용도·워크플로 설명)과 상대 경로 링크를 쓰지 않는 이유가 이것이다. 링크는 절대 URL 이고 그 버전의 태그에 고정한다.
+- `## What's Changed`·`**Full Changelog**` 는 **손으로 쓰지 않는다.** GitHub 의 `generate_release_notes` 가 파일 아래에 붙인다. 사람이 쓰는 것은 그 위쪽뿐이다.
+- 구조(패치 / 마이너·메이저), 필수·조건부 섹션, 설치 블록 원문은 [.claude/skills/release-notes/SKILL.md](.claude/skills/release-notes/SKILL.md) 가 소유한다.
+- 태그는 release 브랜치에서 잘리므로 **노트 파일도 그 브랜치에 cherry-pick 되어 있어야** 한다.
+- 파일이 없으면 [release.yml](.github/workflows/release.yml) 의 `Resolve release notes` 스텝이 **빌드 전에** 잡을 죽인다 — draft 조차 만들어지지 않는다 ([ADR-032](docs/architecture/decisions/adr-032-destructive-migration-safety.md)).
