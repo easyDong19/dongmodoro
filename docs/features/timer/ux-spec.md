@@ -52,7 +52,8 @@
 | running | 시간 만료 | idle (모드 자동 전환) | 완료 기록 + 알림 (§6) |
 | idle/running/paused | 모드 탭 클릭 | 해당 모드 idle | 실행 중 전환은 확인 없이 현재 세션 폐기 — 기록 없음 |
 
-- 조절 칩은 idle·running·paused 모두 동작, 하한 1분 (PRD R2).
+- 조절 칩은 idle 에서만 동작하며 그 값이 곧 기준이 된다. running·paused 에서는 비활성이다
+  (PRD R2 · ADR-033).
 - `완료 처리`는 focus 의 running/paused 에서 노출된다.
 
 > ⚠️ 가정: 휴식 모드의 running 중에도 같은 자리 버튼이 "휴식을 끝내고 집중으로

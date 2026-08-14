@@ -239,9 +239,7 @@ function boot(): void {
       const timerHost = startTimerHost(uow, () => mainWindow)
       stopTimerHost = timerHost.stop
       registerTimerHandlers(timerHost.engine, uow)
-      // 설정은 타이머 뒤에 등록한다 — 길이 저장이 대기 중인 다이얼을 갱신해야 하고,
-      // 그러려면 엔진이 이미 살아 있어야 한다 (ADR-029, engine.refreshBaseline).
-      registerSettingsHandlers(uow, () => mainWindow, timerHost.engine)
+      registerSettingsHandlers(uow, () => mainWindow)
       // 종료 확인 조건 (timer R13): focus 가 running/paused 일 때만 묻는다.
       mainWindow = createWindow(initialTheme, () => {
         if (resetInProgress) return false

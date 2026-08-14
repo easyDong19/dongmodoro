@@ -10,7 +10,9 @@
 ## 현재 상태
 
 - In Review — M3b 에서 판정·확정·화면이 구현됐다.
-  뽀모 길이 편집 진입점(R24·R38)만 pomo-baseline 마일스톤으로 남아 있다.
+  뽀모 길이 편집 진입점(R24·R38)은 [ADR-033](../../architecture/decisions/adr-033-adjust-as-baseline.md)
+  으로 폐기됐다 — 정산 패널은 길이에 대해 아무것도 모르고, 편집은 타이머의 ± 칩
+  하나로 단일화됐다.
 
 ## 문서 안내
 
@@ -27,7 +29,7 @@
 - [ADR-010](../../architecture/decisions/adr-010-week-definition.md): 주 정의 — 월요일 시작, 주 키 = 월요일 날짜, plan_lead_days
 - [ADR-011](../../architecture/decisions/adr-011-schema-final.md): `weeks`·`week_items.origin_week`·`completed_at`/`dropped_at` 스키마 (§1·§2 는 ADR-012·013 이 부분 정정)
 - [ADR-012](../../architecture/decisions/adr-012-aggregation-predicate.md): 집계 술어 단일화 — 항목 소진의 주 조건, 이월의 `milestone_id` 승계·조각 재부모화, 기타 행 차액 정의
-- [ADR-013](../../architecture/decisions/adr-013-baseline-budget-effect.md): 베이스라인·예산의 편집 시점과 효력 시점 분리 — 정산은 진입점만 갖고, 효력은 다음 주 경계부터
+- [ADR-013](../../architecture/decisions/adr-013-baseline-budget-effect.md): 베이스라인·예산의 편집 시점과 효력 시점 분리 (전체 폐기됨 — ADR-029·030·033 이 각 절을 대체했다). 인용은 이력 근거로만 남긴다
 - [ADR-014](../../architecture/decisions/adr-014-deletion-and-archive.md): 삭제 표현 — 폐기(`dropped_at`)와 삭제(`deleted_at`)의 구분
 - [ADR-007](../../architecture/decisions/adr-007-ipc-contract.md): 확정은 유스케이스 1개 = 트랜잭션 1개
 - [design-system/principles.md](../../design-system/principles.md): 실패 프레임 금지(§1), `--danger` 조건(§2), 이모지 금지(§6)

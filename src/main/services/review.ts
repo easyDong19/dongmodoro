@@ -1,7 +1,6 @@
 import { addDays, addWeeks, weekOfDay, weeksBetween, weeksSince } from '@shared/time'
 import { STALE_RANGE } from '@shared/ipc/contracts'
-import { globalBaseline } from './baseline'
-import type { Baseline, CompletedItemRow, Repositories, ReviewWeekFact, UnitOfWork } from './ports'
+import type { CompletedItemRow, Repositories, ReviewWeekFact, UnitOfWork } from './ports'
 
 const WATERMARK = 'last_settled_week'
 const LEAD = 'plan_lead_days'
@@ -147,7 +146,6 @@ export type ReviewPending =
       }
       completed: CompletedItemRow[]
       pending: PendingDecisionRow[]
-      baseline: Baseline
     }
 
 /** 2택 대상에 파생값을 붙인다. **패널과 확정이 같은 함수를 쓴다.** */
@@ -190,10 +188,7 @@ export function reviewPending(uow: UnitOfWork, todayKey: string): ReviewPending 
         lastStudiedMeasuredSec: last?.measuredSec ?? null
       },
       completed: repos.review.listCompleted(st.from, st.to),
-      pending: pendingRows(repos, st.from, st.to),
-      // 계획 대상 주의 스냅샷이 아니라 **전역 설정값**이다 — 길이 표시는 "앞으로 적용될
-      // 값"을 말하는 자리이기 때문이다 (ADR-013 §3).
-      baseline: globalBaseline(repos)
+      pending: pendingRows(repos, st.from, st.to)
     }
   })
 }

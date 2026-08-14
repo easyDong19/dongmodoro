@@ -451,9 +451,10 @@ describe('reviewPending — 패널 데이터', () => {
     expect(panel(uow, SUNDAY).pending[0].carryWeeks).toBe(4)
   })
 
-  it('길이는 전역 설정값이다 (ADR-029 §2)', () => {
+  it('길이를 payload 에 싣지 않는다 — 화면이 길이를 그리지 않는다 (설계 R6)', () => {
     const { uow } = seeded()
-    expect(panel(uow, SUNDAY).baseline.focusMin).toBe(25)
+
+    expect('baseline' in panel(uow, SUNDAY)).toBe(false)
   })
 
   it('계획 대상 주가 오늘이 속한 주인지 알린다 (ux-spec §7.1)', () => {

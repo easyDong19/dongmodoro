@@ -63,14 +63,14 @@ describe('IPC 등록 완결성 (ADR-007)', () => {
       onComplete: () => 'focus',
       notify: () => {},
       getBaseline: () => ({ focusMin: 25, shortBreakMin: 5, longBreakMin: 15 }),
+      saveModeLength: () => {},
       getFocusCountToday: () => 0,
       getFocusSinceLastLong: () => 0,
       getTaskTitle: () => null
     })
     registerTimerHandlers(engine, uow)
-    // 창은 테마 변경 시에만 필요하고 fn 이 호출되지 않으므로 null 로 충분하다. 엔진은
-    // index.ts 와 같은 순서로 넘긴다 — 길이 저장이 대기 중인 다이얼을 갱신한다.
-    registerSettingsHandlers(uow, () => null, engine)
+    // 창은 테마 변경 시에만 필요하고 fn 이 호출되지 않으므로 null 로 충분하다.
+    registerSettingsHandlers(uow, () => null)
 
     const declared = allChannels(CHANNELS).sort()
     expect(declared.length).toBeGreaterThan(0)

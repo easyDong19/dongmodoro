@@ -124,14 +124,18 @@ export function TimerCard() {
         </div>
       ) : null}
 
+      {/* 조절은 대기 중에만 — 조절이 곧 기준이므로 실행 중 조절은 의도치 않은 기준
+          변경이 된다 (설계 R3). 숨기지 않는 이유: 버튼 줄이 상태마다 재배치되면
+          레이아웃이 흔들리고, 비활성 자체가 "지금은 바꿀 수 없다"를 말한다. */}
       <div className="flex items-center justify-center gap-2">
         {ADJUST_CHIPS.map((delta) => (
           <button
             key={delta}
             type="button"
+            disabled={isRunning || isPaused}
             aria-label={`${delta > 0 ? '+' : ''}${delta}분`}
             onClick={() => void api.timer.adjust(delta)}
-            className="flex h-6 min-w-6 items-center justify-center px-2 text-xs text-ink"
+            className="flex h-6 min-w-6 items-center justify-center px-2 text-xs text-ink disabled:pointer-events-none disabled:opacity-50"
             style={{ borderRadius: 'var(--radius-sm)', background: 'var(--glass)' }}
           >
             {delta > 0 ? `+${delta}` : delta}

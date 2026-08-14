@@ -8,12 +8,6 @@
 export const keys = {
   appInfo: () => ['system', 'appInfo'] as const,
   settings: () => ['settings'] as const,
-  /**
-   * 전역 분모 편집 폼. **일부러 `settings()` 아래에 둔다** — 두 쿼리가 같은 키를 쓰면
-   * 응답 모양이 다른데도 캐시가 하나로 합쳐져, 먼저 마운트된 쪽의 데이터가 다른 쪽에
-   * 그대로 흘러든다. 접두사로 두면 그 충돌 없이 `settings()` 한 번이 둘을 함께 턴다.
-   */
-  baseline: () => ['settings', 'baseline'] as const,
   timer: () => ['timer'] as const,
   clock: () => ['clock'] as const,
   reviewPending: () => ['review', 'pending'] as const,
