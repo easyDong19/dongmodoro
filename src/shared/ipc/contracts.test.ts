@@ -120,6 +120,21 @@ describe('settings.getBaseline contract (pomo-baseline R6)', () => {
   })
 })
 
+describe('timer.adjust contract (설계 R2 — 조절이 곧 저장이다)', () => {
+  it('정수 분 조절을 받는다', () => {
+    expect(contracts.timer.adjust.req.parse([5])).toEqual([5])
+    expect(contracts.timer.adjust.req.parse([-20])).toEqual([-20])
+  })
+
+  /**
+   * 조절이 이제 그 즉시 기준 저장이라, 소수 분이 통과하면 소수 분짜리 기준이 DB 에
+   * 그대로 쓰인다 — 앱이 뜻을 알 수 없는 길이다. 경계에서 막는다.
+   */
+  it('소수 분 조절을 거부한다', () => {
+    expect(contracts.timer.adjust.req.safeParse([5.5]).success).toBe(false)
+  })
+})
+
 describe('calendar contract — 달력 키 형식은 경계에서 거른다 (ADR-011 §6)', () => {
   it('zero-pad 없는 월 키를 거부한다', () => {
     expect(contracts.calendar.month.req.safeParse(['2026-8']).success).toBe(false)

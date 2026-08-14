@@ -255,7 +255,8 @@ export const contracts = {
     pause: { req: z.tuple([]), res: timerSnapshotSchema },
     resume: { req: z.tuple([]), res: timerSnapshotSchema },
     reset: { req: z.tuple([]), res: timerSnapshotSchema },
-    adjust: { req: z.tuple([z.number()]), res: timerSnapshotSchema },
+    // 조절이 이제 기준 저장이다(설계 R2) — 소수 분은 앱이 뜻을 알 수 없는 길이라 정수로 막는다.
+    adjust: { req: z.tuple([z.int()]), res: timerSnapshotSchema },
     completeEarly: { req: z.tuple([]), res: timerSnapshotSchema },
     setMode: { req: z.tuple([z.enum(['focus', 'short', 'long'])]), res: timerSnapshotSchema }
   },
