@@ -83,9 +83,11 @@ _Avoid_: 스트릭, 연속 기록, 연속 일수
 | 계획 대비 | 정산에서 예산과 소진을 비교하던 축 | 없음 — 정산은 사실만 요약한다 |
 | 과적 | 예산을 넘긴 계획 상태 | 없음 (대체 신호는 미정) |
 | 유효 베이스라인 · 유효 예산 | 주별로 박제된 길이·예산을 읽던 조회 | 길이는 전역 값 직독 |
+| 임시 조절 | 세션 한 번만 적용되던 ± 조절 | 조절이 곧 기준이다 (ADR-033) |
 
 근거: [ADR-030](docs/architecture/decisions/adr-030-time-as-progress-currency.md) ·
-[ADR-031](docs/architecture/decisions/adr-031-settlement-without-est.md)
+[ADR-031](docs/architecture/decisions/adr-031-settlement-without-est.md) ·
+[ADR-033](docs/architecture/decisions/adr-033-adjust-as-baseline.md)
 
 ## 표기 규칙
 
