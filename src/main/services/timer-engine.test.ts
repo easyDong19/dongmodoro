@@ -130,7 +130,7 @@ describe('TimerEngine — ux-spec §2 상태 기계', () => {
 
     expect(h.engine.start().durationSec).toBe(25 * 60)
 
-    focusMin = 50 // 진행 중에 `조정` 에서 길이를 바꿨다
+    focusMin = 50 // 진행 중에 저장된 길이가 바뀌었다고 가정한다 (getBaseline mock 직접 갱신)
     expect(h.engine.getSnapshot().durationSec).toBe(25 * 60) // 진행 중인 세션은 그대로
 
     h.advance(25 * 60 * 1000)

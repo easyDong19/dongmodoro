@@ -169,9 +169,6 @@ output: z.object({
     measuredSec: z.number().int().min(0), // 그 항목의 그 주 측정 시간(초)
     carryWeeks: z.number().int().min(1),  // 파생식 표 (Q12)
   })),
-  baseline: z.object({                 // 뽀모 길이 진입점의 **현재 유효 설정값** 표시용
-    focusMin: z.number().int(), shortBreakMin: z.number().int(), longBreakMin: z.number().int(),
-  }),
 })
 ```
 
@@ -191,9 +188,9 @@ output: z.object({
 - **개수 필드가 계약 전체에 없다** (ADR-030 §1). 주 행·항목 행·조각 행 어디에도
   `spentPomos` 가 없고, 진행을 말하는 필드는 `measuredSec` 하나다. 계약에 없으면 화면이
   되살릴 수 없다는 것이 이 부재의 목적이다.
-- `baseline` 은 표시 전용이다. 이 값을 바꾸는 것은 `review.settle` 이 아니라
-  독립 명령이다 (아래 참고). **전역 설정값을 준다** — 계획 대상 주의 스냅샷이 아니다.
-  그 자리는 "앞으로 적용될 값"을 말하는 자리이기 때문이다 (ADR-029 §2).
+- **`baseline` 필드가 계약에 없다** (ADR-033 §3). 정산 패널은 길이에 대해 아무것도
+  모른다 — 표시도 진입점도 없다. 길이의 유일한 편집 경로는 대기 중인 타이머의 ± 칩이고,
+  ± 조절 자체가 저장이라 확인·확정 명령이 따로 없다.
 - **`targetWeekBudget` 이 없다** (ADR-030 §1). 예산이 폐기된 통화라 확정 섹션의 중립
   사실 줄이 비교할 분모를 갖지 않는다 — 그 줄은 이제 `이월 N건` 하나만 말한다.
 
@@ -252,18 +249,16 @@ output: z.object({
 남는 에러가 하나뿐인 것은 의도된 결과다. 정산 확정이 실패할 수 있는 유일한 정상
 경로는 "보고 있던 범위가 실제로 달라졌다"뿐이다.
 
-### 뽀모 길이 변경은 `settle` 의 입력이 아니다
+### 뽀모 길이는 이 기능의 관심사가 아니다
 
-ADR-013 §3 에 따라 길이 편집은 **`settings` 를 갱신하는 독립 명령**이고, 효력은
-**다음 주 경계부터**다. 따라서
+ADR-033 §3 에 따라 길이 편집 경로는 대기 중인 타이머의 ± 칩 하나로 단일화됐다.
+정산 패널은 길이를 표시하지도, 그리로 가는 진입점을 두지도 않는다. 따라서
 
-- `review.settle` 입력에 `baseline` 이 **없다.** 정산 확정 트랜잭션은 길이를 쓰지 않는다.
-- 이미 스냅샷이 박제된 주의 값은 어떤 편집으로도 변하지 않는다. 진행 중인 주에
-  스냅샷이 없으면 그 주 첫 세션 기록 시점의 값으로 박제된다 (ADR-013 §2 — sessions
-  기록 경로 소관).
-- 정산 화면의 **진입점은 유지**한다 (UX 프레이밍). 명령 이름·유효 범위·기본값은
-  pomo-baseline 소관이며, 이 문서는 "정산이 그 명령을 호출할 뿐 트랜잭션을 공유하지
-  않는다"만 고정한다.
+- `review.settle` 입력에 `baseline` 이 **없다.** 정산 확정 트랜잭션은 길이를 쓰지 않는다
+  (이 사실은 바뀌지 않았다 — ADR-029 §2, 길이의 유일한 저장소는 `settings` 전역값이다).
+- `review.getPending()` 응답에도 `baseline` 이 **없다** (위 계약 참고). 길이 값을
+  읽고 쓰는 코드는 전부 timer·pomo-baseline 소관이고, 이 기능은 그 값을 참조조차
+  하지 않는다.
 
 ### `review.dismissBanner()` — 만들지 않는다
 
@@ -287,7 +282,6 @@ Q5 가 닫은 구멍이 다시 열린다. 세션 내 임시 숨김은 renderer �
 |---|---|---|
 | `settings` | `last_settled_week` | **판정의 유일한 저장 입력** (워터마크) |
 | `settings` | `plan_lead_days` | 계획 대상 주 계산 (기본 1) |
-| `settings` | `focus_min`·`short_break_min`·`long_break_min` | 길이 진입점의 현재 값 표시 |
 | `weeks` | `week` | `earliestRecordedWeek` 의 후보 하나뿐이다 — 스냅샷 컬럼은 아무도 읽지 않는다 (ADR-030 §4) |
 | `week_items` | `id`·`week`·`title`·`milestone_id`·`origin_week`·`carry_from_id`·`is_system`·`completed_at`·`dropped_at`·`deleted_at` | 2택 대상 조회, 배지 계산, 완료 목록 |
 | `sessions` | `duration_sec`·`kind`·`local_week`·`local_date`·`task_id` | 측정 시간·공부한 날 수·차액 |
@@ -556,7 +550,7 @@ function settle(input): SettleResult {
 | 상대 | 이 기능이 보장하는 것 |
 |---|---|
 | week-plan | 확정 후 계획 대상 주에는 이월 항목이 `days = '[]'` 로 존재한다. 신규 할당·요일 배치는 플래너가 이어서 한다 |
-| pomo-baseline | 정산은 길이 변경의 **진입점**일 뿐이며, 확정 트랜잭션은 길이를 쓰지 않는다. 저장은 즉시 효력을 갖고 적용은 다음 세션부터다 (ADR-029 §1) |
+| pomo-baseline | 정산은 길이에 대해 아무것도 모른다 — 표시도 진입점도 없다 (ADR-033 §3). 편집은 타이머의 ± 칩 하나로 단일화됐고, 저장은 즉시 효력을 갖고 적용은 다음 세션부터다 (ADR-029 §1) |
 | milestones | 이월은 `milestone_id` 를 승계하므로, 확정 후 마일스톤에 연결된 주간 항목이 늘어난다. 마일스톤 행 자체는 건드리지 않는다. 월말 마일스톤 재설정 흐름은 **v1 비범위** |
 | today-tasks | 확정은 `task_pulls` 행을 만들거나 지우지 않는다. 다만 미완료 조각이 이월 항목으로 재부모화되므로(5b), 이미 pull 된 조각은 오늘 목록에 남은 채 **소속 항목만** 바뀐다 |
 | calendar-records | 확정은 `sessions` 를 수정하지 않는다. 정산 후의 세션도 원래 주에 정상 귀속된다 (시나리오 7) |

@@ -135,7 +135,7 @@ export function TimerCard() {
             disabled={isRunning || isPaused}
             aria-label={`${delta > 0 ? '+' : ''}${delta}분`}
             onClick={() => void api.timer.adjust(delta)}
-            className="flex h-6 min-w-6 items-center justify-center px-2 text-xs text-ink disabled:opacity-40"
+            className="flex h-6 min-w-6 items-center justify-center px-2 text-xs text-ink disabled:pointer-events-none disabled:opacity-50"
             style={{ borderRadius: 'var(--radius-sm)', background: 'var(--glass)' }}
           >
             {delta > 0 ? `+${delta}` : delta}

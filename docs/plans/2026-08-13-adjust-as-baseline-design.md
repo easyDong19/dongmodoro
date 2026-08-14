@@ -56,6 +56,15 @@
 
 ### R4. 하한은 1분이다
 
+> ⚠️ 구현 중 정정 (2026-08-14): 이 설계는 하한이 IPC 계약과 SQLite CHECK 양쪽에서
+> **거부**된다고 적었으나, 실제 구현은 저장 경로가 대기 중 조절 하나로 좁혀지면서
+> **clamp** 로 바뀌었다 — `Math.max(MIN_REMAINING_SEC, …)` (`timer-engine.ts`) 하나가
+> 하한을 지킨다. IPC `.min(1)` 계약은 `setBaseline` 채널과 함께, SQLite CHECK
+> (`weeks_baseline_range`) 는 `weeks` 테이블과 함께 이미 사라진 뒤였다. 계획 문서는
+> 이력이라 원문은 그대로 두고 이 각주로만 정정한다. 확정 근거는
+> [pomo-baseline PRD R5](../features/pomo-baseline/prd.md) 와
+> [ADR-033](../architecture/decisions/adr-033-adjust-as-baseline.md) Consequences.
+
 기존 규칙 그대로다. 1분에서 더 줄이려 해도 1분이며, 하한은 IPC 계약과 SQLite CHECK
 양쪽에서 거부된다 ([ADR-011 §6](../architecture/decisions/adr-011-schema-final.md) ·
 [ADR-019 §3](../architecture/decisions/adr-019-constraint-implementation.md)).
