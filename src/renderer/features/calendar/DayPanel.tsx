@@ -43,7 +43,7 @@ export function DayPanel({ data, todayKey }: { data: DayResponse; todayKey: stri
               : `집중 ${data.focusCount}회 · 할 일 ${completed}/${data.tasks.length} 완료`}
           </p>
 
-          <ul className="flex min-h-0 flex-col gap-1 overflow-y-auto">
+          <ul className="scroll-area flex min-h-0 flex-col gap-1 overflow-y-auto">
             {data.tasks.map((t) => (
               <li
                 key={t.taskId}

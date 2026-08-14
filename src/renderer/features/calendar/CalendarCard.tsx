@@ -48,7 +48,7 @@ export function CalendarCard() {
         </div>
       </div>
 
-      <div className="min-h-0 flex-1 overflow-y-auto">
+      <div className="scroll-area min-h-0 flex-1 overflow-y-auto">
         {grid.data ? (
           <MonthGrid
             data={grid.data}

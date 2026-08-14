@@ -106,7 +106,7 @@ export function ReviewPanel({
           바뀌지 않는다 (§10). 앞의 넷은 스크롤하고 확정만 하단에 고정된다. */}
       <div
         data-testid="review-sections"
-        className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-4 py-3"
+        className="scroll-area flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-4 py-3"
       >
         <SummarySection
           summary={data.summary}

@@ -65,7 +65,7 @@ export function MilestoneCard() {
       ) : null}
 
       {data.items.length > 0 ? (
-        <ul className="flex min-h-0 flex-col gap-1.5 overflow-y-auto">
+        <ul className="scroll-area flex min-h-0 flex-col gap-1.5 overflow-y-auto">
           {data.items.map((item, i) => (
             <MilestoneRow
               key={item.id}

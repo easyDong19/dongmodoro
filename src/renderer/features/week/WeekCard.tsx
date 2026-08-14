@@ -251,7 +251,7 @@ export function WeekCard() {
           위에서부터 쌓는다 — 목록은 읽는 순서가 있는 것이다. */}
       <ul
         data-testid="week-item-list"
-        className={`flex min-h-0 flex-1 flex-col overflow-y-auto px-2 py-2 ${
+        className={`scroll-area flex min-h-0 flex-1 flex-col overflow-y-auto px-2 py-2 ${
           items.length === 0 && !otherRow.visible ? 'justify-center' : ''
         }`}
       >
