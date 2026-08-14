@@ -140,56 +140,6 @@ describe('TimerEngine — ux-spec §2 상태 기계', () => {
     expect(h.engine.start().durationSec).toBe(50 * 60) // 다음 세션부터 새 길이
   })
 
-  /**
-   * 위 테스트가 통과하는데도 화면은 틀렸던 자리다 — **엔진은 맞고 다이얼만 늦었다.**
-   *
-   * 2.0.0 을 실기기에서 돌려보고 잡았다: 40분에서 15분으로 저장해도 다이얼이 `40:00`
-   * 을 유지하다가 시작을 누르는 순간 `14:59` 로 튀었다. 저장과 시작 사이에 다이얼이
-   * 다음 세션 길이를 틀리게 말한다. 1.x 에서는 편집 효력이 다음 주였으므로 옛 길이를
-   * 그리는 것이 사실과 맞았고, ADR-029 가 그 전제를 죽였다.
-   */
-  it('refreshBaseline: 대기 중인 다이얼이 새 길이를 바로 반영한다 (ADR-029)', () => {
-    let focusMin = 40
-    const h = makeHarness({
-      getBaseline: () => ({ focusMin, shortBreakMin: 5, longBreakMin: 15 })
-    })
-
-    expect(h.engine.getSnapshot().durationSec).toBe(40 * 60)
-
-    focusMin = 15 // `조정` 에서 저장했다
-    const snap = h.engine.refreshBaseline()
-
-    expect(snap?.durationSec).toBe(15 * 60)
-    expect(h.engine.getSnapshot().durationSec).toBe(15 * 60)
-    expect(h.transitions).toHaveLength(1) // renderer 가 갱신될 근거
-    // 시작해도 같은 값이다 — 다이얼이 약속한 길이와 실제로 도는 길이가 같다.
-    expect(h.engine.start().durationSec).toBe(15 * 60)
-  })
-
-  it('refreshBaseline: 진행 중·일시정지 세션의 길이는 건드리지 않는다 (ADR-029)', () => {
-    let focusMin = 25
-    const h = makeHarness({
-      getBaseline: () => ({ focusMin, shortBreakMin: 5, longBreakMin: 15 })
-    })
-
-    h.engine.start()
-    focusMin = 50
-    expect(h.engine.refreshBaseline()).toBeNull()
-    expect(h.engine.getSnapshot().durationSec).toBe(25 * 60)
-
-    h.engine.pause()
-    expect(h.engine.refreshBaseline()).toBeNull()
-    expect(h.engine.getSnapshot().durationSec).toBe(25 * 60)
-  })
-
-  /** 길이가 안 바뀐 저장이 renderer 를 흔들지 않는다. */
-  it('refreshBaseline: 값이 그대로면 전이를 쏘지 않는다', () => {
-    const h = makeHarness()
-
-    expect(h.engine.refreshBaseline()).toBeNull()
-    expect(h.transitions).toHaveLength(0)
-  })
-
   it('pause: 남은 초 박제, resume: 그 값으로 재시작', () => {
     const h = makeHarness()
     h.engine.start()

@@ -14,20 +14,12 @@ type Panel = Extract<ReviewPending, { needed: true }>
 const THIS_WEEK = '2026-08-24'
 
 /**
- * 패널의 안내 섹션이 `조정` 진입점을 품으면서 이 패널도 쿼리를 쓰는 화면이 됐다
- * (pomo-baseline R25). 값을 읽지 못하면 `조정` 이 비활성일 뿐 나머지 섹션은 그대로다.
+ * 길이 편집은 이제 타이머의 ± 칩이 유일한 경로다 (설계 R6) — 정산 패널은 길이를
+ * 그리지도, 고치지도 않는다. 그래도 패널은 react-query 를 쓰는 화면이라 `window.api`
+ * 는 여전히 필요하다.
  */
 function withQuery(node: ReactNode) {
-  window.api = {
-    settings: {
-      getBaseline: vi.fn().mockResolvedValue({
-        focusMin: 25,
-        shortBreakMin: 5,
-        longBreakMin: 15
-      }),
-      setBaseline: vi.fn()
-    }
-  } as unknown as Api
+  window.api = {} as unknown as Api
 
   const qc = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } }
@@ -65,7 +57,6 @@ function panel(over: Partial<Panel> = {}): Panel {
         carryWeeks: 1
       }
     ],
-    baseline: { focusMin: 25, shortBreakMin: 5, longBreakMin: 15 },
     ...over
   }
 }

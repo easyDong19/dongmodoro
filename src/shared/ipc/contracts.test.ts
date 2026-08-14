@@ -71,55 +71,6 @@ describe('settings.getTheme · setTheme contract (design-system ADR-010 §1)', (
   })
 })
 
-describe('settings.setBaseline contract (pomo-baseline R5)', () => {
-  const form = { focusMin: 25, shortBreakMin: 5, longBreakMin: 15 }
-
-  it('accepts the seeded defaults', () => {
-    expect(contracts.settings.setBaseline.req.parse([form])).toEqual([form])
-  })
-
-  /** 가용량은 폐기된 통화다 (ADR-030) — strictObject 가 남은 필드를 경계에서 되돌린다. */
-  it('rejects a leftover capacity field', () => {
-    expect(() => contracts.settings.setBaseline.req.parse([{ ...form, capacity: null }])).toThrow()
-  })
-
-  /**
-   * A5 의 네 값이다. 이 거부가 경계에 없으면 `focus_min = 0` 인 DB 가 만들어지고,
-   * 그 주의 타이머는 즉시 끝나는 세션을 무한히 기록한다.
-   */
-  it.each([0, -5, 12.5])('rejects focusMin %p', (focusMin) => {
-    expect(() => contracts.settings.setBaseline.req.parse([{ ...form, focusMin }])).toThrow()
-  })
-
-  it('rejects a missing focusMin', () => {
-    const { focusMin: _dropped, ...rest } = form
-    expect(() => contracts.settings.setBaseline.req.parse([rest])).toThrow()
-  })
-})
-
-describe('settings.getBaseline contract (pomo-baseline R6)', () => {
-  const res = { focusMin: 25, shortBreakMin: 5, longBreakMin: 15 }
-
-  it('takes no arguments', () => {
-    expect(contracts.settings.getBaseline.req.parse([])).toEqual([])
-    expect(() => contracts.settings.getBaseline.req.parse([1])).toThrow()
-  })
-
-  it('returns the three lengths and nothing else', () => {
-    expect(contracts.settings.getBaseline.res.parse(res)).toEqual(res)
-  })
-
-  /**
-   * 시간 비교의 기준 개수는 그 분모(유효 예산·가용량 합)와 함께 폐기됐다
-   * (ADR-029 §3). 파생 필드가 다시 붙으면 여기가 먼저 깨져야 한다.
-   */
-  it('rejects the retired basis fields', () => {
-    expect(() =>
-      contracts.settings.getBaseline.res.parse({ ...res, basisPomos: 24, basisSource: 'budget' })
-    ).toThrow()
-  })
-})
-
 describe('timer.adjust contract (설계 R2 — 조절이 곧 저장이다)', () => {
   it('정수 분 조절을 받는다', () => {
     expect(contracts.timer.adjust.req.parse([5])).toEqual([5])

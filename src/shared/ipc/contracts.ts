@@ -34,21 +34,6 @@ const clockBoundarySchema = z.strictObject({
 const themeSchema = z.enum(['light', 'dark'])
 
 /**
- * 뽀모 길이 3종 — 편집 폼이 주고받는 모든 것 (pomo-baseline R5·R6).
- *
- * 하한이 여기 있는 것이 **첫 번째 거부 지점**이다 (두 번째는 SQLite CHECK, ADR-011 §6).
- * 길이는 1분 이상 정수이며 0·음수·비정수·빈 값은 경계에서 막힌다 (A5).
- *
- * `capacity` 가 없다 — 요일별 가용량은 폐기된 통화다 (ADR-030). 저장 즉시 효력을 가지며
- * 적용 시점은 다음 세션 시작이므로, 계약에 효력 시점을 말하는 필드도 없다 (ADR-029 §1).
- */
-const baselineFormSchema = z.strictObject({
-  focusMin: z.int().min(1),
-  shortBreakMin: z.int().min(1),
-  longBreakMin: z.int().min(1)
-})
-
-/**
  * `TodayRow`(main/services/ports.ts) 를 그대로 미러링한다 — 필드·nullable 이 어긋나면
  * 여기가 먼저 깨져야 한다 (choke-point payload, ADR-025 §3).
  *
@@ -517,18 +502,7 @@ export const contracts = {
               measuredSec: z.int().min(0)
             })
           ),
-          pending: z.array(pendingRowSchema),
-          /**
-           * 패널이 현재 값을 적는 **표시의 유일한 출처**다. 편집은 `settings.getBaseline`
-           * 이 따로 읽는다 — 같은 사실을 두 경로로 그리면 저장 직후 한쪽만 갱신된
-           * 순간이 화면에 보인다. 저장 후 이 값을 갱신하는 것은 `baseline-changed`
-           * 무효화의 몫이다.
-           */
-          baseline: z.strictObject({
-            focusMin: z.int(),
-            shortBreakMin: z.int(),
-            longBreakMin: z.int()
-          })
+          pending: z.array(pendingRowSchema)
         })
       ])
     },
@@ -581,18 +555,7 @@ export const contracts = {
      * 갱신하게 하려는 것이다. 값 정규화가 main 에 있으므로(레거시 `system` → `dark`)
      * 보낸 값과 저장된 값이 다를 수 있는 경로가 실제로 존재한다.
      */
-    setTheme: { req: z.tuple([themeSchema]), res: z.strictObject({ theme: themeSchema }) },
-    /**
-     * 길이 3종 조회 (pomo-baseline R6). 응답은 **저장된 값 그대로**이며 파생 필드가
-     * 붙지 않는다 — 시간 비교의 기준 개수(`basisPomos`·`basisSource`)는 그 분모였던
-     * 유효 예산·가용량과 함께 폐기됐다 (ADR-029 §3).
-     */
-    getBaseline: { req: z.tuple([]), res: baselineFormSchema },
-    /**
-     * 응답이 `void` 가 아니라 **저장된 값**인 이유는 `setTheme` 과 같다 — 화면이 낙관적
-     * 추측이 아니라 사실로 갱신하게 한다.
-     */
-    setBaseline: { req: z.tuple([baselineFormSchema]), res: baselineFormSchema }
+    setTheme: { req: z.tuple([themeSchema]), res: z.strictObject({ theme: themeSchema }) }
   }
 } as const
 
@@ -620,9 +583,6 @@ export const eventContracts = {
 
 /** `'light' | 'dark'`. 스키마에서 파생하므로 둘이 어긋날 수 없다. */
 export type Theme = z.infer<typeof themeSchema>
-
-/** 편집 폼이 주고받는 길이 3종. 같은 이유로 스키마에서 파생한다. */
-export type BaselineForm = z.infer<typeof baselineFormSchema>
 
 export type TimerSnapshotWire = z.infer<typeof timerSnapshotSchema>
 export type SessionRecorded = z.infer<typeof eventContracts.sessionRecorded>
