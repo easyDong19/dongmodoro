@@ -18,4 +18,5 @@
 
 | 파일 | 한 줄 요약 |
 |---|---|
-| [session-end-dock-bounce-notification.md](session-end-dock-bounce-notification.md) | 세션 종료 시 Dock 아이콘 바운스 + 데스크톱 알림 |
+| [session-completion-sound.md](session-completion-sound.md) | 세션 완료 알림음 — 명세(R11)는 있고 구현이 없다 |
+| [session-signals-on-windows-linux.md](session-signals-on-windows-linux.md) | 주의 신호의 Windows·Linux 대응물 (지금은 macOS 전용) |
