@@ -35,8 +35,12 @@ const isBackup =
  *
  * 파일명에 `basename()` 을 쓰는 이유: `dbPath.split('/')` 는 Windows 경로를 쪼개지 못해
  * 경로 전체가 파일명이 된다 (app-shell R1 이 Windows 를 지원 대상으로 확정).
+ *
+ * export 인 이유: 마이그레이션 직전 말고도 되돌릴 지점을 찍어야 하는 곳이 하나 더 있다 —
+ * 전체 데이터 초기화(services/reset.ts). 백업이 "핸들이 열려 있는 동안 체크포인트 후 복사"
+ * 라는 조건을 요구하므로, 그 조건을 아는 이 함수를 재사용하는 편이 옳다.
  */
-function backup(sqlite: Database.Database, dbPath: string, backupDir: string): void {
+export function backupDbFile(sqlite: Database.Database, dbPath: string, backupDir: string): void {
   sqlite.pragma('wal_checkpoint(TRUNCATE)')
   const dbFile = basename(dbPath)
   copyFileSync(dbPath, join(backupDir, `${dbFile}.backup-${now().replace(/[:.]/g, '-')}`))
@@ -104,7 +108,7 @@ export function migrateDb(
   // 한 번도 마이그레이션된 적 없는 파일에는 지킬 데이터가 없기 때문이다 — 첫 실행마다
   // 빈 백업이 쌓이는 것을 막는다.
   if (dbVersion > 0 && dbVersion < appVersion && existsSync(dbPath)) {
-    backup(sqlite, dbPath, backupDir)
+    backupDbFile(sqlite, dbPath, backupDir)
   }
 
   /**
