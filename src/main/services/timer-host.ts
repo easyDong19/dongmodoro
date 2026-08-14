@@ -1,4 +1,4 @@
-import { Notification, powerMonitor } from 'electron'
+import { app, Notification, powerMonitor } from 'electron'
 import type { BrowserWindow } from 'electron'
 import { localKeys, nowMs } from '@shared/time'
 import { EVENT_CHANNELS } from '@shared/ipc/channels'
@@ -6,6 +6,7 @@ import { eventContracts } from '@shared/ipc/contracts'
 import { sendEvent } from '../ipc/events'
 import { globalBaseline, writeModeLength } from './baseline'
 import type { UnitOfWork } from './ports'
+import { createSessionSignals } from './session-signals'
 import { recordSession } from './sessions'
 import { TimerEngine } from './timer-engine'
 
@@ -18,6 +19,35 @@ export function startTimerHost(
   uow: UnitOfWork,
   getWin: () => BrowserWindow | null
 ): { engine: TimerEngine; stop: () => void } {
+  /**
+   * 완료를 창 밖으로 알리는 규칙은 session-signals 가 소유한다 — 이 블록은 그 규칙에
+   * electron 을 물리는 배선일 뿐이다 (ux-spec §6).
+   *
+   * `app.dock` 은 **macOS 에만 있다** (Electron 타입도 `Dock | undefined`). 다른 플랫폼에서
+   * `bounce` 가 `null` 을 돌려주면 신호를 시작하지 않은 것이 되고 취소 경로도 열리지 않는다.
+   * Windows·Linux 의 대응물(`flashFrame`)을 여기에 넣지 않은 이유는 electron-builder 가
+   * 그 플랫폼 산출물을 만들지 않아 **실행될 수 없는 코드**가 되기 때문이다 —
+   * docs/tmp/session-signals-on-windows-linux.md 에 남겨 뒀다.
+   */
+  const signals = createSessionSignals({
+    notify: (title) => {
+      if (!Notification.isSupported()) return
+      // 클릭 핸들러를 달지 않는다 — 알림 클릭이 무엇도 자동 시작하지 않는다 (ux-spec §6).
+      new Notification({ title }).show()
+    },
+    isWindowFocused: () => getWin()?.isFocused() ?? false,
+    bounce: (type) => app.dock?.bounce(type) ?? null,
+    cancelBounce: (id) => app.dock?.cancelBounce(id)
+  })
+
+  /**
+   * 창이 아니라 **app** 에 붙인다. `getWin()` 은 호스트가 시작되는 시점에 아직 `null` 일 수
+   * 있고 창은 다시 만들어질 수 있어서, 창에 직접 걸면 그 순간마다 다시 배선해야 한다.
+   * 창이 하나뿐이므로 `browser-window-focus` 는 곧 "그 창이 포커스됐다"다.
+   */
+  const onWindowFocus = (): void => signals.onWindowFocus()
+  app.on('browser-window-focus', onWindowFocus)
+
   const engine = new TimerEngine({
     now: nowMs,
     schedule: (fn, ms) => setTimeout(fn, ms),
@@ -60,13 +90,8 @@ export function startTimerHost(
       return count % 4 === 0 ? 'long' : 'short'
     },
 
-    // ux-spec §6. 클릭 핸들러를 달지 않는다 — 알림 클릭이 무엇도 자동 시작하지 않는다.
-    notify: (completedMode) => {
-      if (!Notification.isSupported()) return
-      const title =
-        completedMode === 'focus' ? '집중 완료 — 쉬어가요' : '휴식 끝 — 준비되면 시작하세요'
-      new Notification({ title }).show()
-    }
+    // ux-spec §6 — 문구·강도·포커스 예외는 session-signals 가 정한다.
+    notify: (completedMode) => signals.signalCompletion(completedMode)
   })
 
   // setTimeout 은 잠자기 중 얼어붙는다 — resume 에서 wall-clock 으로 만기를 재검증한다
@@ -76,6 +101,9 @@ export function startTimerHost(
 
   return {
     engine,
-    stop: () => powerMonitor.removeListener('resume', onResume)
+    stop: () => {
+      powerMonitor.removeListener('resume', onResume)
+      app.removeListener('browser-window-focus', onWindowFocus)
+    }
   }
 }
