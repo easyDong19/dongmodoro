@@ -46,7 +46,12 @@
      바깥으로 나간 것이 없다. 복귀선이 노트에 도달하지 않는 상태로 publish 되는 일을
      구조적으로 막는 자리다
      ([ADR-032](docs/architecture/decisions/adr-032-destructive-migration-safety.md)).
-6. 태그를 이미 밀었는데 빌드가 깨졌다면 **태그를 옮기지 않는다.** 받은 사람의 이력이
+6. publish 한 뒤 **설치본으로 한 번 연다** —
+   [.claude/skills/install-release/SKILL.md](.claude/skills/install-release/SKILL.md).
+   `pnpm dev` 로는 재현되지 않는 것들(asar 밖으로 뺀 마이그레이션 `.sql`, 네이티브
+   바이너리, quarantine)이 여기서만 드러난다. 사용자 데이터는 건드리지 않으므로
+   실제 업그레이드와 같은 조건이다.
+7. 태그를 이미 밀었는데 빌드가 깨졌다면 **태그를 옮기지 않는다.** 받은 사람의 이력이
    깨진다. 고쳐서 다음 패치 버전으로 낸다.
    - **예외는 하나다 — 릴리스가 만들어지지 않은 경우.** 노트 파일 누락으로 잡이 죽으면
      릴리스도 에셋도 생성되지 않았으므로 받은 사람이 없다. 이때는 노트를 넣고 그 태그를
