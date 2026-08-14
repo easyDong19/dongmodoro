@@ -40,6 +40,12 @@
    올리는 커밋(`chore(release): bump version to X.Y.Z`)은 그 브랜치에 두고 main 에는
    반영하지 않는다 — main 은 배포되지 않아 그 숫자로 만들어지는 산출물이 없고, 미리 올리면
    "그 버전이라고 적혀 있지만 아직 나오지 않은 코드"가 main 에 남는다.
+   - **대가가 하나 있고, 이미 막아 뒀다.** 태그가 이 커밋에 앉으므로 **지난 판의 태그는 이
+     태그의 조상이 아니다.** 그대로 두면 GitHub 이 자동 목록의 기준점을 조상 중에서 찾다가
+     한참 옛 태그까지 거슬러 올라가, 이미 나간 PR 을 새 변경으로 다시 나열한다
+     (2.2.0 의 첫 draft 가 18개 중 11개를 그렇게 실었다). [release.yml](.github/workflows/release.yml)
+     의 `Resolve changelog base` 가 기준점을 **가장 최근 publish 된 릴리스**로 고정해
+     이 경로를 끊는다 — 범프 위치를 바꿀 이유가 아니다.
 4. `vX.Y.Z` 태그를 release 브랜치에서 생성 후 push
    - `git push origin release/X.Y --tags`
 5. 태그 push가 GitHub Actions 릴리스 워크플로우를 트리거함
