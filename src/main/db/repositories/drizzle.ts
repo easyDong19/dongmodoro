@@ -303,25 +303,6 @@ function makeRepos(tx: Tx): Repositories {
         })
       },
 
-      // task_pulls 의 PK 가 (task_id, pull_date) 이고 조인 조건에 pullDate 가 고정돼 있으므로
-      // task 당 조인 행은 최대 1개다 — 중복 행이 나오지 않는다.
-      nextPullable: (weekItemId, dayKey) =>
-        tx
-          .select({ id: tasks.id })
-          .from(tasks)
-          .leftJoin(taskPulls, and(eq(taskPulls.taskId, tasks.id), eq(taskPulls.pullDate, dayKey)))
-          .where(
-            and(
-              eq(tasks.weekItemId, weekItemId),
-              isNull(tasks.deletedAt),
-              isNull(tasks.completedAt),
-              // 오늘 pull 행이 없거나, 있어도 치워진 행이면 다시 유자격이다 (R14).
-              sql`(${taskPulls.taskId} IS NULL OR ${taskPulls.removedAt} IS NOT NULL)`
-            )
-          )
-          .orderBy(asc(tasks.createdAt), sql`tasks.rowid`)
-          .get()?.id ?? null,
-
       complete: (weekItemId, at) => {
         tx.update(weekItems).set({ completedAt: at }).where(eq(weekItems.id, weekItemId)).run()
       },

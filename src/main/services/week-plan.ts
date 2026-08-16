@@ -126,31 +126,6 @@ export function itemDrawer(
 }
 
 /**
- * 원클릭 pull (§3.1). 유자격 조각이 없으면 `pulled: null` 을 돌려주고, 화면은 그것을
- * 신호로 드로어를 연다 — 첫 pull 은 선택이 아니라 생성이기 때문이다 (R12).
- */
-export function pullNextFromItem(
-  uow: UnitOfWork,
-  weekItemId: string
-): { pulled: { taskId: string; title: string } | null; itemWeek: string } {
-  const { localDate } = localKeys()
-  return uow.run((repos) => {
-    const header = repos.weekItems.header(weekItemId)
-    if (header === null) throw new Error(`pullNext: week item '${weekItemId}' not found`)
-    // 완료된 항목은 pull 을 막는다 (R27). 화면도 막지만 계약이 최종 방어선이다.
-    if (header.completedAt !== null) {
-      throw new Error(`pullNext: item '${weekItemId}' is completed`)
-    }
-
-    const taskId = repos.weekItems.nextPullable(weekItemId, localDate)
-    if (taskId === null) return { pulled: null, itemWeek: header.week }
-
-    repos.today.pull(taskId, localDate)
-    return { pulled: { taskId, title: repos.tasks.titleOf(taskId) ?? '' }, itemWeek: header.week }
-  })
-}
-
-/**
  * 드로어의 `새 조각 추가` — 조각을 만들되 **오늘로 보내지 않는다.**
  *
  * `pullFromDrawer` 의 newTask 는 생성과 pull 이 한 몸이라 여러 개를 쪼개려면 드로어를

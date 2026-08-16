@@ -82,7 +82,6 @@ export function WeekItemRow({
   row,
   week,
   todayIndex,
-  onPullNext,
   onComplete,
   onUncomplete,
   onToggleDrawer,
@@ -95,7 +94,6 @@ export function WeekItemRow({
   week: string
   /** 이 주에서 오늘이 몇 번째 날인가 (0 = 월). 보고 있는 주가 이번 주가 아니면 null. */
   todayIndex: number | null
-  onPullNext: (id: string) => void
   onComplete: (id: string) => void
   onUncomplete: (id: string) => void
   onToggleDrawer?: (id: string) => void
@@ -137,13 +135,9 @@ export function WeekItemRow({
           <span className="rounded-sm text-xs text-amber">{`${carriedWeeks}주째`}</span>
         ) : null}
 
-        {done ? (
-          <span className="text-xs text-ink-faint">완료됨</span>
-        ) : (
-          <Button type="button" variant="ghost" size="sm" onClick={() => onPullNext(row.id)}>
-            + 오늘로
-          </Button>
-        )}
+        {/* pull 진입점은 캐럿(드로어) 하나다 — 행의 `+ 오늘로` 원클릭은 드로어와 역할이
+            겹쳐 헷갈린다는 이유로 걷어냈다 (2026-08-16 사용자 결정). */}
+        {done ? <span className="text-xs text-ink-faint">완료됨</span> : null}
       </div>
 
       <div className="flex items-center gap-2 pl-8">

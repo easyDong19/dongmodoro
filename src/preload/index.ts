@@ -55,7 +55,6 @@ const api: Api = {
     planDraft: (week) => ipcRenderer.invoke(CHANNELS.week.planDraft, week),
     confirmPlan: (input) => ipcRenderer.invoke(CHANNELS.week.confirmPlan, input),
     drawer: (weekItemId) => ipcRenderer.invoke(CHANNELS.week.drawer, weekItemId),
-    pullNext: (weekItemId) => ipcRenderer.invoke(CHANNELS.week.pullNext, weekItemId),
     addTask: (input) => ipcRenderer.invoke(CHANNELS.week.addTask, input),
     pullFromDrawer: (input) => ipcRenderer.invoke(CHANNELS.week.pullFromDrawer, input),
     complete: (weekItemId) => ipcRenderer.invoke(CHANNELS.week.complete, weekItemId),

@@ -29,7 +29,6 @@ export function useWeek() {
       currentDayKey: dayKey
     })
 
-  const pullNext = useMutation({ mutationFn: api.week.pullNext, onSuccess: invalidateItem })
   const complete = useMutation({ mutationFn: api.week.complete, onSuccess: invalidateItem })
   const uncomplete = useMutation({ mutationFn: api.week.uncomplete, onSuccess: invalidateItem })
   const drop = useMutation({ mutationFn: api.week.drop, onSuccess: invalidateItem })
@@ -59,7 +58,6 @@ export function useWeek() {
     dayKey,
     todayIndex: weekdayIndex,
     query,
-    pullNext,
     complete,
     uncomplete,
     drop,

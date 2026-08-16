@@ -67,8 +67,7 @@ function EmptyState({
  * 항목이 몇 개든 그 숫자가 화면 밖으로 밀리지 않는다.
  */
 export function WeekCard() {
-  const { weekKey, todayIndex, query, pullNext, complete, uncomplete, drop, setMilestone } =
-    useWeek()
+  const { weekKey, todayIndex, query, complete, uncomplete, drop, setMilestone } = useWeek()
   // 동시에 하나만 열린다 (§6) — 열린 항목 id 하나로 표현한다.
   const [openId, setOpenId] = useState<string | null>(null)
   const [toast, setToast] = useState<string | null>(null)
@@ -125,17 +124,6 @@ export function WeekCard() {
     setOpenId(null)
     caretRefs.current.get(id)?.focus()
   }
-
-  /**
-   * 원클릭 pull (§3.1). 유자격 조각이 없으면 `pulled: null` 이 오고, 그때 드로어를 연다 —
-   * 첫 pull 은 고르는 게 아니라 쓰는 것이기 때문이다 (R12). 성공이면 토스트만 띄운다:
-   * 내로우에서 오늘 목록이 안 보여도 무슨 일이 일어났는지 알 수 있어야 한다.
-   */
-  const onPullNext = (id: string) =>
-    pullNext.mutate(id, {
-      onSuccess: (r) =>
-        r.pulled === null ? setOpenId(id) : setToast(`오늘로 가져왔어요 — ${r.pulled.title}`)
-    })
 
   if (summary === undefined) return null
 
@@ -264,7 +252,6 @@ export function WeekCard() {
               row={row}
               week={weekKey}
               todayIndex={todayIndex}
-              onPullNext={onPullNext}
               onComplete={(id) => complete.mutate(id)}
               onUncomplete={(id) => uncomplete.mutate(id)}
               onToggleDrawer={(id) => (open ? closeDrawer(id) : setOpenId(id))}
