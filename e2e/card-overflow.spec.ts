@@ -47,29 +47,30 @@ test('오늘 목록이 넘치면 카드 안에서 스크롤하고 입력 폼은 
   await expect(lastRow).toBeInViewport()
 })
 
-test('결과물이 쌓여도 카드는 상한에서 멈추고 캘린더가 짓눌리지 않는다', async ({ appWindow }) => {
+test('결과물이 쌓여도 카드 골격은 1px 도 안 움직이고 안에서 스크롤한다', async ({ appWindow }) => {
   const milestone = appWindow.getByRole('region', { name: '월 결과물' })
   const calendar = appWindow.getByRole('region', { name: '캘린더' })
+  // 카드 높이는 내용이 아니라 뷰포트에서만 결정된다 (decision-log 2026-08-16 Q7) —
+  // 항목을 넣기 전의 두 카드 상자가 넣은 후에도 그대로여야 한다.
+  const milestoneBefore = (await milestone.boundingBox())!
   const calendarBefore = (await calendar.boundingBox())!
 
   for (let i = 1; i <= 10; i++) {
     await milestone.getByTestId('milestone-add').click()
     const field = milestone.getByLabel('새 결과물')
-    await field.fill(`상한 검증용 결과물 ${i}`)
+    await field.fill(`고정 검증용 결과물 ${i}`)
     await field.press('Enter')
-    await expect(milestone.getByText(`상한 검증용 결과물 ${i}`, { exact: true })).toBeVisible()
+    await expect(milestone.getByText(`고정 검증용 결과물 ${i}`, { exact: true })).toBeVisible()
   }
 
-  // 상한(컬럼 40%)에 닿아 내부 스크롤이 발동했어야 한다.
+  // 카드가 고정이므로 넘친 내용은 내부 스크롤이 받아야 한다.
   expect(await scrollEngaged(appWindow, '월 결과물')).toBe(true)
 
-  // 결과물 카드는 컬럼의 40% 를 넘지 못한다. 컬럼 높이는 두 카드 상자로 복원한다.
-  const milestoneBox = (await milestone.boundingBox())!
+  // 결과물 카드도, 그 아래 캘린더도 위치·높이가 변하면 안 된다. 이 단언은 수정 전
+  // 코드(내용 따라 자라는 카드)에서는 항목 하나만 넣어도 깨진다.
+  const milestoneAfter = (await milestone.boundingBox())!
   const calendarAfter = (await calendar.boundingBox())!
-  const columnHeight = calendarAfter.y + calendarAfter.height - milestoneBox.y
-  expect(milestoneBox.height).toBeLessThanOrEqual(columnHeight * 0.4 + 1)
-
-  // 캘린더는 밀려 내려가되 소멸하면 안 된다 — 수정 전에는 결과물이 자란 만큼 통째로
-  // 짓눌렸다. 상한이 40% 이므로 캘린더에는 원래 높이의 절반 이상이 남아야 한다.
-  expect(calendarAfter.height).toBeGreaterThan(calendarBefore.height * 0.5)
+  expect(Math.abs(milestoneAfter.height - milestoneBefore.height)).toBeLessThanOrEqual(1)
+  expect(Math.abs(calendarAfter.y - calendarBefore.y)).toBeLessThanOrEqual(1)
+  expect(Math.abs(calendarAfter.height - calendarBefore.height)).toBeLessThanOrEqual(1)
 })

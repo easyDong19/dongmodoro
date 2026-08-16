@@ -229,6 +229,39 @@
       </div>
     </div>
   </div>
+
+  <!-- ══════════ 3 · 후속 ══════════ -->
+  <div class="phase">
+    <p class="phase-title">3 · 후속 — dev 실화면 확인 뒤의 번복</p>
+    <p class="phase-desc">사용자가 dev 앱에서 항목을 넣어 보고, "상한까지 자람" 설계 자체를 기각했다.</p>
+
+    <div class="node">
+      <div class="rail"><div class="dot rev"></div><div class="cont"></div></div>
+      <div class="card">
+        <span class="qid">Q7 <span class="chip rev">반전</span></span>
+        <p class="qtitle"><code>결과물</code> 카드 높이 — 상한까지 자람인가, 뷰포트 고정인가</p>
+        <span class="sec-label">문제</span>
+        <p class="problem">Q2 의 <code>max-h-[40%]</code> 는 상한이라 카드가 <code>min 148px ~ 40%</code>
+        사이에서 여전히 내용 따라 자란다. <em>항목을 하나 추가할 때마다 캘린더가 밀리는 것이
+        눈에 보인다</em> — 실화면에서 사용자가 직접 확인.</p>
+        <span class="sec-label">선택지</span>
+        <ul class="options">
+          <li class="chosen"><b>뷰포트 고정 <code>h-[40%]</code></b> — <span class="tr">카드 골격이 내용과 무관,
+            항목이 적으면 카드 안이 비지만 이웃 카드가 1px 도 안 움직임</span></li>
+          <li><b>상한까지 자람 (AI 초안, Q2)</b> — <span class="tr">내용이 적을 때 공간을 아끼지만
+            자람 구간에서 추가할 때마다 캘린더가 밀림</span></li>
+        </ul>
+        <span class="sec-label">결정</span>
+        <p class="decision"><b>뷰포트 고정 <code>h-[40%]</code>.</b> <code>min-h-[148px]</code> 는 작은 창
+        하한으로 유지. <code>이번 주 할당</code>·<code>오늘 목록</code> 은 이미 <code>flex-1</code>
+        고정 분할이라 손대지 않음. e2e 단언도 "추가 전후 두 카드 상자 ±1px"로 강화 —
+        자람 구간이 있는 코드에서는 항목 하나만 넣어도 깨진다.</p>
+        <div class="why"><q>처음에 정해진 크기 그대로(뷰 스크린으로 만들어진)늘어나도 카드가 안밀리고,
+        내부에서 쌓이다가 스크롤이 생겨야함</q></div>
+        <div class="dep">← Q2 (40% 라는 값은 유지, 의미가 상한에서 고정으로 바뀜)</div>
+      </div>
+    </div>
+  </div>
 </div>
 </body>
 </html>
