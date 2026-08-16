@@ -23,11 +23,17 @@ export function Toast({ message, onDismiss }: { message: string; onDismiss: () =
   }, [message])
 
   return (
+    // 표면이 **불투명(bg-deep)** 인 것이 핵심이다 — 유리(glass-strong)로 띄우면 다크에서
+    // 아래 콘텐츠가 비쳐서, 드로어처럼 텍스트 밀도가 높은 곳 위에 뜰 때 두 겹의 글자가
+    // 겹쳐 보인다. 그림자가 깊이를 만들어 "위에 뜬 레이어"로 읽히게 한다.
+    //
+    // 우하단인 이유: pull 의 도착지인 오늘 목록 카드가 오른쪽 컬럼이라 방향이 맞고,
+    // 하단 중앙은 타이머 컨트롤·드로어와 겹치는 자리였다.
     <div
       role="status"
       aria-live="polite"
-      style={{ zIndex: 'var(--layer-toast)' }}
-      className="fixed bottom-6 left-1/2 -translate-x-1/2 rounded-md border border-glass-border bg-glass-strong px-4 py-2 text-sm text-ink"
+      style={{ zIndex: 'var(--layer-toast)', boxShadow: 'var(--glass-shadow)' }}
+      className="fixed bottom-6 right-6 rounded-md border border-glass-border bg-bg-deep px-4 py-2 text-sm text-ink"
     >
       {message}
     </div>
