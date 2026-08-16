@@ -47,8 +47,10 @@ test('오늘 목록이 넘치면 카드 안에서 스크롤하고 입력 폼은 
   await expect(lastRow).toBeInViewport()
 })
 
-test('결과물이 쌓여도 카드 골격은 1px 도 안 움직이고 안에서 스크롤한다', async ({ appWindow }) => {
-  const milestone = appWindow.getByRole('region', { name: '월 결과물' })
+test('Milestone이 쌓여도 카드 골격은 1px 도 안 움직이고 안에서 스크롤한다', async ({
+  appWindow
+}) => {
+  const milestone = appWindow.getByRole('region', { name: 'Milestone' })
   const calendar = appWindow.getByRole('region', { name: '캘린더' })
   // 카드 높이는 내용이 아니라 뷰포트에서만 결정된다 (decision-log 2026-08-16 Q7) —
   // 항목을 넣기 전의 두 카드 상자가 넣은 후에도 그대로여야 한다.
@@ -57,14 +59,14 @@ test('결과물이 쌓여도 카드 골격은 1px 도 안 움직이고 안에서
 
   for (let i = 1; i <= 10; i++) {
     await milestone.getByTestId('milestone-add').click()
-    const field = milestone.getByLabel('새 결과물')
-    await field.fill(`고정 검증용 결과물 ${i}`)
+    const field = milestone.getByLabel('새 Milestone')
+    await field.fill(`고정 검증용 Milestone ${i}`)
     await field.press('Enter')
-    await expect(milestone.getByText(`고정 검증용 결과물 ${i}`, { exact: true })).toBeVisible()
+    await expect(milestone.getByText(`고정 검증용 Milestone ${i}`, { exact: true })).toBeVisible()
   }
 
   // 카드가 고정이므로 넘친 내용은 내부 스크롤이 받아야 한다.
-  expect(await scrollEngaged(appWindow, '월 결과물')).toBe(true)
+  expect(await scrollEngaged(appWindow, 'Milestone')).toBe(true)
 
   // 결과물 카드도, 그 아래 캘린더도 위치·높이가 변하면 안 된다. 이 단언은 수정 전
   // 코드(내용 따라 자라는 카드)에서는 항목 하나만 넣어도 깨진다.

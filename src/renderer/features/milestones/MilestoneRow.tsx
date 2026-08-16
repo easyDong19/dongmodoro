@@ -59,7 +59,7 @@ export function MilestoneRow({
         {editing ? (
           <input
             autoFocus
-            aria-label="결과물 제목"
+            aria-label="Milestone 제목"
             className="min-w-0 flex-1 rounded-md bg-glass-strong px-2 py-1 text-xs text-ink"
             value={draft}
             onChange={(e) => setDraft(e.target.value)}

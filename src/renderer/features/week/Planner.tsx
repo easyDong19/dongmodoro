@@ -222,7 +222,7 @@ export function Planner({
       <div className="scroll-area min-h-0 flex-1 overflow-y-auto px-4 py-3">
         <div className="flex flex-col gap-2">
           <label className="flex flex-col gap-1 text-xs text-ink-dim">
-            할당 제목
+            Sprint 제목
             <input
               ref={titleRef}
               type="text"
@@ -310,7 +310,7 @@ export function Planner({
         {confirmingDrop !== null ? (
           <div className="mt-2 flex flex-col gap-2 rounded-md border border-glass-border-soft px-2 py-2">
             <span className="text-xs text-ink-dim">
-              이 할당을 보내줄까요? 지금까지 한 집중과 조각은 남아요.
+              이 Sprint를 보내줄까요? 지금까지 한 집중과 task는 남아요.
             </span>
             <div className="flex gap-2">
               <Button

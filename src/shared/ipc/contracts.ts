@@ -359,7 +359,7 @@ export const contracts = {
       req: z.tuple([monthKeySchema]),
       res: z.strictObject({
         month: monthKeySchema,
-        mode: z.enum(['far-future', 'lead-edit', 'current-empty', 'edit', 'past', 'past-empty']),
+        mode: z.enum(['lead-edit', 'current-empty', 'edit', 'past', 'past-empty']),
         items: z.array(
           milestoneSchema.extend({
             /**

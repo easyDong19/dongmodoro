@@ -67,17 +67,17 @@ describe('ItemDrawer — 모달이 아니다 (§6)', () => {
 describe('ItemDrawer — 조각 0개 (§6.4 · R12)', () => {
   it('목록 영역 없이 첫 조각 안내만 보인다', () => {
     renderDrawer({ tasks: [] })
-    expect(screen.getByText('오늘 할 몫을 쪼개서 적어요 — 이게 첫 조각이 돼요')).toBeInTheDocument()
-    expect(screen.queryByText('이 할당의 조각 — 오늘 할 것을 고르세요')).not.toBeInTheDocument()
-    expect(screen.queryByText('새 조각 추가 — Enter 로 계속 쌓아요')).not.toBeInTheDocument()
+    expect(screen.getByText('오늘 할 몫을 쪼개서 적어요 — 이게 첫 task가 돼요')).toBeInTheDocument()
+    expect(screen.queryByText('이 Sprint의 task — 오늘 할 것을 고르세요')).not.toBeInTheDocument()
+    expect(screen.queryByText('새 task 추가 — Enter 로 계속 쌓아요')).not.toBeInTheDocument()
   })
 })
 
 describe('ItemDrawer — 조각 목록 (§6.1·§6.2)', () => {
   it('목록 라벨과 새 입력 라벨이 함께 보인다', () => {
     renderDrawer({ tasks: [makeTask()] })
-    expect(screen.getByText('이 할당의 조각 — 오늘 할 것을 고르세요')).toBeInTheDocument()
-    expect(screen.getByText('새 조각 추가 — Enter 로 계속 쌓아요')).toBeInTheDocument()
+    expect(screen.getByText('이 Sprint의 task — 오늘 할 것을 고르세요')).toBeInTheDocument()
+    expect(screen.getByText('새 task 추가 — Enter 로 계속 쌓아요')).toBeInTheDocument()
   })
 
   it('오늘 목록에 있는 조각은 상태 라벨과 함께 선택 불가다', () => {
@@ -132,7 +132,7 @@ describe('ItemDrawer — 푸터 (§6.1·§6.3)', () => {
     renderDrawer({ tasks: [makeTask()] }, { onPull })
 
     await user.click(screen.getByRole('checkbox', { name: /초안 쓰기/ }))
-    await user.type(screen.getByLabelText('새 조각 추가 — Enter 로 계속 쌓아요'), '마무리')
+    await user.type(screen.getByLabelText('새 task 추가 — Enter 로 계속 쌓아요'), '마무리')
     await user.click(screen.getByRole('button', { name: '오늘로 가져오기 (2)' }))
 
     expect(onPull).toHaveBeenCalledWith({
@@ -165,7 +165,7 @@ describe('ItemDrawer — 쪼개기와 가져오기의 분리 (다중 추가)', (
     const onAddTask = vi.fn(async () => ({ taskId: 'n1' }))
     renderDrawer({ tasks: [makeTask()] }, { onPull, onAddTask })
 
-    const input = screen.getByLabelText('새 조각 추가 — Enter 로 계속 쌓아요')
+    const input = screen.getByLabelText('새 task 추가 — Enter 로 계속 쌓아요')
     await user.type(input, '용어 표 검토{Enter}')
 
     expect(onAddTask).toHaveBeenCalledWith('용어 표 검토')
@@ -178,7 +178,7 @@ describe('ItemDrawer — 쪼개기와 가져오기의 분리 (다중 추가)', (
     const onAddTask = vi.fn(async () => ({ taskId: 'n1' }))
     renderDrawer({ tasks: [makeTask()] }, { onAddTask })
 
-    await user.type(screen.getByLabelText('새 조각 추가 — Enter 로 계속 쌓아요'), '그림 주석')
+    await user.type(screen.getByLabelText('새 task 추가 — Enter 로 계속 쌓아요'), '그림 주석')
     await user.click(screen.getByRole('button', { name: '추가' }))
     expect(onAddTask).toHaveBeenCalledWith('그림 주석')
   })
@@ -188,7 +188,7 @@ describe('ItemDrawer — 쪼개기와 가져오기의 분리 (다중 추가)', (
     const onAddTask = vi.fn(async () => ({ taskId: 'n1' }))
     renderDrawer({ tasks: [makeTask()] }, { onAddTask })
 
-    await user.type(screen.getByLabelText('새 조각 추가 — Enter 로 계속 쌓아요'), '   {Enter}')
+    await user.type(screen.getByLabelText('새 task 추가 — Enter 로 계속 쌓아요'), '   {Enter}')
     expect(onAddTask).not.toHaveBeenCalled()
   })
 
@@ -197,7 +197,7 @@ describe('ItemDrawer — 쪼개기와 가져오기의 분리 (다중 추가)', (
     const onAddTask = vi.fn(async () => ({ taskId: 'n1' }))
     const { rerenderWith } = renderDrawer({ tasks: [makeTask()] }, { onAddTask })
 
-    await user.type(screen.getByLabelText('새 조각 추가 — Enter 로 계속 쌓아요'), '새 몫{Enter}')
+    await user.type(screen.getByLabelText('새 task 추가 — Enter 로 계속 쌓아요'), '새 몫{Enter}')
     // 실제로는 invalidation 이 드로어 데이터를 다시 가져온다 — 그 refetch 를 흉내낸다.
     rerenderWith({ tasks: [makeTask(), makeTask({ taskId: 'n1', title: '새 몫' })] })
 
@@ -212,7 +212,7 @@ describe('ItemDrawer — 쪼개기와 가져오기의 분리 (다중 추가)', (
     renderDrawer({ tasks: [] }, { onPull, onAddTask })
 
     await user.type(
-      screen.getByLabelText('오늘 할 몫을 쪼개서 적어요 — 이게 첫 조각이 돼요'),
+      screen.getByLabelText('오늘 할 몫을 쪼개서 적어요 — 이게 첫 task가 돼요'),
       '첫 조각{Enter}'
     )
     expect(onAddTask).toHaveBeenCalledWith('첫 조각')
@@ -232,7 +232,7 @@ describe('ItemDrawer — 완료된 항목 (§6.4 · R27·R28)', () => {
     renderDrawer(completed)
     expect(screen.getByRole('button', { name: '오늘로 가져오기' })).toBeDisabled()
     expect(
-      screen.getByText('완료된 할당이에요 — 해제하면 다시 가져올 수 있어요')
+      screen.getByText('완료된 Sprint예요 — 해제하면 다시 가져올 수 있어요')
     ).toBeInTheDocument()
   })
 
@@ -269,7 +269,7 @@ describe('ItemDrawer — 항목 액션 (§6.1·§6.3)', () => {
     await user.click(screen.getByRole('button', { name: '보내주기' }))
     expect(onDrop).not.toHaveBeenCalled()
     expect(
-      screen.getByText('이 할당을 보내줄까요? 지금까지 한 집중과 조각은 남아요.')
+      screen.getByText('이 Sprint를 보내줄까요? 지금까지 한 집중과 task는 남아요.')
     ).toBeInTheDocument()
     expect(screen.queryByText(/버리기/)).not.toBeInTheDocument()
 
