@@ -72,7 +72,6 @@ async function renderCard(
       planDraft: vi.fn(),
       confirmPlan: vi.fn(),
       drawer: vi.fn().mockResolvedValue(emptyDrawer),
-      pullNext: vi.fn().mockResolvedValue({ itemWeek: WEEK, pulled: null }),
       pullFromDrawer: vi.fn().mockResolvedValue({ itemWeek: WEEK }),
       complete: vi.fn().mockResolvedValue({ itemWeek: WEEK, completedAt: null }),
       uncomplete: vi.fn().mockResolvedValue({ itemWeek: WEEK, completedAt: null }),
@@ -309,28 +308,10 @@ describe('WeekCard — 드로어 배선 (§6·§3.1)', () => {
     expect(screen.getByRole('button', { name: '드로어 열기' })).toHaveFocus()
   })
 
-  it('원클릭 pull 이 pulled: null 로 오면 드로어가 열린다 (§3.1 폴백)', async () => {
-    const user = userEvent.setup()
-    await renderCard(makeSummary({ items: [makeItem()] }), {
-      pullNext: vi.fn().mockResolvedValue({ itemWeek: WEEK, pulled: null })
-    })
-
-    expect(screen.queryByTestId('item-drawer')).not.toBeInTheDocument()
-    await user.click(screen.getByRole('button', { name: '+ 오늘로' }))
-    expect(await screen.findByTestId('item-drawer')).toBeInTheDocument()
-  })
-
-  it('원클릭 pull 이 성공하면 토스트가 뜨고 드로어는 열리지 않는다', async () => {
-    const user = userEvent.setup()
-    await renderCard(makeSummary({ items: [makeItem()] }), {
-      pullNext: vi
-        .fn()
-        .mockResolvedValue({ itemWeek: WEEK, pulled: { taskId: 't1', title: '초안 쓰기' } })
-    })
-
-    await user.click(screen.getByRole('button', { name: '+ 오늘로' }))
-    expect(await screen.findByRole('status')).toHaveTextContent('오늘로 가져왔어요 — 초안 쓰기')
-    expect(screen.queryByTestId('item-drawer')).not.toBeInTheDocument()
+  it('행에 원클릭 pull 버튼이 없다 — 가져오기 진입점은 드로어뿐이다', async () => {
+    await renderCard(makeSummary({ items: [makeItem()] }))
+    expect(screen.queryByRole('button', { name: '+ 오늘로' })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '드로어 열기' })).toBeInTheDocument()
   })
 
   it('완료 항목의 드로어를 열어도 판단 문구가 붙지 않는다 (R28)', async () => {

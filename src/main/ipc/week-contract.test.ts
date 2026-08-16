@@ -7,7 +7,6 @@ import {
   itemDrawer,
   planDraft,
   pullFromDrawer,
-  pullNextFromItem,
   setItemCompleted,
   weekSummary
 } from '../services/week-plan'
@@ -57,11 +56,6 @@ describe('week 계약 왕복', () => {
 
     expect(contracts.week.planDraft.res.parse(planDraft(uow, WEEK)).items).toHaveLength(2)
     expect(contracts.week.drawer.res.parse(itemDrawer(uow, idA))).toBeTruthy()
-
-    // pulled 는 nullable 이다 — 값 있는 갈래와 null 갈래를 모두 통과시킨다
-    expect(contracts.week.pullNext.res.parse(pullNextFromItem(uow, idA))).toBeTruthy()
-    pullNextFromItem(uow, idA)
-    expect(contracts.week.pullNext.res.parse(pullNextFromItem(uow, idA)).pulled).toBeNull()
 
     expect(
       contracts.week.pullFromDrawer.res.parse(

@@ -291,45 +291,6 @@ describe('weekItems.hasHiddenFocus — 기타 행 표시 조건 ③', () => {
   })
 })
 
-describe('weekItems.nextPullable — 원클릭 pull 대상', () => {
-  it('유자격 = 미완료·미삭제·오늘 pull 없음, 생성순 첫 번째', () => {
-    const { uow } = testUow()
-    uow.run((repos) => {
-      const id = repos.weekItems.confirmPlan({
-        week: WEEK,
-        items: [{ id: null, title: 'A', days: [] }]
-      }).createdIds[0]
-      repos.tasks.create({ id: 't1', weekItemId: id, title: '첫째' })
-      repos.tasks.create({ id: 't2', weekItemId: id, title: '둘째' })
-
-      expect(repos.weekItems.nextPullable(id, '2026-08-04')).toBe('t1')
-      repos.today.pull('t1', '2026-08-04')
-      expect(repos.weekItems.nextPullable(id, '2026-08-04')).toBe('t2')
-      repos.tasks.toggleComplete('t2')
-      expect(repos.weekItems.nextPullable(id, '2026-08-04')).toBeNull()
-    })
-  })
-
-  it('치운 조각은 다시 유자격이다 — removed_at 분기 (today-tasks R14)', () => {
-    const { uow } = testUow()
-    uow.run((repos) => {
-      const id = repos.weekItems.confirmPlan({
-        week: WEEK,
-        items: [{ id: null, title: 'A', days: [] }]
-      }).createdIds[0]
-      repos.tasks.create({ id: 't1', weekItemId: id, title: '조각' })
-      repos.today.pull('t1', '2026-08-04')
-      // 그날 focus 세션이 있어야 remove 가 행 삭제가 아니라 removed_at 마킹이 된다.
-      // 세션이 없으면 행이 지워져 `taskPulls IS NULL` 분기로 통과해버려,
-      // 검증하려던 `removed_at IS NOT NULL` 경로가 한 번도 실행되지 않는다.
-      repos.sessions.insert(focusSession('s1', 't1', '2026-08-04', WEEK))
-      expect(repos.today.remove('t1', '2026-08-04')).toBe('marked')
-
-      expect(repos.weekItems.nextPullable(id, '2026-08-04')).toBe('t1')
-    })
-  })
-})
-
 describe('weekItems.childTasks — 드로어 목록 (§6.2)', () => {
   it('조각별 소진과 오늘 목록 상태를 함께 준다', () => {
     const { uow } = testUow()

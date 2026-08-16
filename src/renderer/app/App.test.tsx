@@ -48,8 +48,8 @@ function setup({ clockNow }: { clockNow: () => Promise<typeof clock> }) {
       setMode: vi.fn()
     },
     sessions: { capture: vi.fn() },
-    // 9종을 전부 채운다 — `api` 는 접근 시점에 Reflect.get 하는 Proxy 이고,
-    // useMutation({ mutationFn: api.week.pullNext }) 는 **렌더 도중** 프로퍼티를 읽는다.
+    // 전부 채운다 — `api` 는 접근 시점에 Reflect.get 하는 Proxy 이고,
+    // useMutation({ mutationFn: api.week.complete }) 는 **렌더 도중** 프로퍼티를 읽는다.
     // queryFn 과 달리 React Query 가 삼켜주지 않아 하나만 빠져도 렌더가 죽는다.
     week: {
       summary: vi.fn().mockResolvedValue({
@@ -61,7 +61,6 @@ function setup({ clockNow }: { clockNow: () => Promise<typeof clock> }) {
       planDraft: vi.fn(),
       confirmPlan: vi.fn(),
       drawer: vi.fn(),
-      pullNext: vi.fn(),
       pullFromDrawer: vi.fn(),
       complete: vi.fn(),
       uncomplete: vi.fn(),

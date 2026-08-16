@@ -8,7 +8,6 @@ import {
   itemDrawer,
   planDraft,
   pullFromDrawer,
-  pullNextFromItem,
   setItemCompleted,
   setItemMilestone,
   weekSummary
@@ -29,9 +28,6 @@ export function registerWeekHandlers(uow: UnitOfWork): void {
   )
   handleIpc(CHANNELS.week.drawer, contracts.week.drawer, (weekItemId) =>
     itemDrawer(uow, weekItemId)
-  )
-  handleIpc(CHANNELS.week.pullNext, contracts.week.pullNext, (weekItemId) =>
-    pullNextFromItem(uow, weekItemId)
   )
   handleIpc(CHANNELS.week.addTask, contracts.week.addTask, (input) => addTaskToItem(uow, input))
   handleIpc(CHANNELS.week.pullFromDrawer, contracts.week.pullFromDrawer, (input) =>

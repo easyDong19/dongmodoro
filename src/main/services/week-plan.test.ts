@@ -9,7 +9,6 @@ import {
   otherRowMeasuredSec,
   planDraft,
   pullFromDrawer,
-  pullNextFromItem,
   setItemCompleted,
   setItemMilestone,
   weekSummary
@@ -52,55 +51,6 @@ describe('confirmWeekPlan', () => {
 
 // 아래 유스케이스들은 `localKeys()` 로 오늘 날짜를 스스로 읽는다. 테스트가 날짜를
 // 하드코딩하지 않는 이유다 — 어느 날 돌려도 통과해야 한다.
-describe('pullNextFromItem — 원클릭 pull (§3.1·R27)', () => {
-  it('생성순 다음 유자격 조각을 하나씩 가져온다', () => {
-    const { uow } = testUow()
-    const id = uow.run(
-      (r) =>
-        r.weekItems.confirmPlan({
-          week: WEEK,
-          items: [{ id: null, title: 'A', days: [] }]
-        }).createdIds[0]
-    )
-    uow.run((r) => {
-      r.tasks.create({ id: 't1', weekItemId: id, title: '첫째' })
-      r.tasks.create({ id: 't2', weekItemId: id, title: '둘째' })
-    })
-
-    expect(pullNextFromItem(uow, id).pulled).toEqual({ taskId: 't1', title: '첫째' })
-    expect(pullNextFromItem(uow, id).pulled).toEqual({ taskId: 't2', title: '둘째' })
-  })
-
-  it('유자격 조각이 0개면 던지지 않고 pulled: null 을 돌려준다 (드로어 폴백 신호)', () => {
-    const { uow } = testUow()
-    const id = uow.run(
-      (r) =>
-        r.weekItems.confirmPlan({
-          week: WEEK,
-          items: [{ id: null, title: 'A', days: [] }]
-        }).createdIds[0]
-    )
-    const result = pullNextFromItem(uow, id)
-    expect(result.pulled).toBeNull()
-    expect(result.itemWeek).toBe(WEEK) // 화면이 무효화할 주를 알아야 한다
-  })
-
-  it('완료된 항목에서는 pull 할 수 없다 (R27) — pullFromDrawer 와 같은 가드다', () => {
-    const { uow } = testUow()
-    const id = uow.run(
-      (r) =>
-        r.weekItems.confirmPlan({
-          week: WEEK,
-          items: [{ id: null, title: 'A', days: [] }]
-        }).createdIds[0]
-    )
-    uow.run((r) => r.tasks.create({ id: 't1', weekItemId: id, title: '조각' }))
-    setItemCompleted(uow, id, true)
-
-    expect(() => pullNextFromItem(uow, id)).toThrow()
-  })
-})
-
 describe('itemDrawer', () => {
   it('폐기된 항목도 열린다 — header 는 listForWeek 밖을 본다', () => {
     const { uow } = testUow()

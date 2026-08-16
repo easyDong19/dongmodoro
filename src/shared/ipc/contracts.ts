@@ -306,13 +306,6 @@ export const contracts = {
         milestoneCandidates: z.array(milestoneSchema)
       })
     },
-    pullNext: {
-      req: z.tuple([z.string()]),
-      res: z.strictObject({
-        itemWeek: z.string(),
-        pulled: z.strictObject({ taskId: z.string(), title: z.string() }).nullable()
-      })
-    },
     addTask: {
       req: z.tuple([
         z.strictObject({

@@ -32,7 +32,6 @@ function renderRow(
       row={makeRow(over)}
       week={WEEK}
       todayIndex={todayIndex}
-      onPullNext={handlers.onPullNext ?? vi.fn()}
       onComplete={handlers.onComplete ?? vi.fn()}
       onUncomplete={handlers.onUncomplete ?? vi.fn()}
     />
@@ -62,9 +61,9 @@ describe('WeekItemRow — 기본 구성 (§3.1)', () => {
     expect(screen.getByText('· 조각 2/4')).toBeInTheDocument()
   })
 
-  it('pull 버튼 라벨은 `+ 오늘로` 다 — 드로어 푸터 문구를 쓰지 않는다', () => {
+  it('행에 pull 버튼이 없다 — 진입점은 캐럿(드로어) 하나다', () => {
     renderRow()
-    expect(screen.getByRole('button', { name: '+ 오늘로' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: '+ 오늘로' })).not.toBeInTheDocument()
     expect(screen.queryByText('오늘로 가져오기')).not.toBeInTheDocument()
   })
 })
@@ -186,11 +185,10 @@ describe('WeekItemRow — 완료 제안 (§3.3·§4)', () => {
 })
 
 describe('WeekItemRow — 완료 상태 (§3.3)', () => {
-  it('제목에 취소선, pull 자리에 `완료됨` 비활성 라벨, `완료 해제` 액션', () => {
+  it('제목에 취소선, `완료됨` 라벨, `완료 해제` 액션', () => {
     renderRow({ completedAt: '2026-08-05T00:00:00.000Z' })
     expect(screen.getByText('설계 문서').className).toMatch(/line-through/)
     expect(screen.getByText('완료됨')).toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: '+ 오늘로' })).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: '완료 해제' })).toBeInTheDocument()
   })
 
@@ -219,10 +217,8 @@ describe('WeekItemRow — 조작 타깃 (design-system ADR-004 §2)', () => {
    * 아니라 **조작 요소가 실제 `button` 인가**다. onClick 을 단 div 면 하한이 적용되지 않는다.
    * 실제 픽셀은 jsdom 이 레이아웃을 계산하지 않으므로 `pnpm dev` 수동 확인 몫이다.
    */
-  it('캐럿과 pull 이 div 가 아니라 button 이다 — 하한 규칙이 걸리는 조건', () => {
+  it('캐럿이 div 가 아니라 button 이다 — 하한 규칙이 걸리는 조건', () => {
     renderRow()
-    for (const name of ['드로어 열기', '+ 오늘로']) {
-      expect(screen.getByRole('button', { name }).tagName).toBe('BUTTON')
-    }
+    expect(screen.getByRole('button', { name: '드로어 열기' }).tagName).toBe('BUTTON')
   })
 })
