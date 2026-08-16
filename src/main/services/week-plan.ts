@@ -151,6 +151,34 @@ export function pullNextFromItem(
 }
 
 /**
+ * 드로어의 `새 조각 추가` — 조각을 만들되 **오늘로 보내지 않는다.**
+ *
+ * `pullFromDrawer` 의 newTask 는 생성과 pull 이 한 몸이라 여러 개를 쪼개려면 드로어를
+ * 그 수만큼 여닫아야 했다. 쪼개기(Enter 마다 이 함수)와 가져오기(pullFromDrawer)를
+ * 분리한 것이 이 함수의 존재 이유다. 가드는 pullFromDrawer 와 같은 규율이다 —
+ * UI 비활성만으로는 IPC 를 직접 부르는 경로가 열린다.
+ */
+export function addTaskToItem(
+  uow: UnitOfWork,
+  input: { weekItemId: string; title: string }
+): { taskId: string; itemWeek: string } {
+  return uow.run((repos) => {
+    const header = repos.weekItems.header(input.weekItemId)
+    if (header === null) throw new Error(`addTask: item '${input.weekItemId}' not found`)
+    if (header.completedAt !== null) {
+      throw new Error(`addTask: item '${input.weekItemId}' is completed`) // R27 과 같은 가드
+    }
+
+    const trimmed = input.title.trim()
+    if (trimmed === '') throw new Error('addTask: task title must not be empty')
+
+    const taskId = uuidv7()
+    repos.tasks.create({ id: taskId, weekItemId: input.weekItemId, title: trimmed })
+    return { taskId, itemWeek: header.week }
+  })
+}
+
+/**
  * 드로어의 `오늘로 가져오기` (§6.3) — 새 조각 생성 + 선택한 기존 조각을 한 트랜잭션으로.
  *
  * M2 의 `pullTask`(services/today.ts)와 같은 규율을 따른다: **완료 거부·소속 검증을

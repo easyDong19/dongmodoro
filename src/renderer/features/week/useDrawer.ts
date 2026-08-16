@@ -36,5 +36,20 @@ export function useDrawer(weekKey: string, weekItemId: string | null) {
       })
   })
 
-  return { query, pull }
+  /**
+   * `새 조각 추가` — 조각 생성만 한다 (쪼개기·가져오기 분리). 무효화는 pull 과 같은
+   * 초크포인트다: item-changed 가 그 주를 털면 열려 있는 드로어도 함께 갱신되어
+   * 방금 만든 조각이 목록에 나타난다.
+   */
+  const addTask = useMutation({
+    mutationFn: (title: string) => api.week.addTask({ weekItemId: weekItemId as string, title }),
+    onSuccess: (r) =>
+      dispatchInvalidation(qc, {
+        type: 'item-changed',
+        payload: { itemWeek: r.itemWeek },
+        currentDayKey: dayKey
+      })
+  })
+
+  return { query, pull, addTask }
 }

@@ -69,6 +69,23 @@ pkill -f "<체크아웃 루트>.*Electron"
 `Network service crashed`·`GPU process exited unexpectedly` 는 **정상 종료 소음이다.**
 실패로 읽지 않는다.
 
+## 함정: 이전 dev 를 안 죽이고 또 띄우면 — 싱글 인스턴스 락
+
+앱에 싱글 인스턴스 락이 있다 (src/main/index.ts 의 `second-instance`). 이전 `pnpm dev`
+를 내리지 않고 새로 띄우면 **새 인스턴스는 exit 0 으로 조용히 죽고, 화면에 떠 있는 창은
+옛 인스턴스다.** 이때 로그의 `Port 5173 is in use, trying another one...` 이 그 신호다.
+
+이 상태가 지독한 이유: 옛 인스턴스의 vite 가 같은 작업 디렉토리를 보고 있어서 **렌더러만
+HMR 로 새 코드가 되고 main·preload 는 옛것으로 남는다.** 새로 추가한 IPC 채널을 렌더러가
+부르면 조용히 실패해서, 방금 짠 기능이 "동작 안 하는 버그"처럼 보인다. 코드를 의심하기
+전에 인스턴스 수부터 센다:
+
+```bash
+pgrep -fl "Contents/MacOS/Electron" | grep -v Helper
+```
+
+1개가 아니거나 로그에 포트 대체 메시지가 있으면, 전부 죽이고 하나만 다시 띄운다.
+
 ## 함정: 새 워크트리에서 `Electron uninstall`
 
 ```

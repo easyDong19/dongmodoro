@@ -2,6 +2,7 @@ import { CHANNELS } from '@shared/ipc/channels'
 import { contracts } from '@shared/ipc/contracts'
 import type { UnitOfWork } from '../services/ports'
 import {
+  addTaskToItem,
   confirmWeekPlan,
   dropItem,
   itemDrawer,
@@ -32,6 +33,7 @@ export function registerWeekHandlers(uow: UnitOfWork): void {
   handleIpc(CHANNELS.week.pullNext, contracts.week.pullNext, (weekItemId) =>
     pullNextFromItem(uow, weekItemId)
   )
+  handleIpc(CHANNELS.week.addTask, contracts.week.addTask, (input) => addTaskToItem(uow, input))
   handleIpc(CHANNELS.week.pullFromDrawer, contracts.week.pullFromDrawer, (input) =>
     pullFromDrawer(uow, input)
   )

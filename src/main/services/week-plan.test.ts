@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest'
+import { localKeys } from '../../shared/time'
 import { testUow } from '../db/repositories/test-helpers'
 import {
+  addTaskToItem,
   confirmWeekPlan,
   dropItem,
   itemDrawer,
@@ -254,6 +256,64 @@ describe('pullFromDrawer — R7·R27 을 서비스에서 강제한다', () => {
     expect(() =>
       pullFromDrawer(uow, { weekItemId: createdIds[0], taskIds: ['tb'], newTask: null })
     ).toThrow()
+  })
+})
+
+describe('addTaskToItem — 쪼개기와 가져오기의 분리 (드로어 다중 추가)', () => {
+  const makeItem = (uow: ReturnType<typeof testUow>['uow']) =>
+    uow.run(
+      (r) =>
+        r.weekItems.confirmPlan({
+          week: WEEK,
+          items: [{ id: null, title: 'A', days: [] }]
+        }).createdIds[0]
+    )
+
+  it('조각을 만들되 오늘 목록에는 넣지 않는다 — pull 은 별도 행위다', () => {
+    const { uow } = testUow()
+    const id = makeItem(uow)
+
+    const r1 = addTaskToItem(uow, { weekItemId: id, title: '용어 표 검토' })
+    const r2 = addTaskToItem(uow, { weekItemId: id, title: '그림 주석 달기' })
+
+    expect(r1.itemWeek).toBe(WEEK)
+    expect(r1.taskId).not.toBe(r2.taskId)
+
+    const { localDate } = localKeys()
+    const tasks = uow.run((r) => r.weekItems.childTasks(id, localDate))
+    expect(tasks.map((t) => t.title)).toEqual(['용어 표 검토', '그림 주석 달기'])
+    // 아직 아무것도 오늘로 가지 않았다 — Enter 는 쌓기만 한다.
+    expect(tasks.every((t) => !t.inToday)).toBe(true)
+  })
+
+  it('만든 조각을 나중에 pullFromDrawer 로 가져올 수 있다', () => {
+    const { uow } = testUow()
+    const id = makeItem(uow)
+    const { taskId } = addTaskToItem(uow, { weekItemId: id, title: '조각' })
+
+    pullFromDrawer(uow, { weekItemId: id, taskIds: [taskId], newTask: null })
+
+    const { localDate } = localKeys()
+    const tasks = uow.run((r) => r.weekItems.childTasks(id, localDate))
+    expect(tasks.find((t) => t.taskId === taskId)?.inToday).toBe(true)
+  })
+
+  it('완료된 항목에는 조각을 추가할 수 없다 (R27 과 같은 가드)', () => {
+    const { uow } = testUow()
+    const id = makeItem(uow)
+    setItemCompleted(uow, id, true)
+    expect(() => addTaskToItem(uow, { weekItemId: id, title: '조각' })).toThrow()
+  })
+
+  it('빈 제목을 거부한다 — 공백만 있는 제목도 마찬가지다', () => {
+    const { uow } = testUow()
+    const id = makeItem(uow)
+    expect(() => addTaskToItem(uow, { weekItemId: id, title: '   ' })).toThrow()
+  })
+
+  it('없는 항목이면 거부한다', () => {
+    const { uow } = testUow()
+    expect(() => addTaskToItem(uow, { weekItemId: 'ghost', title: '조각' })).toThrow()
   })
 })
 
