@@ -30,6 +30,8 @@ export const CHANNELS = {
     confirmPlan: 'week:confirmPlan',
     drawer: 'week:drawer',
     pullNext: 'week:pullNext',
+    /** 조각 생성만 한다 — 오늘로 보내는 것은 pullFromDrawer 의 몫이다 (쪼개기·가져오기 분리). */
+    addTask: 'week:addTask',
     pullFromDrawer: 'week:pullFromDrawer',
     complete: 'week:complete',
     uncomplete: 'week:uncomplete',

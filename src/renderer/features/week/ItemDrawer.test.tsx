@@ -24,6 +24,7 @@ function renderDrawer(
   over: Partial<Drawer> = {},
   handlers: {
     onPull?: (input: { taskIds: string[]; newTask: { title: string } | null }) => void
+    onAddTask?: (title: string) => Promise<{ taskId: string }>
     onClose?: () => void
     onComplete?: () => void
     onUncomplete?: () => void
@@ -39,18 +40,21 @@ function renderDrawer(
     milestoneCandidates: [],
     ...over
   }
-  render(
-    <ItemDrawer
-      id="drawer-i1"
-      data={data}
-      onPull={handlers.onPull ?? vi.fn()}
-      onClose={handlers.onClose ?? vi.fn()}
-      onComplete={handlers.onComplete ?? vi.fn()}
-      onUncomplete={handlers.onUncomplete ?? vi.fn()}
-      onDrop={handlers.onDrop ?? vi.fn()}
-      onSetMilestone={handlers.onSetMilestone ?? vi.fn()}
-    />
-  )
+  const props = {
+    id: 'drawer-i1',
+    onPull: handlers.onPull ?? vi.fn(),
+    onAddTask: handlers.onAddTask ?? vi.fn(async () => ({ taskId: 'new-task' })),
+    onClose: handlers.onClose ?? vi.fn(),
+    onComplete: handlers.onComplete ?? vi.fn(),
+    onUncomplete: handlers.onUncomplete ?? vi.fn(),
+    onDrop: handlers.onDrop ?? vi.fn(),
+    onSetMilestone: handlers.onSetMilestone ?? vi.fn()
+  }
+  const view = render(<ItemDrawer {...props} data={data} />)
+  return {
+    rerenderWith: (next: Partial<Drawer>) =>
+      view.rerender(<ItemDrawer {...props} data={{ ...data, ...next }} />)
+  }
 }
 
 describe('ItemDrawer — 모달이 아니다 (§6)', () => {
@@ -65,7 +69,7 @@ describe('ItemDrawer — 조각 0개 (§6.4 · R12)', () => {
     renderDrawer({ tasks: [] })
     expect(screen.getByText('오늘 할 몫을 쪼개서 적어요 — 이게 첫 조각이 돼요')).toBeInTheDocument()
     expect(screen.queryByText('이 할당의 조각 — 오늘 할 것을 고르세요')).not.toBeInTheDocument()
-    expect(screen.queryByText('또는 새 조각 추가')).not.toBeInTheDocument()
+    expect(screen.queryByText('새 조각 추가 — Enter 로 계속 쌓아요')).not.toBeInTheDocument()
   })
 })
 
@@ -73,7 +77,7 @@ describe('ItemDrawer — 조각 목록 (§6.1·§6.2)', () => {
   it('목록 라벨과 새 입력 라벨이 함께 보인다', () => {
     renderDrawer({ tasks: [makeTask()] })
     expect(screen.getByText('이 할당의 조각 — 오늘 할 것을 고르세요')).toBeInTheDocument()
-    expect(screen.getByText('또는 새 조각 추가')).toBeInTheDocument()
+    expect(screen.getByText('새 조각 추가 — Enter 로 계속 쌓아요')).toBeInTheDocument()
   })
 
   it('오늘 목록에 있는 조각은 상태 라벨과 함께 선택 불가다', () => {
@@ -122,14 +126,14 @@ describe('ItemDrawer — 푸터 (§6.1·§6.3)', () => {
     expect(onPull).not.toHaveBeenCalled()
   })
 
-  it('선택한 조각과 새 조각을 한 번에 올린다', async () => {
+  it('적다 만 입력도 가져오기가 회수한다 — Enter 를 잊어도 잃지 않는다', async () => {
     const user = userEvent.setup()
     const onPull = vi.fn()
     renderDrawer({ tasks: [makeTask()] }, { onPull })
 
     await user.click(screen.getByRole('checkbox', { name: /초안 쓰기/ }))
-    await user.type(screen.getByLabelText('또는 새 조각 추가'), '마무리')
-    await user.click(screen.getByRole('button', { name: '오늘로 가져오기' }))
+    await user.type(screen.getByLabelText('새 조각 추가 — Enter 로 계속 쌓아요'), '마무리')
+    await user.click(screen.getByRole('button', { name: '오늘로 가져오기 (2)' }))
 
     expect(onPull).toHaveBeenCalledWith({
       taskIds: ['t1'],
@@ -140,6 +144,84 @@ describe('ItemDrawer — 푸터 (§6.1·§6.3)', () => {
   it('아무것도 고르지 않고 새 조각도 비었으면 가져오기가 비활성이다', () => {
     renderDrawer({ tasks: [makeTask()] })
     expect(screen.getByRole('button', { name: '오늘로 가져오기' })).toBeDisabled()
+  })
+
+  it('버튼 라벨이 가져갈 개수를 센다 — 선택과 적다 만 입력을 합쳐서', async () => {
+    const user = userEvent.setup()
+    renderDrawer({ tasks: [makeTask(), makeTask({ taskId: 't2', title: '검토' })] })
+
+    await user.click(screen.getByRole('checkbox', { name: /초안 쓰기/ }))
+    expect(screen.getByRole('button', { name: '오늘로 가져오기 (1)' })).toBeInTheDocument()
+
+    await user.click(screen.getByRole('checkbox', { name: /검토/ }))
+    expect(screen.getByRole('button', { name: '오늘로 가져오기 (2)' })).toBeInTheDocument()
+  })
+})
+
+describe('ItemDrawer — 쪼개기와 가져오기의 분리 (다중 추가)', () => {
+  it('Enter 는 조각을 쌓기만 한다 — pull 이 일어나지 않고 입력은 비워진다', async () => {
+    const user = userEvent.setup()
+    const onPull = vi.fn()
+    const onAddTask = vi.fn(async () => ({ taskId: 'n1' }))
+    renderDrawer({ tasks: [makeTask()] }, { onPull, onAddTask })
+
+    const input = screen.getByLabelText('새 조각 추가 — Enter 로 계속 쌓아요')
+    await user.type(input, '용어 표 검토{Enter}')
+
+    expect(onAddTask).toHaveBeenCalledWith('용어 표 검토')
+    expect(onPull).not.toHaveBeenCalled()
+    expect(input).toHaveValue('')
+  })
+
+  it('`추가` 버튼도 Enter 와 같다', async () => {
+    const user = userEvent.setup()
+    const onAddTask = vi.fn(async () => ({ taskId: 'n1' }))
+    renderDrawer({ tasks: [makeTask()] }, { onAddTask })
+
+    await user.type(screen.getByLabelText('새 조각 추가 — Enter 로 계속 쌓아요'), '그림 주석')
+    await user.click(screen.getByRole('button', { name: '추가' }))
+    expect(onAddTask).toHaveBeenCalledWith('그림 주석')
+  })
+
+  it('빈 입력에서는 추가하지 않는다', async () => {
+    const user = userEvent.setup()
+    const onAddTask = vi.fn(async () => ({ taskId: 'n1' }))
+    renderDrawer({ tasks: [makeTask()] }, { onAddTask })
+
+    await user.type(screen.getByLabelText('새 조각 추가 — Enter 로 계속 쌓아요'), '   {Enter}')
+    expect(onAddTask).not.toHaveBeenCalled()
+  })
+
+  it('방금 추가한 조각은 목록에 나타날 때 자동으로 체크돼 있다', async () => {
+    const user = userEvent.setup()
+    const onAddTask = vi.fn(async () => ({ taskId: 'n1' }))
+    const { rerenderWith } = renderDrawer({ tasks: [makeTask()] }, { onAddTask })
+
+    await user.type(screen.getByLabelText('새 조각 추가 — Enter 로 계속 쌓아요'), '새 몫{Enter}')
+    // 실제로는 invalidation 이 드로어 데이터를 다시 가져온다 — 그 refetch 를 흉내낸다.
+    rerenderWith({ tasks: [makeTask(), makeTask({ taskId: 'n1', title: '새 몫' })] })
+
+    expect(screen.getByRole('checkbox', { name: /새 몫/ })).toBeChecked()
+    expect(screen.getByRole('button', { name: '오늘로 가져오기 (1)' })).toBeInTheDocument()
+  })
+
+  it('조각 0개에서도 Enter 는 첫 조각을 쌓는다 — 가져오기와 묶이지 않는다', async () => {
+    const user = userEvent.setup()
+    const onPull = vi.fn()
+    const onAddTask = vi.fn(async () => ({ taskId: 'n1' }))
+    renderDrawer({ tasks: [] }, { onPull, onAddTask })
+
+    await user.type(
+      screen.getByLabelText('오늘 할 몫을 쪼개서 적어요 — 이게 첫 조각이 돼요'),
+      '첫 조각{Enter}'
+    )
+    expect(onAddTask).toHaveBeenCalledWith('첫 조각')
+    expect(onPull).not.toHaveBeenCalled()
+  })
+
+  it('완료된 항목에서는 추가가 비활성이다', () => {
+    renderDrawer({ completedAt: '2026-08-05T00:00:00.000Z', tasks: [makeTask()] })
+    expect(screen.getByRole('button', { name: '추가' })).toBeDisabled()
   })
 })
 

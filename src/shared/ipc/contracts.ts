@@ -313,6 +313,16 @@ export const contracts = {
         pulled: z.strictObject({ taskId: z.string(), title: z.string() }).nullable()
       })
     },
+    addTask: {
+      req: z.tuple([
+        z.strictObject({
+          weekItemId: z.string(),
+          /** 새 조각은 **제목이 전부다** (ADR-030 §3). 길이 규칙은 pullFromDrawer 와 동일. */
+          title: z.string().min(1).max(40)
+        })
+      ]),
+      res: z.strictObject({ taskId: z.string(), itemWeek: z.string() })
+    },
     pullFromDrawer: {
       req: z.tuple([
         z.strictObject({

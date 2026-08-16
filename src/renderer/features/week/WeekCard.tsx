@@ -278,9 +278,32 @@ export function WeekCard() {
                 <ItemDrawer
                   id={drawerId}
                   data={drawer.query.data}
-                  onPull={(input) =>
-                    drawer.pull.mutate(input, { onSuccess: () => closeDrawer(row.id) })
-                  }
+                  onPull={(input) => {
+                    /**
+                     * 여러 개 가져오기의 토스트 — 원클릭 pull(§3.1)과 같은 이유로 띄운다:
+                     * 내로우에서 오늘 목록이 안 보여도 무슨 일이 일어났는지 알아야 한다.
+                     * 하나면 제목을 부르고(원클릭과 같은 문장), 여러 개면 개수로 접는다 —
+                     * 제목 나열은 토스트가 감당 못 하는 길이다.
+                     */
+                    const count = input.taskIds.length + (input.newTask === null ? 0 : 1)
+                    const single =
+                      input.newTask?.title ??
+                      drawer.query.data?.tasks.find((t) => t.taskId === input.taskIds[0])?.title
+                    drawer.pull.mutate(input, {
+                      onSuccess: () => {
+                        closeDrawer(row.id)
+                        setToast(
+                          count === 1 && single !== undefined
+                            ? `오늘로 가져왔어요 — ${single}`
+                            : `오늘로 가져왔어요 — ${count}개`
+                        )
+                      }
+                    })
+                  }}
+                  onAddTask={async (title) => {
+                    const { taskId } = await drawer.addTask.mutateAsync(title)
+                    return { taskId }
+                  }}
                   onClose={() => closeDrawer(row.id)}
                   onComplete={() => complete.mutate(row.id)}
                   onUncomplete={() => uncomplete.mutate(row.id)}

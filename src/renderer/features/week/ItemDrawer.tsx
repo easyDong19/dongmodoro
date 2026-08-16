@@ -66,6 +66,7 @@ export function ItemDrawer({
   id,
   data,
   onPull,
+  onAddTask,
   onClose,
   onComplete,
   onUncomplete,
@@ -75,6 +76,8 @@ export function ItemDrawer({
   id: string
   data: Drawer
   onPull: (input: PullInput) => void
+  /** 조각을 쌓기만 한다 — 오늘로 보내는 것은 onPull 의 몫이다 (쪼개기·가져오기 분리). */
+  onAddTask: (title: string) => Promise<{ taskId: string }>
   onClose: () => void
   onComplete: () => void
   onUncomplete: () => void
@@ -90,11 +93,29 @@ export function ItemDrawer({
   const hasTasks = data.tasks.length > 0
   const trimmed = title.trim()
   const canPull = !itemDone && (selected.length > 0 || trimmed !== '')
+  /**
+   * 버튼이 가져갈 개수 = 체크한 조각 + 적다 만 입력(있으면 1). 입력을 세는 이유는
+   * Enter 를 잊고 버튼을 누르는 손을 위해 **가져오기가 입력을 회수**하기 때문이다 —
+   * 라벨의 숫자와 실제로 가는 개수가 다르면 안 된다.
+   */
+  const pullCount = selected.length + (trimmed === '' ? 0 : 1)
 
   const toggle = (taskId: string) =>
     setSelected((prev) =>
       prev.includes(taskId) ? prev.filter((t) => t !== taskId) : [...prev, taskId]
     )
+
+  /**
+   * Enter/`추가` — 조각을 만들고 **자동으로 체크**해 둔다. 쪼개는 의도가 대부분
+   * "오늘 하려고"라서다. 내일 몫이면 체크만 풀면 조각으로 남는다. 입력을 비우되
+   * 포커스는 그대로라 연속으로 쌓을 수 있다.
+   */
+  const addPiece = async () => {
+    if (itemDone || trimmed === '') return
+    const { taskId } = await onAddTask(trimmed)
+    setSelected((prev) => [...prev, taskId])
+    setTitle('')
+  }
 
   return (
     <div
@@ -152,14 +173,32 @@ export function ItemDrawer({
       ) : null}
 
       <label className="flex flex-col gap-1 text-xs text-ink-dim">
-        {hasTasks ? '또는 새 조각 추가' : '오늘 할 몫을 쪼개서 적어요 — 이게 첫 조각이 돼요'}
-        <input
-          type="text"
-          maxLength={40}
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-          className="rounded-md border border-control-border bg-glass px-2 py-1 text-sm text-ink"
-        />
+        {hasTasks
+          ? '새 조각 추가 — Enter 로 계속 쌓아요'
+          : '오늘 할 몫을 쪼개서 적어요 — 이게 첫 조각이 돼요'}
+        <span className="flex items-center gap-1">
+          <input
+            type="text"
+            maxLength={40}
+            value={title}
+            disabled={itemDone}
+            onChange={(e) => setTitle(e.target.value)}
+            onKeyDown={(e) => {
+              // 조합 중 Enter(한글 IME)는 글자 확정이지 제출이 아니다 — 무시한다.
+              if (e.key === 'Enter' && !e.nativeEvent.isComposing) void addPiece()
+            }}
+            className="min-w-0 flex-1 rounded-md border border-control-border bg-glass px-2 py-1 text-sm text-ink"
+          />
+          <Button
+            type="button"
+            variant="secondary"
+            size="sm"
+            disabled={itemDone}
+            onClick={() => void addPiece()}
+          >
+            추가
+          </Button>
+        </span>
       </label>
 
       {itemDone ? (
@@ -182,7 +221,7 @@ export function ItemDrawer({
             })
           }
         >
-          오늘로 가져오기
+          {pullCount > 0 ? `오늘로 가져오기 (${pullCount})` : '오늘로 가져오기'}
         </Button>
       </div>
 
