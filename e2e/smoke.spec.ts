@@ -8,7 +8,7 @@ import { test, expect } from './fixtures/app'
  * 심지 않는다 — 접근성 이름은 사용자에게도 의미가 있어 **테스트와 사용자가 같은 것을 본다**
  * (계획서 Global Constraints: E2E 를 위해 src/ 를 고치지 않는다).
  */
-const CARD_LABELS = ['월 결과물', '캘린더', '타이머', '주간 계획', '오늘 목록'] as const
+const CARD_LABELS = ['Milestone', '캘린더', '타이머', 'Sprint', '오늘 목록'] as const
 
 test('앱이 뜨고 카드 5장이 보인다', async ({ appWindow }) => {
   // 렌더러가 조용히 던지는 예외를 잡는다. 화면은 멀쩡해 보이는데 콘솔만 빨간 경우가 있다.

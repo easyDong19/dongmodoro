@@ -7,17 +7,13 @@ afterEach(() => vi.useRealTimers())
 // 표시 모드는 DB 를 타지 않는 **순서 판정**이라 순수 함수로 직접 검증한다.
 // 순서가 이 기능에서 가장 틀리기 쉬운 부분이고, 여섯 갈래가 상호 배타여야 한다 (R20).
 
-describe('displayMode — 6분기, 위에서 아래로 처음 참인 행 (R20 · A2)', () => {
+describe('displayMode — 5분기, 위에서 아래로 처음 참인 행 (R20 · A2)', () => {
   const TODAY = '2026-08'
 
-  it('다음다음 달 이후는 먼 미래다', () => {
-    expect(displayMode('2026-10', TODAY, 0)).toBe('far-future')
-    expect(displayMode('2027-01', TODAY, 3)).toBe('far-future')
-  })
-
-  it('다음 달 한 칸은 선행 편집이다 (R6)', () => {
+  it('미래 달은 얼마나 멀든 선행 편집이다 — 날짜 제한이 없다', () => {
     expect(displayMode('2026-09', TODAY, 0)).toBe('lead-edit')
-    expect(displayMode('2026-09', TODAY, 2)).toBe('lead-edit')
+    expect(displayMode('2026-10', TODAY, 0)).toBe('lead-edit')
+    expect(displayMode('2027-01', TODAY, 3)).toBe('lead-edit')
   })
 
   it('이번 달은 0건이면 빈 상태, 1건 이상이면 편집이다', () => {
@@ -30,17 +26,13 @@ describe('displayMode — 6분기, 위에서 아래로 처음 참인 행 (R20 ·
     expect(displayMode('2026-07', TODAY, 1)).toBe('past')
   })
 
-  /**
-   * A2 — 판별은 사전순 비교지만 "다음 달"만은 산술이다. 12월에 문자열 비교로만 다음 달을
-   * 구하려 하면 `'2026-13'` 같은 것을 만들거나 이듬해 1월을 먼 미래로 오판한다.
-   */
-  it('연 경계에서 다음 달 판정이 맞는다', () => {
+  it('연 경계에서도 판정이 맞는다 — 사전순 비교가 연도를 그대로 탄다', () => {
     expect(displayMode('2027-01', '2026-12', 0)).toBe('lead-edit')
-    expect(displayMode('2027-02', '2026-12', 0)).toBe('far-future')
+    expect(displayMode('2027-02', '2026-12', 0)).toBe('lead-edit')
     expect(displayMode('2026-11', '2026-12', 1)).toBe('past')
   })
 
-  it('여섯 갈래가 상호 배타다 — 한 입력이 한 모드만 낸다', () => {
+  it('다섯 갈래가 상호 배타다 — 한 입력이 한 모드만 낸다', () => {
     const months = ['2026-06', '2026-07', '2026-08', '2026-09', '2026-10']
     const modes = months.flatMap((m) => [displayMode(m, TODAY, 0), displayMode(m, TODAY, 2)])
     expect(modes).toEqual([
@@ -52,8 +44,8 @@ describe('displayMode — 6분기, 위에서 아래로 처음 참인 행 (R20 ·
       'edit',
       'lead-edit',
       'lead-edit',
-      'far-future',
-      'far-future'
+      'lead-edit',
+      'lead-edit'
     ])
   })
 })
@@ -65,7 +57,6 @@ describe('isEditable — 지난달과 먼 미래는 잠긴다 (R20 · A6·A20)',
     expect(isEditable('edit')).toBe(true)
     expect(isEditable('past')).toBe(false)
     expect(isEditable('past-empty')).toBe(false)
-    expect(isEditable('far-future')).toBe(false)
   })
 })
 

@@ -36,7 +36,7 @@ function renderPlanner(
   )
 }
 
-const titleInput = () => screen.getByLabelText('할당 제목')
+const titleInput = () => screen.getByLabelText('Sprint 제목')
 const addButton = () => screen.getByRole('button', { name: '항목 추가' })
 
 /**
@@ -257,7 +257,7 @@ describe('Planner — × 의 두 의미 (§5.2.1 · R24)', () => {
 
     await user.click(within(screen.getByTestId('draft-row')).getByRole('button', { name: '제거' }))
     expect(
-      screen.getByText('이 할당을 보내줄까요? 지금까지 한 집중과 조각은 남아요.')
+      screen.getByText('이 Sprint를 보내줄까요? 지금까지 한 집중과 task는 남아요.')
     ).toBeInTheDocument()
 
     await user.click(screen.getByRole('button', { name: '보내주기' }))

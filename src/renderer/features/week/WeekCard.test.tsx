@@ -90,7 +90,7 @@ async function renderCard(
       <WeekCard />
     </QueryClientProvider>
   )
-  await screen.findByText('이번 주 할당')
+  await screen.findByText('Sprint')
   return view
 }
 
@@ -98,7 +98,7 @@ describe('WeekCard — 카드 골격 (§2)', () => {
   it('eyebrow · 제목 · 주 범위를 렌더한다', async () => {
     await renderCard(makeSummary())
     expect(screen.getByText('WEEK')).toBeInTheDocument()
-    expect(screen.getByText('이번 주 할당')).toBeInTheDocument()
+    expect(screen.getByText('Sprint')).toBeInTheDocument()
     expect(screen.getByText(/8\/3 – 8\/9/)).toBeInTheDocument()
   })
 
@@ -175,9 +175,9 @@ describe('WeekCard — 빈 상태 (§8)', () => {
   it('항목 0 · 세션 0 → 안내와 할당 잡기 CTA', async () => {
     await renderCard(makeSummary())
     expect(
-      screen.getByText('이번 주 할당을 잡으면 여기서 집중한 시간이 쌓여요')
+      screen.getByText('이번 주 Sprint를 잡으면 여기서 집중한 시간이 쌓여요')
     ).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: '+ 이번 주 할당 잡기' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '+ 이번 주 Sprint 잡기' })).toBeInTheDocument()
   })
 
   it('항목 0 · 기타 행 있음 → 기타 행과 함께 다른 문구를 쓴다', async () => {
@@ -185,7 +185,7 @@ describe('WeekCard — 빈 상태 (§8)', () => {
     expect(screen.getByTestId('other-row')).toBeInTheDocument()
     expect(screen.getByText('계획이 없어도 기록은 남아요')).toBeInTheDocument()
     expect(
-      screen.queryByText('이번 주 할당을 잡으면 여기서 집중한 시간이 쌓여요')
+      screen.queryByText('이번 주 Sprint를 잡으면 여기서 집중한 시간이 쌓여요')
     ).not.toBeInTheDocument()
   })
 
@@ -200,17 +200,17 @@ describe('WeekCard — 빈 상태 (§8)', () => {
       planDraft: vi.fn().mockResolvedValue({ week: WEEK, items: [] })
     })
 
-    const cta = screen.getByRole('button', { name: '+ 이번 주 할당 잡기' })
+    const cta = screen.getByRole('button', { name: '+ 이번 주 Sprint 잡기' })
     await user.click(cta)
     // 실제로 플래너가 열려야 한다 — 버튼만 있고 아무 데도 안 가면 고친 것이 아니다.
-    expect(await screen.findByLabelText('할당 제목')).toBeInTheDocument()
+    expect(await screen.findByLabelText('Sprint 제목')).toBeInTheDocument()
   })
 
   it('활성 항목이 전부 완료 → 사실만 적고 CTA 는 `수정` 이다', async () => {
     await renderCard(
       makeSummary({ items: [makeItem({ completedAt: '2026-08-05T00:00:00.000Z' })] })
     )
-    expect(screen.getByText('이번 주 할당을 다 끝냈어요')).toBeInTheDocument()
+    expect(screen.getByText('이번 주 Sprint를 다 끝냈어요')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: '수정' })).toBeInTheDocument()
   })
 
@@ -241,14 +241,14 @@ describe('WeekCard — 헤더 `수정` 진입 (§2)', () => {
 
     await user.click(screen.getByRole('button', { name: '수정' }))
     // 기존 항목이 채워진 채 열려야 한다 (§5.3 — 재수정은 새 계획이 아니다).
-    expect(await screen.findByLabelText('할당 제목')).toBeInTheDocument()
+    expect(await screen.findByLabelText('Sprint 제목')).toBeInTheDocument()
     expect(screen.getByText('설계 문서')).toBeInTheDocument()
   })
 
   /** 진입은 한 번에 하나다 — 빈 상태에는 본문 CTA 가 이미 있다. */
   it('빈 상태에서는 헤더 `수정` 을 그리지 않는다', async () => {
     await renderCard(makeSummary())
-    expect(screen.getByRole('button', { name: '+ 이번 주 할당 잡기' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '+ 이번 주 Sprint 잡기' })).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: '수정' })).not.toBeInTheDocument()
   })
 
@@ -259,7 +259,7 @@ describe('WeekCard — 헤더 `수정` 진입 (§2)', () => {
     })
 
     await user.click(screen.getByRole('button', { name: '수정' }))
-    await screen.findByLabelText('할당 제목')
+    await screen.findByLabelText('Sprint 제목')
     await user.click(screen.getByRole('button', { name: '취소' }))
 
     const back = await screen.findByRole('button', { name: '수정' })
@@ -352,7 +352,7 @@ describe('WeekCard — 플래너 진입과 복귀 (§5.4)', () => {
     const user = userEvent.setup()
     await renderCard(makeSummary(), { planDraft: vi.fn().mockResolvedValue(draft) })
 
-    await user.click(screen.getByRole('button', { name: '+ 이번 주 할당 잡기' }))
+    await user.click(screen.getByRole('button', { name: '+ 이번 주 Sprint 잡기' }))
     expect(await screen.findByText('이번 주 계획')).toBeInTheDocument()
   })
 
@@ -361,21 +361,21 @@ describe('WeekCard — 플래너 진입과 복귀 (§5.4)', () => {
     await renderCard(makeSummary(), { planDraft: vi.fn().mockResolvedValue(draft) })
 
     expect(screen.getByTestId('week-total-measured')).toBeInTheDocument()
-    await user.click(screen.getByRole('button', { name: '+ 이번 주 할당 잡기' }))
+    await user.click(screen.getByRole('button', { name: '+ 이번 주 Sprint 잡기' }))
     await screen.findByText('이번 주 계획')
     expect(screen.queryByTestId('week-total-measured')).not.toBeInTheDocument()
     // 플래너에는 그 자리를 대신할 숫자가 없다 — 총량 바도 함께 죽었다 (ADR-030 §3).
-    expect(screen.getByLabelText('할당 제목')).toBeInTheDocument()
+    expect(screen.getByLabelText('Sprint 제목')).toBeInTheDocument()
   })
 
   it('취소하면 일반 뷰로 돌아가고 포커스가 열었던 버튼으로 귀속된다', async () => {
     const user = userEvent.setup()
     await renderCard(makeSummary(), { planDraft: vi.fn().mockResolvedValue(draft) })
 
-    await user.click(screen.getByRole('button', { name: '+ 이번 주 할당 잡기' }))
+    await user.click(screen.getByRole('button', { name: '+ 이번 주 Sprint 잡기' }))
     await user.click(await screen.findByRole('button', { name: '취소' }))
 
-    const cta = screen.getByRole('button', { name: '+ 이번 주 할당 잡기' })
+    const cta = screen.getByRole('button', { name: '+ 이번 주 Sprint 잡기' })
     expect(cta).toBeInTheDocument()
     expect(cta).toHaveFocus()
   })
@@ -400,7 +400,7 @@ describe('WeekCard — 플래너 진입과 복귀 (§5.4)', () => {
       confirmPlan
     })
 
-    await user.click(screen.getByRole('button', { name: '+ 이번 주 할당 잡기' }))
+    await user.click(screen.getByRole('button', { name: '+ 이번 주 Sprint 잡기' }))
     await user.click(await screen.findByRole('button', { name: '이번 주 시작' }))
 
     expect(confirmPlan).toHaveBeenCalledWith({ week: WEEK, items: [] })
@@ -413,7 +413,7 @@ describe('WeekCard — 타이포와 빈 공간', () => {
   it('eyebrow 와 카드 제목이 공용 타이포 클래스를 쓴다', async () => {
     await renderCard(makeSummary())
     expect(screen.getByText('WEEK').className).toContain('eyebrow')
-    expect(screen.getByText('이번 주 할당').className).toContain('card-title')
+    expect(screen.getByText('Sprint').className).toContain('card-title')
   })
 
   it('보여줄 행이 하나도 없으면 안내를 세로 가운데에 둔다', async () => {
@@ -475,14 +475,14 @@ describe('WeekCard — 오늘 배정 상단 정렬 (A8)', () => {
 describe('WeekCard — 편집 대상 주 기본값 (A3·A5)', () => {
   it('계획 대상 주가 다음 주면 빈 상태 CTA 도 다음 주라고 말한다', async () => {
     await renderCard(makeSummary(), {}, '2026-08-10')
-    expect(await screen.findByRole('button', { name: '+ 다음 주 할당 잡기' })).toBeInTheDocument()
+    expect(await screen.findByRole('button', { name: '+ 다음 주 Sprint 잡기' })).toBeInTheDocument()
   })
 
   it('그 CTA 로 들어가면 다음 주 초안을 불러온다', async () => {
     const planDraft = vi.fn().mockResolvedValue({ week: '2026-08-10', items: [] })
     await renderCard(makeSummary(), { planDraft }, '2026-08-10')
 
-    await userEvent.click(await screen.findByRole('button', { name: '+ 다음 주 할당 잡기' }))
+    await userEvent.click(await screen.findByRole('button', { name: '+ 다음 주 Sprint 잡기' }))
     expect(await screen.findByText('다음 주 계획')).toBeInTheDocument()
     expect(planDraft).toHaveBeenCalledWith('2026-08-10')
   })
@@ -493,7 +493,7 @@ describe('WeekCard — 편집 대상 주 기본값 (A3·A5)', () => {
       .mockImplementation((week: string) => Promise.resolve({ week, items: [] }))
     await renderCard(makeSummary(), { planDraft }, WEEK)
 
-    await userEvent.click(await screen.findByRole('button', { name: '+ 이번 주 할당 잡기' }))
+    await userEvent.click(await screen.findByRole('button', { name: '+ 이번 주 Sprint 잡기' }))
     expect(planDraft).toHaveBeenCalledWith(WEEK)
 
     await userEvent.click(screen.getByRole('button', { name: '다음 주' }))

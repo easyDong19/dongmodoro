@@ -44,7 +44,7 @@ export function CarryTitlesAction({
         className="self-start"
         onClick={() => setOpen(true)}
       >
-        지난달에 남은 결과물 가져오기
+        지난달에 남은 Milestone 가져오기
       </Button>
     )
   }

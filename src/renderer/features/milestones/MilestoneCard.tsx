@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Plus } from 'lucide-react'
-import { addMonths, monthOfWeek, monthOnlyLabel, weekRangeLabel } from '@shared/time'
+import { monthOfWeek, monthOnlyLabel, weekRangeLabel } from '@shared/time'
 import { useClock } from '@renderer/shared/query/useClock'
 import { Button } from '@renderer/shared/ui/button'
 import { CarryTitlesAction } from './CarryTitlesAction'
@@ -52,7 +52,7 @@ export function MilestoneCard() {
   return (
     <div className="flex min-h-0 flex-col gap-2" data-mode={data.mode} data-testid="milestone-card">
       <h2 className={`card-title ${data.mode.startsWith('past') ? 'text-ink-dim' : 'text-ink'}`}>
-        결과물
+        Milestone
       </h2>
 
       {/* 지난달 배지 (R21 · R23). M === 0 이면 서버가 null 을 주므로 여기서 그리지 않는다. */}
@@ -146,23 +146,13 @@ export function MilestoneCard() {
         <p className="text-xs text-ink-dim">이 달은 계획 없이 지나갔어요</p>
       ) : null}
 
-      {/*
-        먼 미래는 **CTA 를 두지 않는다** (R23) — 편집 경로가 아직 없으므로. 대신 그 달이
-        "다음 달"이 되는 날짜(= 직전 달 1일)를 사실로 말한다.
-      */}
-      {data.mode === 'far-future' ? (
-        <p data-testid="far-future-note" className="text-xs text-ink-dim">
-          {`${monthOnlyLabel(month)}은 ${monthOnlyLabel(addMonths(month, -1))} 1일부터 계획할 수 있어요`}
-        </p>
-      ) : null}
-
       {editable ? (
         adding ? (
           /* h-8 은 이 입력이 대체하는 추가 버튼(size sm)과 같은 높이다 — 버튼↔입력 전환
              때 높이가 달라지면 아래 목록이 밀렸다 당겨진다 (실측: 추가 3회에 shift 9건). */
           <input
             autoFocus
-            aria-label="새 결과물"
+            aria-label="새 Milestone"
             className="h-8 rounded-md bg-glass-strong px-2 py-1 text-xs text-ink"
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
@@ -191,7 +181,7 @@ export function MilestoneCard() {
             <Plus aria-hidden="true" />
             {data.mode === 'lead-edit' && data.items.length === 0
               ? `${monthOnlyLabel(month)} 계획 잡기`
-              : '결과물 추가'}
+              : 'Milestone 추가'}
           </Button>
         )
       ) : null}

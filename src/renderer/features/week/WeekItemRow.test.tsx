@@ -53,12 +53,12 @@ describe('WeekItemRow — 기본 구성 (§3.1)', () => {
 
   it('자식 조각이 0개면 조각 카운트를 숨긴다', () => {
     renderRow({ childTotal: 0, childDone: 0 })
-    expect(screen.queryByText(/조각/)).not.toBeInTheDocument()
+    expect(screen.queryByText(/task/)).not.toBeInTheDocument()
   })
 
   it('자식 조각이 있으면 완료/전체를 적는다', () => {
     renderRow({ childTotal: 4, childDone: 2 })
-    expect(screen.getByText('· 조각 2/4')).toBeInTheDocument()
+    expect(screen.getByText('· task 2/4')).toBeInTheDocument()
   })
 
   it('행에 pull 버튼이 없다 — 진입점은 캐럿(드로어) 하나다', () => {
@@ -164,7 +164,7 @@ describe('WeekItemRow — 이월 배지 (R11 · A14·A15)', () => {
 describe('WeekItemRow — 완료 제안 (§3.3·§4)', () => {
   it('자식을 전부 끝내고 미완료면 제안과 버튼이 뜬다', () => {
     renderRow({ childTotal: 3, childDone: 3, completedAt: null })
-    expect(screen.getByText('할 일을 다 끝냈어요 — 이 할당도 완료할까요?')).toBeInTheDocument()
+    expect(screen.getByText('할 일을 다 끝냈어요 — 이 Sprint도 완료할까요?')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: '완료로 표시' })).toBeInTheDocument()
   })
 
@@ -175,12 +175,12 @@ describe('WeekItemRow — 완료 제안 (§3.3·§4)', () => {
 
   it('자식이 0개면 제안이 뜨지 않는다 (§4)', () => {
     renderRow({ childTotal: 0, childDone: 0 })
-    expect(screen.queryByText(/이 할당도 완료할까요/)).not.toBeInTheDocument()
+    expect(screen.queryByText(/이 Sprint도 완료할까요/)).not.toBeInTheDocument()
   })
 
   it('자식이 남아 있으면 제안이 뜨지 않는다', () => {
     renderRow({ childTotal: 3, childDone: 2 })
-    expect(screen.queryByText(/이 할당도 완료할까요/)).not.toBeInTheDocument()
+    expect(screen.queryByText(/이 Sprint도 완료할까요/)).not.toBeInTheDocument()
   })
 })
 
@@ -206,7 +206,7 @@ describe('WeekItemRow — 완료 상태 (§3.3)', () => {
     })
     expect(screen.getByTestId('measured-time')).toHaveTextContent('2시간 30분')
     expect(screen.queryByText('+2')).not.toBeInTheDocument()
-    expect(screen.queryByText(/이 할당도 완료할까요/)).not.toBeInTheDocument()
+    expect(screen.queryByText(/이 Sprint도 완료할까요/)).not.toBeInTheDocument()
   })
 })
 

@@ -143,7 +143,7 @@ export function WeekItemRow({
       <div className="flex items-center gap-2 pl-8">
         <MeasuredTime sec={row.measuredSec} />
         {row.childTotal > 0 ? (
-          <span className="text-xs text-ink-dim">{`· 조각 ${row.childDone}/${row.childTotal}`}</span>
+          <span className="text-xs text-ink-dim">{`· task ${row.childDone}/${row.childTotal}`}</span>
         ) : null}
         <DayPips days={row.days} todayIndex={todayIndex} />
       </div>
@@ -151,7 +151,9 @@ export function WeekItemRow({
       {suggestComplete ? (
         // 거절 버튼이 없는 것이 의도다 — 무시하면 active 로 남는다 (§4).
         <div className="flex items-center gap-2 pl-8">
-          <span className="text-xs text-ink-dim">할 일을 다 끝냈어요 — 이 할당도 완료할까요?</span>
+          <span className="text-xs text-ink-dim">
+            할 일을 다 끝냈어요 — 이 Sprint도 완료할까요?
+          </span>
           <Button type="button" variant="secondary" size="xs" onClick={() => onComplete(row.id)}>
             완료로 표시
           </Button>

@@ -118,12 +118,7 @@ describe('표시 모드로만 분기한다 (R20)', () => {
     expect(calls.setArchived).toHaveBeenCalledWith({ id: 'm1', archived: true })
   })
 
-  it('다음다음 달에는 편집 진입점이 없다 (A6)', async () => {
-    await renderCard(makeRes({ mode: 'far-future' }))
-    expect(screen.queryByTestId('milestone-add')).not.toBeInTheDocument()
-  })
-
-  it('다음 달에는 편집이 열린다 (R6 · A6)', async () => {
+  it('미래 달에는 편집이 열린다 — 날짜 제한이 없다 (R6 개정)', async () => {
     await renderCard(makeRes({ mode: 'lead-edit' }))
     expect(screen.getByTestId('milestone-add')).toBeInTheDocument()
   })
@@ -322,14 +317,6 @@ describe('빈 상태 문구 (R23)', () => {
     await renderCard(makeRes({ mode: 'lead-edit', items: [] }))
     expect(screen.getByText('아직 계획 전')).toBeInTheDocument()
     expect(screen.getByTestId('milestone-add')).toHaveTextContent('8월 계획 잡기')
-  })
-
-  it('먼 미래는 계획 가능 시점을 사실로 말하고 CTA 를 두지 않는다', async () => {
-    await renderCard(makeRes({ mode: 'far-future' }))
-    expect(screen.getByTestId('far-future-note')).toHaveTextContent(
-      '8월은 7월 1일부터 계획할 수 있어요'
-    )
-    expect(screen.queryByTestId('milestone-add')).not.toBeInTheDocument()
   })
 })
 

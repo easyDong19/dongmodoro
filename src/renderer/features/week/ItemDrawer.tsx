@@ -134,7 +134,7 @@ export function ItemDrawer({
           옵션으로 함께 보여준다. 선택지에서 빼면 렌더 시점에 값이 사라진 것처럼 보인다.
       */}
       <label className="flex items-center gap-2 text-xs text-ink-dim">
-        결과물
+        Milestone
         <select
           data-testid="milestone-select"
           className="min-w-0 flex-1 rounded-md border border-control-border bg-glass px-2 py-1 text-xs text-ink"
@@ -158,7 +158,7 @@ export function ItemDrawer({
 
       {hasTasks ? (
         <>
-          <p className="text-xs text-ink-dim">이 할당의 조각 — 오늘 할 것을 고르세요</p>
+          <p className="text-xs text-ink-dim">이 Sprint의 task — 오늘 할 것을 고르세요</p>
           <ul className="flex flex-col">
             {data.tasks.map((task) => (
               <TaskRow
@@ -174,8 +174,8 @@ export function ItemDrawer({
 
       <label className="flex flex-col gap-1 text-xs text-ink-dim">
         {hasTasks
-          ? '새 조각 추가 — Enter 로 계속 쌓아요'
-          : '오늘 할 몫을 쪼개서 적어요 — 이게 첫 조각이 돼요'}
+          ? '새 task 추가 — Enter 로 계속 쌓아요'
+          : '오늘 할 몫을 쪼개서 적어요 — 이게 첫 task가 돼요'}
         <span className="flex items-center gap-1">
           <input
             type="text"
@@ -203,7 +203,7 @@ export function ItemDrawer({
 
       {itemDone ? (
         // 사실만 적는다 — 완료 뒤 시간이 더 쌓여도 `초과했어요` 류를 붙이지 않는다 (R28).
-        <p className="text-xs text-ink-dim">완료된 할당이에요 — 해제하면 다시 가져올 수 있어요</p>
+        <p className="text-xs text-ink-dim">완료된 Sprint예요 — 해제하면 다시 가져올 수 있어요</p>
       ) : null}
 
       <div className="flex items-center gap-2">
@@ -240,7 +240,7 @@ export function ItemDrawer({
         {confirmingDrop ? (
           <>
             <span className="text-xs text-ink-dim">
-              이 할당을 보내줄까요? 지금까지 한 집중과 조각은 남아요.
+              이 Sprint를 보내줄까요? 지금까지 한 집중과 task는 남아요.
             </span>
             <Button
               type="button"

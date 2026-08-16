@@ -47,13 +47,13 @@ function EmptyState({
     <div className={`flex flex-col items-start gap-2 px-2 ${unplannedOnly ? 'py-2' : 'py-4'}`}>
       <p className={unplannedOnly ? 'text-xs text-ink-dim' : 'text-sm text-ink-dim'}>
         {kind === 'all-done'
-          ? '이번 주 할당을 다 끝냈어요'
+          ? '이번 주 Sprint를 다 끝냈어요'
           : unplannedOnly
             ? '계획이 없어도 기록은 남아요'
-            : `${targetLabel} 할당을 잡으면 여기서 집중한 시간이 쌓여요`}
+            : `${targetLabel} Sprint를 잡으면 여기서 집중한 시간이 쌓여요`}
       </p>
       <Button ref={ctaRef} type="button" variant="secondary" size="sm" onClick={onOpenPlanner}>
-        {kind === 'all-done' ? '수정' : `+ ${targetLabel} 할당 잡기`}
+        {kind === 'all-done' ? '수정' : `+ ${targetLabel} Sprint 잡기`}
       </Button>
     </div>
   )
@@ -193,7 +193,7 @@ export function WeekCard() {
       <header className="flex shrink-0 items-start gap-2 px-4 pt-4">
         <div className="flex-1">
           <p className="eyebrow">WEEK</p>
-          <h2 className="card-title text-ink">이번 주 할당</h2>
+          <h2 className="card-title text-ink">Sprint</h2>
           {/* 주 범위 옆에 이번 주 측정 시간 합을 둔다 (ux-spec §7). 세션이 0인 주에도
               `0분` 을 적는다 — 자리를 지우면 "값 없음"과 구분되지 않는다 (§0.3·§0.5). */}
           <p className="font-mono text-xs tabular-nums text-ink-dim">

@@ -138,7 +138,7 @@ describe('App — 카드 표면 (design-system ADR-002)', () => {
     setup({ clockNow: () => Promise.resolve(clock) })
     await screen.findByLabelText('타이머')
 
-    for (const label of ['월 결과물', '캘린더', '타이머', '주간 계획', '오늘 목록']) {
+    for (const label of ['Milestone', '캘린더', '타이머', 'Sprint', '오늘 목록']) {
       const section = screen.getByLabelText(label)
       expect(section.className).toContain('card')
       // 인라인 background 는 backdrop-filter·shadow 를 못 데려온다. 그래서 이 검사가 있다.
@@ -152,7 +152,7 @@ describe('App — MONTH 컬럼 (app-shell ux-spec §2)', () => {
     setup({ clockNow: () => Promise.resolve(clock) })
     await screen.findByLabelText('캘린더')
 
-    const milestone = screen.getByLabelText('월 결과물')
+    const milestone = screen.getByLabelText('Milestone')
     const calendar = screen.getByLabelText('캘린더')
     expect(milestone.parentElement).toBe(calendar.parentElement)
   })
@@ -161,7 +161,7 @@ describe('App — MONTH 컬럼 (app-shell ux-spec §2)', () => {
     setup({ clockNow: () => Promise.resolve(clock) })
     await screen.findByLabelText('타이머')
 
-    expect(screen.getByLabelText('주간 계획').parentElement).toBe(
+    expect(screen.getByLabelText('Sprint').parentElement).toBe(
       screen.getByLabelText('오늘 목록').parentElement
     )
   })
@@ -202,7 +202,7 @@ describe('App — 카드 접근성 이름은 셸이 소유한다', () => {
      */
     await screen.findByTestId('milestone-card')
 
-    for (const label of ['월 결과물', '캘린더', '타이머', '주간 계획', '오늘 목록']) {
+    for (const label of ['Milestone', '캘린더', '타이머', 'Sprint', '오늘 목록']) {
       expect(screen.getAllByRole('region', { name: label })).toHaveLength(1)
     }
   })

@@ -25,7 +25,7 @@ export function GuidanceSection({ data }: { data: Panel }) {
         <p className="text-xs text-ink-dim">
           {'계획에 없던 집중 '}
           <MeasuredTime sec={unplannedSec} />
-          {' — 기록으로만 남아요. 할당이 틀린 건 실패가 아니라 정보예요.'}
+          {' — 기록으로만 남아요. Sprint가 틀린 건 실패가 아니라 정보예요.'}
         </p>
       ) : null}
     </section>

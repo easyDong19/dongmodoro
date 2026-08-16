@@ -48,7 +48,7 @@ export function App() {
                   높이를 상속한다. */}
               <section
                 className="card flex h-[40%] min-h-[148px] shrink-0 flex-col overflow-hidden p-4"
-                aria-label="월 결과물"
+                aria-label="Milestone"
               >
                 <MilestoneCard />
               </section>
@@ -64,7 +64,7 @@ export function App() {
             <TimerCard />
           </section>
           <div className="flex w-[360px] min-h-0 flex-col gap-6">
-            <section className="card min-h-0 flex-1 overflow-hidden" aria-label="주간 계획">
+            <section className="card min-h-0 flex-1 overflow-hidden" aria-label="Sprint">
               <WeekCard />
             </section>
             <section className="card min-h-0 flex-1 overflow-hidden" aria-label="오늘 목록">

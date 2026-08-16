@@ -11,9 +11,8 @@ import type { MilestoneBadge, MilestoneRow, UnitOfWork } from './ports'
  */
 
 export type MilestoneMode =
-  /** `month` > 다음 달. 읽기 전용, 사실 문구만 — CTA·배지·롤업 없음. */
-  | 'far-future'
-  /** 다음 달 한 칸. 선행 편집이 열린다 (R6). 귀속 주가 없으므로 롤업 없음. */
+  /** 미래 달 전부. 선행 편집이 열린다 — 날짜 제한 없이 언제든 계획할 수 있다
+      (2026-08-17 사용자 결정, R6 의 "다음 달 한 칸" 제한 폐기). 귀속 주가 없으므로 롤업 없음. */
   | 'lead-edit'
   /** 이번 달인데 0건. 빈 상태 + 추가 CTA + 직전 달 제목 복사 (R22). */
   | 'current-empty'
@@ -27,16 +26,16 @@ export type MilestoneMode =
 /**
  * R20 의 표를 **위에서 아래 순서로 처음 참인 행 하나**로 판정한다.
  *
- * 판별은 달력 키의 **사전순 비교만** 쓴다 (R2 · A2 — 사전순 = 시간순). "다음 달"은
- * `addMonths` 로 구한다: 12월 다음이 이듬해 1월이라는 사실을 문자열 비교가 알 리 없다.
+ * 판별은 달력 키의 **사전순 비교만** 쓴다 (R2 · A2 — 사전순 = 시간순).
+ *
+ * `far-future` 가 없어진 것이 의도다 — 미래 달은 얼마나 멀든 전부 선행 편집이다
+ * (날짜 제한 폐기, 2026-08-17 사용자 결정). 과거는 그대로 읽기 전용이다.
  *
  * 순수 함수로 떼어 둔 이유는 이 순서가 이 기능에서 가장 틀리기 쉬운 부분이고, DB 없이
- * 여섯 갈래를 전부 직접 검증할 수 있어야 하기 때문이다.
+ * 다섯 갈래를 전부 직접 검증할 수 있어야 하기 때문이다.
  */
 export function displayMode(month: string, todayMonth: string, count: number): MilestoneMode {
-  const nextMonth = addMonths(todayMonth, 1)
-  if (month > nextMonth) return 'far-future'
-  if (month === nextMonth) return 'lead-edit'
+  if (month > todayMonth) return 'lead-edit'
   if (month === todayMonth) return count === 0 ? 'current-empty' : 'edit'
   return count === 0 ? 'past-empty' : 'past'
 }
