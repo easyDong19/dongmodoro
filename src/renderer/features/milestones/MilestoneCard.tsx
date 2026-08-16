@@ -64,60 +64,66 @@ export function MilestoneCard() {
         </p>
       ) : null}
 
-      {data.items.length > 0 ? (
-        <ul className="scroll-area flex min-h-0 flex-col gap-1.5 overflow-y-auto">
-          {data.items.map((item, i) => (
-            <MilestoneRow
-              key={item.id}
-              item={item}
-              index={i}
-              editable={editable}
-              rollupWeek={data.rollupWeek}
-              actions={actions}
-            />
-          ))}
-        </ul>
-      ) : null}
+      {/* 활성 목록·이월 안내·보관 목록이 **한 스크롤 영역** 안이다. 카드가 상한
+          (App 의 max-h)에 닿으면 여기만 줄어들며 스크롤하고, 제목·배지·추가 버튼은
+          바깥에 남아 항목이 몇 개든 밀려나지 않는다. 보관 목록이 밖에 있으면 펼치는
+          순간 스크롤을 우회해 카드를 통째로 키운다. */}
+      <div className="scroll-area flex min-h-0 flex-col gap-2 overflow-y-auto">
+        {data.items.length > 0 ? (
+          <ul className="flex flex-col gap-1.5">
+            {data.items.map((item, i) => (
+              <MilestoneRow
+                key={item.id}
+                item={item}
+                index={i}
+                editable={editable}
+                rollupWeek={data.rollupWeek}
+                actions={actions}
+              />
+            ))}
+          </ul>
+        ) : null}
 
-      {/*
+        {/*
         진행 중인 주가 이 달에 귀속되지 않은 동안에는 숫자 대신 **사실 문구**를 둔다
         (R18 · R23 · A17). 달 전환 직후 최대 6일간의 상태이며, 서버의 `rollupWeek: null`
         이 그 신호다.
       */}
-      {data.mode === 'edit' && data.rollupWeek === null ? (
-        <p data-testid="rollup-out-of-month" className="text-[10px] text-ink-dim">
-          {`이번 주(${weekRangeLabel(weekKey)})는 ${monthOnlyLabel(monthOfWeek(weekKey))}에 속한 주예요`}
-        </p>
-      ) : null}
+        {data.mode === 'edit' && data.rollupWeek === null ? (
+          <p data-testid="rollup-out-of-month" className="text-[10px] text-ink-dim">
+            {`이번 주(${weekRangeLabel(weekKey)})는 ${monthOnlyLabel(monthOfWeek(weekKey))}에 속한 주예요`}
+          </p>
+        ) : null}
 
-      {/* 보관 목록 — 해제의 도달 경로다 (R11 · A20). 모든 모드에서 열린다. */}
-      {data.archivedItems.length > 0 ? (
-        <div>
-          <Button
-            type="button"
-            variant="ghost"
-            size="xs"
-            data-testid="archived-toggle"
-            onClick={() => setShowArchived((v) => !v)}
-          >
-            {`보관 ${data.archivedItems.length}건`}
-          </Button>
-          {showArchived ? (
-            <ul data-testid="archived-list" className="flex flex-col gap-1.5 pt-1">
-              {data.archivedItems.map((item, i) => (
-                <MilestoneRow
-                  key={item.id}
-                  item={{ ...item, rollup: null }}
-                  index={i}
-                  editable={false}
-                  rollupWeek={null}
-                  actions={actions}
-                />
-              ))}
-            </ul>
-          ) : null}
-        </div>
-      ) : null}
+        {/* 보관 목록 — 해제의 도달 경로다 (R11 · A20). 모든 모드에서 열린다. */}
+        {data.archivedItems.length > 0 ? (
+          <div>
+            <Button
+              type="button"
+              variant="ghost"
+              size="xs"
+              data-testid="archived-toggle"
+              onClick={() => setShowArchived((v) => !v)}
+            >
+              {`보관 ${data.archivedItems.length}건`}
+            </Button>
+            {showArchived ? (
+              <ul data-testid="archived-list" className="flex flex-col gap-1.5 pt-1">
+                {data.archivedItems.map((item, i) => (
+                  <MilestoneRow
+                    key={item.id}
+                    item={{ ...item, rollup: null }}
+                    index={i}
+                    editable={false}
+                    rollupWeek={null}
+                    actions={actions}
+                  />
+                ))}
+              </ul>
+            ) : null}
+          </div>
+        ) : null}
+      </div>
 
       {/* 빈 상태와 CTA — 문구는 사실만 말한다 (R23). 부정·결핍 프레임과 훈계 금지. */}
       {data.mode === 'current-empty' ? (

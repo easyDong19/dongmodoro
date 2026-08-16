@@ -37,23 +37,36 @@ export function App() {
             <div className="flex w-[300px] min-h-0 flex-col gap-6">
               {/* min-h 148px 는 편집 모드(항목 2개) 실측 높이다 — 모드별 내용 높이가
                   76~146px 로 달라서, 하한이 없으면 달 이동마다 아래 캘린더 카드가 최대
-                  70px 주저앉았다 솟는다 (실측). 내용이 더 길면 자라는 것은 그대로 둔다. */}
-              <section className="card min-h-[148px] shrink-0 p-4" aria-label="월 결과물">
+                  70px 주저앉았다 솟는다 (실측). 내용이 더 길면 자라되 **컬럼의 40% 가
+                  상한**이다 — 상한이 없으면 항목 수만큼 무한정 자라 아래 캘린더를 짓누른다.
+                  상한에 닿으면 카드 안에서 스크롤한다 (MilestoneCard).
+
+                  이 섹션만 flex 컨테이너인 이유: 높이가 내용을 따라가는(auto) 구간에서는
+                  자식의 `h-full`(%) 이 풀리지 않아, 상한에 닿았을 때 자식을 줄이는 길이
+                  flex 수축(min-h-0)뿐이다. 다른 섹션들은 flex-1 로 높이가 확정이라 자식이
+                  `h-full` 을 쓴다. */}
+              <section
+                className="card flex max-h-[40%] min-h-[148px] shrink-0 flex-col overflow-hidden p-4"
+                aria-label="월 결과물"
+              >
                 <MilestoneCard />
               </section>
-              <section className="card min-h-0 flex-1 p-4" aria-label="캘린더">
+              <section className="card min-h-0 flex-1 overflow-hidden p-4" aria-label="캘린더">
                 <CalendarCard />
               </section>
             </div>
           </DisplayMonthProvider>
-          <section className="card min-h-[320px] flex-1 p-4" aria-label="타이머">
+          {/* overflow-hidden 은 다섯 섹션 공통 안전망이다 — 내부 스크롤 사슬이 끊겨도
+              내용이 유리 카드의 둥근 모서리 밖으로 그려지는 일은 없어야 한다. `.card` 는
+              표면만 소유하므로(global.css) 레이아웃인 이 속성은 여기서 준다. */}
+          <section className="card min-h-[320px] flex-1 overflow-hidden p-4" aria-label="타이머">
             <TimerCard />
           </section>
           <div className="flex w-[360px] min-h-0 flex-col gap-6">
-            <section className="card min-h-0 flex-1" aria-label="주간 계획">
+            <section className="card min-h-0 flex-1 overflow-hidden" aria-label="주간 계획">
               <WeekCard />
             </section>
-            <section className="card min-h-0 flex-1" aria-label="오늘 목록">
+            <section className="card min-h-0 flex-1 overflow-hidden" aria-label="오늘 목록">
               <TodayList />
             </section>
           </div>

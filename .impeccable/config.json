@@ -1,0 +1,17 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "side-tab",
+        "value": "*",
+        "files": [
+          "docs/decision-log/2026-08-16-card-overflow-scroll-flow.html"
+        ],
+        "createdAt": "2026-08-16T12:31:15.577Z",
+        "reason": "decision-log skill mandates reusing the reference flow html (2026-08-04-decision-flow.html) CSS verbatim; the .why quote block's left border is that reference's established idiom"
+      }
+    ]
+  }
+}

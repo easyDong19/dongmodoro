@@ -23,7 +23,10 @@ export function CalendarCard() {
   const { month, selectedDay, grid, day } = useCalendar()
 
   return (
-    <div className="flex min-h-0 flex-col">
+    // h-full 이 없으면 이 div 는 내용 높이로 자라 아래 스크롤 영역의 flex-1 이 기준을
+    // 잃는다 — overflow 가 영영 발동하지 않아 목록이 카드 밖으로 넘쳤다 (섹션 높이는
+    // App 의 flex-1 로 확정이므로 % 가 풀린다).
+    <div className="flex h-full min-h-0 flex-col">
       <div className="flex shrink-0 items-center justify-between px-1 pb-2">
         <h2 className="card-title text-ink">{monthLabel(month)}</h2>
         <div className="flex items-center gap-1">

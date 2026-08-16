@@ -1,0 +1,234 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>의사결정 플로우 — 2026-08-16 카드 오버플로 수정</title>
+<style>
+  :root {
+    --bg: #ffffff; --surface: #f7f8f8; --line: #d8dcda; --line-strong: #9aa3a0;
+    --text: #14201c; --muted: #6b7873;
+    --teal: #0f8a6d; --teal-soft: rgba(15,138,109,0.10);
+    --amber: #a76a12; --amber-soft: rgba(167,106,18,0.12);
+    --violet: #7c4fc4; --violet-soft: rgba(124,79,196,0.10);
+    --danger: #b3543f;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0c1a16; --surface: rgba(255,255,255,0.045); --line: rgba(255,255,255,0.14);
+      --line-strong: rgba(255,255,255,0.4); --text: #e8f0ec; --muted: #8fa39b;
+      --teal: #6fd4b8; --teal-soft: rgba(111,212,184,0.12);
+      --amber: #f0b671; --amber-soft: rgba(240,182,113,0.14);
+      --violet: #b795e8; --violet-soft: rgba(183,149,232,0.12);
+      --danger: #e8907e;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { background: var(--bg); color: var(--text); margin: 0;
+         padding: 32px 20px 64px;
+         font-family: ui-sans-serif, -apple-system, "Segoe UI", Roboto, sans-serif;
+         line-height: 1.6; }
+  .wrap { max-width: 800px; margin: 0 auto; }
+  h1 { font-size: 22px; margin: 0 0 6px; letter-spacing: -0.01em; }
+  .sub { color: var(--muted); font-size: 13px; margin: 0 0 8px; }
+  .sub a { color: var(--teal); }
+  .intro { font-size: 14px; background: var(--surface); border: 1px solid var(--line);
+           border-radius: 12px; padding: 14px 18px; margin: 18px 0 0; }
+  .intro b { color: var(--teal); }
+
+  .legend { display: flex; gap: 14px; flex-wrap: wrap; font-size: 12px; color: var(--muted);
+            margin: 14px 0 0; padding: 12px 0; border-bottom: 1px solid var(--line); }
+  .chip { display: inline-block; padding: 1px 8px; border-radius: 999px; font-size: 11px;
+          font-weight: 600; letter-spacing: 0.02em; vertical-align: 1px; }
+  .chip.rev { background: var(--amber-soft); color: var(--amber); }
+  .chip.exp { background: var(--violet-soft); color: var(--violet); }
+  .chip.sys { background: var(--teal-soft); color: var(--teal); }
+
+  .phase { margin-top: 40px; }
+  .phase-title { font-size: 12px; font-weight: 700; letter-spacing: 0.1em;
+                 color: var(--muted); text-transform: uppercase; margin: 0 0 4px 46px; }
+  .phase-desc { font-size: 13px; color: var(--muted); margin: 0 0 8px 46px; }
+
+  .node { display: flex; gap: 16px; }
+  .rail { width: 30px; flex-shrink: 0; display: flex; flex-direction: column; align-items: center; }
+  .dot { width: 12px; height: 12px; border-radius: 50%; background: var(--teal);
+         border: 2px solid var(--bg); box-shadow: 0 0 0 1.5px var(--teal); margin-top: 22px;
+         flex-shrink: 0; }
+  .dot.sys { background: var(--bg); box-shadow: 0 0 0 1.5px var(--line-strong); }
+  .dot.rev { background: var(--amber); box-shadow: 0 0 0 1.5px var(--amber); }
+  .rail .cont { width: 2px; flex: 1; background: var(--line); margin-top: 4px; }
+  .node:last-child .rail .cont { background: linear-gradient(var(--line), transparent); }
+
+  .card { flex: 1; background: var(--surface); border: 1px solid var(--line);
+          border-radius: 12px; padding: 16px 20px; margin: 8px 0; min-width: 0; }
+  .card.sys { background: transparent; border-style: dashed; }
+  .qid { font: 700 11px ui-monospace, Menlo, monospace; color: var(--muted);
+         letter-spacing: 0.06em; }
+  .qtitle { font-size: 15px; font-weight: 650; margin: 2px 0 10px; }
+
+  .sec-label { display: block; font-size: 11px; font-weight: 700; letter-spacing: 0.08em;
+               color: var(--muted); text-transform: uppercase; margin: 12px 0 3px; }
+  .problem { font-size: 13.5px; margin: 0; }
+  .problem em { font-style: normal; color: var(--danger); }
+
+  ul.options { list-style: none; padding: 0; margin: 4px 0 0; }
+  ul.options li { font-size: 13px; padding: 7px 10px 7px 30px; position: relative;
+                  border-radius: 8px; margin: 3px 0; color: var(--muted); }
+  ul.options li::before { content: "○"; position: absolute; left: 10px; color: var(--line-strong); }
+  ul.options li.chosen { background: var(--teal-soft); color: var(--text); }
+  ul.options li.chosen::before { content: "●"; color: var(--teal); }
+  ul.options li b { font-weight: 650; }
+  ul.options li .tr { color: var(--muted); }
+
+  .decision { font-size: 13.5px; margin: 4px 0 0; }
+  .decision b { color: var(--teal); }
+  .why { font-size: 13px; margin: 4px 0 0; padding: 8px 12px; border-left: 3px solid var(--amber);
+         background: var(--amber-soft); border-radius: 0 8px 8px 0; }
+  .why q { font-style: normal; }
+  .dep { font-size: 12.5px; color: var(--muted); margin-top: 12px; padding-top: 10px;
+         border-top: 1px dashed var(--line); }
+  .dep code, .problem code, .decision code {
+    font-family: ui-monospace, Menlo, monospace; font-size: 12px;
+    background: none; color: var(--teal); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>의사결정 플로우</h1>
+  <p class="sub">2026-08-16 카드 오버플로 수정 세션 · 시간순 · 결정 원문 기록: <a href="./2026-08-16-card-overflow-scroll.md">2026-08-16-card-overflow-scroll.md</a></p>
+
+  <div class="intro">
+    <b>이 문서가 다루는 것:</b> dongmodoro 메인 화면의 카드(오늘 목록·<code>결과물</code>·캘린더)에
+    항목이 쌓이면 내용이 카드 밖으로 넘치고, <code>결과물</code> 카드가 자라며 캘린더를 짓누르던
+    레이아웃 버그를 고치면서 내린 결정들이다. 각 카드는 <b>문제 → 고민한 선택지 → 결정(왜)</b>
+    순서로 읽으면 된다. ● 표시가 최종 선택이다.
+  </div>
+
+  <div class="legend">
+    <span><span class="chip rev">반전</span> AI 추천을 기각했거나 선택을 번복한 지점</span>
+    <span><span class="chip exp">재설명</span> 결정 전에 상세 설명·분석을 요구한 지점</span>
+    <span><span class="chip sys">검증</span> 코드 실행·테스트로 사실을 확인한 지점</span>
+    <span>점선 카드 = 질문이 아닌 이벤트</span>
+  </div>
+
+  <!-- ══════════ 1 · 방향 ══════════ -->
+  <div class="phase">
+    <p class="phase-title">1 · 방향 — 넘침을 어떻게 처리하나</p>
+    <p class="phase-desc">사용자가 버그 두 갈래를 보고하며 스크롤 방향을 제안했고, 코드 진단이 그 방향을 뒷받침했다.</p>
+
+    <div class="node">
+      <div class="rail"><div class="dot sys"></div><div class="cont"></div></div>
+      <div class="card sys">
+        <span class="qid">진단 <span class="chip sys">검증</span></span>
+        <p class="qtitle">원인은 정책이 아니라 배선 — 높이 사슬 단절</p>
+        <p class="problem">네 카드의 코드를 읽어 확인: 주간 카드(WeekCard)만 루트에
+        <code>h-full</code> 이 있어 내부 스크롤이 정상 발동한다. 캘린더·<code>결과물</code> 카드는
+        스크롤 설정이 있어도 루트가 내용 높이로 자라 <em>기준 높이가 성립하지 않았고</em>,
+        오늘 목록은 스크롤 설정 자체가 없었다. <code>결과물</code> 섹션은 하한(<code>min-h-[148px]</code>)만
+        있고 상한이 없어 무한정 자랐다.</p>
+      </div>
+    </div>
+
+    <div class="node">
+      <div class="rail"><div class="dot"></div><div class="cont"></div></div>
+      <div class="card">
+        <span class="qid">Q1</span>
+        <p class="qtitle">목록이 카드보다 길어지면 무엇이 일어나야 하나</p>
+        <span class="sec-label">문제</span>
+        <p class="problem">항목을 여러 개 넣으면 내용이 <em>유리 카드 모서리 밖까지 그려졌다.</em>
+        한 카드의 데이터량이 이웃 카드의 공간을 잠식했다.</p>
+        <span class="sec-label">선택지</span>
+        <ul class="options">
+          <li class="chosen"><b>카드 안에서 목록만 스크롤</b> — <span class="tr">카드 크기가 안정,
+            WeekCard 가 이미 쓰는 문법이라 새 패턴 아님</span></li>
+          <li><b>카드가 내용만큼 자람(현상)</b> — <span class="tr">데이터량이 이웃 카드 공간을 잠식</span></li>
+          <li><b>항목 수 제한</b> — <span class="tr">"개수를 막지 않는다"(milestones R4) 기획 원칙과 충돌</span></li>
+        </ul>
+        <span class="sec-label">결정</span>
+        <p class="decision"><b>카드 안에서 목록만 스크롤.</b> 카드 골격은 창 크기에서만 결정되고 데이터량은 스크롤이 흡수한다.</p>
+        <div class="why"><q>지금 디자인 상 문제가 리스트들이 여러개 추가될때 카드들을 벗어나는 문제가
+        생김 내 생각에는 스크롤이 생겨야 한다고 생각하거든</q></div>
+        <div class="dep">→ Q2 (스크롤이 성립하려면 <code>결과물</code> 카드에 상한이 필요)</div>
+      </div>
+    </div>
+
+    <div class="node">
+      <div class="rail"><div class="dot"></div><div class="cont"></div></div>
+      <div class="card">
+        <span class="qid">Q2</span>
+        <p class="qtitle"><code>결과물</code> 카드의 상한 — % 인가 px 인가</p>
+        <span class="sec-label">문제</span>
+        <p class="problem">상한이 없으면 항목 수만큼 자라 <em>같은 컬럼의 캘린더가 짓눌린다</em> —
+        사용자가 보고한 "캘린더가 밀리는" 버그의 원인.</p>
+        <span class="sec-label">선택지</span>
+        <ul class="options">
+          <li class="chosen"><b>컬럼의 40% (<code>max-h-[40%]</code>)</b> — <span class="tr">창 높이에 비례,
+            큰 화면은 더 보여주고 작은 화면은 캘린더 몫을 지킴</span></li>
+          <li><b>고정 px (예: 280px)</b> — <span class="tr">예측 가능하지만 창이 크면 낭비, 작으면 여전히 짓누름</span></li>
+        </ul>
+        <span class="sec-label">결정</span>
+        <p class="decision"><b>컬럼의 40%.</b> 하한 <code>min-h-[148px]</code> 는 별개 근거(달 이동 출렁임 방지)로 유지.</p>
+        <div class="why"><q>상한방식은 %이며, docs에 버그 수정 내역 md파일로 남겨야함 왜 이런 의사결정을
+        선택했고, 어떻게 조치했는지 알았으면 시작해</q></div>
+        <div class="dep">← Q1 · AI 추천(%)을 사용자가 채택</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════ 2 · 구현 ══════════ -->
+  <div class="phase">
+    <p class="phase-title">2 · 구현 — 승인 범위 안의 기술 결정</p>
+    <p class="phase-desc">사용자 승인 후 AI 가 내린 구현 수준의 결정들. CSS 제약이 형태를 정했다.</p>
+
+    <div class="node">
+      <div class="rail"><div class="dot"></div><div class="cont"></div></div>
+      <div class="card">
+        <span class="qid">Q3</span>
+        <p class="qtitle">높이 사슬 복구 — 왜 <code>결과물</code> 섹션만 flex 컨테이너인가</p>
+        <span class="sec-label">문제</span>
+        <p class="problem">캘린더·오늘 섹션은 <code>flex-1</code> 로 높이가 확정이라 자식의
+        <code>h-full</code>(%) 이 풀리지만, <code>결과물</code> 섹션은 내용 따라 자라는(auto) 높이라
+        <em>% 가 성립하지 않는다.</em></p>
+        <span class="sec-label">선택지</span>
+        <ul class="options">
+          <li class="chosen"><b>결과물 섹션만 <code>flex flex-col</code>, 나머지는 루트에 <code>h-full</code></b> —
+            <span class="tr">각 섹션의 CSS 제약에 맞는 최소 수단, WeekCard 기존 문법 유지</span></li>
+          <li><b>다섯 섹션 전부 flex 컨테이너로 통일</b> — <span class="tr">일관되지만 잘 동작하는 WeekCard 까지 건드림</span></li>
+        </ul>
+        <span class="sec-label">결정</span>
+        <p class="decision"><b>비대칭 유지.</b> 상한에 닿았을 때 자식을 줄이는 길이 flex 수축(<code>min-h-0</code>)뿐인
+        섹션만 flex 로. 이 비대칭은 CSS 제약이지 취향이 아니며 App.tsx 주석으로 남겼다.</p>
+      </div>
+    </div>
+
+    <div class="node">
+      <div class="rail"><div class="dot"></div><div class="cont"></div></div>
+      <div class="card">
+        <span class="qid">Q4 · Q5</span>
+        <p class="qtitle">스크롤 경계와 안전망</p>
+        <span class="sec-label">결정</span>
+        <p class="decision"><b>보관 목록을 스크롤 영역 안으로</b> — 밖에 있으면 펼치는 순간 상한을 우회해
+        카드를 통째로 키운다. 제목·배지·추가 버튼·직접 입력 폼은 스크롤 밖 고정 — 항목이 몇 개든
+        진입점이 밀려나지 않는다. <b>다섯 섹션 전부 <code>overflow-hidden</code></b> — 사슬이 또 끊겨도
+        카드 밖으로 그려지는 최악은 막는다. <code>.card</code> 는 표면만 소유한다는 규율이 있어
+        클래스가 아니라 App.tsx 섹션에 얹었다.</p>
+      </div>
+    </div>
+
+    <div class="node">
+      <div class="rail"><div class="dot rev"></div><div class="cont"></div></div>
+      <div class="card sys">
+        <span class="qid">검증 <span class="chip sys">검증</span> <span class="chip rev">반전</span></span>
+        <p class="qtitle">e2e 회귀 테스트 — 단언 하나를 정정</p>
+        <p class="problem">jsdom 은 레이아웃을 계산하지 않아 e2e 로만 검증 가능. 임시 프로필에
+        항목 15개(오늘)·10개(<code>결과물</code>)를 넣고 <code>scrollHeight &gt; clientHeight</code>·
+        40% 상한·캘린더 생존을 단언 (<code>e2e/card-overflow.spec.ts</code>).
+        초안의 "마지막 행이 섹션 상자 안" 좌표 단언은 <em>Playwright <code>boundingBox</code> 가
+        overflow 클리핑을 반영하지 않아</em> 잘못 실패 — "스크롤 전 뷰포트 밖 → 스크롤 후 안"
+        판정으로 정정. 최종: 유닛 791 · e2e 10 전부 통과, 실화면 스크린샷 확인.</p>
+      </div>
+    </div>
+  </div>
+</div>
+</body>
+</html>
