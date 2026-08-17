@@ -1,6 +1,5 @@
 import { useEffect } from 'react'
 import { X } from 'lucide-react'
-import { useReducedMotion } from '@renderer/shared/ui/useReducedMotion'
 import { MonthColumn } from './MonthColumn'
 import type { MonthSlotProps } from './useMonthOverlay'
 
@@ -35,8 +34,6 @@ export function MonthSlot({
   onFocus,
   onBlur
 }: MonthSlotProps) {
-  const reduced = useReducedMotion()
-
   useEffect(() => {
     if (!overlay) return
     const onKey = (event: KeyboardEvent): void => {
@@ -58,8 +55,6 @@ export function MonthSlot({
       ref={slotRef}
       onFocus={onFocus}
       onBlur={onBlur}
-      // 모션 축소 선호에서는 전이 없이 즉시 표시한다 (§3.1 · design-system ADR-005 §2).
-      data-motion={overlay && reduced ? 'reduced' : undefined}
       className={
         overlay
           ? 'month-overlay absolute inset-y-6 right-6 z-[var(--layer-overlay)]'

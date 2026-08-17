@@ -400,30 +400,20 @@ describe('App — 미디엄 구간 (app-shell ux-spec §3)', () => {
   })
 
   /**
-   * 모션은 **기본 경로** 다. 목이 모든 미디어 쿼리에 `true` 로 답하던 시절에는 축소 경로만
-   * 밟혀, 실제 사용자 대다수가 보는 슬라이드-인을 어떤 테스트도 지나가지 않았다.
+   * 오버레이에는 **모션이 없다** (ux-spec §3.1). 슬라이드-인을 넣었다가 뺐고, 그와 함께
+   * 모션 축소 분기도 사라졌다 — 끌 전이가 없으면 `data-motion` 도 없다. 이 테스트는 그
+   * 결정이 코드에 남아 있는지를 지킨다: 모션이 다시 들어오면 여기서 먼저 깨진다.
    */
-  it('모션 축소 선호가 아니면 오버레이에 data-motion 이 없다 — 슬라이드-인이 산다', async () => {
-    setup({ clockNow: () => Promise.resolve(clock), viewportWidth: 900 })
+  it('오버레이는 모션 표시를 달지 않는다 — 전이 자체가 없다', async () => {
+    setup({ clockNow: () => Promise.resolve(clock), viewportWidth: 900, reducedMotion: true })
     await screen.findByLabelText('타이머')
 
     await userEvent.click(screen.getByRole('button', { name: 'MONTH' }))
 
     const overlay = screen.getByRole('button', { name: 'MONTH 닫기' }).parentElement
     expect(overlay).toHaveClass('month-overlay')
+    // 축소 선호를 켜고도 표시가 붙지 않는다 — 분기가 남아 있었다면 'reduced' 가 붙는다.
     expect(overlay).not.toHaveAttribute('data-motion')
-  })
-
-  it('모션 축소 선호에서는 data-motion="reduced" 로 전이를 끈다 (ADR-005 §2)', async () => {
-    setup({ clockNow: () => Promise.resolve(clock), viewportWidth: 900, reducedMotion: true })
-    await screen.findByLabelText('타이머')
-
-    await userEvent.click(screen.getByRole('button', { name: 'MONTH' }))
-
-    expect(screen.getByRole('button', { name: 'MONTH 닫기' }).parentElement).toHaveAttribute(
-      'data-motion',
-      'reduced'
-    )
   })
 })
 
