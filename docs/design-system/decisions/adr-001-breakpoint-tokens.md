@@ -1,6 +1,7 @@
 # ADR-001 (design-system): 반응형 브레이크포인트 토큰
 
-- 상태: accepted (2026-08-04)
+- 상태: partially superseded by [ADR-011](./adr-011-medium-range-revision.md) (2026-08-17) — §1·§3 대체, §2 유효
+- 상태(원본): accepted (2026-08-04)
 - 결정 근거 원장: [2026-08-04 기획 검증 세션](../../decision-log/2026-08-04-planning-session.md) §D (Q17·Q17-1)
 
 ## Context

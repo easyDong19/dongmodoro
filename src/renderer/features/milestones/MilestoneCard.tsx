@@ -126,6 +126,9 @@ export function MilestoneCard() {
               // 조합 중 Enter(한글 IME)는 글자 확정이지 제출이 아니다 — 무시한다.
               if (e.key === 'Enter' && !e.nativeEvent.isComposing) submitNew()
               if (e.key === 'Escape') {
+                // 이 `Esc` 는 초안 취소로 **소비됐다.** 표시해 두지 않으면 이 카드를 담고
+                // 있는 MONTH 오버레이가 같은 키로 함께 닫힌다 (app-shell ux-spec §3.1).
+                e.preventDefault()
                 setDraft('')
                 setAdding(false)
               }

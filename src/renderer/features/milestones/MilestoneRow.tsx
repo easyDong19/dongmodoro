@@ -66,6 +66,9 @@ export function MilestoneRow({
               // 조합 중 Enter(한글 IME)는 글자 확정이지 제출이 아니다 — 무시한다.
               if (e.key === 'Enter' && !e.nativeEvent.isComposing) commitRename()
               if (e.key === 'Escape') {
+                // 이 `Esc` 는 이름 편집 취소로 **소비됐다.** 표시해 두지 않으면 이 행을 담고
+                // 있는 MONTH 오버레이가 같은 키로 함께 닫힌다 (app-shell ux-spec §3.1).
+                e.preventDefault()
                 setDraft(item.title)
                 setEditing(false)
               }
