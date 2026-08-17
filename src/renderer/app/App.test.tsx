@@ -1,13 +1,23 @@
 // @vitest-environment jsdom
-import { describe, it, expect, vi } from 'vitest'
+import { describe, it, expect, vi, afterEach } from 'vitest'
 import { act, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import type {} from '@testing-library/jest-dom/vitest'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import type { Api } from '@shared/ipc/api'
 import type { TimerSnapshotWire } from '@shared/ipc/contracts'
-import { installMatchMedia, setViewportWidth } from '@renderer/shared/layout/testViewport'
+import {
+  installMatchMedia,
+  setViewportWidth,
+  uninstallMatchMedia
+} from '@renderer/shared/layout/testViewport'
 import { App } from './App'
+
+/**
+ * 목은 모듈 수준이라 걷지 않으면 폭이 다음 describe 로 새어 나간다 — "폭을 주지 않은
+ * 호출은 와이드" 라는 약속이 파일 안 순서에 의존하게 된다.
+ */
+afterEach(() => uninstallMatchMedia())
 
 const clock = { dayKey: '2026-08-07', weekKey: '2026-08-03', monthKey: '2026-08', weekdayIndex: 4 }
 
@@ -25,14 +35,16 @@ const idleFocusSnapshot: TimerSnapshotWire = {
 
 function setup({
   clockNow,
-  viewportWidth
+  viewportWidth,
+  reducedMotion
 }: {
   clockNow: () => Promise<typeof clock>
   viewportWidth?: number
+  reducedMotion?: boolean
 }) {
   // 폭을 주지 않은 호출은 matchMedia 를 세우지 않는다 — useBreakpoint 가 wide 로 떨어져
   // 기존 테스트들이 지금까지와 똑같은 화면을 본다.
-  if (viewportWidth !== undefined) installMatchMedia(viewportWidth)
+  if (viewportWidth !== undefined) installMatchMedia(viewportWidth, { reducedMotion })
 
   const qc = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } }
@@ -338,6 +350,81 @@ describe('App — 미디엄 구간 (app-shell ux-spec §3)', () => {
     expect(overlayRoot).not.toHaveAttribute('aria-modal')
     expect(document.querySelector('[class*="scrim"], [class*="backdrop"]')).toBeNull()
   })
+
+  /**
+   * `Esc` 는 **가장 안쪽이 먼저 가져간다.** 오버레이가 무조건 받아버리면, 마일스톤 초안을
+   * 무르려는 손짓 하나에 초안과 오버레이가 함께 사라진다 — §3.1 이 바깥 클릭에 대해 금지한
+   * 그 놀람이 키보드로 재현되는 것이다.
+   */
+  it('오버레이 안 입력의 Esc 는 그 입력만 무른다 — 두 번째 Esc 가 오버레이를 닫는다', async () => {
+    setup({ clockNow: () => Promise.resolve(clock), viewportWidth: 900 })
+    await screen.findByLabelText('타이머')
+    await userEvent.click(screen.getByRole('button', { name: 'MONTH' }))
+
+    await userEvent.click(await screen.findByTestId('milestone-add'))
+    await userEvent.type(screen.getByLabelText('새 Milestone'), '초안')
+    await userEvent.keyboard('{Escape}')
+
+    expect(screen.queryByLabelText('새 Milestone')).not.toBeInTheDocument()
+    expect(screen.getByLabelText('Milestone')).toBeInTheDocument()
+
+    await userEvent.keyboard('{Escape}')
+    expect(screen.queryByLabelText('Milestone')).not.toBeInTheDocument()
+  })
+
+  /**
+   * 비모달이라 포커스 트랩은 없지만, 그것이 "덮인 컨트롤에 `Tab` 이 닿아도 된다"는 뜻은
+   * 아니다 — 흐린 판 뒤에서 포커스 링만 뜨는 상태가 된다 (ADR-011 §2 · ux-spec §3.1).
+   * 타이머는 덮이지 않으므로 어떤 상태에서도 `inert` 밖이다 (PRD R10).
+   */
+  it('오버레이가 열려 있는 동안 계획 컬럼만 inert 다 — 타이머는 아니다', async () => {
+    setup({ clockNow: () => Promise.resolve(clock), viewportWidth: 900 })
+    await screen.findByLabelText('타이머')
+
+    const plan = screen.getByTestId('plan-column')
+    expect(plan).not.toHaveAttribute('inert')
+
+    await userEvent.click(screen.getByRole('button', { name: 'MONTH' }))
+    expect(plan).toHaveAttribute('inert')
+    expect(screen.getByLabelText('타이머').closest('[inert]')).toBeNull()
+
+    await userEvent.click(screen.getByRole('button', { name: 'MONTH 닫기' }))
+    expect(plan).not.toHaveAttribute('inert')
+  })
+
+  it('와이드에서는 오버레이가 없으므로 계획 컬럼도 inert 가 아니다', async () => {
+    setup({ clockNow: () => Promise.resolve(clock), viewportWidth: 1280 })
+    await screen.findByLabelText('타이머')
+
+    expect(screen.getByTestId('plan-column')).not.toHaveAttribute('inert')
+  })
+
+  /**
+   * 모션은 **기본 경로** 다. 목이 모든 미디어 쿼리에 `true` 로 답하던 시절에는 축소 경로만
+   * 밟혀, 실제 사용자 대다수가 보는 슬라이드-인을 어떤 테스트도 지나가지 않았다.
+   */
+  it('모션 축소 선호가 아니면 오버레이에 data-motion 이 없다 — 슬라이드-인이 산다', async () => {
+    setup({ clockNow: () => Promise.resolve(clock), viewportWidth: 900 })
+    await screen.findByLabelText('타이머')
+
+    await userEvent.click(screen.getByRole('button', { name: 'MONTH' }))
+
+    const overlay = screen.getByRole('button', { name: 'MONTH 닫기' }).parentElement
+    expect(overlay).toHaveClass('month-overlay')
+    expect(overlay).not.toHaveAttribute('data-motion')
+  })
+
+  it('모션 축소 선호에서는 data-motion="reduced" 로 전이를 끈다 (ADR-005 §2)', async () => {
+    setup({ clockNow: () => Promise.resolve(clock), viewportWidth: 900, reducedMotion: true })
+    await screen.findByLabelText('타이머')
+
+    await userEvent.click(screen.getByRole('button', { name: 'MONTH' }))
+
+    expect(screen.getByRole('button', { name: 'MONTH 닫기' }).parentElement).toHaveAttribute(
+      'data-motion',
+      'reduced'
+    )
+  })
 })
 
 describe('App — 구간 전환 연속성 (app-shell ux-spec §5)', () => {
@@ -372,5 +459,104 @@ describe('App — 구간 전환 연속성 (app-shell ux-spec §5)', () => {
     act(() => setViewportWidth(900))
 
     expect(screen.getByRole('button', { name: 'MONTH' })).toHaveAttribute('aria-pressed', 'true')
+  })
+
+  /**
+   * 구간 전환은 **자리를 옮기는 일**이지 다시 여는 일이 아니다. MONTH 가 언마운트되면
+   * 캘린더·마일스톤 질의가 다시 나가고(전역 staleTime 이 없다) 보고 있던 것이 초기화된다 —
+   * 설계 §4.3 이 "구간 전환 중에 데이터 리페치·mutation 을 트리거하지 않는다"로 막아 둔 것.
+   */
+  it('구간을 넘어도 MONTH 질의가 다시 나가지 않는다 (설계 §4.3)', async () => {
+    setup({ clockNow: () => Promise.resolve(clock), viewportWidth: 1280 })
+    await screen.findByTestId('milestone-card')
+
+    const api = window.api as unknown as {
+      calendar: { month: ReturnType<typeof vi.fn> }
+      milestones: { forMonth: ReturnType<typeof vi.fn> }
+    }
+    const calendarCalls = api.calendar.month.mock.calls.length
+    const milestoneCalls = api.milestones.forMonth.mock.calls.length
+
+    act(() => setViewportWidth(900))
+    expect(screen.getByLabelText('Milestone')).toBeInTheDocument()
+    act(() => setViewportWidth(1280))
+
+    expect(api.calendar.month.mock.calls.length).toBe(calendarCalls)
+    expect(api.milestones.forMonth.mock.calls.length).toBe(milestoneCalls)
+  })
+
+  it('입력 중이던 마일스톤 초안이 구간을 넘어도 그대로다 (§5)', async () => {
+    setup({ clockNow: () => Promise.resolve(clock), viewportWidth: 1280 })
+    await screen.findByTestId('milestone-card')
+
+    await userEvent.click(await screen.findByTestId('milestone-add'))
+    await userEvent.type(screen.getByLabelText('새 Milestone'), '쓰다 만 초안')
+
+    act(() => setViewportWidth(900))
+
+    expect(screen.getByLabelText('새 Milestone')).toHaveValue('쓰다 만 초안')
+  })
+
+  /**
+   * 표시 대상 월은 오버레이보다 오래 산다 — `DisplayMonthProvider` 가 MONTH 묶음 안이 아니라
+   * `App` 에 있기 때문이다. 안에 있으면 7월을 열어 둔 사용자가 오버레이를 닫았다 열 때마다
+   * 이번 달로 튕긴다.
+   */
+  it('오버레이를 닫았다 열어도 보고 있던 달이 유지된다', async () => {
+    setup({ clockNow: () => Promise.resolve(clock), viewportWidth: 900 })
+    await screen.findByLabelText('타이머')
+    await userEvent.click(screen.getByRole('button', { name: 'MONTH' }))
+
+    await userEvent.click(await screen.findByRole('button', { name: '이전 달' }))
+    const label = screen.getByLabelText('캘린더').querySelector('h2')?.textContent
+
+    await userEvent.click(screen.getByRole('button', { name: 'MONTH 닫기' }))
+    await userEvent.click(screen.getByRole('button', { name: 'MONTH' }))
+
+    expect(screen.getByLabelText('캘린더').querySelector('h2')?.textContent).toBe(label)
+  })
+
+  /**
+   * §8.1: 포커스된 요소가 구간 전환으로 사라지면 `body` 가 아니라 그 요소를 담고 있던
+   * 카드의 컨테이너로 옮긴다. 닫기 버튼은 와이드에 존재하지 않으므로 정확히 그 경우다.
+   */
+  it('미디엄 → 와이드에서 포커스가 body 로 떨어지지 않고 MONTH 컨테이너로 간다', async () => {
+    setup({ clockNow: () => Promise.resolve(clock), viewportWidth: 900 })
+    await screen.findByLabelText('타이머')
+
+    await userEvent.click(screen.getByRole('button', { name: 'MONTH' }))
+    expect(screen.getByRole('button', { name: 'MONTH 닫기' })).toHaveFocus()
+
+    act(() => setViewportWidth(1280))
+
+    expect(document.activeElement).not.toBe(document.body)
+    expect(screen.getByLabelText('Milestone').parentElement).toHaveFocus()
+  })
+
+  /**
+   * 자동으로 열린 오버레이는 포커스를 가져오지 않는다. §8.1 이 허락한 것은 **사용자가 연**
+   * 오버레이이고, 창을 끌다 열린 판이 문장 한가운데서 포커스를 뺏는 것은 그 규칙이 아니다.
+   */
+  it('와이드 → 미디엄 자동 열림은 포커스를 오버레이로 끌어가지 않는다', async () => {
+    setup({ clockNow: () => Promise.resolve(clock), viewportWidth: 1280 })
+    await screen.findByLabelText('타이머')
+
+    // 타이머는 어떤 구간에서도 덮이지 않으므로 전환 전후로 살아 있는 정차점이다.
+    const startButton = await screen.findByRole('button', { name: '시작' })
+    act(() => startButton.focus())
+
+    act(() => setViewportWidth(900))
+
+    expect(startButton).toHaveFocus()
+    expect(screen.getByRole('button', { name: 'MONTH 닫기' })).not.toHaveFocus()
+  })
+
+  it('사용자가 토글로 열었을 때는 포커스가 오버레이 안으로 들어간다 — 자동 열림과의 차이', async () => {
+    setup({ clockNow: () => Promise.resolve(clock), viewportWidth: 900 })
+    await screen.findByLabelText('타이머')
+
+    await userEvent.click(screen.getByRole('button', { name: 'MONTH' }))
+
+    expect(screen.getByRole('button', { name: 'MONTH 닫기' })).toHaveFocus()
   })
 })
