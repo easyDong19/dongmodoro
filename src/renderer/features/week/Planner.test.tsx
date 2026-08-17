@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import type {} from '@testing-library/jest-dom/vitest'
-import { render, screen, within } from '@testing-library/react'
+import { fireEvent, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
 import type { Api } from '@shared/ipc/api'
@@ -192,6 +192,51 @@ describe('Planner — 항목 추가 (§5.2)', () => {
     await user.type(titleInput(), '설계 문서')
     await user.click(addButton())
     expect(screen.getByTestId('draft-row')).toHaveTextContent('미배치')
+  })
+})
+
+/**
+ * 한글 IME 조합 중 Enter. Chromium 은 조합 중 Enter 에 **keydown 을 두 번** 쏘고 그
+ * 사이에서 글자를 확정한다 — 조합 여부를 보지 않으면 한 번의 Enter 로 항목이 두 개
+ * 생기고, 두 번째는 마지막 조합 글자 하나짜리다 (`가나다라` → `가나다라`, `라`).
+ *
+ * `user-event` 는 IME 를 흉내내지 못하므로 세 단계를 직접 만든다.
+ */
+function commitComposition(input: HTMLElement, composed: string) {
+  /*
+   * 브라우저는 조합 중이던 글자를 **지금 입력칸에 들어 있는 값 뒤에** 확정해 넣는다.
+   * 값이 그대로면 조합 글자가 이미 그 안에 있으므로 값이 변하지 않고, 조합 중에 값이
+   * 지워졌으면 확정 글자만 새로 써진다 — 이 재삽입이 중복 항목의 재료다.
+   */
+  const current = (input as HTMLInputElement).value
+  fireEvent.compositionEnd(input, { data: composed })
+  if (!current.endsWith(composed)) fireEvent.change(input, { target: { value: composed } })
+}
+
+describe('Planner — 한글 조합 중 Enter (§5.2)', () => {
+  it('조합 중 Enter 는 항목을 한 번만 추가한다 — 마지막 글자가 따로 붙지 않는다', () => {
+    renderPlanner()
+    const input = titleInput()
+
+    fireEvent.change(input, { target: { value: '가나다라' } })
+    fireEvent.keyDown(input, { key: 'Enter', isComposing: true }) // 조합 중 — 글자 확정일 뿐이다
+    commitComposition(input, '라')
+    fireEvent.keyDown(input, { key: 'Enter' }) // 확정 후 — 여기서만 추가된다
+
+    const rows = screen.getAllByTestId('draft-row')
+    expect(rows).toHaveLength(1)
+    expect(rows[0]).toHaveTextContent('가나다라')
+  })
+
+  it('조합 없이 친 Enter 는 그대로 추가한다 — 영문 입력이 막히지 않는다', () => {
+    renderPlanner()
+    const input = titleInput()
+
+    fireEvent.change(input, { target: { value: 'spec review' } })
+    fireEvent.keyDown(input, { key: 'Enter' })
+
+    expect(screen.getAllByTestId('draft-row')).toHaveLength(1)
+    expect(screen.getByTestId('draft-row')).toHaveTextContent('spec review')
   })
 })
 

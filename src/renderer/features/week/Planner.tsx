@@ -233,7 +233,10 @@ export function Planner({
                 setTitle(e.target.value)
               }}
               onKeyDown={(e) => {
-                if (e.key === 'Enter') addItem()
+                // 조합 중 Enter(한글 IME)는 글자 확정이지 제출이 아니다 — 무시한다.
+                // 여기서 추가해 버리면 입력이 비워진 뒤 마지막 조합 글자가 다시 써지고,
+                // 조합이 끝난 뒤 오는 두 번째 Enter 가 그 한 글자를 또 항목으로 만든다.
+                if (e.key === 'Enter' && !e.nativeEvent.isComposing) addItem()
               }}
               className="rounded-md border border-control-border bg-glass px-2 py-1 text-sm text-ink"
             />

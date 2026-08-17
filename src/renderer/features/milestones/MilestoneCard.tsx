@@ -158,7 +158,8 @@ export function MilestoneCard() {
             onChange={(e) => setDraft(e.target.value)}
             onBlur={submitNew}
             onKeyDown={(e) => {
-              if (e.key === 'Enter') submitNew()
+              // 조합 중 Enter(한글 IME)는 글자 확정이지 제출이 아니다 — 무시한다.
+              if (e.key === 'Enter' && !e.nativeEvent.isComposing) submitNew()
               if (e.key === 'Escape') {
                 setDraft('')
                 setAdding(false)

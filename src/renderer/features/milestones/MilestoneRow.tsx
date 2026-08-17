@@ -65,7 +65,8 @@ export function MilestoneRow({
             onChange={(e) => setDraft(e.target.value)}
             onBlur={commitRename}
             onKeyDown={(e) => {
-              if (e.key === 'Enter') commitRename()
+              // 조합 중 Enter(한글 IME)는 글자 확정이지 제출이 아니다 — 무시한다.
+              if (e.key === 'Enter' && !e.nativeEvent.isComposing) commitRename()
               if (e.key === 'Escape') {
                 setDraft(item.title)
                 setEditing(false)
