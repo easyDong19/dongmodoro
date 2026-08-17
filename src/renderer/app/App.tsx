@@ -19,7 +19,7 @@ export function App() {
   // 토글은 별개 작업이며, 창을 좁히면 카드가 눌리는 상태는 M4 와 같다.
   //
   // 두 MONTH 카드를 **같은 컬럼에 인접 배치**하는 것이 §2 의 요구다 — 달 이동이 두 카드를
-  // 함께 바꾸는 것이 시야 안에서 일어나야 한다. MONTH묶음은 `MonthColumn` 이 소유한다
+  // 함께 바꾸는 것이 시야 안에서 일어나야 한다. MONTH 묶음은 `MonthColumn` 이 소유한다
   // (calendar-records R26).
   //
   // ClockGate 가 clock 캐시 준비 전에는 자식을 마운트하지 않는다 (콜드 스타트 크래시 수정).

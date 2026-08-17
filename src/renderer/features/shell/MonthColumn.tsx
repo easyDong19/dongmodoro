@@ -26,7 +26,8 @@ export function MonthColumn() {
             창이 낮아 40% 가 이보다 작아지면 카드가 내용을 못 담는다.
 
             flex 컨테이너인 이유: 자식(MilestoneCard)이 이 고정 높이를 넘을 때
-            줄어드는 길이 flex 수축(min-h-0)이다. */}
+            줄어드는 길이 flex 수축(min-h-0)이다. 이와 달리 app 레이아웃의 다른 섹션들은
+            자식이 `h-full`로 높이를 상속한다. */}
         <section
           className="card flex h-[40%] min-h-[148px] shrink-0 flex-col overflow-hidden p-4"
           aria-label="Milestone"
