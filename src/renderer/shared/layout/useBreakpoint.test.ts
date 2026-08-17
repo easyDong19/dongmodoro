@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { describe, it, expect, beforeEach } from 'vitest'
 import { renderHook, act } from '@testing-library/react'
-import { installMatchMedia, setViewportWidth } from './testViewport'
+import { installMatchMedia, setViewportWidth, listenerCount } from './testViewport'
 import { useBreakpoint } from './useBreakpoint'
 
 describe('useBreakpoint — 구간 판정 (design-system ADR-001)', () => {
@@ -44,8 +44,9 @@ describe('useBreakpoint — 구간 판정 (design-system ADR-001)', () => {
   it('언마운트하면 리스너를 정리한다', () => {
     installMatchMedia(1280)
     const { unmount } = renderHook(() => useBreakpoint())
+    expect(listenerCount()).toBe(1)
     unmount()
-    // 정리되지 않았다면 이 호출이 언마운트된 훅의 setState 를 때려 경고가 난다
-    expect(() => act(() => setViewportWidth(900))).not.toThrow()
+    // removeEventListener 를 호출하지 않으면 listenerCount 가 그대로다
+    expect(listenerCount()).toBe(0)
   })
 })

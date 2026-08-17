@@ -1,3 +1,4 @@
+// 테스트 내부 상태 관리이므로 ADR-025 캐시 규칙 제외
 /* eslint-disable no-restricted-syntax */
 
 /**
@@ -16,6 +17,11 @@ let currentWidth = 1280
 export function setViewportWidth(width: number): void {
   currentWidth = width
   for (const listener of [...listeners]) listener()
+}
+
+/** 등록된 리스너 개수. 정리가 제대로 이루어졌는지 검증하는 테스트용. */
+export function listenerCount(): number {
+  return listeners.size
 }
 
 /** `window.matchMedia` 를 목으로 세운다. 각 테스트의 `beforeEach` 에서 호출한다. */
