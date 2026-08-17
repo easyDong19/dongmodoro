@@ -43,6 +43,9 @@ export function createWindow(
      * 값이 미디엄 하한과 같은 것은 우연이 아니라 정의다. 그래서 상수를 박지 않고
      * `BP_MEDIUM` 을 읽는다. 내로우가 구현되면 이 값을 그때의 하한으로 내린다.
      */
+    // `minWidth` 가 제한하는 것은 뷰포트가 아니라 **창 사각형** 이다. mac 의
+    // `titleBarStyle: 'hiddenInset'` 에서는 둘이 같아 지금은 어긋나지 않지만, 창 테두리가
+    // 있는 Windows·Linux 를 타깃에 넣는 날에는 테두리 폭만큼 뷰포트가 더 좁아진다.
     minWidth: BP_MEDIUM,
     /**
      * **첫 페인트 전까지 화면에 나가는 색이다.** 창은 만들어지는 즉시 보이지만 렌더러가

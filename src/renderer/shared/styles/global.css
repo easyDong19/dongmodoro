@@ -356,3 +356,13 @@ summary {
 .month-overlay[data-motion='reduced'] {
   animation: none;
 }
+
+/* 오버레이의 표면은 `--glass-strong` + `--glass-border` 다 (ux-spec §3.1 ·
+   design-system ADR-011 §2). 같은 두 카드가 와이드에서는 컬럼 자리라 기본 `.card`
+   표면(`--glass`)을 쓰지만, 오버레이일 때는 **아래에 다른 카드가 깔린다** — 계획 컬럼 위를
+   덮으므로 옅은 표면 그대로면 WEEK·TODAY 의 글자가 비쳐 둘 다 읽기 어려워진다.
+   값이 아니라 토큰 이름만 바꿔 끼운다. */
+.month-overlay .card {
+  background: var(--glass-strong);
+  border-color: var(--glass-border);
+}
