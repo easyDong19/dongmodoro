@@ -578,7 +578,7 @@ describe('migrateDb — archived_at 드랍 (ADR-034)', () => {
     const second = openDb(dbPath)
     migrateDb(second.sqlite, second.db, dir, REPO_MIGRATIONS)
     const cols = second.sqlite.prepare(`SELECT name FROM pragma_table_info('milestones')`).all()
-    expect(cols.map((c: { name: string }) => c.name)).not.toContain('archived_at')
+    expect(cols.map((c) => (c as { name: string }).name)).not.toContain('archived_at')
     const row = second.sqlite.prepare(`SELECT title FROM milestones WHERE id='m-a'`).get()
     expect(row).toEqual({ title: 'archived one' })
     closeDb(second.sqlite)
