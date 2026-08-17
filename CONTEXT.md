@@ -55,11 +55,6 @@ task(주간 실행 단위)와는 층위가 다르다 — 오늘 목록에 들어
 한 칸" 선행 편집 제한 폐기). 지난 달은 읽기 전용이다.
 _Avoid_ (카피에서): 결과물, 마일스톤(한글 표기), 목표, 월간 목표, 월 계획
 
-**보관**:
-Milestone 을 그 달 카드의 목록 표시에서만 제외하는 것 (`archived_at`). 삭제가 아니며
-**집계에 중립**이다 — 보관해도 달성 배지의 분모가 변하지 않는다.
-_Avoid_: 아카이브, 숨김, 감추기
-
 **롤업**:
 Milestone 에 연결된 Sprint 들의 측정 시간을 **범위 라벨과 함께** 표시한 값
 (예: `이번 주 3시간 20분`). 지난달 카드의 `N/M 달성` 배지와는 별개 값이다.
@@ -86,10 +81,12 @@ _Avoid_: 스트릭, 연속 기록, 연속 일수
 | 과적 | 예산을 넘긴 계획 상태 | 없음 (대체 신호는 미정) |
 | 유효 베이스라인 · 유효 예산 | 주별로 박제된 길이·예산을 읽던 조회 | 길이는 전역 값 직독 |
 | 임시 조절 | 세션 한 번만 적용되던 ± 조절 | 조절이 곧 기준이다 (ADR-033) |
+| 보관 (`archived_at`) | Milestone 을 목록 표시에서만 빼던 조작 | 없음 — 미완료는 그 달 카드에 사실로 남는다 (ADR-034) |
 
 근거: [ADR-030](docs/architecture/decisions/adr-030-time-as-progress-currency.md) ·
 [ADR-031](docs/architecture/decisions/adr-031-settlement-without-est.md) ·
-[ADR-033](docs/architecture/decisions/adr-033-adjust-as-baseline.md)
+[ADR-033](docs/architecture/decisions/adr-033-adjust-as-baseline.md) ·
+[ADR-034](docs/architecture/decisions/adr-034-remove-milestone-archive.md)
 
 ## 표기 규칙
 
