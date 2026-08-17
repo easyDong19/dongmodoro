@@ -203,19 +203,22 @@ React/Vue/vanilla 어디서든 `var(--token)` 으로 소비하며, JS에서 필�
 
 ## 4. Breakpoint
 
-> 근거: [decisions/adr-001-breakpoint-tokens.md](./decisions/adr-001-breakpoint-tokens.md) (Q17·Q17-1)
+> 근거: [decisions/adr-001-breakpoint-tokens.md](./decisions/adr-001-breakpoint-tokens.md) (Q17·Q17-1) —
+> `--bp-medium` 값은 [decisions/adr-011-medium-range-revision.md](./decisions/adr-011-medium-range-revision.md) 로 720px 로 개정됨
 
 | 토큰 | 값 | 정의하는 구간 |
 |---|---|---|
 | `--bp-wide` | `1200px` | 와이드 (`≥ 1200px`): 3컬럼 |
-| `--bp-medium` | `800px` | 미디엄 (`800–1199px`): MONTH 접힘, WEEK/TODAY 유지 |
-| (기본) | — | 내로우 (`< 800px`): 1컬럼 — 타이머 상단 고정 + 탭 |
+| `--bp-medium` | `720px` | 미디엄 (`720–1199px`): MONTH 접힘, WEEK/TODAY 유지 |
+| (기본) | — | 내로우 (`< 720px`): 1컬럼 — 타이머 상단 고정 + 탭. **현재 창 최소 폭으로 진입이 막혀 있다**(design-system ADR-011) |
 
 > **예외 — CSS 변수로 소비 불가.** 미디어 쿼리는 `var()` 를 해석하지 못하므로,
 > 이 두 값만은 Tailwind `screens` 설정에 물질화해 소비한다. 이 표가 값의 유일한
 > 출처이며, 변경 시 설정 상수를 함께 고친다 (ADR-001 §2).
 >
-> 최소 창 크기: 목표 ~420×640, app-shell 구현 시 실측 후 이 표에 확정값 기록 (TBD).
+> 최소 창 크기: 내로우가 구현되기 전까지는 `BP_MEDIUM`(720px)이 창 최소 폭이다 — 내로우
+> 1컬럼 레이아웃이 없는 상태에서 그 아래로 줄이면 미구현 구간이 버그로 보인다
+> (design-system ADR-011). 내로우 구현 후 목표치 ~420×640 으로 실측·확정한다 (TBD).
 
 ---
 
