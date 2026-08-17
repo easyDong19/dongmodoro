@@ -18,11 +18,9 @@ import { useMilestones } from './useMilestones'
  */
 export function MilestoneCard() {
   const { weekKey } = useClock()
-  const { month, query, create, rename, setCompleted, setArchived, remove, carryTitles } =
-    useMilestones()
+  const { month, query, create, rename, setCompleted, remove, carryTitles } = useMilestones()
   const [adding, setAdding] = useState(false)
   const [draft, setDraft] = useState('')
-  const [showArchived, setShowArchived] = useState(false)
 
   const data = query.data
   if (data === undefined) return null
@@ -32,7 +30,6 @@ export function MilestoneCard() {
   const actions: RowActions = {
     rename: (input) => rename.mutate(input),
     setCompleted: (input) => setCompleted.mutate(input),
-    setArchived: (input) => setArchived.mutate(input),
     remove: (id) => remove.mutate(id)
   }
 
@@ -58,16 +55,13 @@ export function MilestoneCard() {
       {/* 지난달 배지 (R21 · R23). M === 0 이면 서버가 null 을 주므로 여기서 그리지 않는다. */}
       {data.badge !== null ? (
         <p data-testid="milestone-badge" className="font-mono text-xs tabular-nums text-ink-dim">
-          {data.badge.archivedCount === 0
-            ? `${data.badge.completed}/${data.badge.total} 달성`
-            : `${data.badge.completed}/${data.badge.total} 달성 · 보관 ${data.badge.archivedCount}건`}
+          {`${data.badge.completed}/${data.badge.total} 달성`}
         </p>
       ) : null}
 
-      {/* 활성 목록·이월 안내·보관 목록이 **한 스크롤 영역** 안이다. 카드가 상한
-          (App 의 max-h)에 닿으면 여기만 줄어들며 스크롤하고, 제목·배지·추가 버튼은
-          바깥에 남아 항목이 몇 개든 밀려나지 않는다. 보관 목록이 밖에 있으면 펼치는
-          순간 스크롤을 우회해 카드를 통째로 키운다. */}
+      {/* 활성 목록·이월 안내가 **한 스크롤 영역** 안이다. 카드가 상한(App 의 max-h)에
+          닿으면 여기만 줄어들며 스크롤하고, 제목·배지·추가 버튼은 바깥에 남아 항목이
+          몇 개든 밀려나지 않는다. */}
       <div className="scroll-area flex min-h-0 flex-col gap-2 overflow-y-auto">
         {data.items.length > 0 ? (
           <ul className="flex flex-col gap-1.5">
@@ -93,35 +87,6 @@ export function MilestoneCard() {
           <p data-testid="rollup-out-of-month" className="text-[10px] text-ink-dim">
             {`이번 주(${weekRangeLabel(weekKey)})는 ${monthOnlyLabel(monthOfWeek(weekKey))}에 속한 주예요`}
           </p>
-        ) : null}
-
-        {/* 보관 목록 — 해제의 도달 경로다 (R11 · A20). 모든 모드에서 열린다. */}
-        {data.archivedItems.length > 0 ? (
-          <div>
-            <Button
-              type="button"
-              variant="ghost"
-              size="xs"
-              data-testid="archived-toggle"
-              onClick={() => setShowArchived((v) => !v)}
-            >
-              {`보관 ${data.archivedItems.length}건`}
-            </Button>
-            {showArchived ? (
-              <ul data-testid="archived-list" className="flex flex-col gap-1.5 pt-1">
-                {data.archivedItems.map((item, i) => (
-                  <MilestoneRow
-                    key={item.id}
-                    item={{ ...item, rollup: null }}
-                    index={i}
-                    editable={false}
-                    rollupWeek={null}
-                    actions={actions}
-                  />
-                ))}
-              </ul>
-            ) : null}
-          </div>
         ) : null}
       </div>
 

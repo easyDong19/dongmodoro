@@ -41,10 +41,6 @@ export function useMilestones() {
     mutationFn: (input: { id: string; completed: boolean }) => api.milestones.setCompleted(input),
     onSuccess: invalidate
   })
-  const setArchived = useMutation({
-    mutationFn: (input: { id: string; archived: boolean }) => api.milestones.setArchived(input),
-    onSuccess: invalidate
-  })
   const remove = useMutation({
     mutationFn: (id: string) => api.milestones.remove(id),
     onSuccess: invalidate
@@ -54,5 +50,5 @@ export function useMilestones() {
     onSuccess: invalidate
   })
 
-  return { month, query, create, rename, setCompleted, setArchived, remove, carryTitles }
+  return { month, query, create, rename, setCompleted, remove, carryTitles }
 }
