@@ -1,11 +1,18 @@
 // @vitest-environment jsdom
-import { describe, it, expect, beforeEach } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import { renderHook, act } from '@testing-library/react'
-import { installMatchMedia, setViewportWidth, listenerCount } from './testViewport'
+import {
+  installMatchMedia,
+  setViewportWidth,
+  listenerCount,
+  uninstallMatchMedia
+} from './testViewport'
 import { useBreakpoint } from './useBreakpoint'
 
 describe('useBreakpoint — 구간 판정 (design-system ADR-001)', () => {
   beforeEach(() => installMatchMedia())
+  // 목은 모듈 수준이라 걷지 않으면 폭이 다음 테스트로 새어 나간다.
+  afterEach(() => uninstallMatchMedia())
 
   it('1200px 이상은 와이드다', () => {
     installMatchMedia(1200)
