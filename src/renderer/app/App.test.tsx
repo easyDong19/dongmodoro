@@ -1,12 +1,12 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { act, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import type {} from '@testing-library/jest-dom/vitest'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import type { Api } from '@shared/ipc/api'
 import type { TimerSnapshotWire } from '@shared/ipc/contracts'
-import { installMatchMedia } from '@renderer/shared/layout/testViewport'
+import { installMatchMedia, setViewportWidth } from '@renderer/shared/layout/testViewport'
 import { App } from './App'
 
 const clock = { dayKey: '2026-08-07', weekKey: '2026-08-03', monthKey: '2026-08', weekdayIndex: 4 }
@@ -337,5 +337,40 @@ describe('App — 미디엄 구간 (app-shell ux-spec §3)', () => {
     const overlayRoot = closeButton.parentElement
     expect(overlayRoot).not.toHaveAttribute('aria-modal')
     expect(document.querySelector('[class*="scrim"], [class*="backdrop"]')).toBeNull()
+  })
+})
+
+describe('App — 구간 전환 연속성 (app-shell ux-spec §5)', () => {
+  it('와이드 → 미디엄은 오버레이가 열린 상태로 진입한다 — 보고 있던 것이 이어진다', async () => {
+    setup({ clockNow: () => Promise.resolve(clock), viewportWidth: 1280 })
+    await screen.findByLabelText('타이머')
+    expect(screen.getByLabelText('Milestone')).toBeInTheDocument()
+
+    act(() => setViewportWidth(900))
+
+    expect(screen.getByRole('button', { name: 'MONTH' })).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByLabelText('Milestone')).toBeInTheDocument()
+  })
+
+  it('미디엄 → 와이드는 컬럼 자리로 복귀하고 토글이 사라진다', async () => {
+    setup({ clockNow: () => Promise.resolve(clock), viewportWidth: 900 })
+    await screen.findByLabelText('타이머')
+
+    act(() => setViewportWidth(1280))
+
+    expect(screen.getByLabelText('Milestone')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'MONTH' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'MONTH 닫기' })).not.toBeInTheDocument()
+  })
+
+  it('미디엄 안에서 닫아 둔 뒤 와이드를 거쳐 돌아오면 다시 열린다 — 규칙은 직전 조작이 아니라 전환이다', async () => {
+    setup({ clockNow: () => Promise.resolve(clock), viewportWidth: 900 })
+    await screen.findByLabelText('타이머')
+    expect(screen.getByRole('button', { name: 'MONTH' })).toHaveAttribute('aria-pressed', 'false')
+
+    act(() => setViewportWidth(1280))
+    act(() => setViewportWidth(900))
+
+    expect(screen.getByRole('button', { name: 'MONTH' })).toHaveAttribute('aria-pressed', 'true')
   })
 })

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { queryClient } from '../shared/query'
 import { subscribeMainEvents } from '../shared/query/events'
 import { TodayList } from '@renderer/features/today/TodayList'
@@ -34,6 +34,23 @@ export function App() {
   const breakpoint = useBreakpoint()
   const [monthOpen, setMonthOpen] = useState(false)
   const isWide = breakpoint === 'wide'
+  const closeMonth = useCallback(() => setMonthOpen(false), [])
+
+  const previousBreakpoint = useRef(breakpoint)
+
+  /**
+   * 와이드에서 미디엄으로 넘어오면 오버레이를 **열린 상태로** 연다 (ux-spec §5).
+   * 와이드에서 MONTH 가 보이고 있었으므로 가시성이 이어지는 것이고, §3.1 의 "콜드 스타트
+   * 접힘"은 그 실행에서 MONTH 를 아직 본 적이 없을 때의 초기값일 뿐이다.
+   *
+   * 상태가 아니라 **전환** 에 반응해야 해서 이전 값을 들고 있는다 — `breakpoint === 'medium'`
+   * 만 보면 미디엄 안에서 닫을 때마다 즉시 다시 열린다.
+   */
+  useEffect(() => {
+    const previous = previousBreakpoint.current
+    previousBreakpoint.current = breakpoint
+    if (previous === 'wide' && breakpoint === 'medium') setMonthOpen(true)
+  }, [breakpoint])
 
   return (
     <ClockGate>
@@ -65,7 +82,7 @@ export function App() {
               <TodayList />
             </section>
           </div>
-          {!isWide && monthOpen ? <MonthOverlay onClose={() => setMonthOpen(false)} /> : null}
+          {!isWide && monthOpen ? <MonthOverlay onClose={closeMonth} /> : null}
         </main>
       </div>
     </ClockGate>
