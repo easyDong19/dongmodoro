@@ -178,7 +178,6 @@ describe('milestones contract — 수치 필드가 없다 (R3 · A3)', () => {
           month: '2026-08',
           title: '결과물',
           completedAt: null,
-          archivedAt: null,
           rollup: null,
           estPomos: 4
         }

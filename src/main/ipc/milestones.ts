@@ -6,7 +6,6 @@ import {
   monthMilestones,
   removeMilestone,
   renameMilestone,
-  setMilestoneArchived,
   setMilestoneCompleted
 } from '../services/milestones'
 import type { UnitOfWork } from '../services/ports'
@@ -30,9 +29,6 @@ export function registerMilestoneHandlers(uow: UnitOfWork): void {
   )
   handleIpc(CHANNELS.milestones.setCompleted, contracts.milestones.setCompleted, (input) =>
     setMilestoneCompleted(uow, input)
-  )
-  handleIpc(CHANNELS.milestones.setArchived, contracts.milestones.setArchived, (input) =>
-    setMilestoneArchived(uow, input)
   )
   handleIpc(CHANNELS.milestones.remove, contracts.milestones.remove, (id) =>
     removeMilestone(uow, id)

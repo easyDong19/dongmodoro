@@ -145,8 +145,7 @@ const milestoneSchema = z.strictObject({
   id: z.string(),
   month: monthKeySchema,
   title: z.string(),
-  completedAt: z.string().nullable(),
-  archivedAt: z.string().nullable()
+  completedAt: z.string().nullable()
 })
 
 /** 제목 하나. 공백만 있는 제목은 여기서 거부된다 — 서비스의 trim 보다 앞선 방어선이다. */
@@ -302,7 +301,7 @@ export const contracts = {
         tasks: z.array(childTaskSchema),
         /** 지금 걸린 연결. **후보 밖일 수 있다** — 이월 승계의 타월 연결이다 (R15). */
         milestone: milestoneSchema.nullable(),
-        /** 새로 연결할 수 있는 것들 — 그 주가 귀속된 달의 미보관 마일스톤 (R14 · A12). */
+        /** 새로 연결할 수 있는 것들 — 그 주가 귀속된 달의 마일스톤 (R14 · A12). */
         milestoneCandidates: z.array(milestoneSchema)
       })
     },
@@ -381,15 +380,12 @@ export const contracts = {
         badge: z
           .strictObject({
             total: z.int().min(0),
-            completed: z.int().min(0),
-            archivedCount: z.int().min(0)
+            completed: z.int().min(0)
           })
           .nullable(),
         /** 롤업의 **범위 라벨**을 그릴 주. `null` 이면 화면이 숫자 대신 사실 문구를 쓴다 (R17). */
         rollupWeek: dayKeySchema.nullable(),
-        carryCandidates: z.array(milestoneSchema),
-        /** `보관 K건` 뒤에서 펼치는 목록. 해제의 도달 경로다 (R11 · A20). */
-        archivedItems: z.array(milestoneSchema)
+        carryCandidates: z.array(milestoneSchema)
       })
     },
     create: {
@@ -403,10 +399,6 @@ export const contracts = {
     setCompleted: {
       req: z.tuple([z.strictObject({ id: z.string(), completed: z.boolean() })]),
       res: z.strictObject({ completedAt: z.string().nullable() })
-    },
-    setArchived: {
-      req: z.tuple([z.strictObject({ id: z.string(), archived: z.boolean() })]),
-      res: z.strictObject({ archivedAt: z.string().nullable() })
     },
     remove: { req: z.tuple([z.string()]), res: z.void() },
     /**

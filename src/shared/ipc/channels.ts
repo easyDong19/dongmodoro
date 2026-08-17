@@ -50,7 +50,6 @@ export const CHANNELS = {
     create: 'milestones:create',
     rename: 'milestones:rename',
     setCompleted: 'milestones:setCompleted',
-    setArchived: 'milestones:setArchived',
     remove: 'milestones:remove',
     carryTitles: 'milestones:carryTitles'
   },

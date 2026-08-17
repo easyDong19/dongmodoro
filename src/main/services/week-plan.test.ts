@@ -461,17 +461,6 @@ describe('setItemMilestone — 후보 제한을 서비스가 강제한다 (miles
     expect(uow.run((r) => r.milestones.linkedMilestone(item))).toBeNull()
   })
 
-  it('보관된 마일스톤에도 새로 매달 수 없다 (R14)', () => {
-    const { uow } = testUow()
-    const m = makeMilestone(uow, '2026-08', 'archived')
-    uow.run((r) => r.milestones.archive(m, '2026-08-20T00:00:00.000Z'))
-    const item = makeItem(uow, AUG_WEEK)
-
-    expect(() => setItemMilestone(uow, { weekItemId: item, milestoneId: m })).toThrow(
-      /not a candidate/
-    )
-  })
-
   /**
    * R18 — 주는 쪼개지지 않는다. 8/31 주는 9/6 까지 이어지지만 전체가 8월에 귀속되므로,
    * 그 주의 할당은 8월 마일스톤에 연결된다.
@@ -508,7 +497,7 @@ describe('setItemMilestone — 후보 제한을 서비스가 강제한다 (miles
 })
 
 describe('itemDrawer — 후보를 서버가 좁혀 보낸다 (R14 · A12)', () => {
-  it('그 주가 귀속된 달의 미보관 마일스톤만 후보다', () => {
+  it('그 주가 귀속된 달의 마일스톤만 후보다', () => {
     const { uow } = testUow()
     const item = uow.run(
       (repos) =>
@@ -520,8 +509,6 @@ describe('itemDrawer — 후보를 서버가 좁혀 보낸다 (R14 · A12)', () 
     uow.run((repos) => {
       repos.milestones.create({ id: 'aug', month: '2026-08', title: '8월', sortOrder: 0 })
       repos.milestones.create({ id: 'sep', month: '2026-09', title: '9월', sortOrder: 0 })
-      repos.milestones.create({ id: 'arch', month: '2026-08', title: '보관', sortOrder: 1 })
-      repos.milestones.archive('arch', '2026-08-20T00:00:00.000Z')
     })
 
     const drawer = itemDrawer(uow, item)

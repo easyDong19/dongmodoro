@@ -589,9 +589,6 @@ function makeRepos(tx: Tx): Repositories {
 
     /**
      * 월 마일스톤 (milestones). 판정·순서는 서비스가 갖고 여기는 조회·실행만 한다.
-     *
-     * **`badgeCounts` 가 `archived_at` 을 거르지 않는 것이 이 블록의 핵심 규율이다**
-     * (R21 · A21). 한 줄만 더하면 보관으로 달성률을 조작할 수 있게 된다.
      */
     milestones: {
       listForMonth: (month) =>
@@ -600,41 +597,25 @@ function makeRepos(tx: Tx): Repositories {
             id: milestones.id,
             month: milestones.month,
             title: milestones.title,
-            completedAt: milestones.completedAt,
-            archivedAt: milestones.archivedAt
+            completedAt: milestones.completedAt
           })
           .from(milestones)
-          .where(and(eq(milestones.month, month), isNull(milestones.archivedAt)))
-          .orderBy(asc(milestones.sortOrder), asc(milestones.id))
-          .all(),
-
-      listArchivedForMonth: (month) =>
-        tx
-          .select({
-            id: milestones.id,
-            month: milestones.month,
-            title: milestones.title,
-            completedAt: milestones.completedAt,
-            archivedAt: milestones.archivedAt
-          })
-          .from(milestones)
-          .where(and(eq(milestones.month, month), isNotNull(milestones.archivedAt)))
+          .where(eq(milestones.month, month))
           .orderBy(asc(milestones.sortOrder), asc(milestones.id))
           .all(),
 
       badgeCounts: (month) =>
         tx
           .select({
-            // 보관을 거르지 않는다 (R21) — 분모는 "그 달에 존재했던" 수다.
+            // 필터 없이 그 달 전부를 센다 (R21).
             total: sql<number>`count(*)`,
             // 0행이면 SQLite 의 sum() 은 NULL 이다 — coalesce 없이는 `completed: null` 이
             // 계약을 통과하지 못한다 (listForWeek 의 `counts.done` 이 같은 함정을 밟았다).
-            completed: sql<number>`coalesce(sum(case when ${milestones.completedAt} is not null then 1 else 0 end), 0)`,
-            archivedCount: sql<number>`coalesce(sum(case when ${milestones.archivedAt} is not null then 1 else 0 end), 0)`
+            completed: sql<number>`coalesce(sum(case when ${milestones.completedAt} is not null then 1 else 0 end), 0)`
           })
           .from(milestones)
           .where(eq(milestones.month, month))
-          .get() ?? { total: 0, completed: 0, archivedCount: 0 },
+          .get() ?? { total: 0, completed: 0 },
 
       carryCandidates: (month) =>
         tx
@@ -642,11 +623,9 @@ function makeRepos(tx: Tx): Repositories {
             id: milestones.id,
             month: milestones.month,
             title: milestones.title,
-            completedAt: milestones.completedAt,
-            archivedAt: milestones.archivedAt
+            completedAt: milestones.completedAt
           })
           .from(milestones)
-          // 보관 여부와 무관하게 후보로 낸다 (R22) — 고르는 것은 사용자다.
           .where(and(eq(milestones.month, month), isNull(milestones.completedAt)))
           .orderBy(asc(milestones.sortOrder), asc(milestones.id))
           .all(),
@@ -674,14 +653,6 @@ function makeRepos(tx: Tx): Repositories {
 
       uncomplete: (id) => {
         tx.update(milestones).set({ completedAt: null }).where(eq(milestones.id, id)).run()
-      },
-
-      archive: (id, at) => {
-        tx.update(milestones).set({ archivedAt: at }).where(eq(milestones.id, id)).run()
-      },
-
-      unarchive: (id) => {
-        tx.update(milestones).set({ archivedAt: null }).where(eq(milestones.id, id)).run()
       },
 
       /**
@@ -730,8 +701,7 @@ function makeRepos(tx: Tx): Repositories {
             id: milestones.id,
             month: milestones.month,
             title: milestones.title,
-            completedAt: milestones.completedAt,
-            archivedAt: milestones.archivedAt
+            completedAt: milestones.completedAt
           })
           .from(weekItems)
           .innerJoin(milestones, eq(weekItems.milestoneId, milestones.id))

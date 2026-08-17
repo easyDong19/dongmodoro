@@ -20,7 +20,7 @@ type Item = MonthRes['items'][number]
 type Bare = MonthRes['carryCandidates'][number]
 
 function bare(over: Partial<Bare> = {}): Bare {
-  return { id: 'm1', month: MONTH, title: '결과물', completedAt: null, archivedAt: null, ...over }
+  return { id: 'm1', month: MONTH, title: '결과물', completedAt: null, ...over }
 }
 
 function item(over: Partial<Item> = {}): Item {
@@ -35,7 +35,6 @@ function makeRes(over: Partial<MonthRes> = {}): MonthRes {
     badge: null,
     rollupWeek: null,
     carryCandidates: [],
-    archivedItems: [],
     ...over
   }
 }
@@ -85,7 +84,7 @@ describe('표시 모드로만 분기한다 (R20)', () => {
       makeRes({
         mode: 'past',
         items: [item()],
-        badge: { total: 1, completed: 1, archivedCount: 0 }
+        badge: { total: 1, completed: 1 }
       })
     )
     expect(screen.getByTestId('milestone-card')).toHaveAttribute('data-mode', 'past')
@@ -96,7 +95,7 @@ describe('표시 모드로만 분기한다 (R20)', () => {
       makeRes({
         mode: 'past',
         items: [item()],
-        badge: { total: 1, completed: 0, archivedCount: 0 }
+        badge: { total: 1, completed: 0 }
       })
     )
     expect(screen.queryByTestId('milestone-add')).not.toBeInTheDocument()
@@ -109,7 +108,7 @@ describe('표시 모드로만 분기한다 (R20)', () => {
       makeRes({
         mode: 'past',
         items: [item()],
-        badge: { total: 1, completed: 0, archivedCount: 0 }
+        badge: { total: 1, completed: 0 }
       })
     )
     expect(screen.queryByRole('button')).not.toBeInTheDocument()
@@ -335,7 +334,7 @@ describe('부정 프레임과 이모지 금지 (R23·R25 · A24·A25)', () => {
       makeRes({
         mode: 'past',
         items: [item({ completedAt: null })],
-        badge: { total: 2, completed: 1, archivedCount: 0 }
+        badge: { total: 2, completed: 1 }
       })
     )
     const text = container.textContent ?? ''

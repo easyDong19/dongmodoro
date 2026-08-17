@@ -71,7 +71,7 @@ function addTask(repos: Repositories, weekItemId: string): string {
   return id
 }
 
-describe('milestones.listForMonth — 생성 순 고정, 보관 제외 (R10·R11)', () => {
+describe('milestones.listForMonth — 생성 순 고정 (R10)', () => {
   it('생성 순으로 준다', () => {
     const { uow } = testUow()
     uow.run((repos) => {
@@ -86,13 +86,13 @@ describe('milestones.listForMonth — 생성 순 고정, 보관 제외 (R10·R11
     })
   })
 
-  it('보관된 것은 목록에서 빠진다', () => {
+  it('완료 여부와 무관하게 그 달 전부가 목록에 나온다 (R10 · ADR-034)', () => {
     const { uow } = testUow()
     uow.run((repos) => {
-      addMilestone(repos, AUG, '남을 것')
-      const hidden = addMilestone(repos, AUG, '보관할 것')
-      repos.milestones.archive(hidden, AT)
-      expect(repos.milestones.listForMonth(AUG).map((m) => m.title)).toEqual(['남을 것'])
+      const a = addMilestone(repos, AUG, '첫째')
+      const b = addMilestone(repos, AUG, '둘째')
+      repos.milestones.complete(b, AT)
+      expect(repos.milestones.listForMonth(AUG).map((m) => m.id)).toEqual([a, b])
     })
   })
 
@@ -106,41 +106,27 @@ describe('milestones.listForMonth — 생성 순 고정, 보관 제외 (R10·R11
   })
 })
 
-describe('milestones.badgeCounts — 보관은 집계에 중립 (R21 · A21)', () => {
-  /**
-   * **이 테스트가 D4 결함의 재발 방지선이다.** 분모에서 보관을 빼면 3개 중 1개 완료한
-   * 달에서 나머지 2개를 보관하는 것만으로 "1/1 달성"이 된다 — 아무것도 더 하지 않고
-   * 달성률을 올리는 경로다.
-   */
-  it('3개 중 1개 완료 상태에서 2개를 보관해도 1/3 이고, 왕복해도 변하지 않는다 (A21)', () => {
+describe('milestones.badgeCounts — 물리 삭제만 분모를 바꾼다 (R21)', () => {
+  it('완료 상태와 무관하게 total 은 그 달 전부다', () => {
     const { uow } = testUow()
     uow.run((repos) => {
       const a = addMilestone(repos, AUG, 'a')
-      const b = addMilestone(repos, AUG, 'b')
-      const c = addMilestone(repos, AUG, 'c')
+      addMilestone(repos, AUG, 'b')
+      addMilestone(repos, AUG, 'c')
       repos.milestones.complete(a, AT)
 
-      expect(repos.milestones.badgeCounts(AUG)).toEqual({
-        total: 3,
-        completed: 1,
-        archivedCount: 0
-      })
+      expect(repos.milestones.badgeCounts(AUG)).toEqual({ total: 3, completed: 1 })
+    })
+  })
 
-      repos.milestones.archive(b, AT)
-      repos.milestones.archive(c, AT)
-      expect(repos.milestones.badgeCounts(AUG)).toEqual({
-        total: 3,
-        completed: 1,
-        archivedCount: 2
-      })
+  it('물리 삭제하면 total 이 줄어든다', () => {
+    const { uow } = testUow()
+    uow.run((repos) => {
+      addMilestone(repos, AUG, 'a')
+      const b = addMilestone(repos, AUG, 'b')
+      repos.milestones.remove(b)
 
-      repos.milestones.unarchive(b)
-      repos.milestones.unarchive(c)
-      expect(repos.milestones.badgeCounts(AUG)).toEqual({
-        total: 3,
-        completed: 1,
-        archivedCount: 0
-      })
+      expect(repos.milestones.badgeCounts(AUG)).toEqual({ total: 1, completed: 0 })
     })
   })
 
@@ -148,13 +134,12 @@ describe('milestones.badgeCounts — 보관은 집계에 중립 (R21 · A21)', (
     const { uow } = testUow()
     expect(uow.run((repos) => repos.milestones.badgeCounts(AUG))).toEqual({
       total: 0,
-      completed: 0,
-      archivedCount: 0
+      completed: 0
     })
   })
 })
 
-describe('milestones.carryCandidates — 미완료, 보관 무관 (R22)', () => {
+describe('milestones.carryCandidates — 미완료만 (R22)', () => {
   it('미완료만 낸다', () => {
     const { uow } = testUow()
     uow.run((repos) => {
@@ -162,15 +147,6 @@ describe('milestones.carryCandidates — 미완료, 보관 무관 (R22)', () => 
       addMilestone(repos, AUG, '남은 것')
       repos.milestones.complete(done, AT)
       expect(repos.milestones.carryCandidates(AUG).map((m) => m.title)).toEqual(['남은 것'])
-    })
-  })
-
-  it('보관된 미완료도 후보로 낸다 — 고르는 것은 사용자다', () => {
-    const { uow } = testUow()
-    uow.run((repos) => {
-      const archived = addMilestone(repos, AUG, '보관된 미완료')
-      repos.milestones.archive(archived, AT)
-      expect(repos.milestones.carryCandidates(AUG).map((m) => m.title)).toEqual(['보관된 미완료'])
     })
   })
 })

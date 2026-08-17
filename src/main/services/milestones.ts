@@ -18,7 +18,7 @@ export type MilestoneMode =
   | 'current-empty'
   /** 이번 달. 편집 전부 + 귀속된 진행 중 주의 롤업. */
   | 'edit'
-  /** 지난달 · 1건 이상. 감쇠 + 달성 배지. **보관·해제만** 허용된다. */
+  /** 지난달 · 1건 이상. 감쇠 + 달성 배지. 완전 읽기 전용. */
   | 'past'
   /** 지난달 · 0건. 배지·CTA·롤업 없이 사실 문구만. */
   | 'past-empty'
@@ -66,12 +66,6 @@ export type MonthMilestones = {
   rollupWeek: string | null
   /** 직전 달 미완료 제목 (R22). 빈 배열이면 화면이 복사 액션을 렌더하지 않는다. */
   carryCandidates: MilestoneRow[]
-  /**
-   * 보관된 것들 (R11). 목록 본문에는 나오지 않지만 화면이 `보관 K건` 뒤에서 펼친다 —
-   * **해제가 지난달 카드에서도 가능해야 하므로**(A20) 도달 경로가 필요하다. 이것이 없으면
-   * 보관은 되는데 해제는 규칙에만 있는 기능이 된다.
-   */
-  archivedItems: MilestoneRow[]
 }
 
 /**
@@ -110,9 +104,7 @@ export function monthMilestones(uow: UnitOfWork, month: string): MonthMilestones
       badge: mode === 'past' ? badgeCounts : null,
       rollupWeek,
       carryCandidates:
-        mode === 'current-empty' ? repos.milestones.carryCandidates(addMonths(month, -1)) : [],
-      archivedItems:
-        badgeCounts.archivedCount === 0 ? [] : repos.milestones.listArchivedForMonth(month)
+        mode === 'current-empty' ? repos.milestones.carryCandidates(addMonths(month, -1)) : []
     }
   })
 }
@@ -166,28 +158,6 @@ export function setMilestoneCompleted(
   })
 }
 
-/**
- * 보관 토글 (R11). **읽기 전용 모드에서 유일하게 허용되는 쓰기 조작이다** — 월말에 남은
- * 항목을 정리하는 것이 정상 경로이기 때문이다.
- *
- * 배지의 `N`·`M` 은 이 조작으로 변하지 않는다 (R21). 그 보장은 여기가 아니라
- * `badgeCounts` 가 `archived_at` 을 거르지 않는 데서 온다.
- */
-export function setMilestoneArchived(
-  uow: UnitOfWork,
-  input: { id: string; archived: boolean }
-): { archivedAt: string | null } {
-  return uow.run((repos) => {
-    if (!input.archived) {
-      repos.milestones.unarchive(input.id)
-      return { archivedAt: null }
-    }
-    const at = now()
-    repos.milestones.archive(input.id, at)
-    return { archivedAt: at }
-  })
-}
-
 /** 물리 삭제 (R8). 확인은 화면이 받는다 — 계약과 서비스는 id 만 안다. */
 export function removeMilestone(uow: UnitOfWork, id: string): void {
   uow.run((repos) => repos.milestones.remove(id))
@@ -196,8 +166,8 @@ export function removeMilestone(uow: UnitOfWork, id: string): void {
 /**
  * 직전 달 제목 복사 (R22 · A23).
  *
- * **제목만** 복사한다. 완료 상태·연결·보관 상태를 옮기지 않고 원본을 수정·삭제·자동
- * 보관하지도 않으므로, 직전 달 배지의 `N`·`M` 이 변하지 않는다.
+ * **제목만** 복사한다. 완료 상태·연결을 옮기지 않고 원본을 수정·삭제하지도 않으므로,
+ * 직전 달 배지의 `N`·`M` 이 변하지 않는다.
  */
 export function carryMilestoneTitles(
   uow: UnitOfWork,
