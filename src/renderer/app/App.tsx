@@ -4,10 +4,8 @@ import { subscribeMainEvents } from '../shared/query/events'
 import { TodayList } from '@renderer/features/today/TodayList'
 import { TimerCard } from '@renderer/features/timer/TimerCard'
 import { WeekCard } from '@renderer/features/week/WeekCard'
+import { MonthColumn } from '@renderer/features/shell/MonthColumn'
 import { TitleBar } from '@renderer/features/shell/TitleBar'
-import { CalendarCard } from '@renderer/features/calendar/CalendarCard'
-import { DisplayMonthProvider } from '@renderer/features/calendar/DisplayMonthProvider'
-import { MilestoneCard } from '@renderer/features/milestones/MilestoneCard'
 import { ClockGate } from './ClockGate'
 
 export function App() {
@@ -21,8 +19,8 @@ export function App() {
   // 토글은 별개 작업이며, 창을 좁히면 카드가 눌리는 상태는 M4 와 같다.
   //
   // 두 MONTH 카드를 **같은 컬럼에 인접 배치**하는 것이 §2 의 요구다 — 달 이동이 두 카드를
-  // 함께 바꾸는 것이 시야 안에서 일어나야 한다. `DisplayMonthProvider` 가 그 컬럼을
-  // 감싸고, 표시 대상 월의 소유자는 캘린더다 (calendar-records R26).
+  // 함께 바꾸는 것이 시야 안에서 일어나야 한다. MONTH묶음은 `MonthColumn` 이 소유한다
+  // (calendar-records R26).
   //
   // ClockGate 가 clock 캐시 준비 전에는 자식을 마운트하지 않는다 (콜드 스타트 크래시 수정).
   // **타이틀바도 그 안쪽이다** — 날짜 라벨이 useClock 의 dayKey 를 읽는다.
@@ -33,30 +31,7 @@ export function App() {
         <main className="flex min-h-0 flex-1 items-stretch justify-center gap-6 p-6">
           {/* `card` 는 표면 전용 클래스다 (global.css) — 배경·테두리·blur·그림자를 토큰으로
               가져온다. 여백과 폭은 여기서 유틸리티로 준다. */}
-          <DisplayMonthProvider>
-            <div className="flex w-[300px] min-h-0 flex-col gap-6">
-              {/* 높이는 **컬럼의 40% 고정**이다 — 내용이 아니라 뷰포트에서만 결정된다.
-                  min~max 사이에서 내용 따라 자라는 구간을 두면 항목을 추가할 때마다 아래
-                  캘린더가 눈에 띄게 밀린다 (2026-08-16 decision-log Q7). 내용이 짧으면
-                  카드 안이 비고, 길면 카드 안에서 스크롤한다 (MilestoneCard).
-
-                  min-h 148px 는 작은 창의 하한이다 — 편집 모드(항목 2개) 실측 높이로,
-                  창이 낮아 40% 가 이보다 작아지면 카드가 내용을 못 담는다.
-
-                  flex 컨테이너인 이유: 자식(MilestoneCard)이 이 고정 높이를 넘을 때
-                  줄어드는 길이 flex 수축(min-h-0)이다. 다른 섹션들은 자식이 `h-full` 로
-                  높이를 상속한다. */}
-              <section
-                className="card flex h-[40%] min-h-[148px] shrink-0 flex-col overflow-hidden p-4"
-                aria-label="Milestone"
-              >
-                <MilestoneCard />
-              </section>
-              <section className="card min-h-0 flex-1 overflow-hidden p-4" aria-label="캘린더">
-                <CalendarCard />
-              </section>
-            </div>
-          </DisplayMonthProvider>
+          <MonthColumn />
           {/* overflow-hidden 은 다섯 섹션 공통 안전망이다 — 내부 스크롤 사슬이 끊겨도
               내용이 유리 카드의 둥근 모서리 밖으로 그려지는 일은 없어야 한다. `.card` 는
               표면만 소유하므로(global.css) 레이아웃인 이 속성은 여기서 준다. */}
