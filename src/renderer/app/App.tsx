@@ -5,6 +5,7 @@ import { TodayList } from '@renderer/features/today/TodayList'
 import { TimerCard } from '@renderer/features/timer/TimerCard'
 import { WeekCard } from '@renderer/features/week/WeekCard'
 import { MonthColumn } from '@renderer/features/shell/MonthColumn'
+import { MonthOverlay } from '@renderer/features/shell/MonthOverlay'
 import { TitleBar } from '@renderer/features/shell/TitleBar'
 import { useBreakpoint } from '@renderer/shared/layout/useBreakpoint'
 import { ClockGate } from './ClockGate'
@@ -64,6 +65,7 @@ export function App() {
               <TodayList />
             </section>
           </div>
+          {!isWide && monthOpen ? <MonthOverlay onClose={() => setMonthOpen(false)} /> : null}
         </main>
       </div>
     </ClockGate>

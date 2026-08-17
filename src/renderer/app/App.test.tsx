@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import type {} from '@testing-library/jest-dom/vitest'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import type { Api } from '@shared/ipc/api'
@@ -259,5 +260,82 @@ describe('App — 미디엄 구간 (app-shell ux-spec §3)', () => {
     const timer = await screen.findByLabelText('타이머')
 
     expect(timer.className).toContain('min-w-[288px]')
+  })
+
+  it('토글을 누르면 오버레이가 열리고 MONTH 카드가 나온다', async () => {
+    setup({ clockNow: () => Promise.resolve(clock), viewportWidth: 900 })
+    await screen.findByLabelText('타이머')
+
+    await userEvent.click(screen.getByRole('button', { name: 'MONTH' }))
+
+    expect(screen.getByLabelText('Milestone')).toBeInTheDocument()
+    expect(screen.getByLabelText('캘린더')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'MONTH' })).toHaveAttribute('aria-pressed', 'true')
+  })
+
+  it('토글을 다시 누르면 닫힌다', async () => {
+    setup({ clockNow: () => Promise.resolve(clock), viewportWidth: 900 })
+    await screen.findByLabelText('타이머')
+
+    await userEvent.click(screen.getByRole('button', { name: 'MONTH' }))
+    await userEvent.click(screen.getByRole('button', { name: 'MONTH' }))
+
+    expect(screen.queryByLabelText('Milestone')).not.toBeInTheDocument()
+  })
+
+  it('Esc 로 닫힌다', async () => {
+    setup({ clockNow: () => Promise.resolve(clock), viewportWidth: 900 })
+    await screen.findByLabelText('타이머')
+
+    await userEvent.click(screen.getByRole('button', { name: 'MONTH' }))
+    await userEvent.keyboard('{Escape}')
+
+    expect(screen.queryByLabelText('Milestone')).not.toBeInTheDocument()
+  })
+
+  it('오버레이 안 닫기 버튼으로 닫힌다', async () => {
+    setup({ clockNow: () => Promise.resolve(clock), viewportWidth: 900 })
+    await screen.findByLabelText('타이머')
+
+    await userEvent.click(screen.getByRole('button', { name: 'MONTH' }))
+    await userEvent.click(screen.getByRole('button', { name: 'MONTH 닫기' }))
+
+    expect(screen.queryByLabelText('Milestone')).not.toBeInTheDocument()
+  })
+
+  /**
+   * 타이머 버튼은 정의상 오버레이 "밖"이다. 밖 클릭 닫힘을 두면 일시정지를 누를 때마다
+   * 오버레이가 예고 없이 닫힌다 — 그래서 닫는 경로가 셋뿐이다 (ux-spec §3.1).
+   */
+  it('오버레이 밖(타이머)을 눌러도 닫히지 않고, 그 조작이 그대로 먹는다', async () => {
+    setup({ clockNow: () => Promise.resolve(clock), viewportWidth: 900 })
+    await screen.findByLabelText('타이머')
+
+    await userEvent.click(screen.getByRole('button', { name: 'MONTH' }))
+    await userEvent.click(screen.getByRole('button', { name: '시작' }))
+
+    expect(screen.getByLabelText('Milestone')).toBeInTheDocument()
+    const api = window.api as unknown as { timer: { start: ReturnType<typeof vi.fn> } }
+    expect(api.timer.start).toHaveBeenCalled()
+  })
+
+  /**
+   * 컨트롤러 룰링 1: `tabindex` 를 단언하는 것은 아무것도 증명하지 않는다 — 이 코드는
+   * 어디서도 tabindex 를 설정하지 않으므로 그 단언은 항상 통과한다. 비모달이라는 주장을
+   * 실제로 인코딩하는 것은 오버레이 루트에 `aria-modal` 이 없고 스크림 요소가 없다는
+   * 사실이다.
+   */
+  it('열릴 때 포커스가 오버레이 안으로 들어간다 — 갇히지는 않는다', async () => {
+    setup({ clockNow: () => Promise.resolve(clock), viewportWidth: 900 })
+    await screen.findByLabelText('타이머')
+
+    await userEvent.click(screen.getByRole('button', { name: 'MONTH' }))
+
+    const closeButton = screen.getByRole('button', { name: 'MONTH 닫기' })
+    expect(closeButton).toHaveFocus()
+
+    const overlayRoot = closeButton.parentElement
+    expect(overlayRoot).not.toHaveAttribute('aria-modal')
+    expect(document.querySelector('[class*="scrim"], [class*="backdrop"]')).toBeNull()
   })
 })

@@ -337,3 +337,22 @@ summary {
   min-height: var(--target-min);
   min-width: var(--target-min);
 }
+
+/* MONTH 오버레이 슬라이드-인 (app-shell ux-spec §3.1).
+   상태 변화를 전달하는 모션이라 허용되지만, 모션 축소 선호에서는 즉시 표시한다 —
+   전역 `* { transition: none !important }` 킬은 폐기된 패턴이므로 속성으로 끈다
+   (design-system ADR-005 §2). */
+@keyframes month-overlay-in {
+  from {
+    transform: translateX(calc(100% + 24px));
+    opacity: 0;
+  }
+}
+
+.month-overlay {
+  animation: month-overlay-in var(--motion-medium) var(--ease-standard);
+}
+
+.month-overlay[data-motion='reduced'] {
+  animation: none;
+}
