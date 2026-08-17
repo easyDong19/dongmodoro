@@ -70,7 +70,12 @@ export function CaptureBar() {
         maxLength={MAX_LEN}
         onChange={(e) => setTitle(e.target.value)}
         onKeyDown={(e) => {
-          if (e.key === 'Escape') dismiss()
+          if (e.key === 'Escape') {
+            // 이 `Esc` 는 캡처 건너뛰기로 **소비됐다.** 표시해 두지 않으면 같은 키로 열려
+            // 있던 MONTH 오버레이까지 함께 닫힌다 (app-shell ux-spec §3.1).
+            e.preventDefault()
+            dismiss()
+          }
         }}
         placeholder={`이 ${measured}, 뭐 했는지 한 줄 남길래요?`}
         className="flex-1 rounded-md border border-control-border bg-glass px-3 py-1.5 text-sm text-ink"
