@@ -321,8 +321,7 @@ describe('ItemDrawer — 마일스톤 연결 (milestones R13·R14·R15 · A11·A
     id,
     month,
     title,
-    completedAt: null,
-    archivedAt: null
+    completedAt: null
   })
 
   it('연결 없음이 정상 선택지이고 경고 문구가 없다 (R13 · A11)', () => {

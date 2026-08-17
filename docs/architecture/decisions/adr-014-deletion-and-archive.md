@@ -1,6 +1,8 @@
 # ADR-014: 삭제·보관 표현 — soft delete 범위와 보관의 집계 중립성
 
 - 상태: accepted (2026-08-04)
+  > 상태: §4 는 [ADR-034](adr-034-remove-milestone-archive.md) 로 superseded (2026-08-17).
+  > §1~§3 은 유효하다. §3 의 "이력 보존은 보관이 담당" 서술만 ADR-034 가 대체한다.
 - 근거: [2026-08-04 리뷰 결정](../../decision-log/2026-08-04-review-decisions.md) D4 + 정합성 감사 지적
 - 관계: [ADR-011](adr-011-schema-final.md) 이 정의하지 않은 삭제 표현을 보완한다
 

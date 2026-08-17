@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Archive, ArchiveRestore, Check, Trash2 } from 'lucide-react'
+import { Check, Trash2 } from 'lucide-react'
 import type { contracts } from '@shared/ipc/contracts'
 import type { z } from 'zod'
 import { Button } from '@renderer/shared/ui/button'
@@ -11,12 +11,11 @@ type Item = MonthRes['items'][number]
 export type RowActions = {
   rename: (input: { id: string; title: string }) => void
   setCompleted: (input: { id: string; completed: boolean }) => void
-  setArchived: (input: { id: string; archived: boolean }) => void
   remove: (id: string) => void
 }
 
 /**
- * 마일스톤 한 행 (milestones R5·R7·R8·R9·R11·R17).
+ * 마일스톤 한 행 (milestones R5·R7·R8·R9·R17).
  *
  * `M1`·`M2` 라벨은 **표시 순서에서 파생하는 렌더 전용 값**이다 (R5 · A5) — 저장하지 않고
  * 어떤 참조 키로도 쓰지 않는다. 목록이 바뀌면 같은 마일스톤의 번호가 바뀔 수 있다.
@@ -41,7 +40,6 @@ export function MilestoneRow({
   const [draft, setDraft] = useState(item.title)
   const [confirmingDelete, setConfirmingDelete] = useState(false)
   const done = item.completedAt !== null
-  const archived = item.archivedAt !== null
 
   function commitRename() {
     const next = draft.trim()
@@ -82,7 +80,7 @@ export function MilestoneRow({
           </span>
         )}
 
-        {/* 완료 토글·삭제는 편집 가능한 달에서만 (R20 순서 5 — 지난달은 보관·해제만). */}
+        {/* 완료 토글·삭제는 편집 가능한 달에서만 렌더한다 (R20) — 지난달 카드는 완전히 읽기 전용이다. */}
         {editable ? (
           <>
             <Button
@@ -109,18 +107,6 @@ export function MilestoneRow({
             </Button>
           </>
         ) : null}
-
-        {/* 보관·해제는 **모든 모드에서** 열린다 (R11) — 읽기 전용에서 유일하게 허용되는 쓰기다. */}
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon-xs"
-          aria-label={archived ? '보관 해제' : '보관'}
-          data-testid={archived ? 'milestone-unarchive' : 'milestone-archive'}
-          onClick={() => actions.setArchived({ id: item.id, archived: !archived })}
-        >
-          {archived ? <ArchiveRestore aria-hidden="true" /> : <Archive aria-hidden="true" />}
-        </Button>
       </div>
 
       {/*

@@ -324,9 +324,11 @@ function migrationsAt110(): string {
   const md = mkdtempSync(join(tmpdir(), 'dongmodoro-v110-'))
   cpSync(REPO_MIGRATIONS, md, { recursive: true })
   for (const f of readdirSync(md)) {
-    if (f.startsWith('0001') && f.endsWith('.sql')) rmSync(join(md, f))
+    if (!f.startsWith('0000') && f.endsWith('.sql')) rmSync(join(md, f))
   }
-  rmSync(join(md, 'meta', '0001_snapshot.json'), { force: true })
+  for (const f of readdirSync(join(md, 'meta'))) {
+    if (f.endsWith('_snapshot.json') && !f.startsWith('0000')) rmSync(join(md, 'meta', f))
+  }
   const journalPath = join(md, 'meta', '_journal.json')
   const journal = JSON.parse(readFileSync(journalPath, 'utf8')) as { entries: unknown[] }
   journal.entries = journal.entries.slice(0, 1)
@@ -407,9 +409,9 @@ describe('migrateDb — 데이터가 든 1.1.0 DB (ADR-032 §4)', () => {
 
   it('applies on a database that holds sessions, and backs it up first', () => {
     const { sqlite, schemaVersion } = upgraded()
-    expect(schemaVersion).toBe(2)
-    expect(sqlite.pragma('user_version', { simple: true })).toBe(2)
-    // 백업 조건은 `0 < dbVersion < appVersion` 이다 (ADR-020 §2) — 1 < 2 로 성립한다.
+    expect(schemaVersion).toBe(3)
+    expect(sqlite.pragma('user_version', { simple: true })).toBe(3)
+    // 백업 조건은 `0 < dbVersion < appVersion` 이다 (ADR-020 §2) — 1 < 3 로 성립한다.
     expect(backups()).toHaveLength(1)
   })
 
@@ -540,5 +542,45 @@ describe('migrateDb — 무결성 회귀 관문 (ADR-032 §2)', () => {
     expect(second.sqlite.pragma('user_version', { simple: true })).toBe(1)
     // FK 는 되돌려졌다 (ADR-032 §1 의 finally).
     expect(second.sqlite.pragma('foreign_keys', { simple: true })).toBe(1)
+  })
+})
+
+describe('migrateDb — archived_at 드랍 (ADR-034)', () => {
+  /**
+   * 0002 적용 전 세대 = `.sql` 이 0000·0001 두 개뿐인 폴더. `migrationsAt110()` 과
+   * 같은 방식으로 저장소 폴더를 복사해 0002 를 뺀다 — archived_at 이 아직 남아 있는
+   * 스키마에 시드하기 위해서다.
+   */
+  function migrationsBefore0002(): string {
+    const md = mkdtempSync(join(tmpdir(), 'dongmodoro-pre-0002-'))
+    cpSync(REPO_MIGRATIONS, md, { recursive: true })
+    for (const f of readdirSync(md)) {
+      if (f.startsWith('0002') && f.endsWith('.sql')) rmSync(join(md, f))
+    }
+    rmSync(join(md, 'meta', '0002_snapshot.json'), { force: true })
+    const journalPath = join(md, 'meta', '_journal.json')
+    const journal = JSON.parse(readFileSync(journalPath, 'utf8')) as { entries: unknown[] }
+    journal.entries = journal.entries.slice(0, 2)
+    writeFileSync(journalPath, JSON.stringify(journal))
+    return md
+  }
+
+  it('archived_at 이 드랍되고 보관돼 있던 행은 데이터 손실 없이 남는다', () => {
+    const dbPath = join(dir, 'app.db')
+    const first = openDb(dbPath)
+    migrateDb(first.sqlite, first.db, dir, migrationsBefore0002())
+    first.sqlite.exec(`
+      INSERT INTO milestones (id,month,title,completed_at,sort_order,archived_at,created_at,updated_at)
+      VALUES ('m-a','2026-07','archived one',NULL,0,'2026-07-31T00:00:00.000Z','2026-07-01T00:00:00.000Z','2026-07-01T00:00:00.000Z')
+    `)
+    closeDb(first.sqlite)
+
+    const second = openDb(dbPath)
+    migrateDb(second.sqlite, second.db, dir, REPO_MIGRATIONS)
+    const cols = second.sqlite.prepare(`SELECT name FROM pragma_table_info('milestones')`).all()
+    expect(cols.map((c) => (c as { name: string }).name)).not.toContain('archived_at')
+    const row = second.sqlite.prepare(`SELECT title FROM milestones WHERE id='m-a'`).get()
+    expect(row).toEqual({ title: 'archived one' })
+    closeDb(second.sqlite)
   })
 })

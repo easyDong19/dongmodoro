@@ -48,7 +48,7 @@ export type InvalidationEvent =
    */
   | { type: 'theme-changed' }
   /**
-   * 마일스톤이 추가·수정·완료·보관·삭제·복사됐다. `currentDayKey` 를 갖지 않는다 —
+   * 마일스톤이 추가·수정·완료·삭제·복사됐다. `currentDayKey` 를 갖지 않는다 —
    * 대상 달을 payload 가 이미 들고 있고, 카드가 한 달만 그리므로 화면이 그 달을 안다.
    *
    * **캘린더는 대상이 아니다.** 마일스톤은 점에 영향을 주지 않으므로, 넣으면 아무것도

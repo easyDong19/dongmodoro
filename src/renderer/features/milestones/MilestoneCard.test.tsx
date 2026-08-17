@@ -20,7 +20,7 @@ type Item = MonthRes['items'][number]
 type Bare = MonthRes['carryCandidates'][number]
 
 function bare(over: Partial<Bare> = {}): Bare {
-  return { id: 'm1', month: MONTH, title: '결과물', completedAt: null, archivedAt: null, ...over }
+  return { id: 'm1', month: MONTH, title: '결과물', completedAt: null, ...over }
 }
 
 function item(over: Partial<Item> = {}): Item {
@@ -35,7 +35,6 @@ function makeRes(over: Partial<MonthRes> = {}): MonthRes {
     badge: null,
     rollupWeek: null,
     carryCandidates: [],
-    archivedItems: [],
     ...over
   }
 }
@@ -45,7 +44,6 @@ async function renderCard(res: MonthRes, clockWeek = WEEK) {
     create: vi.fn().mockResolvedValue({ month: MONTH, id: 'new' }),
     rename: vi.fn().mockResolvedValue(undefined),
     setCompleted: vi.fn().mockResolvedValue({ completedAt: null }),
-    setArchived: vi.fn().mockResolvedValue({ archivedAt: null }),
     remove: vi.fn().mockResolvedValue(undefined),
     carryTitles: vi.fn().mockResolvedValue({ month: MONTH, created: 1 })
   }
@@ -86,7 +84,7 @@ describe('표시 모드로만 분기한다 (R20)', () => {
       makeRes({
         mode: 'past',
         items: [item()],
-        badge: { total: 1, completed: 1, archivedCount: 0 }
+        badge: { total: 1, completed: 1 }
       })
     )
     expect(screen.getByTestId('milestone-card')).toHaveAttribute('data-mode', 'past')
@@ -97,7 +95,7 @@ describe('표시 모드로만 분기한다 (R20)', () => {
       makeRes({
         mode: 'past',
         items: [item()],
-        badge: { total: 1, completed: 0, archivedCount: 0 }
+        badge: { total: 1, completed: 0 }
       })
     )
     expect(screen.queryByTestId('milestone-add')).not.toBeInTheDocument()
@@ -105,17 +103,15 @@ describe('표시 모드로만 분기한다 (R20)', () => {
     expect(screen.queryByTestId('milestone-delete')).not.toBeInTheDocument()
   })
 
-  it('지난달에서도 보관은 동작한다 — 읽기 전용에서 유일하게 허용되는 쓰기다 (R11 · A20)', async () => {
-    const user = userEvent.setup()
-    const { calls } = await renderCard(
+  it('지난달 카드에는 어떤 쓰기 조작도 렌더되지 않는다 (R20 · A20)', async () => {
+    await renderCard(
       makeRes({
         mode: 'past',
         items: [item()],
-        badge: { total: 1, completed: 0, archivedCount: 0 }
+        badge: { total: 1, completed: 0 }
       })
     )
-    await user.click(screen.getByTestId('milestone-archive'))
-    expect(calls.setArchived).toHaveBeenCalledWith({ id: 'm1', archived: true })
+    expect(screen.queryByRole('button')).not.toBeInTheDocument()
   })
 
   it('미래 달에는 편집이 열린다 — 날짜 제한이 없다 (R6 개정)', async () => {
@@ -176,56 +172,11 @@ describe('월 이동 중간 상태 — 언마운트 깜빡임 금지', () => {
   })
 })
 
-describe('배지 (R21 · A21·A22)', () => {
-  it('보관이 있으면 건수를 함께 적는다', async () => {
-    await renderCard(
-      makeRes({
-        mode: 'past',
-        items: [item()],
-        badge: { total: 3, completed: 1, archivedCount: 2 }
-      })
-    )
-    expect(screen.getByText('1/3 달성 · 보관 2건')).toBeInTheDocument()
-  })
-
-  it('보관이 없으면 건수 표기가 붙지 않는다', async () => {
-    await renderCard(
-      makeRes({
-        mode: 'past',
-        items: [item()],
-        badge: { total: 3, completed: 1, archivedCount: 0 }
-      })
-    )
-    expect(screen.getByText('1/3 달성')).toBeInTheDocument()
-  })
-
+describe('배지 (R21 · A22)', () => {
   it('배지가 null 이면 렌더하지 않는다 — 0/0 달성이 존재하지 않는다 (A22)', async () => {
     await renderCard(makeRes({ mode: 'past-empty' }))
     expect(screen.queryByTestId('milestone-badge')).not.toBeInTheDocument()
     expect(screen.getByText('이 달은 계획 없이 지나갔어요')).toBeInTheDocument()
-  })
-})
-
-describe('보관 목록 — 해제의 도달 경로 (R11 · A20)', () => {
-  it('보관 건수를 펼치면 해제 버튼이 나온다', async () => {
-    const user = userEvent.setup()
-    const { calls } = await renderCard(
-      makeRes({
-        mode: 'past',
-        items: [],
-        badge: { total: 1, completed: 0, archivedCount: 1 },
-        archivedItems: [bare({ id: 'm-arch', archivedAt: '2026-08-20T00:00:00.000Z' })]
-      })
-    )
-
-    await user.click(screen.getByTestId('archived-toggle'))
-    await user.click(screen.getByTestId('milestone-unarchive'))
-    expect(calls.setArchived).toHaveBeenCalledWith({ id: 'm-arch', archived: false })
-  })
-
-  it('보관이 0건이면 토글 자체가 없다', async () => {
-    await renderCard(makeRes({ mode: 'edit', items: [item()] }))
-    expect(screen.queryByTestId('archived-toggle')).not.toBeInTheDocument()
   })
 })
 
@@ -383,7 +334,7 @@ describe('부정 프레임과 이모지 금지 (R23·R25 · A24·A25)', () => {
       makeRes({
         mode: 'past',
         items: [item({ completedAt: null })],
-        badge: { total: 2, completed: 1, archivedCount: 0 }
+        badge: { total: 2, completed: 1 }
       })
     )
     const text = container.textContent ?? ''

@@ -182,22 +182,16 @@ export type MilestoneRow = {
   title: string
   /** 순간. NULL = 미완료. boolean `done` 을 대체한다 (ADR-011 §5). */
   completedAt: string | null
-  /** 순간. NULL = 보관 안 됨. 목록 표시에서만 빼며 집계에 중립이다 (ADR-014 §4). */
-  archivedAt: string | null
 }
 
 /**
  * 지난달 배지 `N / M` 의 재료 (milestones R21) — **그 달의 스냅샷**이다.
  *
- * `total` 은 **보관 여부와 무관하다.** 보관으로 분모를 깎을 수 있으면 3개 중 1개 완료한
- * 달에서 나머지 2개를 보관하는 것만으로 "1/1 달성"이 되어, 아무것도 더 하지 않고
- * 달성률을 올릴 수 있다 (D4 가 잡은 결함).
+ * total 은 물리 삭제되지 않은 전부다 (ADR-034 — 보관 개념은 제거됐다).
  */
 export type MilestoneBadge = {
   total: number
   completed: number
-  /** 보관 건수. 배지에 `· 보관 K건` 으로 함께 표시된다 (R23). 분모를 바꾸지 않는다. */
-  archivedCount: number
 }
 
 /** 마일스톤 하나의 주 단위 롤업 재료 (R17). 저장값이 아니라 매번 파생한다. */
@@ -217,22 +211,16 @@ export type MilestoneRollupRow = {
 /**
  * 월 마일스톤 (milestones). 삭제는 **물리 삭제**이며 `deleted_at` 이 없다 (ADR-014 §3).
  *
- * `complete`/`uncomplete` 와 `archive`/`unarchive` 를 각각 두 메서드로 나눈 이유는
- * `WeekItemsRepository` 와 같다 — `setCompleted(id, at | null)` 은 `update(id, patch)`
- * 모양이라 이 파일 상단이 금지하는 CRUD 포트가 된다.
+ * `complete`/`uncomplete` 를 두 메서드로 나눈 이유는 `WeekItemsRepository` 와 같다 —
+ * `setCompleted(id, at | null)` 은 `update(id, patch)` 모양이라 이 파일 상단이 금지하는
+ * CRUD 포트가 된다.
  */
 export interface MilestonesRepository {
-  /** 그 달의 **보관되지 않은** 마일스톤. 생성 순 고정이다 (R10). */
+  /** 그 달의 마일스톤. 생성 순 고정이다 (R10). */
   listForMonth(month: string): MilestoneRow[]
-  /**
-   * 그 달의 **보관된** 마일스톤. 목록 본문에는 나오지 않지만(R11), 보관 해제가 지난달
-   * 카드에서도 가능해야 하므로(R11 · A20) 화면이 `보관 K건` 뒤에서 펼칠 대상이 필요하다.
-   * 이 조회가 없으면 해제는 규칙에만 있고 도달 경로가 없는 기능이 된다.
-   */
-  listArchivedForMonth(month: string): MilestoneRow[]
-  /** 배지 재료. **보관을 거르지 않는다** (R21). */
+  /** 배지 재료. 물리 삭제되지 않은 전부를 센다 (R21 · ADR-034). */
   badgeCounts(month: string): MilestoneBadge
-  /** 제목 복사 후보 (R22) — 그 달의 미완료. **보관 여부와 무관하게** 낸다. */
+  /** 제목 복사 후보 (R22) — 그 달의 미완료. */
   carryCandidates(month: string): MilestoneRow[]
   /** 그 달의 다음 생성 순번. 표시 순서의 안정적 tie-break 로만 쓰인다 (R10). */
   nextSortOrder(month: string): number
@@ -240,8 +228,6 @@ export interface MilestonesRepository {
   rename(id: string, title: string): void
   complete(id: string, at: string): void
   uncomplete(id: string): void
-  archive(id: string, at: string): void
-  unarchive(id: string): void
   /** 물리 삭제. FK 가 `ON DELETE SET NULL` 이라 연결된 할당은 "기타"로 남는다 (R8). */
   remove(id: string): void
   /**
@@ -257,7 +243,7 @@ export interface MilestonesRepository {
    * 그것이 다른 달의 마일스톤에 걸린 유일한 합법 경로다 (R15).
    *
    * 새로 연결할 때의 후보(R14 · A12)는 별도 메서드가 아니라 `listForMonth(그 할당의 주가
-   * 귀속된 달)` 이다 — 그 메서드가 이미 보관을 거르고 달로 좁힌다.
+   * 귀속된 달)` 이다 — 그 메서드가 이미 달로 좁힌다.
    */
   linkedMilestone(weekItemId: string): MilestoneRow | null
   setWeekItemMilestone(weekItemId: string, milestoneId: string | null): void

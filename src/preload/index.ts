@@ -67,7 +67,6 @@ const api: Api = {
     create: (input) => ipcRenderer.invoke(CHANNELS.milestones.create, input),
     rename: (input) => ipcRenderer.invoke(CHANNELS.milestones.rename, input),
     setCompleted: (input) => ipcRenderer.invoke(CHANNELS.milestones.setCompleted, input),
-    setArchived: (input) => ipcRenderer.invoke(CHANNELS.milestones.setArchived, input),
     remove: (id) => ipcRenderer.invoke(CHANNELS.milestones.remove, id),
     carryTitles: (input) => ipcRenderer.invoke(CHANNELS.milestones.carryTitles, input)
   },

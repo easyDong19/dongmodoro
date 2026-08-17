@@ -81,13 +81,11 @@ function setup({ clockNow }: { clockNow: () => Promise<typeof clock> }) {
         items: [],
         badge: null,
         rollupWeek: null,
-        carryCandidates: [],
-        archivedItems: []
+        carryCandidates: []
       }),
       create: vi.fn(),
       rename: vi.fn(),
       setCompleted: vi.fn(),
-      setArchived: vi.fn(),
       remove: vi.fn(),
       carryTitles: vi.fn()
     },

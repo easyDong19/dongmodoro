@@ -66,26 +66,23 @@ function row(over: Partial<MilestoneRow> = {}): MilestoneRow {
     month: '2026-08',
     title: '결과물',
     completedAt: null,
-    archivedAt: null,
     ...over
   }
 }
 
 function fakeUow(o: {
   rows?: MilestoneRow[]
-  badge?: { total: number; completed: number; archivedCount: number }
+  badge?: { total: number; completed: number }
   rollup?: { milestoneId: string; measuredSec: number }[]
   carry?: MilestoneRow[]
-  archived?: MilestoneRow[]
   onRollup?: (month: string, week: string) => void
 }): UnitOfWork {
   const rows = o.rows ?? []
   const repos = {
     milestones: {
       listForMonth: () => rows,
-      badgeCounts: () => o.badge ?? { total: rows.length, completed: 0, archivedCount: 0 },
+      badgeCounts: () => o.badge ?? { total: rows.length, completed: 0 },
       carryCandidates: () => o.carry ?? [],
-      listArchivedForMonth: () => o.archived ?? [],
       rollup: (month: string, week: string) => {
         o.onRollup?.(month, week)
         return o.rollup ?? []
@@ -107,20 +104,17 @@ describe('monthMilestones — 배지는 지난달 카드의 것이다 (R21 · A2
     const res = monthMilestones(
       fakeUow({
         rows: [row({ month: '2026-07' })],
-        badge: { total: 3, completed: 1, archivedCount: 2 }
+        badge: { total: 3, completed: 1 }
       }),
       '2026-07'
     )
     expect(res.mode).toBe('past')
-    expect(res.badge).toEqual({ total: 3, completed: 1, archivedCount: 2 })
+    expect(res.badge).toEqual({ total: 3, completed: 1 })
   })
 
   it('0건인 달은 배지가 null 이다 — 0/0 달성을 만들지 않는다 (A22)', () => {
     freezeAt(2026, 8, 4)
-    const res = monthMilestones(
-      fakeUow({ rows: [], badge: { total: 0, completed: 0, archivedCount: 0 } }),
-      '2026-07'
-    )
+    const res = monthMilestones(fakeUow({ rows: [], badge: { total: 0, completed: 0 } }), '2026-07')
     expect(res.mode).toBe('past-empty')
     expect(res.badge).toBeNull()
   })
@@ -128,7 +122,7 @@ describe('monthMilestones — 배지는 지난달 카드의 것이다 (R21 · A2
   it('이번 달 카드에는 배지가 없다 — 배지는 끝난 달의 스냅샷이다', () => {
     freezeAt(2026, 8, 4)
     const res = monthMilestones(
-      fakeUow({ rows: [row()], badge: { total: 1, completed: 0, archivedCount: 0 } }),
+      fakeUow({ rows: [row()], badge: { total: 1, completed: 0 } }),
       '2026-08'
     )
     expect(res.mode).toBe('edit')
@@ -142,7 +136,7 @@ describe('monthMilestones — 롤업 게이팅 (R17·R18 · A17)', () => {
     const res = monthMilestones(
       fakeUow({
         rows: [row()],
-        badge: { total: 1, completed: 0, archivedCount: 0 },
+        badge: { total: 1, completed: 0 },
         rollup: [{ milestoneId: 'm1', measuredSec: 4500 }]
       }),
       '2026-08'
@@ -160,7 +154,7 @@ describe('monthMilestones — 롤업 게이팅 (R17·R18 · A17)', () => {
     const res = monthMilestones(
       fakeUow({
         rows: [row({ month: '2026-09' })],
-        badge: { total: 1, completed: 0, archivedCount: 0 }
+        badge: { total: 1, completed: 0 }
       }),
       '2026-09'
     )
@@ -173,7 +167,7 @@ describe('monthMilestones — 롤업 게이팅 (R17·R18 · A17)', () => {
     const res = monthMilestones(
       fakeUow({
         rows: [row()],
-        badge: { total: 1, completed: 0, archivedCount: 0 },
+        badge: { total: 1, completed: 0 },
         rollup: [{ milestoneId: 'm1', measuredSec: 3000 }]
       }),
       '2026-08'
@@ -190,7 +184,7 @@ describe('monthMilestones — 롤업 게이팅 (R17·R18 · A17)', () => {
     const res = monthMilestones(
       fakeUow({
         rows: [row({ month: '2026-09' })],
-        badge: { total: 1, completed: 0, archivedCount: 0 },
+        badge: { total: 1, completed: 0 },
         onRollup
       }),
       '2026-09'
@@ -203,10 +197,7 @@ describe('monthMilestones — 롤업 게이팅 (R17·R18 · A17)', () => {
   it('먼 미래 달도 롤업을 조회하지 않는다', () => {
     freezeAt(2026, 8, 4)
     const onRollup = vi.fn()
-    monthMilestones(
-      fakeUow({ rows: [], badge: { total: 0, completed: 0, archivedCount: 0 }, onRollup }),
-      '2026-12'
-    )
+    monthMilestones(fakeUow({ rows: [], badge: { total: 0, completed: 0 }, onRollup }), '2026-12')
     expect(onRollup).not.toHaveBeenCalled()
   })
 })
@@ -216,7 +207,7 @@ describe('monthMilestones — 제목 복사 후보 (R22 · A23)', () => {
     freezeAt(2026, 8, 4)
     const carry = [row({ id: 'm-prev', month: '2026-07', title: '남은 것' })]
     const res = monthMilestones(
-      fakeUow({ rows: [], badge: { total: 0, completed: 0, archivedCount: 0 }, carry }),
+      fakeUow({ rows: [], badge: { total: 0, completed: 0 }, carry }),
       '2026-08'
     )
     expect(res.mode).toBe('current-empty')
@@ -227,36 +218,10 @@ describe('monthMilestones — 제목 복사 후보 (R22 · A23)', () => {
     freezeAt(2026, 8, 4)
     const carry = [row({ id: 'm-prev', month: '2026-07' })]
     const res = monthMilestones(
-      fakeUow({ rows: [row()], badge: { total: 1, completed: 0, archivedCount: 0 }, carry }),
+      fakeUow({ rows: [row()], badge: { total: 1, completed: 0 }, carry }),
       '2026-08'
     )
     expect(res.mode).toBe('edit')
     expect(res.carryCandidates).toEqual([])
-  })
-})
-
-describe('monthMilestones — 보관 목록은 해제의 도달 경로다 (R11 · A20)', () => {
-  it('보관이 0건이면 조회하지 않고 빈 배열이다', () => {
-    freezeAt(2026, 8, 4)
-    const res = monthMilestones(
-      fakeUow({
-        rows: [row()],
-        badge: { total: 1, completed: 0, archivedCount: 0 },
-        archived: [row({ id: 'never-read' })]
-      }),
-      '2026-08'
-    )
-    expect(res.archivedItems).toEqual([])
-  })
-
-  it('보관이 있으면 지난달 카드에서도 목록을 싣는다 — 없으면 해제에 도달할 수 없다', () => {
-    freezeAt(2026, 8, 4)
-    const archived = [row({ id: 'arch', month: '2026-07', archivedAt: '2026-07-31T00:00:00.000Z' })]
-    const res = monthMilestones(
-      fakeUow({ rows: [], badge: { total: 1, completed: 0, archivedCount: 1 }, archived }),
-      '2026-07'
-    )
-    expect(res.mode).toBe('past')
-    expect(res.archivedItems.map((a) => a.id)).toEqual(['arch'])
   })
 })

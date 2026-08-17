@@ -118,12 +118,8 @@ export const settings = sqliteTable(
 // ---------------------------------------------------------------------------
 
 /**
- * 삭제는 **물리 삭제**다(ADR-014 §3). 이력 보존은 삭제가 아니라 보관(`archived_at`)이
- * 담당하므로 `deleted_at` 을 두지 않는다.
- *
- * 보관은 **집계에 중립**이다(ADR-014 §4) — 목록 표시에서만 빠지고 달성률 `N/M` 의
- * 분모를 바꾸지 않는다. 분모를 깎으면 월말에 미완료 항목을 보관하는 것만으로
- * "1/3"이 "1/1 달성"이 되어 성공을 조작할 수 있다.
+ * 삭제는 **물리 삭제**다(ADR-014 §3). 미완료 이력은 행이 그 달에 남는 것 자체가
+ * 보존한다 — 보관(archived_at)은 ADR-034 로 제거됐다.
  */
 export const milestones = sqliteTable(
   'milestones',
@@ -136,8 +132,6 @@ export const milestones = sqliteTable(
     /** 순간. NULL = 미완료. boolean `done` 을 대체한다(ADR-011 §5). */
     completedAt: text('completed_at'),
     sortOrder: integer('sort_order').notNull(),
-    /** 순간. NULL = 보관 안 됨. */
-    archivedAt: text('archived_at'),
     createdAt: text('created_at').notNull().$defaultFn(now),
     updatedAt: text('updated_at').notNull().$defaultFn(now).$onUpdate(now)
   },
@@ -146,7 +140,6 @@ export const milestones = sqliteTable(
     // 정렬 키다. TEXT 가 섞이면 SQLite 값 순서상 모든 정수보다 뒤로 밀린다 (ADR-021 §1).
     check('milestones_sort_order_int', isInt(t.sortOrder)),
     check('milestones_completed_at_format', nullableInstant(t.completedAt)),
-    check('milestones_archived_at_format', nullableInstant(t.archivedAt)),
     check('milestones_created_at_format', instant(t.createdAt)),
     check('milestones_updated_at_format', instant(t.updatedAt))
   ]
