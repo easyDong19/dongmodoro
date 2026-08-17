@@ -5,6 +5,7 @@ import type {} from '@testing-library/jest-dom/vitest'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import type { Api } from '@shared/ipc/api'
 import type { TimerSnapshotWire } from '@shared/ipc/contracts'
+import { installMatchMedia } from '@renderer/shared/layout/testViewport'
 import { App } from './App'
 
 const clock = { dayKey: '2026-08-07', weekKey: '2026-08-03', monthKey: '2026-08', weekdayIndex: 4 }
@@ -21,7 +22,17 @@ const idleFocusSnapshot: TimerSnapshotWire = {
   focusSinceLastLong: 0
 }
 
-function setup({ clockNow }: { clockNow: () => Promise<typeof clock> }) {
+function setup({
+  clockNow,
+  viewportWidth
+}: {
+  clockNow: () => Promise<typeof clock>
+  viewportWidth?: number
+}) {
+  // 폭을 주지 않은 호출은 matchMedia 를 세우지 않는다 — useBreakpoint 가 wide 로 떨어져
+  // 기존 테스트들이 지금까지와 똑같은 화면을 본다.
+  if (viewportWidth !== undefined) installMatchMedia(viewportWidth)
+
   const qc = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } }
   })
@@ -205,5 +216,48 @@ describe('App — 카드 접근성 이름은 셸이 소유한다', () => {
     for (const label of ['Milestone', '캘린더', '타이머', 'Sprint', '오늘 목록']) {
       expect(screen.getAllByRole('region', { name: label })).toHaveLength(1)
     }
+  })
+})
+
+describe('App — 미디엄 구간 (app-shell ux-spec §3)', () => {
+  it('와이드에서는 MONTH 컬럼이 자리에 있고 타이틀바에 토글이 없다', async () => {
+    setup({ clockNow: () => Promise.resolve(clock), viewportWidth: 1280 })
+    await screen.findByLabelText('타이머')
+
+    expect(screen.getByLabelText('Milestone')).toBeInTheDocument()
+    expect(screen.getByLabelText('캘린더')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'MONTH' })).not.toBeInTheDocument()
+  })
+
+  it('미디엄에서는 MONTH 컬럼이 접히고 토글이 나온다', async () => {
+    setup({ clockNow: () => Promise.resolve(clock), viewportWidth: 900 })
+    await screen.findByLabelText('타이머')
+
+    expect(screen.queryByLabelText('Milestone')).not.toBeInTheDocument()
+    expect(screen.queryByLabelText('캘린더')).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'MONTH' })).toBeInTheDocument()
+  })
+
+  it('미디엄에서도 타이머와 계획 카드는 그대로 남는다 — 접히는 것은 계획 레이어 순서다', async () => {
+    setup({ clockNow: () => Promise.resolve(clock), viewportWidth: 900 })
+    await screen.findByLabelText('타이머')
+
+    expect(screen.getByLabelText('타이머')).toBeInTheDocument()
+    expect(screen.getByLabelText('Sprint')).toBeInTheDocument()
+    expect(screen.getByLabelText('오늘 목록')).toBeInTheDocument()
+  })
+
+  it('콜드 스타트는 접힘이다 — 토글이 눌리지 않은 상태로 시작한다', async () => {
+    setup({ clockNow: () => Promise.resolve(clock), viewportWidth: 900 })
+    await screen.findByLabelText('타이머')
+
+    expect(screen.getByRole('button', { name: 'MONTH' })).toHaveAttribute('aria-pressed', 'false')
+  })
+
+  it('타이머 섹션에 최소 폭이 있다 — 폭이 모자랄 때 타이머만 눌리지 않게', async () => {
+    setup({ clockNow: () => Promise.resolve(clock), viewportWidth: 900 })
+    const timer = await screen.findByLabelText('타이머')
+
+    expect(timer.className).toContain('min-w-[288px]')
   })
 })
