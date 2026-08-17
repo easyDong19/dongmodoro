@@ -39,7 +39,7 @@
 | 정산 판정식·확정 트랜잭션 | weekly-review | week-plan, pomo-baseline |
 | 뽀모 길이 3종 조회 계약 | pomo-baseline | timer, weekly-review |
 | 표시 대상 월·"공부한 날 수" 데이터 | calendar-records | milestones(월 동기), timer(자리) |
-| 마일스톤 연결·보관·달성률 배지 | milestones | week-plan, weekly-review |
+| 마일스톤 연결·달성률 배지 | milestones | week-plan, weekly-review |
 
 ## 횡단 결정 (기능 문서가 따르는 상위 규칙)
 
@@ -53,7 +53,7 @@
 | **진행 통화 = 측정 시간.** est·예산·가용량·`weeks` 폐기 | [ADR-030](../architecture/decisions/adr-030-time-as-progress-currency.md) |
 | **처분 2택 · 차액 유지 · `측정 시간` 정의** | [ADR-031](../architecture/decisions/adr-031-settlement-without-est.md) |
 | 뽀모 길이 편집의 즉시 효력 (스냅샷 폐지) | [ADR-029](../architecture/decisions/adr-029-baseline-immediate-effect.md) — [ADR-013](../architecture/decisions/adr-013-baseline-budget-effect.md) 은 **전체 폐기됐다** |
-| 삭제·보관 표현 | [ADR-014](../architecture/decisions/adr-014-deletion-and-archive.md) |
+| 삭제 표현 (마일스톤 보관은 폐지됨) | [ADR-014](../architecture/decisions/adr-014-deletion-and-archive.md) §1~§3, [ADR-034](../architecture/decisions/adr-034-remove-milestone-archive.md) |
 | 반응형 브레이크포인트 토큰 | [design-system ADR-001](../design-system/decisions/adr-001-breakpoint-tokens.md) |
 | 시각 철칙(실패 프레임 금지·이모지 금지) | [principles.md](../design-system/principles.md) |
 | 결정 이력 (기각된 선택지·AI 오판 포함) | [decision-log/](../decision-log/) |
