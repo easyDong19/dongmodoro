@@ -172,7 +172,7 @@ describe('월 이동 중간 상태 — 언마운트 깜빡임 금지', () => {
   })
 })
 
-describe('배지 (R21 · A21·A22)', () => {
+describe('배지 (R21 · A22)', () => {
   it('배지가 null 이면 렌더하지 않는다 — 0/0 달성이 존재하지 않는다 (A22)', async () => {
     await renderCard(makeRes({ mode: 'past-empty' }))
     expect(screen.queryByTestId('milestone-badge')).not.toBeInTheDocument()
