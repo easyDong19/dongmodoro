@@ -68,6 +68,12 @@ body {
   --focus-ring-offset: 2px;
   --target-min: 24px;
 
+  /* 타이머 다이얼 (design-system ADR-012) — 길이인데 em 인 유일한 예외다.
+     --text-display 에 대해 해석되므로 루트 확대가 하한·상한을 함께 민다
+     (ADR-007 §3 이 지키려던 성질). 다른 길이 토큰의 근거로 쓰지 않는다. */
+  --timer-dial-min: 3.93em; /* ≈220px — design-system ADR-011 §1 이 미디엄 하한에 쓴 값 */
+  --timer-dial-max: 7.14em; /* ≈400px */
+
   /* ── 다크 = 기본 테마 ──────────────────────────── */
 
   --bg-deep: #0c1a16;
