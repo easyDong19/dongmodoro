@@ -40,7 +40,7 @@ export function TimerCard() {
   const { snapshot, remaining } = useTimer()
 
   if (!snapshot || remaining === null) {
-    return <div className="flex flex-col gap-4 rounded-lg p-4" aria-busy="true" />
+    return <div className="flex h-full flex-col gap-4 rounded-lg p-4" aria-busy="true" />
   }
 
   const progress = 1 - remaining / Math.max(1, snapshot.durationSec)
@@ -57,7 +57,9 @@ export function TimerCard() {
   const showCompleteButton = snapshot.mode === 'focus' && (isRunning || isPaused)
 
   return (
-    <div className="flex flex-col gap-4 rounded-lg p-4">
+    /* `h-full` 이 있어야 `.timer-dial-area` 의 `flex: 1` 이 확정 높이를 받는다 — 높이가
+       내용에서 나오면 사이즈 컨테이너의 `100cqh` 가 성립하지 않는다. */
+    <div className="flex h-full flex-col gap-4 rounded-lg p-4">
       <div className="flex gap-2" aria-label="타이머 모드">
         {MODE_TABS.map(({ mode, label }) => (
           <button
@@ -73,42 +75,43 @@ export function TimerCard() {
         ))}
       </div>
 
-      <div className="relative flex items-center justify-center">
-        <svg viewBox="0 0 200 200" className="w-full max-w-[220px]" aria-hidden="true">
-          <defs>
-            <linearGradient id="timer-ring-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
-              <stop offset="0%" stopColor="var(--teal)" />
-              <stop offset="100%" stopColor="var(--amber)" />
-            </linearGradient>
-          </defs>
-          <circle
-            cx="100"
-            cy="100"
-            r={RING_RADIUS}
-            fill="none"
-            stroke="var(--glass-border)"
-            strokeWidth="10"
-          />
-          <circle
-            cx="100"
-            cy="100"
-            r={RING_RADIUS}
-            fill="none"
-            stroke="url(#timer-ring-gradient)"
-            strokeWidth="10"
-            strokeLinecap="round"
-            strokeDasharray={RING_CIRCUMFERENCE}
-            strokeDashoffset={dashOffset}
-            transform="rotate(-90 100 100)"
-            className="motion-reduce:transition-none"
-            style={{ transition: 'stroke-dashoffset var(--motion-medium) linear' }}
-          />
-        </svg>
-        <div
-          className="absolute font-mono tabular-nums text-ink"
-          style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--text-display)' }}
-        >
-          {formatMmSs(remaining)}
+      {/* 크기의 기준은 글자가 아니라 **다이얼 한 변** 이다 (design-system ADR-012). 한 변이
+          `min(가로 여유, 세로 여유)` 를 하한·상한 사이에서 따르고 링·숫자가 거기서 파생된다.
+          그 계산은 전부 global.css 의 `.timer-dial-area`·`.timer-dial` 안에 있다 — 여기에
+          유틸리티로 흩뿌리면 인과가 두 자리로 갈라진다. */}
+      <div className="timer-dial-area">
+        <div className="timer-dial">
+          <svg viewBox="0 0 200 200" className="absolute inset-0 h-full w-full" aria-hidden="true">
+            <defs>
+              <linearGradient id="timer-ring-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stopColor="var(--teal)" />
+                <stop offset="100%" stopColor="var(--amber)" />
+              </linearGradient>
+            </defs>
+            <circle
+              cx="100"
+              cy="100"
+              r={RING_RADIUS}
+              fill="none"
+              stroke="var(--glass-border)"
+              strokeWidth="10"
+            />
+            <circle
+              cx="100"
+              cy="100"
+              r={RING_RADIUS}
+              fill="none"
+              stroke="url(#timer-ring-gradient)"
+              strokeWidth="10"
+              strokeLinecap="round"
+              strokeDasharray={RING_CIRCUMFERENCE}
+              strokeDashoffset={dashOffset}
+              transform="rotate(-90 100 100)"
+              className="motion-reduce:transition-none"
+              style={{ transition: 'stroke-dashoffset var(--motion-medium) linear' }}
+            />
+          </svg>
+          <div className="timer-digits">{formatMmSs(remaining)}</div>
         </div>
       </div>
 

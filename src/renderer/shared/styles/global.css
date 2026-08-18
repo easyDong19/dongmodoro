@@ -223,6 +223,51 @@ main {
   font-weight: var(--weight-semibold);
 }
 
+/* 타이머 다이얼 (design-system ADR-012). 크기를 정하는 값은 **한 변 하나** 이고 링·숫자가
+   거기서 파생된다 — 유틸리티로 흩뿌리면 그 인과가 두 자리로 갈라져 서로 어긋나는 구간이
+   생긴다.
+
+   `.timer-dial-area` 는 "다이얼이 쓸 수 있는 칸" 이다. 사이즈 컨테이너로 두는 것이 이
+   구현의 전부다 — 그래야 아래에서 `100cqw`(가로 여유)와 `100cqh`(세로 여유)를 둘 다 읽고
+   **작은 쪽** 을 고를 수 있다. 세로가 참여하지 않으면 낮고 넓은 창에서 다이얼이 조절 칩·
+   버튼 줄·캡처 바를 밀어내거나 카드의 `overflow-hidden` 에 잘린다.
+
+   `container-type: size` 는 세로 방향 containment 를 걸므로 이 칸의 높이가 **내용과
+   무관하게 부모에서 정해져야** 한다. flex 자식으로서 `flex: 1` + `min-height: 0` 이 그
+   조건을 만든다 (App 의 `h-screen` 부터 내려온 확정 높이). */
+.timer-dial-area {
+  flex: 1 1 0;
+  min-height: 0;
+  container-type: size;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* `em` 이 --text-display 로 해석되게 하려고 font-size 를 여기서 준다. 숫자는 아래에서
+   `cqmin` 으로 덮어쓰므로 이 값이 그대로 렌더되는 자리는 없다 — 하한·상한의 기준일 뿐이다
+   (ADR-012 §2). 자신도 사이즈 컨테이너가 되어 숫자에게 한 변을 알려준다. */
+.timer-dial {
+  font-size: var(--text-display);
+  inline-size: clamp(var(--timer-dial-min), min(100cqw, 100cqh), var(--timer-dial-max));
+  aspect-ratio: 1;
+  container-type: size;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* 56 / 220 = 25.45% — 하한에서 정확히 --text-display 다 (ADR-012 §3). 숫자에 독립적인
+   clamp 를 또 두지 않는 이유가 이것이다: 곡선이 둘이면 어긋나는 구간이 생긴다. */
+.timer-digits {
+  font-family: var(--font-mono);
+  font-size: 25.45cqmin;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  color: var(--ink);
+}
+
 /* 컨트롤 표면 (design-system ADR-002 §1) — 카드보다 얕은 두 번째 레벨이다. 버튼·칩·
    세그먼트 토글·스테퍼가 쓴다. 카드의 `blur(24px)` 를 컨트롤에 그대로 쓰면 카드 위에
    또 하나의 유리판이 얹혀 깊이가 두 겹으로 읽히므로, 반경이 절반 이하인 별도 토큰이다.
