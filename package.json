@@ -1,6 +1,6 @@
 {
   "name": "dongmodoro",
-  "version": "2.0.0",
+  "version": "2.4.0",
   "private": true,
   "description": "A local-first pomodoro app where the week is the unit of planning",
   "author": "easyDong19",
