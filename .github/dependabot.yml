@@ -1,0 +1,12 @@
+# 액션 런타임 폐기는 재발형이다 — Node 20 이 그랬듯 24 도 언젠가 같은 절차를 밟는다.
+# 그때마다 사람이 경고 애노테이션을 발견하고 손으로 올리는 대신, 액션 버전이 낡으면
+# Dependabot 이 PR 을 연다. 머지 여부 판단과 리허설 검증은 여전히 사람 몫이다.
+#
+# npm 의존성은 여기서 다루지 않는다 — renovate/dependabot 도입 여부가 따로 결정된 적
+# 없고, 이 파일의 범위는 워크플로가 쓰는 액션뿐이다.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
