@@ -22,6 +22,9 @@ jobs:
     # macOS 러너여야 한다 — `.dmg` 는 다른 OS 에서 만들 수 없다. v1.0.0 의 배포 대상이
     # macOS 하나인 것은 켤 수 없는 OS 의 산출물을 검증된 것처럼 올리지 않기 위해서다.
     runs-on: macos-latest
+    # 정상 소요는 3분 안팎이다 (dmg 빌드 포함). 상한 근거는 ci.yml 과 같고, macOS 러너는
+    # 비공개 전환 시 10배 과금이라 매달림의 비용이 특히 크다.
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v7
 

@@ -26,6 +26,10 @@ concurrency:
 jobs:
   check:
     runs-on: ubuntu-latest
+    # 정상 소요는 2분 안팎이다. 상한이 없으면 매달린 스텝이 기본값 6시간까지 러너를
+    # 붙잡는다 — 실제로 `playwright install-deps`(apt)가 미러 장애로 24분을 매달린 적이
+    # 있고, 그런 유형은 재실행 한 번이면 풀린다. 빨리 죽고 다시 도는 쪽이 싸다.
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v7
 
