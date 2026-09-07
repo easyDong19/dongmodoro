@@ -61,7 +61,9 @@ const userDataDir = mkdtempSync(join(tmpdir(), 'dongmodoro-readme-'))
 mkdirSync(OUT_DIR, { recursive: true })
 
 const app = await electron.launch({
-  args: [MAIN_ENTRY, `--user-data-dir=${userDataDir}`],
+  // 배율을 1 로 못 박는다 — 안 박으면 레티나 모니터에서 2560x1600 으로 찍혀
+  // 파일이 2배가 되고, 아래 GIF 필터의 고정 캔버스(640x400)와도 어긋난다.
+  args: [MAIN_ENTRY, `--user-data-dir=${userDataDir}`, '--force-device-scale-factor=1'],
   colorScheme: null
 })
 
@@ -72,7 +74,7 @@ try {
 
   // ── 시연 데이터 심기 ────────────────────────────────────────────
   // Milestone 2개
-  for (const title of ['포트폴리오 케이스 스터디 3편 공개', '이력서 v2 완성']) {
+  for (const title of ['자료구조 스터디 완주', '블로그 리뉴얼 배포']) {
     await page.getByRole('button', { name: 'Milestone 추가' }).click()
     const input = page.getByLabel('새 Milestone')
     await input.fill(title)
@@ -83,9 +85,9 @@ try {
   // Sprint 3개 — 플래너를 열고 제목 + 요일을 넣는다
   await page.getByRole('button', { name: '+ 이번 주 Sprint 잡기' }).click()
   const plans = [
-    ['케이스 스터디 초안 쓰기', '월'],
-    ['이력서 STAR 사례 정리', '화'],
-    ['면접 질문 리스트 만들기', '수']
+    ['정렬 알고리즘 정리하기', '월'],
+    ['블로그 글 목록 페이지 만들기', '화'],
+    ['주간 회고 쓰기', '수']
   ]
   for (const [title, day] of plans) {
     await page.getByLabel('Sprint 제목').fill(title)
@@ -103,7 +105,7 @@ try {
   await sleep(600)
   const sprintCard = page.getByRole('region', { name: 'Sprint' })
   const drawerInput = sprintCard.locator('input[maxlength="40"]')
-  for (const task of ['개요 잡기', '스크린샷 고르기']) {
+  for (const task of ['개요 잡기', '예시 코드 고르기']) {
     await drawerInput.fill(task)
     await drawerInput.press('Enter')
     await sleep(500)
