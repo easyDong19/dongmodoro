@@ -36,6 +36,7 @@ body {
   --weight-regular: 400;
   --weight-semibold: 600;
   --weight-bold: 700;
+  --weight-light: 300; /* 타이머 숫자 전용 — design-system ADR-013 §3 */
 
   --tracking-normal: 0;
   --tracking-wide: 0.05em;
@@ -68,11 +69,11 @@ body {
   --focus-ring-offset: 2px;
   --target-min: 24px;
 
-  /* 타이머 다이얼 (design-system ADR-012) — 길이인데 em 인 유일한 예외다.
+  /* 타이머 다이얼 (design-system ADR-012 · ADR-013) — 길이인데 em 인 유일한 예외다.
      --text-display 에 대해 해석되므로 루트 확대가 하한·상한을 함께 민다
      (ADR-007 §3 이 지키려던 성질). 다른 길이 토큰의 근거로 쓰지 않는다. */
   --timer-dial-min: 3.93em; /* ≈220px — design-system ADR-011 §1 이 미디엄 하한에 쓴 값 */
-  --timer-dial-max: 7.14em; /* ≈400px */
+  --timer-dial-max: 5.71em; /* ≈320px — design-system ADR-013 §1: 400 → 320 */
 
   /* ── 다크 = 기본 테마 ──────────────────────────── */
 

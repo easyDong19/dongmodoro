@@ -16,6 +16,8 @@ const ADJUST_CHIPS = [-10, -5, -1, 1, 5, 10]
 
 const RING_RADIUS = 88
 const RING_CIRCUMFERENCE = 2 * Math.PI * RING_RADIUS
+/** viewBox 200 기준 — 지름의 3% (design-system ADR-013 §4). 한 변을 따라 함께 커진다. */
+const RING_STROKE = 6
 
 function formatMmSs(totalSec: number): string {
   const clamped = Math.max(0, totalSec)
@@ -94,7 +96,7 @@ export function TimerCard() {
               r={RING_RADIUS}
               fill="none"
               stroke="var(--glass-border)"
-              strokeWidth="10"
+              strokeWidth={RING_STROKE}
             />
             <circle
               cx="100"
@@ -102,7 +104,7 @@ export function TimerCard() {
               r={RING_RADIUS}
               fill="none"
               stroke="url(#timer-ring-gradient)"
-              strokeWidth="10"
+              strokeWidth={RING_STROKE}
               strokeLinecap="round"
               strokeDasharray={RING_CIRCUMFERENCE}
               strokeDashoffset={dashOffset}

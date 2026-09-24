@@ -1,6 +1,7 @@
 # ADR-012 (design-system): 타이머 다이얼을 칸 크기에 비례시키고, 크기의 기준을 글자에서 다이얼로 옮긴다
 
 - 상태: accepted (2026-08-18)
+- Superseded in part by: [design-system ADR-013](./adr-013-lighter-timer-dial.md) — §2 의 상한값(400 → 320px), §3 의 비율(25.45% → 22%), §4 의 굵기(10 → 6). §1·§5 는 유효
 - Supersedes: [design-system ADR-007](./adr-007-font-size-rem.md) §3(링 지름을 `em` 으로 묶는다)의 **인과 방향**. §1·§2(폰트만 rem, 루트 62.5%)와 §3 의 목적(루트 확대가 링에 닿아야 한다)은 유효
 - 관련 문서: [tokens.md §2.2·§9](../tokens.md) · [design-system ADR-009](./adr-009-type-scale-respacing.md) ·
   [design-system ADR-011 §1](./adr-011-medium-range-revision.md) · [app-shell ux-spec §2](../../features/app-shell/ux-spec.md)
