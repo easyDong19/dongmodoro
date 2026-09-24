@@ -1,5 +1,5 @@
 import { v7 as uuidv7 } from 'uuid'
-import { localKeys, monthOfWeek, now } from '../../shared/time'
+import { calendarKeys, localKeys, now } from '../../shared/time'
 import type { ChildTaskRow, MilestoneRow, PlanDraftItem, UnitOfWork, WeekItemRow } from './ports'
 
 /**
@@ -93,13 +93,31 @@ export function planDraft(uow: UnitOfWork, week: string): { week: string; items:
 }
 
 /**
+ * 연결 후보의 순서 — **이번 달 → 미래(가까운 달부터) → 과거(가까운 달부터)** (ADR-035).
+ * 고를 일이 가장 많은 달이 위에 온다. 같은 달 안에서는 저장소가 준 생성 순을 지킨다
+ * (`sort` 는 안정 정렬이다).
+ */
+function candidateOrder(rows: MilestoneRow[], todayMonth: string): MilestoneRow[] {
+  const rank = (month: string): [number, number] => {
+    if (month === todayMonth) return [0, 0]
+    const [y, m] = month.split('-').map(Number)
+    const [ty, tm] = todayMonth.split('-').map(Number)
+    const distance = Math.abs(y * 12 + m - (ty * 12 + tm))
+    return month > todayMonth ? [1, distance] : [2, distance]
+  }
+  return [...rows].sort((a, b) => {
+    const [ga, da] = rank(a.month)
+    const [gb, db] = rank(b.month)
+    return ga - gb || da - db
+  })
+}
+
+/**
  * 드로어 한 화면 = 응답 하나. 폐기 항목도 열린다 (header 가 listForWeek 밖을 본다).
  *
- * 마일스톤 후보를 **여기서 계산해 실어 보낸다** (milestones R14 · A12). 렌더러가
- * `monthOfWeek` 를 불러 후보를 따로 추리면 후보 규칙이 두 곳이 된다.
- *
- * 지금 걸린 연결(`milestone`)은 후보 밖일 수 있다 — 이월 승계가 만든 타월 연결이며,
- * 화면은 그것을 지우지 않고 비활성 옵션으로 함께 보여준다 (R15).
+ * 마일스톤 후보는 **모든 달의 마일스톤**이다 (ADR-035). 그 주가 귀속된 달로 좁히던 제한
+ * (예전 R14)이 없어졌으므로 지금 걸린 연결도 언제나 후보 안에 있다. 순서만 서버가 정해
+ * 실어 보낸다 — 오늘을 아는 쪽이 여기다.
  */
 export function itemDrawer(
   uow: UnitOfWork,
@@ -111,7 +129,7 @@ export function itemDrawer(
   milestone: MilestoneRow | null
   milestoneCandidates: MilestoneRow[]
 } {
-  const { localDate } = localKeys()
+  const { dayKey: localDate, monthKey } = calendarKeys()
   return uow.run((repos) => {
     const header = repos.weekItems.header(weekItemId)
     if (header === null) throw new Error(`itemDrawer: week item '${weekItemId}' not found`)
@@ -120,7 +138,7 @@ export function itemDrawer(
       completedAt: header.completedAt,
       tasks: repos.weekItems.childTasks(weekItemId, localDate),
       milestone: repos.milestones.linkedMilestone(weekItemId),
-      milestoneCandidates: repos.milestones.listForMonth(monthOfWeek(header.week))
+      milestoneCandidates: candidateOrder(repos.milestones.listAll(), monthKey)
     }
   })
 }
@@ -219,38 +237,39 @@ export function setItemCompleted(
 }
 
 /**
- * 할당 ↔ 마일스톤 연결 (milestones R13·R14 · A12).
+ * 할당 ↔ 마일스톤 연결 (milestones R13 · ADR-035).
  *
- * **후보 제한을 서비스가 강제한다.** 화면이 후보 목록을 좁히는 것만으로는 IPC 를 직접
- * 부르는 경로가 열린다 — `pullFromDrawer` 의 소속 검증과 같은 규율이다. 후보는 그 할당의
- * 주가 귀속된 달(`monthOfWeek`)의 마일스톤이며, 8월 주의 할당을 9월
- * 마일스톤에 새로 매달 수 없다. 그렇지 않으면 한 마일스톤의 롤업이 임의의 달에서 올라와
- * 월 레이어의 경계가 사라진다.
+ * **어느 달의 마일스톤에나 연결된다.** 예전에는 그 주가 귀속된 달로 제한했다(R14 · A12) —
+ * "롤업이 임의의 달에서 올라와 월 경계가 사라진다"는 이유였지만, 롤업은 Milestone 기준으로
+ * 세므로 그 시간은 연결된 Milestone 의 카드에만 뜬다. 제한이 막던 것은 경계 주(9/28 주)에
+ * 10월 목표를 거는 정상적인 계획이었다.
  *
- * **해제(`null`)는 언제나 허용된다** — 연결 없음은 오류 상태가 아니다 (R13). 이월이
- * 승계한 타월 연결도 이 경로로 끊을 수 있어야 한다.
+ * 남은 검증은 존재뿐이다 — 드로어가 열린 채 다른 곳에서 지운 마일스톤을 고르는 경로.
+ *
+ * **해제(`null`)는 언제나 허용된다** — 연결 없음은 오류 상태가 아니다 (R13).
+ *
+ * `months` 는 이 연결 변경으로 카드가 달라지는 달들이다 (옛 Milestone 의 달, 새 Milestone 의
+ * 달). 무효화할 달을 화면이 추측하지 않게 서버가 싣는다.
  */
 export function setItemMilestone(
   uow: UnitOfWork,
   input: { weekItemId: string; milestoneId: string | null }
-): { itemWeek: string } {
+): { itemWeek: string; months: string[] } {
   return uow.run((repos) => {
     const header = repos.weekItems.header(input.weekItemId)
     if (header === null) {
       throw new Error(`setItemMilestone: item '${input.weekItemId}' not found`)
     }
 
-    if (input.milestoneId !== null) {
-      const candidates = repos.milestones.listForMonth(monthOfWeek(header.week))
-      if (!candidates.some((m) => m.id === input.milestoneId)) {
-        throw new Error(
-          `setItemMilestone: milestone '${input.milestoneId}' is not a candidate for week ${header.week}`
-        )
-      }
+    const next = input.milestoneId === null ? null : repos.milestones.byId(input.milestoneId)
+    if (input.milestoneId !== null && next === null) {
+      throw new Error(`setItemMilestone: milestone '${input.milestoneId}' not found`)
     }
+    const previous = repos.milestones.linkedMilestone(input.weekItemId)
 
     repos.milestones.setWeekItemMilestone(input.weekItemId, input.milestoneId)
-    return { itemWeek: header.week }
+    const months = [previous?.month, next?.month].filter((m): m is string => m !== undefined)
+    return { itemWeek: header.week, months: [...new Set(months)].sort() }
   })
 }
 

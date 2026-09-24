@@ -17,7 +17,7 @@
 
 ## 문서 안내
 
-- [PRD](./prd.md): 제품 요구사항과 인수 기준 — 월 키·편집 가능 범위(이번 달 + 다음 달)·
+- [PRD](./prd.md): 제품 요구사항과 인수 기준 — 월 키·편집 가능 범위(이번 달 + 미래 달 전부)·어느 달에나 걸리는 연결·
   완료 표현·물리 삭제·범위 라벨이 붙은 소진 롤업·표시 모드 판정 순서
 
 ## 관련 횡단 문서
@@ -28,6 +28,8 @@
 - [ADR-012](../../architecture/decisions/adr-012-aggregation-predicate.md): 집계 술어(세션의 주 = 항목의 주)와 이월 시 `milestone_id` 승계(§3)
 - [ADR-014](../../architecture/decisions/adr-014-deletion-and-archive.md): 마일스톤은 물리 삭제 + `ON DELETE SET NULL`(§3) — §4(보관)는 [ADR-034](../../architecture/decisions/adr-034-remove-milestone-archive.md) 로 superseded
 - [ADR-034](../../architecture/decisions/adr-034-remove-milestone-archive.md): 보관 개념 폐지 — 배지 분모는 보관 여부와 무관하게 정의된다
+- [ADR-035](../../architecture/decisions/adr-035-milestone-link-any-month.md): Sprint 는 어느 달의 Milestone 에나 연결되고, 카드는 이번 주 롤업을 달과 무관하게 보여준다
 - [design-system/principles.md](../../design-system/principles.md): 실패 프레임 금지(§1), 상태 → 색 매핑(§3), UI 이모지 금지(§6)
 - [2026-08-04 기획 검증 세션](../../decision-log/2026-08-04-planning-session.md): Q15(지난달 카드 표시 범위), ERD 평가 S3(완료 표현)
 - [2026-08-04 리뷰 후속 결정](../../decision-log/2026-08-04-review-decisions.md): D4(보관의 집계 중립성), D1(집계 술어 단일화)
+- [2026-09-24 연결 규칙 단순화](../../decision-log/2026-09-24-plan-import-and-milestone-links.md): Q5·Q6(연결 규칙 6개 → 3개)

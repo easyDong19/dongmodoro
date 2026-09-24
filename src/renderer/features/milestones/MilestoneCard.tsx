@@ -1,7 +1,6 @@
 import { useState } from 'react'
 import { Plus } from 'lucide-react'
-import { monthOfWeek, monthOnlyLabel, weekRangeLabel } from '@shared/time'
-import { useClock } from '@renderer/shared/query/useClock'
+import { monthOnlyLabel } from '@shared/time'
 import { Button } from '@renderer/shared/ui/button'
 import { CarryTitlesAction } from './CarryTitlesAction'
 import { MilestoneRow, type RowActions } from './MilestoneRow'
@@ -17,7 +16,6 @@ import { useMilestones } from './useMilestones'
  * 이 카드는 `DisplayMonthProvider` 를 구독만 한다 (R26 · A24).
  */
 export function MilestoneCard() {
-  const { weekKey } = useClock()
   const { month, query, create, rename, setCompleted, remove, carryTitles } = useMilestones()
   const [adding, setAdding] = useState(false)
   const [draft, setDraft] = useState('')
@@ -76,22 +74,10 @@ export function MilestoneCard() {
                 item={item}
                 index={i}
                 editable={editable}
-                rollupWeek={data.rollupWeek}
                 actions={actions}
               />
             ))}
           </ul>
-        ) : null}
-
-        {/*
-        진행 중인 주가 이 달에 귀속되지 않은 동안에는 숫자 대신 **사실 문구**를 둔다
-        (R18 · R23 · A17). 달 전환 직후 최대 6일간의 상태이며, 서버의 `rollupWeek: null`
-        이 그 신호다.
-      */}
-        {data.mode === 'edit' && data.rollupWeek === null ? (
-          <p data-testid="rollup-out-of-month" className="text-[10px] text-ink-dim">
-            {`이번 주(${weekRangeLabel(weekKey)})는 ${monthOnlyLabel(monthOfWeek(weekKey))}에 속한 주예요`}
-          </p>
         ) : null}
       </div>
 

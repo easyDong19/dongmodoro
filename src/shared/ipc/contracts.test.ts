@@ -183,7 +183,6 @@ describe('milestones contract — 수치 필드가 없다 (R3 · A3)', () => {
         }
       ],
       badge: null,
-      rollupWeek: null,
       carryCandidates: []
     })
     expect(res.success).toBe(false)

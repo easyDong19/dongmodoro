@@ -33,7 +33,6 @@ function makeRes(over: Partial<MonthRes> = {}): MonthRes {
     mode: 'edit',
     items: [],
     badge: null,
-    rollupWeek: null,
     carryCandidates: [],
     ...over
   }
@@ -185,7 +184,6 @@ describe('롤업 (R17 · A16·A17)', () => {
     await renderCard(
       makeRes({
         mode: 'edit',
-        rollupWeek: WEEK,
         items: [item({ rollup: { measuredSec: 12000 } })]
       })
     )
@@ -200,7 +198,6 @@ describe('롤업 (R17 · A16·A17)', () => {
     await renderCard(
       makeRes({
         mode: 'edit',
-        rollupWeek: WEEK,
         items: [item({ rollup: { measuredSec: 0 } })]
       })
     )
@@ -208,15 +205,13 @@ describe('롤업 (R17 · A16·A17)', () => {
   })
 
   /**
-   * A17 — 달 전환 직후. 진행 중인 주가 8/31 시작이라 8월에 귀속되므로, 9월 카드(여기서는
-   * 이번 달 카드)는 숫자 대신 사실 문구를 둔다.
+   * 예전 A17 — 달 전환 직후 숫자 대신 `… 8월에 속한 주예요` 문구를 두던 분기가 사라졌다
+   * (ADR-035). 롤업이 없으면 줄이 없을 뿐, 대신 들어서는 문구도 없다.
    */
-  it('귀속 주가 이 달이 아니면 숫자 대신 사실 문구를 둔다 (A17)', async () => {
-    await renderCard(makeRes({ mode: 'edit', rollupWeek: null, items: [item()] }), '2026-08-31')
+  it('롤업이 없는 Milestone 에는 줄도 문구도 없다', async () => {
+    await renderCard(makeRes({ mode: 'edit', items: [item({ rollup: null })] }), '2026-08-31')
     expect(screen.queryByTestId('milestone-rollup')).not.toBeInTheDocument()
-    expect(screen.getByTestId('rollup-out-of-month')).toHaveTextContent(
-      '이번 주(8/31 – 9/6)는 8월에 속한 주예요'
-    )
+    expect(screen.queryByText(/속한 주예요/)).not.toBeInTheDocument()
   })
 })
 
@@ -345,7 +340,6 @@ describe('부정 프레임과 이모지 금지 (R23·R25 · A24·A25)', () => {
     const { container } = await renderCard(
       makeRes({
         mode: 'edit',
-        rollupWeek: WEEK,
         items: [item({ rollup: { measuredSec: 1500 } })]
       })
     )

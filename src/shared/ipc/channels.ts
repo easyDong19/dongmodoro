@@ -35,7 +35,7 @@ export const CHANNELS = {
     complete: 'week:complete',
     uncomplete: 'week:uncomplete',
     drop: 'week:drop',
-    /** 할당 ↔ 마일스톤 연결 (R13·R14). `null` 은 **연결 해제**이며 오류가 아니다. */
+    /** 할당 ↔ 마일스톤 연결 (R13 · ADR-035). `null` 은 **연결 해제**이며 오류가 아니다. */
     setMilestone: 'week:setMilestone'
   },
   /** 캘린더 열람 (calendar-records). 전부 조회이며 쓰기 채널이 없다 (R23). */

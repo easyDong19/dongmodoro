@@ -1,5 +1,5 @@
 import { v7 as uuidv7 } from 'uuid'
-import { addMonths, calendarKeys, monthOfWeek, now } from '../../shared/time'
+import { addMonths, calendarKeys, now } from '../../shared/time'
 import type { MilestoneBadge, MilestoneRow, UnitOfWork } from './ports'
 
 /**
@@ -12,11 +12,12 @@ import type { MilestoneBadge, MilestoneRow, UnitOfWork } from './ports'
 
 export type MilestoneMode =
   /** 미래 달 전부. 선행 편집이 열린다 — 날짜 제한 없이 언제든 계획할 수 있다
-      (2026-08-17 사용자 결정, R6 의 "다음 달 한 칸" 제한 폐기). 귀속 주가 없으므로 롤업 없음. */
+      (2026-08-17 사용자 결정, R6 의 "다음 달 한 칸" 제한 폐기). 이번 주 Sprint 가 이 달
+      Milestone 에 걸려 있으면 롤업도 붙는다 (ADR-035). */
   | 'lead-edit'
   /** 이번 달인데 0건. 빈 상태 + 추가 CTA + 직전 달 제목 복사 (R22). */
   | 'current-empty'
-  /** 이번 달. 편집 전부 + 귀속된 진행 중 주의 롤업. */
+  /** 이번 달. 편집 전부 + 이번 주 롤업. */
   | 'edit'
   /** 지난달 · 1건 이상. 감쇠 + 달성 배지. 완전 읽기 전용. */
   | 'past'
@@ -47,8 +48,8 @@ export function isEditable(mode: MilestoneMode): boolean {
 
 export type MilestoneCardItem = MilestoneRow & {
   /**
-   * 그 마일스톤의 **이번 주** 롤업. `null` 은 "이 카드에 롤업이 없다"이며 0 과 다르다
-   * (R17·R18) — 진행 중인 주가 이 달에 귀속되지 않았거나, 애초에 롤업이 없는 모드다.
+   * 그 마일스톤의 **이번 주** 롤업. `null` 은 "이번 주에 이 Milestone 에 연결된 Sprint 가
+   * 없다"이며 0 과 다르다 (R17) — 연결은 있는데 집중하지 않았으면 `0` 이다.
    */
   rollup: { measuredSec: number } | null
 }
@@ -59,11 +60,6 @@ export type MonthMilestones = {
   items: MilestoneCardItem[]
   /** 지난달 배지. `M === 0` 이면 `null` — `0/0 달성` 을 만들지 않는다 (R21 · A22). */
   badge: MilestoneBadge | null
-  /**
-   * 롤업이 붙은 주. 화면이 `이번 주 3시간 20분` 의 범위 라벨을 이 값으로 그린다 (R17).
-   * `null` 이면 라벨을 그릴 주가 없다는 뜻이고, 그때 화면은 숫자 대신 사실 문구를 쓴다.
-   */
-  rollupWeek: string | null
   /** 직전 달 미완료 제목 (R22). 빈 배열이면 화면이 복사 액션을 렌더하지 않는다. */
   carryCandidates: MilestoneRow[]
 }
@@ -71,10 +67,13 @@ export type MonthMilestones = {
 /**
  * 마일스톤 카드 한 화면 = 응답 하나.
  *
- * **롤업은 진행 중인 주가 이 달에 귀속됐을 때만 붙는다** (R18 · A17). 귀속 달은 주 키의
- * 달이므로(주는 쪼개지지 않는다), 8/31~9/6 주 동안 9월 카드에는 숫자가 없고 8월 카드에
- * 그 주의 롤업이 계속 보인다. 이 판정을 화면이 하면 달 전환 주에 같은 소진이 두 달 카드로
- * 갈라진다.
+ * **롤업의 대상 주는 언제나 오늘이 속한 주다** (ADR-035). 그 주가 어느 달에 귀속되는지
+ * (R18)는 묻지 않는다 — 숫자를 가르는 것은 저장소 조회의 "그 Milestone 에 연결됐는가"
+ * 하나이고, Sprint 는 Milestone 하나에만 연결되므로 같은 시간이 두 카드로 갈라지지 않는다.
+ *
+ * 예전에는 "이번 주가 이 달에 귀속될 때만" 조회했다. 그 게이트가 이월로 달을 넘긴 연결의
+ * 시간을 **어느 카드에도** 띄우지 않았다 — 9/7 주에 8월 Milestone 을 태우면 8월 카드는
+ * 게이트에, 9월 카드는 Milestone 필터에 걸렸다 (A13 위반, 2026-09-24 재현).
  */
 export function monthMilestones(uow: UnitOfWork, month: string): MonthMilestones {
   const { monthKey: todayMonth, weekKey } = calendarKeys()
@@ -84,15 +83,13 @@ export function monthMilestones(uow: UnitOfWork, month: string): MonthMilestones
     const mode = displayMode(month, todayMonth, badgeCounts.total)
     const rows = repos.milestones.listForMonth(month)
 
-    // 롤업이 없는 모드에서는 조회 자체를 하지 않는다 — 없는 숫자를 만들 재료를 두지 않는다.
-    const rollupWeek =
-      mode === 'edit' || mode === 'past' ? (monthOfWeek(weekKey) === month ? weekKey : null) : null
+    // Milestone 이 없는 달은 조회하지 않는다 — 붙일 자리가 없다.
     const rollups =
-      rollupWeek === null
+      rows.length === 0
         ? new Map<string, { measuredSec: number }>()
         : new Map(
             repos.milestones
-              .rollup(month, rollupWeek)
+              .rollup(month, weekKey)
               .map((r) => [r.milestoneId, { measuredSec: r.measuredSec }])
           )
 
@@ -102,7 +99,6 @@ export function monthMilestones(uow: UnitOfWork, month: string): MonthMilestones
       items: rows.map((r) => ({ ...r, rollup: rollups.get(r.id) ?? null })),
       // 배지는 지난달 카드의 것이다. 그 밖의 모드에서 내보내면 화면이 쓸 수 있게 된다.
       badge: mode === 'past' ? badgeCounts : null,
-      rollupWeek,
       carryCandidates:
         mode === 'current-empty' ? repos.milestones.carryCandidates(addMonths(month, -1)) : []
     }

@@ -235,26 +235,6 @@ export function addMonths(monthKeyValue: string, n: number): string {
   return fromMonthNumber(monthNumber(monthKeyValue) + n)
 }
 
-/** 날짜 달력 키가 속한 달. 다른 달 함수들이 쓰는 재료다. */
-function monthOfDay(dayKeyValue: string): string {
-  const at = new Date(dayNumber(dayKeyValue) * 86_400_000)
-  return `${at.getUTCFullYear()}-${pad(at.getUTCMonth() + 1)}`
-}
-
-/**
- * 주의 귀속 달 — **주 키(그 주 월요일)의 달**이다 (milestones R18).
- *
- * **주는 쪼개지지 않는다.** `'2026-08-31'` 주는 9/6 까지 이어지지만 전체가 8월에
- * 귀속되고, 9월에 귀속되는 첫 주는 9/7 시작 주다. 따라서 9/1~9/6 에 기록된 세션도
- * 그 주의 할당을 통해 **8월** 마일스톤의 롤업으로 올라간다.
- *
- * 이 규칙의 구현은 여기 하나뿐이다. 호출부가 각자 계산하면 달 전환 주에 같은 소진이
- * 두 달 카드로 갈라진다.
- */
-export function monthOfWeek(weekKeyValue: string): string {
-  return monthOfDay(weekKeyValue)
-}
-
 /**
  * 그리드 셀에 찍는 일(日) 숫자. `1`~`31` 이며 앞자리 0 이 없다.
  *

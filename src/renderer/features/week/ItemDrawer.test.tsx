@@ -316,7 +316,7 @@ describe('ItemDrawer — 조작 타깃 (design-system ADR-004 §2)', () => {
   })
 })
 
-describe('ItemDrawer — 마일스톤 연결 (milestones R13·R14·R15 · A11·A12)', () => {
+describe('ItemDrawer — 마일스톤 연결 (milestones R13 · A11 · ADR-035)', () => {
   const m = (id: string, title: string, month = '2026-08') => ({
     id,
     month,
@@ -332,7 +332,7 @@ describe('ItemDrawer — 마일스톤 연결 (milestones R13·R14·R15 · A11·A
     expect(screen.queryByText(/연결해|필요|누락/)).not.toBeInTheDocument()
   })
 
-  it('서버가 준 후보만 고를 수 있다 — 화면이 목록을 다시 좁히지 않는다 (A12)', () => {
+  it('서버가 준 후보만 고를 수 있다 — 화면이 목록을 다시 좁히지 않는다', () => {
     renderDrawer({ milestone: null, milestoneCandidates: [m('m1', '8월 결과물')] })
     const options = within(screen.getByTestId('milestone-select')).getAllByRole('option')
     expect(options.map((o) => o.textContent)).toEqual(['연결 없음', '8월 결과물'])
@@ -360,18 +360,30 @@ describe('ItemDrawer — 마일스톤 연결 (milestones R13·R14·R15 · A11·A
   })
 
   /**
-   * R15 — 이월이 승계한 타월 연결. 후보 목록에 없다고 지워 버리면 렌더 시점에 연결이
-   * 사라진 것처럼 보이고, 사용자가 손대지 않았는데 값이 바뀐다.
+   * 후보는 모든 달의 Milestone 이라(ADR-035) 달 표시 없이는 같은 제목이 구분되지 않는다 —
+   * 제목 복사(R22)가 같은 제목을 여러 달에 만든다. 달별로 묶되 **서버가 정한 순서**(이번 달 →
+   * 미래 → 과거)를 그대로 따른다. 화면이 다시 정렬하면 순서 규칙이 두 곳이 된다.
    */
-  it('타월 연결은 후보 밖이어도 유지되고 비활성 옵션으로 보인다 (R15)', () => {
+  it('후보를 달별로 묶는다 — 서버가 준 순서 그대로', () => {
     renderDrawer({
-      milestone: m('m-aug', '8월 결과물', '2026-08'),
-      milestoneCandidates: [m('m-sep', '9월 결과물', '2026-09')]
+      milestone: m('m-aug', '결과물', '2026-08'),
+      milestoneCandidates: [
+        m('m-sep', '결과물', '2026-09'),
+        m('m-sep2', '블로그', '2026-09'),
+        m('m-oct', '스터디', '2026-10'),
+        m('m-aug', '결과물', '2026-08')
+      ]
     })
     const select = screen.getByTestId('milestone-select')
+    const groups = within(select).getAllByRole('group')
+    expect(groups.map((g) => g.getAttribute('label'))).toEqual(['9월', '10월', '8월'])
+    expect(
+      within(groups[0])
+        .getAllByRole('option')
+        .map((o) => o.textContent)
+    ).toEqual(['결과물', '블로그'])
+    // 지금 걸린 연결도 후보 안에 있다 — 따로 그리는 비활성 옵션이 없다.
     expect(select).toHaveValue('m-aug')
-    const foreign = screen.getByTestId('milestone-foreign-option')
-    expect(foreign).toBeDisabled()
-    expect(foreign).toHaveTextContent('8월 결과물 (다른 달)')
+    expect(screen.queryByTestId('milestone-foreign-option')).not.toBeInTheDocument()
   })
 })
