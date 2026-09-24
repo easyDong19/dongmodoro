@@ -1,0 +1,246 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>의사결정 플로우 — 2026-09-25 끝난 계획서 정리</title>
+<style>
+  :root {
+    --bg: #ffffff; --surface: #f7f8f8; --line: #d8dcda; --line-strong: #9aa3a0;
+    --text: #14201c; --muted: #6b7873;
+    --teal: #0f8a6d; --teal-soft: rgba(15,138,109,0.10);
+    --amber: #a76a12; --amber-soft: rgba(167,106,18,0.12);
+    --violet: #7c4fc4; --violet-soft: rgba(124,79,196,0.10);
+    --danger: #b3543f;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0c1a16; --surface: rgba(255,255,255,0.045); --line: rgba(255,255,255,0.14);
+      --line-strong: rgba(255,255,255,0.4); --text: #e8f0ec; --muted: #8fa39b;
+      --teal: #6fd4b8; --teal-soft: rgba(111,212,184,0.12);
+      --amber: #f0b671; --amber-soft: rgba(240,182,113,0.14);
+      --violet: #b795e8; --violet-soft: rgba(183,149,232,0.12);
+      --danger: #e8907e;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { background: var(--bg); color: var(--text); margin: 0;
+         padding: 32px 20px 64px;
+         font-family: ui-sans-serif, -apple-system, "Segoe UI", Roboto, sans-serif;
+         line-height: 1.6; }
+  .wrap { max-width: 800px; margin: 0 auto; }
+  h1 { font-size: 22px; margin: 0 0 6px; letter-spacing: -0.01em; }
+  .sub { color: var(--muted); font-size: 13px; margin: 0 0 8px; }
+  .sub a { color: var(--teal); }
+  .intro { font-size: 14px; background: var(--surface); border: 1px solid var(--line);
+           border-radius: 12px; padding: 14px 18px; margin: 18px 0 0; }
+  .intro b { color: var(--teal); }
+
+  .legend { display: flex; gap: 14px; flex-wrap: wrap; font-size: 12px; color: var(--muted);
+            margin: 14px 0 0; padding: 12px 0; border-bottom: 1px solid var(--line); }
+  .chip { display: inline-block; padding: 1px 8px; border-radius: 999px; font-size: 11px;
+          font-weight: 600; letter-spacing: 0.02em; vertical-align: 1px; }
+  .chip.rev { background: var(--amber-soft); color: var(--amber); }
+  .chip.exp { background: var(--violet-soft); color: var(--violet); }
+  .chip.sys { background: var(--teal-soft); color: var(--teal); }
+
+  .phase { margin-top: 40px; }
+  .phase-title { font-size: 12px; font-weight: 700; letter-spacing: 0.1em;
+                 color: var(--muted); text-transform: uppercase; margin: 0 0 4px 46px; }
+  .phase-desc { font-size: 13px; color: var(--muted); margin: 0 0 8px 46px; }
+
+  .node { display: flex; gap: 16px; }
+  .rail { width: 30px; flex-shrink: 0; display: flex; flex-direction: column; align-items: center; }
+  .dot { width: 12px; height: 12px; border-radius: 50%; background: var(--teal);
+         border: 2px solid var(--bg); box-shadow: 0 0 0 1.5px var(--teal); margin-top: 22px;
+         flex-shrink: 0; }
+  .dot.sys { background: var(--bg); box-shadow: 0 0 0 1.5px var(--line-strong); }
+  .dot.rev { background: var(--amber); box-shadow: 0 0 0 1.5px var(--amber); }
+  .rail .cont { width: 2px; flex: 1; background: var(--line); margin-top: 4px; }
+  .node:last-child .rail .cont { background: linear-gradient(var(--line), transparent); }
+
+  .card { flex: 1; background: var(--surface); border: 1px solid var(--line);
+          border-radius: 12px; padding: 16px 20px; margin: 8px 0; min-width: 0; }
+  .card.sys { background: transparent; border-style: dashed; }
+  .qid { font: 700 11px ui-monospace, Menlo, monospace; color: var(--muted);
+         letter-spacing: 0.06em; }
+  .qtitle { font-size: 15px; font-weight: 650; margin: 2px 0 10px; }
+
+  .sec-label { display: block; font-size: 11px; font-weight: 700; letter-spacing: 0.08em;
+               color: var(--muted); text-transform: uppercase; margin: 12px 0 3px; }
+  .problem { font-size: 13.5px; margin: 0; }
+  .problem em { font-style: normal; color: var(--danger); }
+
+  ul.options { list-style: none; padding: 0; margin: 4px 0 0; }
+  ul.options li { font-size: 13px; padding: 7px 10px 7px 30px; position: relative;
+                  border-radius: 8px; margin: 3px 0; color: var(--muted); }
+  ul.options li::before { content: "○"; position: absolute; left: 10px; color: var(--line-strong); }
+  ul.options li.chosen { background: var(--teal-soft); color: var(--text); }
+  ul.options li.chosen::before { content: "●"; color: var(--teal); }
+  ul.options li b { font-weight: 650; }
+  ul.options li .tr { color: var(--muted); }
+
+  .decision { font-size: 13.5px; margin: 4px 0 0; }
+  .decision b { color: var(--teal); }
+  .why { font-size: 13px; margin: 4px 0 0; padding: 8px 12px; border-left: 3px solid var(--amber);
+         background: var(--amber-soft); border-radius: 0 8px 8px 0; }
+  .why q { font-style: normal; }
+  .dep { font-size: 12.5px; color: var(--muted); margin-top: 12px; padding-top: 10px;
+         border-top: 1px dashed var(--line); }
+  .dep code, .problem code, .decision code {
+    font-family: ui-monospace, Menlo, monospace; font-size: 12px;
+    background: none; color: var(--teal); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>의사결정 플로우</h1>
+  <p class="sub">2026-09-25 끝난 계획서 정리 세션 · 시간순 · 결정 원문 기록: <a href="./2026-09-25-drop-finished-plans.md">2026-09-25-drop-finished-plans.md</a></p>
+
+  <div class="intro">
+    <b>이 문서가 다루는 것:</b> 구현이 끝난 계획서·설계 스펙(<code>docs/plans/</code> 13건,
+    <code>docs/superpowers/</code> 4건)을 이력으로 남기던 규칙을 뒤집고, <b>끝난 계획은 지운다</b>로
+    바꾼 결정들이다. 각 카드는 <b>문제 → 고민한 선택지 → 결정(왜)</b> 순서로 읽으면 된다.
+    ● 표시가 최종 선택이다.
+  </div>
+
+  <div class="legend">
+    <span><span class="chip rev">반전</span> AI 추천을 기각했거나 선택을 번복한 지점</span>
+    <span><span class="chip exp">재설명</span> 결정 전에 상세 설명·분석을 요구한 지점</span>
+    <span><span class="chip sys">검증</span> 코드·git 이력 대조로 사실을 확인한 지점</span>
+    <span>점선 카드 = 질문이 아닌 이벤트</span>
+  </div>
+
+  <!-- ══════════ 1 · 발견 ══════════ -->
+  <div class="phase">
+    <p class="phase-title">1 · 발견 — 끝났는데 안 끝난 것처럼 보이는 문서</p>
+    <p class="phase-desc">docs 구조를 훑던 중 사용자가 "구현이 끝났는데 안 지워진 문서"를 물었다.</p>
+
+    <div class="node">
+      <div class="rail"><div class="dot sys"></div><div class="cont"></div></div>
+      <div class="card sys">
+        <span class="qid">진단 <span class="chip sys">검증</span></span>
+        <p class="qtitle">계획서 17건을 코드·git 이력과 대조</p>
+        <p class="problem">17건 모두 머지된 작업이었다. 그중 5건은 <em>끝났다는 표시가 없었다</em> —
+        time-currency(체크 3/48, #62), adjust-as-baseline(0/48, #78), remove-milestone-archive(0/29, #89),
+        medium-breakpoint 계획(0/52, #90)·설계 스펙("승인 대기", #90). 문서만 보면 아직 할 일로 읽혔다.</p>
+      </div>
+    </div>
+
+    <div class="node">
+      <div class="rail"><div class="dot rev"></div><div class="cont"></div></div>
+      <div class="card">
+        <span class="qid">Q1 <span class="chip rev">반전</span> <span class="chip exp">재설명</span></span>
+        <p class="qtitle">구현이 끝난 계획서를 어떻게 다루나</p>
+        <span class="sec-label">문제</span>
+        <p class="problem">계획서는 <code>Goal:</code>·<code>- [ ] Task</code> 형식이라 LLM 이 검색으로 만나면
+        <em>현재 지시로 읽는다.</em> 옛 모델(뽀모 개수 통화, 마일스톤 보관, 정산의 <code>조정</code> 폼)이
+        현재 사실처럼 남는다.</p>
+        <span class="sec-label">선택지</span>
+        <ul class="options">
+          <li><b>상태 줄만 추가하고 보존 (AI 첫 추천)</b> — <span class="tr">2026-08-04 규칙과 맞고 수정이 작다.
+            끝난 계획서는 계속 검색에 걸린다</span></li>
+          <li class="chosen"><b>끝난 계획은 삭제하고 규칙을 바꿈</b> — <span class="tr">트리에 진행 중인 계획만 남는다.
+            링크·근거·백로그를 먼저 옮겨야 한다</span></li>
+        </ul>
+        <span class="sec-label">결정</span>
+        <p class="decision"><b>끝난 계획은 삭제한다.</b> 이력은 git 과 PR 이 보존한다 — 2026-08-04 에
+        <code>docs/plans/</code> 를 만든 근거("git 이력에 남는다")가 오히려 이쪽을 지지한다.</p>
+        <div class="why"><q>흠 내생각에 이미 실행이 끝나 Code로 구현된 문서들은 삭제하는게 LLM이 문서를
+        이해하고 활용하는데 도움이 될거라 생각하는데 그래서 claude.md나 규칙들을 좀 수정하는 방향성이
+        괜찮아 보이는데 타당성에 대해서 어떻게 생각해?</q></div>
+        <div class="dep">→ Q2 (무엇을 먼저 옮겨야 지울 수 있나) · 2026-08-04 M1 계획 세션 Q1 을 뒤집음</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════ 2 · 지우기 전에 ══════════ -->
+  <div class="phase">
+    <p class="phase-title">2 · 지우기 전에 — 계획 폴더에 새어 들어간 것</p>
+    <p class="phase-desc">인바운드 링크 조사가 "계획은 결정을 만들지 않는다" 규칙의 누수를 드러냈다.</p>
+
+    <div class="node">
+      <div class="rail"><div class="dot"></div><div class="cont"></div></div>
+      <div class="card">
+        <span class="qid">Q2 <span class="chip sys">검증</span></span>
+        <p class="qtitle">일괄 삭제인가, 문서 종류를 나눠 처리하나</p>
+        <span class="sec-label">문제</span>
+        <p class="problem">ADR-033 이 설계 문서를 <em>"결정 근거 원장"</em> 으로 링크했다. ADR-025·026,
+        design-system ADR-011 도 설계 스펙을 근거로 가리켰다. 일괄 삭제하면 ADR 의 근거가 사라진다.</p>
+        <span class="sec-label">선택지</span>
+        <ul class="options">
+          <li><b>일괄 삭제</b> — <span class="tr">간단하지만 ADR 근거 유실·링크 깨짐</span></li>
+          <li class="chosen"><b>실행 계획은 삭제, 설계 문서는 근거를 ADR 로 옮긴 뒤 삭제</b> —
+            <span class="tr">4건을 하나씩 대조해 다른 곳에 없는 내용만 옮긴다</span></li>
+        </ul>
+        <span class="sec-label">결정</span>
+        <p class="decision"><b>종류를 나눠 처리.</b> ADR-033 에 기각된 선택지와 "저장이 먼저" 불변식,
+        design-system ADR-011 에 <code>useBreakpoint</code> 단일 판정 §4 를 추가. 나머지 2건은 이미
+        ADR·폐기 결정에 흡수돼 옮길 것이 없었다.</p>
+        <div class="why"><q>ㅇㅇ 그렇게하자</q></div>
+        <div class="dep">← Q1 · → Q3</div>
+      </div>
+    </div>
+
+    <div class="node">
+      <div class="rail"><div class="dot"></div><div class="cont"></div></div>
+      <div class="card">
+        <span class="qid">Q3 · Q4</span>
+        <p class="qtitle">링크는 permalink 로, 계획 폴더는 하나로</p>
+        <span class="sec-label">결정</span>
+        <p class="decision"><b>들어오는 링크는 삭제 직전 커밋(<code>bff905a</code>)의 permalink 로 교체</b> —
+        decision-log 는 추가 전용이라 본문은 두고 링크 대상만 바꿨다. 기능 overview·PRODUCT.md 의 "구현됐다" 근거는
+        구현 PR(#39·#52·#57·#62) 링크로. <b><code>docs/superpowers/</code> 는 폐지</b>하고 계획·스펙은
+        <code>docs/plans/</code> 에만 둔다 — 스킬 기본 경로 사용 금지를 규칙에 명시하지 않으면 스킬이 다시 만든다.</p>
+        <div class="why"><q>ㅇㅇ 그렇게하자</q></div>
+      </div>
+    </div>
+
+    <div class="node">
+      <div class="rail"><div class="dot"></div><div class="cont"></div></div>
+      <div class="card">
+        <span class="qid">Q5 <span class="chip sys">검증</span></span>
+        <p class="qtitle">계획서에만 있던 "미룬 범위"를 어떻게 하나</p>
+        <span class="sec-label">문제</span>
+        <p class="problem">m3a·m3b 계획서의 "이번 마일스톤에서 뺀 것" 표는 <em>다른 문서 어디에도 없었다.</em>
+        기타 행 드릴다운은 지금도 미구현이고, 흔적은 테스트 이름 하나뿐이었다.</p>
+        <span class="sec-label">결정</span>
+        <p class="decision"><b>코드와 대조해 아직 안 만들었고 유효한 것만 <code>docs/tmp/</code> 로.</b>
+        구현됐거나 이후 결정으로 의미가 없어진 항목은 버린다.</p>
+        <div class="why"><q>ㅇㅇ 그렇게하자</q></div>
+      </div>
+    </div>
+
+    <div class="node">
+      <div class="rail"><div class="dot sys"></div><div class="cont"></div></div>
+      <div class="card sys">
+        <span class="qid">감사 <span class="chip sys">검증</span></span>
+        <p class="qtitle">이연 항목 약 45건 → tmp 메모 7건</p>
+        <p class="problem">서브에이전트가 17건 전체의 이연 항목을 코드·ADR·PRD 와 대조했다. 구현됨 11 ·
+        무의미 6 · 이미 추적 중 약 20 은 버리고, <em>어디에도 없던 7건</em>(기타 행 드릴다운, Sprint 의
+        Milestone 배지, 오늘 목록 빈 상태, 플래너 확정 동시성, Windows·Linux 배포, 코어 루프 E2E,
+        timer-host 만료 타이머 버그)을 <code>docs/tmp/</code> 로 옮겼다. 같은 감사에서 AI 가 놓친
+        PRODUCT.md 의 계획 링크 6곳도 드러났다.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════ 3 · 규칙 ══════════ -->
+  <div class="phase">
+    <p class="phase-title">3 · 규칙 — 다음 계획부터 적용되는 것</p>
+    <p class="phase-desc">한 번 치우고 끝나지 않도록, 끝내는 절차를 규칙으로 만들었다.</p>
+
+    <div class="node">
+      <div class="rail"><div class="dot sys"></div><div class="cont"></div></div>
+      <div class="card sys">
+        <span class="qid">규칙 변경</span>
+        <p class="qtitle">계획은 구현 PR 의 마지막 태스크에서 지운다</p>
+        <p class="problem">docs/CLAUDE.md 의 plans 절을 다시 썼다. 삭제 전 세 단계 —
+        ① 계획에만 있는 "왜"는 ADR·기능 문서로 ② 미룬 범위는 <code>docs/tmp/</code> 로
+        ③ 들어오는 링크는 permalink 로. 루트 CLAUDE.md·README·CONTEXT.md 의 관련 문구도 맞췄다.</p>
+      </div>
+    </div>
+  </div>
+</div>
+</body>
+</html>

@@ -20,3 +20,10 @@
 |---|---|
 | [session-completion-sound.md](session-completion-sound.md) | 세션 완료 알림음 — 명세(R11)는 있고 구현이 없다 |
 | [session-signals-on-windows-linux.md](session-signals-on-windows-linux.md) | 주의 신호의 Windows·Linux 대응물 (지금은 macOS 전용) |
+| [open-windows-linux-builds.md](open-windows-linux-builds.md) | Windows·Linux 배포 열기 — 빌드 타깃·실기 검증·CI OS 매트릭스 |
+| [other-row-drilldown.md](other-row-drilldown.md) | 기타 행 드릴다운 — 스펙은 있고 선행 조건 없음 |
+| [sprint-milestone-badge.md](sprint-milestone-badge.md) | Sprint 행의 Milestone 배지 — 다른 달 연결(ADR-035) 표기부터 정해야 함 |
+| [today-empty-state-branches.md](today-empty-state-branches.md) | 오늘 목록 빈 상태 두 갈래 + 자정 힌트 — 카피가 낡아 다시 써야 함 |
+| [planner-declarative-confirm-race.md](planner-declarative-confirm-race.md) | 플래너 선언형 확정의 동시성 약점 — 새 Sprint 생성 경로가 생길 때 |
+| [core-loop-e2e.md](core-loop-e2e.md) | 코어 루프 E2E 백필 — 막는 조건은 풀림 |
+| [timer-host-stop-pending-timeout.md](timer-host-stop-pending-timeout.md) | (버그) timer-host `stop()` 이 만료 타이머를 남김 — 지금은 우회 중 |

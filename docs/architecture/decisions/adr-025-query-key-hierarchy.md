@@ -7,7 +7,7 @@
   [ADR-026](adr-026-main-to-renderer-events.md) 이 정한다 — 두 문서는 같은 날 함께 확정됐다.
 - 결정 근거: 기능 PRD 8종 전수 대조 + `@tanstack/query-core@5.101.4` 설치 소스 검증.
   적대 리뷰 2회(완성도·메커니즘)의 발견 18건이 반영돼 있다. 설계 원본:
-  [2026-08-07 설계 문서](../../superpowers/specs/2026-08-07-query-keys-and-events-design.md).
+  [2026-08-07 설계 문서](https://github.com/easyDong19/dongmodoro/blob/bff905a0207eba611f028aa81e11bed0498e6b70/docs/superpowers/specs/2026-08-07-query-keys-and-events-design.md).
 
 ## Context
 

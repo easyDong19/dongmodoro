@@ -9,7 +9,7 @@
 파생하는 측정 시간으로 바꾼다. 뽀모 길이 편집은 다음 세션부터 즉시 적용된다.**
 결론의 소유자는 [ADR-029](../architecture/decisions/adr-029-baseline-immediate-effect.md) ·
 [ADR-030](../architecture/decisions/adr-030-time-as-progress-currency.md) 이고,
-실행 순서는 [구현 계획](../plans/2026-08-12-time-currency.md)이 갖는다.
+실행 순서는 [구현 계획](https://github.com/easyDong19/dongmodoro/blob/bff905a0207eba611f028aa81e11bed0498e6b70/docs/plans/2026-08-12-time-currency.md)이 갖는다.
 이 문서는 그 결론에 이른 **과정**만 소유한다.
 
 ---

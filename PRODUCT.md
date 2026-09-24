@@ -33,15 +33,15 @@ Electron 데스크톱 앱 (렌더러는 웹 기술). 스택은 코드보다 먼�
   한 함수에만 있다. **2.0.0 에서 진행의 통화가 측정 시간으로 교체됐다** — 예상 뽀모·예산·
   가용량·과적이 코드와 스키마에서 사라지고(`weeks` 테이블 drop, `est_pomos` 컬럼 2개 drop),
   네 화면이 전부 완료 focus 세션의 시간 합을 조회 시점에 파생해 보여준다. 플래너는
-  제목 입력만 남았고 정산 처분은 2택이 됐다 ([시간 통화 전환](docs/plans/2026-08-12-time-currency.md)).
+  제목 입력만 남았고 정산 처분은 2택이 됐다 ([시간 통화 전환 PR #62](https://github.com/easyDong19/dongmodoro/pull/62)).
   아직 없는 것: 반응형 셸, 트레이, 첫 실행 온보딩(편집 경로 2개 중 나머지 하나 — 물을 값이
   길이 3종으로 줄었다), 기타 행 드릴다운(독립이라 언제든). **요일별 부하 그래프는 목록에서
   빠졌다** — 막대의 높이(예상 뽀모)와 기준선(가용량)이 둘 다 폐기돼 그릴 값이 없다.
   이미 있는 것을 다시 만들지 않도록 착수 전에 `src/` 를
-  먼저 본다 ([M3b](docs/plans/2026-08-10-m3b-weekly-review.md) ·
-  [베이스라인 편집](docs/plans/2026-08-11-baseline-editing.md) ·
-  [월 레이어](docs/plans/2026-08-12-month-layer.md) ·
-  [시간 통화](docs/plans/2026-08-12-time-currency.md))
+  먼저 본다 ([M3b #39](https://github.com/easyDong19/dongmodoro/pull/39) ·
+  [베이스라인 편집 #52](https://github.com/easyDong19/dongmodoro/pull/52) ·
+  [월 레이어 #57](https://github.com/easyDong19/dongmodoro/pull/57) ·
+  [시간 통화 #62](https://github.com/easyDong19/dongmodoro/pull/62))
 
 ## Users
 
@@ -140,7 +140,7 @@ calendar-records · pomo-baseline.
 좁히지 않고 태그를 붙이면 **문서가 말하는 v1 과 태그가 말하는 v1 이 서로 다른 것을 가리키게
 되고**, 나중에 "v1 이 뭐였지"를 찾는 사람이 어느 쪽을 믿을지 알 수 없다.
 
-- ~~**마일스톤** (월 레이어)~~ — **구현됐다** (1.1.0, [월 레이어 계획](docs/plans/2026-08-12-month-layer.md))
+- ~~**마일스톤** (월 레이어)~~ — **구현됐다** (1.1.0, [PR #57](https://github.com/easyDong19/dongmodoro/pull/57))
 - ~~**달력·날짜 기록**~~ — **구현됐다.** 마일스톤과 한 판으로 합쳤다 — 두 기능이 표시 대상
   월과 달 이동 컨트롤을 공유해 쪼갤 수 없었다
 - **반응형 셸** — 접을 MONTH 열이 실재한다. 막고 있던 조건은 풀렸지만 **아직 없다**
