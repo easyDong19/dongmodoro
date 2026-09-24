@@ -11,7 +11,7 @@
   이벤트가 도착한 뒤 무엇을 지우는가는 [ADR-025](adr-025-query-key-hierarchy.md) §3 소관.
 - 결정 근거: `@tanstack/query-core@5.101.4` 설치 소스 검증(레이스 확인) + 기능 PRD
   대조. 설계 원본:
-  [2026-08-07 설계 문서](../../superpowers/specs/2026-08-07-query-keys-and-events-design.md).
+  [2026-08-07 설계 문서](https://github.com/easyDong19/dongmodoro/blob/bff905a0207eba611f028aa81e11bed0498e6b70/docs/superpowers/specs/2026-08-07-query-keys-and-events-design.md).
 
 ## Context
 

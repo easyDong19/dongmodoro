@@ -14,8 +14,8 @@
 2. `/grilling` 세션으로 질문 하나씩 결정 (Q1~Q11)
 3. 중간에 배치 선택지를 HTML 목업으로 그려 눈으로 비교 (Q1)
 4. 계획서 2건 작성으로 종결 —
-   [e2e-harness](../plans/2026-08-11-e2e-harness.md) ·
-   [theme-and-titlebar](../plans/2026-08-11-theme-and-titlebar.md)
+   [e2e-harness](https://github.com/easyDong19/dongmodoro/blob/bff905a0207eba611f028aa81e11bed0498e6b70/docs/plans/2026-08-11-e2e-harness.md) ·
+   [theme-and-titlebar](https://github.com/easyDong19/dongmodoro/blob/bff905a0207eba611f028aa81e11bed0498e6b70/docs/plans/2026-08-11-theme-and-titlebar.md)
 
 ---
 
@@ -338,8 +338,8 @@ Q10 정리 시점에 AI 는 "vitest 가 e2e 파일을 집지 않게 `exclude` �
 
 | 문서 | 내용 |
 |---|---|
-| [docs/plans/2026-08-11-e2e-harness.md](../plans/2026-08-11-e2e-harness.md) | Playwright + Electron 하네스, CI 파이프라인 신설 (Task 5개) |
-| [docs/plans/2026-08-11-theme-and-titlebar.md](../plans/2026-08-11-theme-and-titlebar.md) | ADR-010, 문서 5곳 정정, 프레임리스 타이틀바, 테마 배선, E2E 4종 (Task 10개) |
+| [docs/plans/2026-08-11-e2e-harness.md](https://github.com/easyDong19/dongmodoro/blob/bff905a0207eba611f028aa81e11bed0498e6b70/docs/plans/2026-08-11-e2e-harness.md) | Playwright + Electron 하네스, CI 파이프라인 신설 (Task 5개) |
+| [docs/plans/2026-08-11-theme-and-titlebar.md](https://github.com/easyDong19/dongmodoro/blob/bff905a0207eba611f028aa81e11bed0498e6b70/docs/plans/2026-08-11-theme-and-titlebar.md) | ADR-010, 문서 5곳 정정, 프레임리스 타이틀바, 테마 배선, E2E 4종 (Task 10개) |
 
 **아직 없는 것:** `design-system ADR-010` — 계획서 ② Task 1 이 작성한다.
 decision-log 는 과정을, ADR 은 결론을 갖는다. 이 문서가 ADR 을 대체하지 않는다.

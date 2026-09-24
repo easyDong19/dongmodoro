@@ -129,7 +129,8 @@ import 하거나, `src/main/db/` 밖에서 Drizzle 을 부르거나, 시간 모�
 문서끼리 충돌하면 순서가 정해져 있습니다. `docs/origin/` 의 초안은 항상 지고
 `docs/features/` 의 확정 기획이 이깁니다. 시각 판단은
 [design-system/principles.md](docs/design-system/principles.md) 가 기능 문서를 이깁니다.
-`docs/plans/` 는 결정을 만들지 않고 참조만 합니다. 결정이 뒤집히면 기존 ADR 을 고치지
+`docs/plans/` 는 결정을 만들지 않고 참조만 하며, 구현이 끝난 계획은 지워서 진행 중인
+계획만 남깁니다. 결정이 뒤집히면 기존 ADR 을 고치지
 않고 superseded 표기 후 새 ADR 을 쌓습니다.
 
 코드부터 보는 편이 빠르면 `src/shared/ipc/contracts.ts` (프로세스 사이를 오가는 것의

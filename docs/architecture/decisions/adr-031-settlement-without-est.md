@@ -20,7 +20,7 @@
 ## Context
 
 ADR-030 이 `week_items.est_pomos` · `tasks.est_pomos` 컬럼 제거를 결정한 뒤, 구현 계획
-([2026-08-12-time-currency](../../plans/2026-08-12-time-currency.md))을 착수 전 감사했다.
+([2026-08-12-time-currency](https://github.com/easyDong19/dongmodoro/blob/bff905a0207eba611f028aa81e11bed0498e6b70/docs/plans/2026-08-12-time-currency.md))을 착수 전 감사했다.
 계획서가 실행 불가능한 지점 세 곳이 나왔고, 셋 다 **계획이 스스로 정할 수 없는 결정**이다
 (docs/CLAUDE.md — 계획은 결정을 만들지 않는다).
 

@@ -2,8 +2,8 @@
 
 - 상태: accepted (2026-08-17)
 - Supersedes: [design-system ADR-001](./adr-001-breakpoint-tokens.md) §1(경계값 표)·§3(최소 창 크기). §2(소비 방식)는 유효
-- 관련 문서: [medium-breakpoint 설계](../../superpowers/specs/2026-08-17-medium-breakpoint-design.md) ·
-  [app-shell ux-spec §3·§3.1·§5](../../features/app-shell/ux-spec.md)
+- 관련 문서: [app-shell ux-spec §3·§3.1·§5](../../features/app-shell/ux-spec.md) ·
+  설계 원본(삭제됨): [medium-breakpoint 설계](https://github.com/easyDong19/dongmodoro/blob/bff905a0207eba611f028aa81e11bed0498e6b70/docs/superpowers/specs/2026-08-17-medium-breakpoint-design.md)
 
 ## Context
 
@@ -48,6 +48,19 @@ ADR-001 의 `--bp-medium: 800px` 은 시안 실측 전 추정치였고, 그 문�
 내로우 1컬럼 레이아웃은 이번 범위에 없다. 하한이 없으면 720px 아래로 줄어든 창이 미구현
 구간이 아니라 버그처럼 보인다. 값은 `--bp-medium` 을 그대로 따르며 별도 상수를 두지
 않는다 — 내로우가 구현되면 하한을 ADR-001 §3 의 목표치(~420px)로 내린다.
+
+### 4. 구간 판정은 React 훅 한 곳이 소유한다
+
+`useBreakpoint()` 훅이 `matchMedia` 로 `'wide' | 'medium'` 을 반환하고, 레이아웃 분기와
+오버레이 열림 상태를 모두 React 가 판단한다. CSS 미디어 쿼리로 판정하지 않는 이유는
+ux-spec §5 의 연속성 규칙("와이드에서 미디엄으로 넘어오면 오버레이가 열린 상태로
+진입한다")이 상태가 아니라 **전환 이벤트**에 반응하는 규칙이라 CSS 로 표현할 수 없기
+때문이다. 판정 출처가 CSS 와 JS 두 곳으로 갈리면, 값이 어긋나는 순간 "레이아웃은
+미디엄인데 토글은 안 보인다" 같은, 재현 조건이 창 폭 1픽셀인 버그가 생긴다.
+
+경계값 리터럴(`720` · `1200`)은 `src/shared/layout/breakpoints.ts` 한 곳에만 두고, 훅과
+main 프로세스(창 최소 폭)가 함께 읽는다. 값의 출처가 tokens.md §4 라는 ADR-001 §2 의
+원칙은 그대로다.
 
 ## Consequences
 
