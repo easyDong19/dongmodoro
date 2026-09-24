@@ -42,7 +42,7 @@ docs/
 
 ## `docs/design-system/` — 디자인 토큰과 시각 철칙 (횡단 문서)
 
-- [design-system/tokens.md](design-system/tokens.md) 가 색·폰트·radius·브레이크포인트·유리 표면·모션·레이어·인터랙션 토큰의 **유일한 출처**다. (spacing 만 아직 미토큰화 — M1 Task 7 에서 결정)
+- [design-system/tokens.md](design-system/tokens.md) 가 색·폰트·radius·브레이크포인트·유리 표면·모션·레이어·인터랙션 토큰의 **유일한 출처**다. (spacing 만 아직 미토큰화 — 그동안 Tailwind 기본 스케일을 쓴다. [tokens.md §10](design-system/tokens.md))
 - 모든 ux-spec 과 구현 코드는 **토큰 이름으로만** 시각 값을 기술한다. raw hex/px 직접 기입 금지.
 - 토큰 추가·변경은 ADR 로 근거를 남긴 뒤에만 한다.
 - **접근성 기준선은 판정 가능한 수치다** — 텍스트 대비 4.5:1(판정 배경은 최악 조건), 비텍스트 3:1, 포커스 링 필수, 조작 타깃 24px. [principles.md §7](design-system/principles.md) 참조.

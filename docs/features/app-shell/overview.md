@@ -14,13 +14,13 @@
 
 > **2.0.0 에서 셸이 받은 영향은 둘뿐이다.** WEEK 카드 하단의 예산 게이지가 사라져
 > **카드에 하단 고정 요소가 없어졌고**(측정 시간 합은 헤더로 올라갔다 —
-> week-plan ux-spec §7), 첫 실행 온보딩(R31)이 물을 값이 **뽀모 길이 3종만** 남았다.
+> week-plan ux-spec §7). 첫 실행 온보딩(R31)은 이후 ADR-033 으로 폐기됐다.
 > 컬럼·탭·오버레이 구성은 그대로다.
 
 ## 문서 안내
 
 - [PRD](./prd.md): 제품 요구사항과 인수 기준 — 플랫폼 범위와 종료 요청 열거, 반응형 구간,
-  창 수명주기와 복귀 경로, 단일 인스턴스 잠금, 트레이, 콜드 스타트와 온보딩 자리
+  창 수명주기와 복귀 경로, 단일 인스턴스 잠금, 트레이, 콜드 스타트
 - [UX Spec](./ux-spec.md): 구간별 배치도, 플랫폼 조건부 타이틀바 슬롯, MONTH 오버레이,
   내로우 탭·타이머 축약형, 정산 패널의 자리, 트레이 메뉴, 리사이즈 시 상태 보존, 접근성
 
@@ -30,7 +30,7 @@
 - [tokens.md §4](../../design-system/tokens.md): `--bp-wide` · `--bp-medium` 값의 유일한 출처
 - [principles.md](../../design-system/principles.md): 이모지 금지·아이콘 규칙(§6), 모션(§4), `--danger` 사용 조건(§2), 토큰 추가는 ADR 선행(§5)
 - [ADR-005](../../architecture/decisions/adr-005-timer-architecture.md): 타이머를 main 이 소유한다 — 창이 없어도 타이머·알림이 도는 근거, 단일 인스턴스 잠금의 근거
-- [ADR-029](../../architecture/decisions/adr-029-baseline-immediate-effect.md) §1: 뽀모 길이 상시 편집·즉시 효력 — 첫 실행 온보딩이 그 편집 경로 중 하나가 된 근거 (ADR-013 §3 을 대체한다)
+- [ADR-029](../../architecture/decisions/adr-029-baseline-immediate-effect.md) §1: 뽀모 길이 상시 편집·즉시 효력 (ADR-013 §3 을 대체한다). 편집 경로는 ADR-033 이 대기 중인 타이머 하나로 좁혔다
 - [ADR-030](../../architecture/decisions/adr-030-time-as-progress-currency.md): 예산 게이지가 죽고 하단 고정 요소가 사라진 근거
 - [architecture/overview.md](../../architecture/overview.md): 프로세스 경계 (트레이·알림은 main)
 - [ADR-004](../../architecture/decisions/adr-004-packaging-deploy.md): 패키징·배포 — 배포 대상을 macOS 로 한정하지 않는다(크로스플랫폼 전제), macOS 서명은 M4 미결
