@@ -11,6 +11,15 @@
         ],
         "createdAt": "2026-08-16T12:31:15.577Z",
         "reason": "decision-log skill mandates reusing the reference flow html (2026-08-04-decision-flow.html) CSS verbatim; the .why quote block's left border is that reference's established idiom"
+      },
+      {
+        "rule": "side-tab",
+        "value": "*",
+        "files": [
+          "docs/decision-log/2026-09-24-plan-import-and-milestone-links-flow.html"
+        ],
+        "createdAt": "2026-09-24T15:25:18.476Z",
+        "reason": "Claude: the .why quote block is the repo's decision-log flow convention, copied verbatim from 2026-08-16-card-overflow-scroll-flow.html as the decision-log skill requires reusing the reference CSS"
       }
     ]
   }

@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { localKeys } from '../../shared/time'
 import { testUow } from '../db/repositories/test-helpers'
 import {
@@ -407,7 +407,7 @@ describe('planDraft — 플래너 진입 프리필 (R16)', () => {
   })
 })
 
-describe('setItemMilestone — 후보 제한을 서비스가 강제한다 (milestones R14 · A12)', () => {
+describe('setItemMilestone — Sprint 는 어느 Milestone 에나 연결된다 (ADR-035)', () => {
   const AUG_WEEK = '2026-08-03'
   const SEP_WEEK = '2026-09-07'
 
@@ -434,57 +434,84 @@ describe('setItemMilestone — 후보 제한을 서비스가 강제한다 (miles
     )
   }
 
-  it('그 주가 귀속된 달의 마일스톤에는 연결된다', () => {
+  it('그 주가 귀속된 달의 Milestone 에 연결된다', () => {
     const { uow } = testUow()
     const m = makeMilestone(uow, '2026-08', 'aug')
     const item = makeItem(uow, AUG_WEEK)
 
     expect(setItemMilestone(uow, { weekItemId: item, milestoneId: m })).toEqual({
-      itemWeek: AUG_WEEK
+      itemWeek: AUG_WEEK,
+      months: ['2026-08']
     })
     expect(uow.run((r) => r.milestones.linkedMilestone(item)?.id)).toBe(m)
   })
 
   /**
-   * A12 — 화면이 후보를 좁히는 것만으로는 IPC 를 직접 부르는 경로가 열린다.
-   * 8월 주의 할당을 9월 마일스톤에 매달 수 있으면 그 롤업이 임의의 달에서 올라와
-   * 월 레이어의 경계가 사라진다.
+   * 예전 A12 의 반대. 달이 바뀌는 주(9/28 – 10/4 는 9월 주)에 10월 목표를 걸 수 없던 제한이
+   * 사라졌다. 롤업은 Milestone 기준으로 세므로 이 연결의 시간은 10월 카드에만 뜬다.
    */
-  it('다른 달 마일스톤에 새로 매달면 거부한다 (A12)', () => {
+  it('다른 달 Milestone 에도 연결된다 — 다음 달이든', () => {
     const { uow } = testUow()
-    const sep = makeMilestone(uow, '2026-09', 'sep')
-    const item = makeItem(uow, AUG_WEEK)
+    const oct = makeMilestone(uow, '2026-10', 'oct')
+    const item = makeItem(uow, '2026-09-28')
 
-    expect(() => setItemMilestone(uow, { weekItemId: item, milestoneId: sep })).toThrow(
-      /not a candidate/
-    )
-    expect(uow.run((r) => r.milestones.linkedMilestone(item))).toBeNull()
+    expect(setItemMilestone(uow, { weekItemId: item, milestoneId: oct }).months).toEqual([
+      '2026-10'
+    ])
+    expect(uow.run((r) => r.milestones.linkedMilestone(item)?.id)).toBe(oct)
   })
 
   /**
-   * R18 — 주는 쪼개지지 않는다. 8/31 주는 9/6 까지 이어지지만 전체가 8월에 귀속되므로,
-   * 그 주의 할당은 8월 마일스톤에 연결된다.
+   * 지난 달 Milestone 도 막지 않는다 (2026-09-24 결정 Q6). 연결은 Milestone 자체를 고치는
+   * 게 아니라 "지난 달은 읽기 전용"과 부딪히지 않고, 막으면 자정에 달이 바뀌는 순간 드로어에
+   * 떠 있던 후보가 거부되는 틈이 생긴다.
    */
-  it('달을 넘긴 주의 할당은 주 키의 달을 따른다 (R18)', () => {
-    const { uow } = testUow()
-    const aug = makeMilestone(uow, '2026-08', 'aug')
-    const item = makeItem(uow, '2026-08-31')
-
-    expect(setItemMilestone(uow, { weekItemId: item, milestoneId: aug }).itemWeek).toBe(
-      '2026-08-31'
-    )
-  })
-
-  it('해제는 언제나 허용된다 — 타월 연결도 끊을 수 있어야 한다 (R13·R15)', () => {
+  it('지난 달 Milestone 에도 연결된다', () => {
     const { uow } = testUow()
     const aug = makeMilestone(uow, '2026-08', 'aug')
     const item = makeItem(uow, SEP_WEEK)
-    // 이월 승계가 만드는 것과 같은 타월 연결을 저장소로 직접 만든다.
-    uow.run((r) => r.milestones.setWeekItemMilestone(item, aug))
+
+    expect(setItemMilestone(uow, { weekItemId: item, milestoneId: aug }).months).toEqual([
+      '2026-08'
+    ])
+  })
+
+  /**
+   * 연결을 바꾸면 **두 달의 카드**가 달라진다 — 옛 Milestone 의 카드에서 시간이 빠지고 새
+   * Milestone 의 카드에 들어간다. 무효화할 달을 화면이 추측하지 않도록 서버가 둘 다 싣는다.
+   */
+  it('연결을 바꾸면 옛 달과 새 달을 함께 돌려준다', () => {
+    const { uow } = testUow()
+    const aug = makeMilestone(uow, '2026-08', 'aug')
+    const oct = makeMilestone(uow, '2026-10', 'oct')
+    const item = makeItem(uow, SEP_WEEK)
+    setItemMilestone(uow, { weekItemId: item, milestoneId: aug })
+
+    expect(setItemMilestone(uow, { weekItemId: item, milestoneId: oct }).months).toEqual([
+      '2026-08',
+      '2026-10'
+    ])
+  })
+
+  it('해제는 옛 달만 돌려준다', () => {
+    const { uow } = testUow()
+    const aug = makeMilestone(uow, '2026-08', 'aug')
+    const item = makeItem(uow, SEP_WEEK)
+    setItemMilestone(uow, { weekItemId: item, milestoneId: aug })
 
     expect(setItemMilestone(uow, { weekItemId: item, milestoneId: null })).toEqual({
-      itemWeek: SEP_WEEK
+      itemWeek: SEP_WEEK,
+      months: ['2026-08']
     })
+    expect(uow.run((r) => r.milestones.linkedMilestone(item))).toBeNull()
+  })
+
+  it('없는 Milestone 이면 throw 한다 — 드로어가 열린 채 지워진 경우', () => {
+    const { uow } = testUow()
+    const item = makeItem(uow, AUG_WEEK)
+    expect(() => setItemMilestone(uow, { weekItemId: item, milestoneId: 'gone' })).toThrow(
+      /milestone 'gone' not found/
+    )
     expect(uow.run((r) => r.milestones.linkedMilestone(item))).toBeNull()
   })
 
@@ -496,23 +523,41 @@ describe('setItemMilestone — 후보 제한을 서비스가 강제한다 (miles
   })
 })
 
-describe('itemDrawer — 후보를 서버가 좁혀 보낸다 (R14 · A12)', () => {
-  it('그 주가 귀속된 달의 마일스톤만 후보다', () => {
+describe('itemDrawer — 후보는 모든 Milestone, 가까운 달부터 (ADR-035)', () => {
+  afterEach(() => vi.useRealTimers())
+
+  /**
+   * 순서: 이번 달 → 다음 달부터 먼 미래로 → 지난 달은 가까운 과거부터. 고를 일이 가장 많은
+   * 달이 위에 온다. 같은 달 안에서는 카드와 같은 생성 순이다 (R10).
+   */
+  it('이번 달 → 미래(가까운 순) → 과거(가까운 순) 로 정렬한다', () => {
+    vi.useFakeTimers({ now: new Date(2026, 8, 24, 12) }) // 2026-09-24
     const { uow } = testUow()
     const item = uow.run(
       (repos) =>
         repos.weekItems.confirmPlan({
-          week: '2026-08-03',
+          week: '2026-09-21',
           items: [{ id: null, title: '할당', days: [] }]
         }).createdIds[0]
     )
     uow.run((repos) => {
+      repos.milestones.create({ id: 'jul', month: '2026-07', title: '7월', sortOrder: 0 })
+      repos.milestones.create({ id: 'dec', month: '2026-12', title: '12월', sortOrder: 0 })
+      repos.milestones.create({ id: 'sep-b', month: '2026-09', title: '9월 둘째', sortOrder: 1 })
       repos.milestones.create({ id: 'aug', month: '2026-08', title: '8월', sortOrder: 0 })
-      repos.milestones.create({ id: 'sep', month: '2026-09', title: '9월', sortOrder: 0 })
+      repos.milestones.create({ id: 'oct', month: '2026-10', title: '10월', sortOrder: 0 })
+      repos.milestones.create({ id: 'sep-a', month: '2026-09', title: '9월 첫째', sortOrder: 0 })
     })
 
     const drawer = itemDrawer(uow, item)
-    expect(drawer.milestoneCandidates.map((m) => m.id)).toEqual(['aug'])
+    expect(drawer.milestoneCandidates.map((m) => m.id)).toEqual([
+      'sep-a',
+      'sep-b',
+      'oct',
+      'dec',
+      'aug',
+      'jul'
+    ])
     expect(drawer.milestone).toBeNull()
   })
 })

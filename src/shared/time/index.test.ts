@@ -9,7 +9,6 @@ import {
   weekKey,
   monthKey,
   addMonths,
-  monthOfWeek,
   monthLabel,
   monthRange,
   monthGridSlots,
@@ -263,20 +262,6 @@ describe('addMonths — 표시 대상 월 이동 (calendar-records R8 · milesto
 
   it('0 을 더하면 그대로다', () => {
     expect(addMonths('2026-08', 0)).toBe('2026-08')
-  })
-})
-
-describe('monthOfWeek — 주는 쪼개지지 않는다 (milestones R18)', () => {
-  it('8/31~9/6 주는 전체가 8월이다', () => {
-    expect(monthOfWeek('2026-08-31')).toBe('2026-08')
-  })
-
-  it('9월에 귀속되는 첫 주는 9/7 시작 주다', () => {
-    expect(monthOfWeek('2026-09-07')).toBe('2026-09')
-  })
-
-  it('연 경계도 주 키의 달을 따른다 — 12/28 주는 12월이다', () => {
-    expect(monthOfWeek('2026-12-28')).toBe('2026-12')
   })
 })
 

@@ -21,8 +21,8 @@ describe('keysToInvalidate — ADR-025 §3 표의 코드화', () => {
     /**
      * 달 레이어는 **광역 prefix 하나**로 턴다. 좁은 `monthCalendar(그 달)` 을 함께 적지
      * 않는 이유가 둘이다: 접두사가 이미 그것을 잡고, 세션이 바꾸는 마일스톤 롤업은 **그
-     * 달에 한정되지 않는다** — 이월이 승계한 타월 연결 때문에 다른 달 카드의 롤업이
-     * 바뀔 수 있다 (ADR-012 §3).
+     * 달에 한정되지 않는다** — Sprint 가 어느 달 마일스톤에나 걸리므로 다른 달 카드의
+     * 롤업이 바뀔 수 있다 (ADR-035).
      */
     expect(keys).toContainEqual(['month'])
     expect(keys).not.toContainEqual(['month', '2026-08', 'calendar'])

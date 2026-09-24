@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import type { Api } from '@shared/ipc/api'
+import { monthOnlyLabel } from '@shared/time'
 import { Button } from '@renderer/shared/ui/button'
 import { Checkbox } from '@renderer/shared/ui/Checkbox'
 import { MeasuredTime } from '@renderer/shared/ui/MeasuredTime'
@@ -12,6 +13,19 @@ export type PullInput = {
   taskIds: string[]
   /** 새 조각은 **제목이 전부다** — 조각에도 계획 숫자를 매기지 않는다 (ADR-030 §3). */
   newTask: { title: string } | null
+}
+
+type MilestoneCandidate = Drawer['milestoneCandidates'][number]
+
+/** 서버가 준 순서를 지킨 채 이웃한 같은 달끼리 묶는다 — 다시 정렬하지 않는다. */
+function groupByMonth(rows: MilestoneCandidate[]) {
+  const groups: { month: string; items: MilestoneCandidate[] }[] = []
+  for (const row of rows) {
+    const last = groups.at(-1)
+    if (last?.month === row.month) last.items.push(row)
+    else groups.push({ month: row.month, items: [row] })
+  }
+  return groups
 }
 
 function TaskRow({
@@ -127,11 +141,13 @@ export function ItemDrawer({
       }`}
     >
       {/*
-        마일스톤 연결 (milestones R13·R14 · A11·A12).
+        마일스톤 연결 (milestones R13 · A11 · ADR-035).
         - `연결 없음` 이 **정상 선택지**다. 미연결에 경고·요구 문구를 붙이지 않는다 (R13).
-        - 후보는 서버가 좁혀서 보낸다 — 그 할당의 주가 귀속된 달의 마일스톤뿐이다.
-        - 지금 값이 후보 밖이면(이월이 승계한 타월 연결 — R15) **지우지 않고** 비활성
-          옵션으로 함께 보여준다. 선택지에서 빼면 렌더 시점에 값이 사라진 것처럼 보인다.
+        - 후보는 모든 달의 마일스톤이고, 순서(이번 달 → 미래 → 과거)는 서버가 정해 보낸다.
+          여기서는 **달별로 묶기만** 한다 — 제목 복사(R22)가 같은 제목을 여러 달에 만들어,
+          달 표시 없이는 어느 것인지 구분할 수 없다.
+        - 지금 걸린 연결도 언제나 후보 안에 있다. 그 주의 달로 후보를 좁히던 시절에는
+          후보 밖 연결을 비활성 옵션으로 따로 그려야 했다.
       */}
       <label className="flex items-center gap-2 text-xs text-ink-dim">
         Milestone
@@ -142,17 +158,15 @@ export function ItemDrawer({
           onChange={(e) => onSetMilestone(e.target.value === '' ? null : e.target.value)}
         >
           <option value="">연결 없음</option>
-          {data.milestoneCandidates.map((m) => (
-            <option key={m.id} value={m.id}>
-              {m.title}
-            </option>
+          {groupByMonth(data.milestoneCandidates).map(({ month, items }) => (
+            <optgroup key={month} label={monthOnlyLabel(month)}>
+              {items.map((m) => (
+                <option key={m.id} value={m.id}>
+                  {m.title}
+                </option>
+              ))}
+            </optgroup>
           ))}
-          {data.milestone !== null &&
-          !data.milestoneCandidates.some((m) => m.id === data.milestone?.id) ? (
-            <option value={data.milestone.id} disabled data-testid="milestone-foreign-option">
-              {`${data.milestone.title} (다른 달)`}
-            </option>
-          ) : null}
         </select>
       </label>
 

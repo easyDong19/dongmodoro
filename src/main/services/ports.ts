@@ -218,6 +218,12 @@ export type MilestoneRollupRow = {
 export interface MilestonesRepository {
   /** 그 달의 마일스톤. 생성 순 고정이다 (R10). */
   listForMonth(month: string): MilestoneRow[]
+  /**
+   * 모든 달의 마일스톤 — 드로어의 연결 후보 (ADR-035). 달 오름차순, 달 안에서는 생성 순.
+   * "가까운 달부터"로 다시 세우는 것은 오늘을 아는 서비스의 일이다.
+   */
+  listAll(): MilestoneRow[]
+  byId(id: string): MilestoneRow | null
   /** 배지 재료. 물리 삭제되지 않은 전부를 센다 (R21 · ADR-034). */
   badgeCounts(month: string): MilestoneBadge
   /** 제목 복사 후보 (R22) — 그 달의 미완료. */
@@ -238,13 +244,7 @@ export interface MilestonesRepository {
    * `milestone → week_item → task → session` 한 방향이고, 이 조회가 그 사슬을 탄다.
    */
   rollup(month: string, week: string): MilestoneRollupRow[]
-  /**
-   * 지금 걸려 있는 연결. **후보 밖일 수 있다** — 이월 승계가 만든 타월 연결이 그것이며,
-   * 그것이 다른 달의 마일스톤에 걸린 유일한 합법 경로다 (R15).
-   *
-   * 새로 연결할 때의 후보(R14 · A12)는 별도 메서드가 아니라 `listForMonth(그 할당의 주가
-   * 귀속된 달)` 이다 — 그 메서드가 이미 달로 좁힌다.
-   */
+  /** 지금 걸려 있는 연결. 어느 달의 마일스톤이든 될 수 있다 (ADR-035). */
   linkedMilestone(weekItemId: string): MilestoneRow | null
   setWeekItemMilestone(weekItemId: string, milestoneId: string | null): void
 }

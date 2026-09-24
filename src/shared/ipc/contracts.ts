@@ -299,9 +299,9 @@ export const contracts = {
         itemWeek: z.string(),
         completedAt: z.string().nullable(),
         tasks: z.array(childTaskSchema),
-        /** 지금 걸린 연결. **후보 밖일 수 있다** — 이월 승계의 타월 연결이다 (R15). */
+        /** 지금 걸린 연결. 언제나 `milestoneCandidates` 안에 있다 (ADR-035). */
         milestone: milestoneSchema.nullable(),
-        /** 새로 연결할 수 있는 것들 — 그 주가 귀속된 달의 마일스톤 (R14 · A12). */
+        /** 연결할 수 있는 것들 — 모든 달의 마일스톤, 이번 달 → 미래 → 과거 순 (ADR-035). */
         milestoneCandidates: z.array(milestoneSchema)
       })
     },
@@ -336,14 +336,17 @@ export const contracts = {
     },
     drop: { req: z.tuple([z.string()]), res: z.strictObject({ itemWeek: z.string() }) },
     /**
-     * 할당 ↔ 마일스톤 연결 (R13·R14). `milestoneId: null` 은 **연결 해제**이며 오류가
+     * 할당 ↔ 마일스톤 연결 (R13 · ADR-035). `milestoneId: null` 은 **연결 해제**이며 오류가
      * 아니다 — 연결 없음은 정상 상태이고 UI 상 "기타"로 다뤄진다.
+     *
+     * `months` — 카드가 달라지는 달들(옛 Milestone 의 달, 새 Milestone 의 달). 연결이 어느
+     * 달에나 걸리므로 화면이 주에서 달을 추측할 수 없다.
      */
     setMilestone: {
       req: z.tuple([
         z.strictObject({ weekItemId: z.string(), milestoneId: z.string().nullable() })
       ]),
-      res: z.strictObject({ itemWeek: z.string() })
+      res: z.strictObject({ itemWeek: z.string(), months: z.array(monthKeySchema) })
     }
   },
   /**
@@ -383,8 +386,6 @@ export const contracts = {
             completed: z.int().min(0)
           })
           .nullable(),
-        /** 롤업의 **범위 라벨**을 그릴 주. `null` 이면 화면이 숫자 대신 사실 문구를 쓴다 (R17). */
-        rollupWeek: dayKeySchema.nullable(),
         carryCandidates: z.array(milestoneSchema)
       })
     },

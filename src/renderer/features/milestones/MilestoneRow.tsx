@@ -27,13 +27,11 @@ export function MilestoneRow({
   item,
   index,
   editable,
-  rollupWeek,
   actions
 }: {
   item: Item
   index: number
   editable: boolean
-  rollupWeek: string | null
   actions: RowActions
 }) {
   const [editing, setEditing] = useState(false)
@@ -117,10 +115,11 @@ export function MilestoneRow({
         주 경계 직후의 `0분` 이 월 진행으로 읽힌다.
 
         **분수가 아니다** — 분모였던 est 합은 폐기된 통화와 함께 죽었고(ADR-030 §3),
-        남는 것은 그 주에 귀속된 측정 시간 하나다. 롤업이 없는 것(`null`)과 0 은 다른
-        사실이라, 전자는 이 줄 자체를 그리지 않고 후자는 `0분` 을 적는다 (R17·R18).
+        남는 것은 이번 주 측정 시간 하나다. 롤업이 없는 것(`null` — 이번 주에 이 Milestone 에
+        연결된 Sprint 가 없다)과 0 은 다른 사실이라, 전자는 이 줄 자체를 그리지 않고 후자는
+        `0분` 을 적는다 (R17). 이번 주는 모드와 무관하게 오늘이 속한 주다 (ADR-035).
       */}
-      {item.rollup !== null && rollupWeek !== null ? (
+      {item.rollup !== null ? (
         <p data-testid="milestone-rollup" className="pl-6 text-xs text-ink-dim">
           {'이번 주 '}
           <MeasuredTime sec={item.rollup.measuredSec} className="text-xs text-ink-dim" />

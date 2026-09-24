@@ -104,7 +104,6 @@ function setup({
         mode: 'current-empty',
         items: [],
         badge: null,
-        rollupWeek: null,
         carryCandidates: []
       }),
       create: vi.fn(),

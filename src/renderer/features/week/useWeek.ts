@@ -3,7 +3,6 @@ import { api } from '@renderer/shared/api'
 import { keys } from '@renderer/shared/query/keys'
 import { dispatchInvalidation } from '@renderer/shared/query/invalidate'
 import { useClock } from '@renderer/shared/query/useClock'
-import { monthOfWeek } from '@shared/time'
 
 /**
  * 주간 카드 조회 + 항목 mutation 4종. 무효화는 전부 dispatchInvalidation 초크포인트로만
@@ -33,18 +32,17 @@ export function useWeek() {
   const uncomplete = useMutation({ mutationFn: api.week.uncomplete, onSuccess: invalidateItem })
   const drop = useMutation({ mutationFn: api.week.drop, onSuccess: invalidateItem })
   /**
-   * 마일스톤 연결 (milestones R13·R14). 같은 `invalidateItem` 을 쓰되 **월 카드도 함께**
-   * 턴다 — 연결이 바뀌면 그 마일스톤의 롤업이 달라진다. 무효화할 달은 `itemWeek` 에서
-   * 파생하지 않고 `monthOfWeek` 로 구한다: 주는 쪼개지지 않으므로 8/31 주는 8월이다.
+   * 마일스톤 연결 (milestones R13 · ADR-035). 같은 `invalidateItem` 을 쓰되 **월 카드도 함께**
+   * 턴다 — 연결이 바뀌면 옛 Milestone 과 새 Milestone 의 롤업이 달라진다. 두 달은 응답의
+   * `months` 에서 온다. 연결이 어느 달에나 걸리므로 주에서 달을 파생할 수 없다.
    */
   const setMilestone = useMutation({
     mutationFn: api.week.setMilestone,
     onSuccess: (r) => {
       invalidateItem(r)
-      dispatchInvalidation(qc, {
-        type: 'milestone-changed',
-        payload: { month: monthOfWeek(r.itemWeek) }
-      })
+      for (const month of r.months) {
+        dispatchInvalidation(qc, { type: 'milestone-changed', payload: { month } })
+      }
     }
   })
 

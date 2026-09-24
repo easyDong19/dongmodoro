@@ -232,11 +232,14 @@ describe('milestones.rollup — 주 단위 파생 (R16·R17)', () => {
   })
 
   /**
-   * A13 의 뒷절 — 이월로 달을 넘긴 할당의 소진은 **연결된 마일스톤이 놓인 달** 카드로
-   * 올라간다. 여기서는 9월 주의 할당이 8월 마일스톤에 걸린 상태를 직접 만든다 (이월
-   * 승계가 만드는 것과 같은 모양이며, 타월 연결이 존재하는 유일한 합법 경로다 — R15).
+   * A13 — 다른 달 마일스톤에 걸린 할당의 소진은 **연결된 마일스톤이 놓인 달** 카드로
+   * 올라간다. 여기서는 9월 주의 할당이 8월 마일스톤에 걸린 상태를 직접 만든다 (이월 승계가
+   * 만드는 모양이고, ADR-035 이후로는 드로어에서 직접 걸 수도 있다).
+   *
+   * 이 조회가 맞아도 카드 서비스가 조회를 건너뛰면 소용없다 — 그 틈을 막는 회귀 테스트는
+   * services/milestones.test.ts 에 있다.
    */
-  it('타월 연결의 소진은 마일스톤이 놓인 달 카드로 올라간다 (A13 · R15)', () => {
+  it('다른 달 연결의 소진은 마일스톤이 놓인 달 카드로 올라간다 (A13)', () => {
     const { uow } = testUow()
     const wSep = '2026-09-07'
     uow.run((repos) => {
@@ -246,7 +249,7 @@ describe('milestones.rollup — 주 단위 파생 (R16·R17)', () => {
 
       // 8월 마일스톤을 9월 주로 조회하면 그 소진이 잡힌다 — 달이 아니라 마일스톤이 기준이다.
       expect(repos.milestones.rollup(AUG, wSep)).toEqual([{ milestoneId: m, measuredSec: 1500 }])
-      // 9월 카드에는 그 마일스톤이 없으므로 롤업도 없다.
+      // 9월 카드에는 그 마일스톤이 없으므로 롤업도 없다 — 같은 시간이 두 카드에 뜨지 않는다.
       expect(repos.milestones.rollup(SEP, wSep)).toEqual([])
     })
   })
@@ -300,7 +303,7 @@ describe('milestones.linkedMilestone · setWeekItemMilestone (R13·R15)', () => 
     })
   })
 
-  it('타월 연결도 그대로 읽힌다 — 후보 밖이어도 지워지지 않는다 (R15)', () => {
+  it('다른 달 연결도 그대로 읽힌다', () => {
     const { uow } = testUow()
     const wSep = '2026-09-07'
     uow.run((repos) => {
@@ -308,8 +311,6 @@ describe('milestones.linkedMilestone · setWeekItemMilestone (R13·R15)', () => 
       const item = addItem(repos, { week: wSep, title: 'a', milestoneId: m })
 
       expect(repos.milestones.linkedMilestone(item)?.month).toBe(AUG)
-      // 9월 주의 후보(= 9월 마일스톤)에는 그것이 없다 — 새로 매달 수는 없다는 뜻이다 (R14).
-      expect(repos.milestones.listForMonth(SEP)).toEqual([])
     })
   })
 })
