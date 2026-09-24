@@ -1,0 +1,302 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>의사결정 플로우 — 2026-09-24 계획서 가져오기 · Milestone 연결 규칙</title>
+<style>
+  :root {
+    --bg: #ffffff; --surface: #f7f8f8; --line: #d8dcda; --line-strong: #9aa3a0;
+    --text: #14201c; --muted: #6b7873;
+    --teal: #0f8a6d; --teal-soft: rgba(15,138,109,0.10);
+    --amber: #a76a12; --amber-soft: rgba(167,106,18,0.12);
+    --violet: #7c4fc4; --violet-soft: rgba(124,79,196,0.10);
+    --danger: #b3543f;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0c1a16; --surface: rgba(255,255,255,0.045); --line: rgba(255,255,255,0.14);
+      --line-strong: rgba(255,255,255,0.4); --text: #e8f0ec; --muted: #8fa39b;
+      --teal: #6fd4b8; --teal-soft: rgba(111,212,184,0.12);
+      --amber: #f0b671; --amber-soft: rgba(240,182,113,0.14);
+      --violet: #b795e8; --violet-soft: rgba(183,149,232,0.12);
+      --danger: #e8907e;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { background: var(--bg); color: var(--text); margin: 0;
+         padding: 32px 20px 64px;
+         font-family: ui-sans-serif, -apple-system, "Segoe UI", Roboto, sans-serif;
+         line-height: 1.6; }
+  .wrap { max-width: 800px; margin: 0 auto; }
+  h1 { font-size: 22px; margin: 0 0 6px; letter-spacing: -0.01em; }
+  .sub { color: var(--muted); font-size: 13px; margin: 0 0 8px; }
+  .sub a { color: var(--teal); }
+  .intro { font-size: 14px; background: var(--surface); border: 1px solid var(--line);
+           border-radius: 12px; padding: 14px 18px; margin: 18px 0 0; }
+  .intro b { color: var(--teal); }
+  .legend { display: flex; gap: 14px; flex-wrap: wrap; font-size: 12px; color: var(--muted);
+            margin: 14px 0 0; padding: 12px 0; border-bottom: 1px solid var(--line); }
+  .chip { display: inline-block; padding: 1px 8px; border-radius: 999px; font-size: 11px;
+          font-weight: 600; letter-spacing: 0.02em; vertical-align: 1px; }
+  .chip.rev { background: var(--amber-soft); color: var(--amber); }
+  .chip.exp { background: var(--violet-soft); color: var(--violet); }
+  .chip.sys { background: var(--teal-soft); color: var(--teal); }
+  .phase { margin-top: 40px; }
+  .phase-title { font-size: 12px; font-weight: 700; letter-spacing: 0.1em;
+                 color: var(--muted); text-transform: uppercase; margin: 0 0 4px 46px; }
+  .phase-desc { font-size: 13px; color: var(--muted); margin: 0 0 8px 46px; }
+  .node { display: flex; gap: 16px; }
+  .rail { width: 30px; flex-shrink: 0; display: flex; flex-direction: column; align-items: center; }
+  .dot { width: 12px; height: 12px; border-radius: 50%; background: var(--teal);
+         border: 2px solid var(--bg); box-shadow: 0 0 0 1.5px var(--teal); margin-top: 22px;
+         flex-shrink: 0; }
+  .dot.sys { background: var(--bg); box-shadow: 0 0 0 1.5px var(--line-strong); }
+  .dot.rev { background: var(--amber); box-shadow: 0 0 0 1.5px var(--amber); }
+  .rail .cont { width: 2px; flex: 1; background: var(--line); margin-top: 4px; }
+  .node:last-child .rail .cont { background: linear-gradient(var(--line), transparent); }
+  .card { flex: 1; background: var(--surface); border: 1px solid var(--line);
+          border-radius: 12px; padding: 16px 20px; margin: 8px 0; min-width: 0; }
+  .card.sys { background: transparent; border-style: dashed; }
+  .qid { font: 700 11px ui-monospace, Menlo, monospace; color: var(--muted);
+         letter-spacing: 0.06em; }
+  .qtitle { font-size: 15px; font-weight: 650; margin: 2px 0 10px; }
+  .sec-label { display: block; font-size: 11px; font-weight: 700; letter-spacing: 0.08em;
+               color: var(--muted); text-transform: uppercase; margin: 12px 0 3px; }
+  .problem { font-size: 13.5px; margin: 0; }
+  .problem em { font-style: normal; color: var(--danger); }
+  ul.options { list-style: none; padding: 0; margin: 4px 0 0; }
+  ul.options li { font-size: 13px; padding: 7px 10px 7px 30px; position: relative;
+                  border-radius: 8px; margin: 3px 0; color: var(--muted); }
+  ul.options li::before { content: "○"; position: absolute; left: 10px; color: var(--line-strong); }
+  ul.options li.chosen { background: var(--teal-soft); color: var(--text); }
+  ul.options li.chosen::before { content: "●"; color: var(--teal); }
+  ul.options li b { font-weight: 650; }
+  ul.options li .tr { color: var(--muted); }
+  .decision { font-size: 13.5px; margin: 4px 0 0; }
+  .decision b { color: var(--teal); }
+  .why { font-size: 13px; margin: 4px 0 0; padding: 8px 12px; border-left: 3px solid var(--amber);
+         background: var(--amber-soft); border-radius: 0 8px 8px 0; }
+  .why q { font-style: normal; }
+  .why + .why { margin-top: 6px; }
+  .dep { font-size: 12.5px; color: var(--muted); margin-top: 12px; padding-top: 10px;
+         border-top: 1px dashed var(--line); }
+  .dep code, .problem code, .decision code, ul.options code {
+    font-family: ui-monospace, Menlo, monospace; font-size: 12px;
+    background: none; color: var(--teal); }
+  ol.list { margin: 4px 0 0; padding-left: 20px; font-size: 13px; }
+  ol.list li { margin: 2px 0; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>의사결정 플로우</h1>
+  <p class="sub">2026-09-24 계획서 가져오기 · Milestone 연결 규칙 세션 · 시간순 · 결정 원문 기록: <a href="./2026-09-24-plan-import-and-milestone-links.md">2026-09-24-plan-import-and-milestone-links.md</a></p>
+
+  <div class="intro">
+    <b>이 문서가 다루는 것:</b> dongmodoro 에서 주간 계획을 손으로 하나씩 누르는 대신, 에이전트(Claude Code·Codex)가
+    쓴 <b>계획서</b>를 앱에 붙여넣어 한 번에 등록하는 기능을 구상하다가, 그 기능이 기존 Milestone 연결 규칙과
+    부딪히는 것을 발견하고 <b>규칙 자체를 6개에서 3개로 단순화</b>하기로 한 과정이다. 각 카드는
+    <b>문제 → 고민한 선택지 → 결정(왜)</b> 순서로 읽으면 된다. ● 표시가 최종 선택이다.
+  </div>
+
+  <div class="legend">
+    <span><span class="chip rev">반전</span> AI 추천을 기각했거나 선택을 번복한 지점</span>
+    <span><span class="chip exp">재설명</span> 결정 전에 상세 설명·분석을 요구한 지점</span>
+    <span><span class="chip sys">검증</span> 코드 실행·서브에이전트로 사실을 확인한 지점</span>
+    <span>점선 카드 = 질문이 아닌 이벤트</span>
+  </div>
+
+  <!-- ══════════ 1 · 방향 ══════════ -->
+  <div class="phase">
+    <p class="phase-title">1 · 방향 — 계획 입력을 어떻게 덜 번거롭게 하나</p>
+    <p class="phase-desc">디자인 정합성 수정을 먼저 끝낸 뒤, 에이전트가 계획을 써 주는 아이디어를 구체화했다.</p>
+
+    <div class="node">
+      <div class="rail"><div class="dot"></div><div class="cont"></div></div>
+      <div class="card">
+        <span class="qid">Q0</span>
+        <p class="qtitle">무엇부터 하나</p>
+        <span class="sec-label">문제</span>
+        <p class="problem">디자인 정합성 점검 결과와 계획서 가져오기 아이디어가 한 요청에 같이 들어왔다.</p>
+        <span class="sec-label">선택지</span>
+        <ul class="options">
+          <li class="chosen"><b>디자인 수정 먼저</b> — <span class="tr">범위가 작고 이미 원인까지 찾아 둔 상태</span></li>
+          <li><b>계획서 기능 먼저</b> — <span class="tr">기획 절차(Phase 0)가 필요해 길다</span></li>
+        </ul>
+        <span class="sec-label">결정</span>
+        <p class="decision"><b>디자인 수정 먼저.</b> PR #98 로 머지됐다.</p>
+        <div class="why"><q>일단 다른것부터 해보자 디자인 정합성 수정할꺼 수정부터 들어가자 스킬 계획한는건 나중에 해ㅏ자 계획가져오기 같은건</q></div>
+      </div>
+    </div>
+
+    <div class="node">
+      <div class="rail"><div class="dot"></div><div class="cont"></div></div>
+      <div class="card">
+        <span class="qid">Q1</span>
+        <p class="qtitle">에이전트가 앱에 계획을 어떻게 넣나</p>
+        <span class="sec-label">문제</span>
+        <p class="problem">한 주를 계획하려면 Milestone·Sprint·요일·task·연결을 하나씩 눌러야 한다. <em>클릭이 수십 번이다.</em></p>
+        <span class="sec-label">선택지</span>
+        <ul class="options">
+          <li><b>스킬이 DB 에 직접 쓴다</b> — <span class="tr">켜진 앱 캐시가 어긋나고 이월·워터마크 규칙이 있는 서비스 계층을 건너뜀</span></li>
+          <li class="chosen"><b>스킬은 형식 맞는 텍스트(계획서)까지, 등록은 앱이</b> — <span class="tr">형식이 계약이라 Claude·Codex·일반 챗봇 모두 같다</span></li>
+          <li><b>로컬 MCP 서버</b> — <span class="tr">지금은 과함. 같은 형식 위에 나중에 얹을 수 있다</span></li>
+        </ul>
+        <span class="sec-label">결정</span>
+        <p class="decision"><b>형식 계약 + 앱의 가져오기.</b> 스킬은 두 에이전트가 함께 쓰는 한 폴더.</p>
+        <div class="why"><q>dongmodoro skills가 있고 해당 스킬를 사용해서 에이전틱 코딩으로 하면 포맷에 맞게 커리큘럼이나 계획 작성해주고 그걸 input으로 넣으면 알아서 계획 설정하게 하면 좋을꺼같은데 어떻게 생각함?</q></div>
+        <div class="why"><q>skills: cluade나 codex 다른 agent가 사용 할 수 잇게 만들꺼임 해당 스킬은 이제 계획서를 dongmodoro 포맷에 맞게 작성해주는 스킬임</q></div>
+        <div class="dep">→ Q2 (입력 뷰) · → Q3 (형식)</div>
+      </div>
+    </div>
+
+    <div class="node">
+      <div class="rail"><div class="dot rev"></div><div class="cont"></div></div>
+      <div class="card">
+        <span class="qid">Q2 <span class="chip rev">반전</span></span>
+        <p class="qtitle">입력 뷰를 어디에 띄우나 — 미결</p>
+        <span class="sec-label">문제</span>
+        <p class="problem">AI 가 먼저 에이전트부터 앱까지의 <em>흐름</em> 와이어프레임을 그렸다. 사용자는 입력 뷰 자체를 원했다.
+        다시 3안 × 상태 4개(비어 있음 / 붙여넣음 / 형식 오류 / 이미 Sprint 가 있는 주)로 그렸다.</p>
+        <span class="sec-label">선택지</span>
+        <ul class="options">
+          <li><b>C 계획 컬럼 위 비모달 시트 (AI 추천)</b> — <span class="tr">MONTH 오버레이와 같은 문법, 타이머를 막지 않음. 단 480px 는 타이머를 가려 360px 로 줄여야 함</span></li>
+          <li><b>B 가운데 모달, 좌우 분할</b> — <span class="tr">가장 넓지만 타이머를 막음 (PRD R10)</span></li>
+          <li><b>A WEEK 카드 안의 모드</b> — <span class="tr">새 표면이 없지만 360px 라 확인 화면으로 좁음</span></li>
+        </ul>
+        <span class="sec-label">결정</span>
+        <p class="decision"><b>아직 없음.</b> 계획서 기능의 Phase 0 에서 정한다.</p>
+        <div class="why"><q>내가 원한건 흐름 와이어프레임이 아니라, input 넣는 뷰에 대한 와이어프레임이었어 확인해볼래?</q></div>
+      </div>
+    </div>
+
+    <div class="node">
+      <div class="rail"><div class="dot"></div><div class="cont"></div></div>
+      <div class="card">
+        <span class="qid">Q3 <span class="chip exp">재설명</span></span>
+        <p class="qtitle">계획서 형식 — YAML 인가 txt 인가</p>
+        <span class="sec-label">문제</span>
+        <p class="problem">앱에 AI 가 없으므로 어떤 형식이든 <em>규칙대로 읽혀야</em> 한다. 자유 txt 는 앱이 Sprint 와 task 를 확실히 구분할 수 없다.</p>
+        <span class="sec-label">선택지</span>
+        <ul class="options">
+          <li class="chosen"><b>YAML</b> — <span class="tr">에이전트가 잘 쓰고, 줄 단위 오류를 낼 수 있음. 약점은 들여쓰기·값 오해석</span></li>
+          <li><b>Markdown 식 자체 문법</b> — <span class="tr">손으로 고치기 쉽지만 파서·오류 메시지를 직접 만들어야 함</span></li>
+          <li><b>JSON</b> — <span class="tr">따옴표·괄호가 많아 사람이 훑기 어려움</span></li>
+        </ul>
+        <span class="sec-label">결정</span>
+        <p class="decision"><b>YAML.</b> 값은 전부 문자열로 읽고, 확장자가 아니라 내용을 읽어 <code>.txt</code> 도 받는다.</p>
+        <div class="why"><q>yaml로 할꺼야? 일반사람들은 txt가 익숙할껀데 그렇게 한이유가있어? 바꾸라는소리는아님</q></div>
+        <div class="why"><q>음 yaml이 맞을꺼같다 어차피 AI가 작성해주니깐 ㅇㅇ</q></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════ 2 · 공존 ══════════ -->
+  <div class="phase">
+    <p class="phase-title">2 · 공존 — 기존 동작과 부딪히나</p>
+    <p class="phase-desc">설계를 확정하기 전에 기존 동작이 깨지지 않는지부터 확인했다.</p>
+
+    <div class="node">
+      <div class="rail"><div class="dot sys"></div><div class="cont"></div></div>
+      <div class="card sys">
+        <span class="qid">평가 <span class="chip sys">검증</span></span>
+        <p class="qtitle">서브에이전트 3개 — 데이터·화면·도메인</p>
+        <p class="problem">설계 그대로면 막히는 곳 4건이 나왔다.</p>
+        <ol class="list">
+          <li>계획 단계 task 생성이 R12 "task 목록은 계획서가 아니라 누적 기록"과 충돌</li>
+          <li>AI 가 쓴 예시 계획서의 Milestone 연결이 서비스에서 거부됨 — 9/28 주는 9월 주라 10월 Milestone 불가 (R14)</li>
+          <li>대상 주 제한이 화면에만 있음 — 지난 주로 가져오면 정산이 못 보는 Sprint 가 생김</li>
+          <li>480px 시트가 창 최소 폭에서 타이머를 약 96px 가림</li>
+        </ol>
+        <div class="dep">→ Q4 · → Q5 · Q2 보정</div>
+      </div>
+    </div>
+
+    <div class="node">
+      <div class="rail"><div class="dot rev"></div><div class="cont"></div></div>
+      <div class="card">
+        <span class="qid">Q4 <span class="chip rev">반전</span></span>
+        <p class="qtitle">task 를 계획서로 미리 넣어도 되나</p>
+        <span class="sec-label">문제</span>
+        <p class="problem">R12 는 task 를 "해 온 일의 누적 기록"으로 정의하고, 첫 pull 이 첫 task 를 만든다.</p>
+        <span class="sec-label">선택지</span>
+        <ul class="options">
+          <li><b>v1 은 tasks 를 빼고 Sprint 만 (AI 추천)</b> — <span class="tr">기존 정의를 지킴</span></li>
+          <li class="chosen"><b>R12 를 개정해 두 방식 공존</b> — <span class="tr">드로어가 task 0개·있음 두 상태를 이미 다 다뤄 새 코드가 거의 없음</span></li>
+        </ul>
+        <span class="sec-label">결정</span>
+        <p class="decision"><b>공존.</b> <code>tasks</code> 는 선택 필드. 없으면 드로어에서 쪼개고, 있으면 <code>+ 오늘로</code> 한 번에 다음 task 가 순서대로 들어온다.</p>
+        <div class="why"><q>기존 정의와 충돌해도 됨, 음 내가 원하는건 기존의 방식과 현재 방식이 공존했음 좋겠다는거임</q></div>
+        <div class="dep">R12·CONTEXT.md task 정의는 계획서 기능 PR 에서 개정</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════ 3 · 규칙 ══════════ -->
+  <div class="phase">
+    <p class="phase-title">3 · 규칙 — Milestone 연결을 단순화</p>
+    <p class="phase-desc">다른 달 Milestone 연결을 풀어 보다가, 규칙 여섯 개가 한 개념에서 줄줄이 나온다는 것이 드러났다.</p>
+
+    <div class="node">
+      <div class="rail"><div class="dot rev"></div><div class="cont"></div></div>
+      <div class="card">
+        <span class="qid">Q5 <span class="chip exp">재설명</span> <span class="chip rev">반전</span></span>
+        <p class="qtitle">다른 달 Milestone 에 연결할 수 있게 하나</p>
+        <span class="sec-label">문제</span>
+        <p class="problem">주는 월요일이 속한 달에 통째로 귀속된다(R18). 그래서 새 연결은 그 달만(R14), 이월은 예외(R15),
+        카드는 귀속될 때만 숫자(R20), 아니면 안내 문구(R23). <em>9/28–10/4 주에 10월 목표를 걸 수 없다.</em></p>
+        <span class="sec-label">선택지</span>
+        <ul class="options">
+          <li><b>(가) 지금 규칙 유지</b> — <span class="tr">코드 변경 0. 경계 주에 그 달 목표를 못 다는 게 어색</span></li>
+          <li><b>(나) 경계 주만 두 달 허용 (AI 첫 추천)</b> — <span class="tr">규칙 6개 위에 예외를 하나 더 얹음</span></li>
+          <li class="chosen"><b>단순화 — 규칙 6개 → 3개</b> — <span class="tr">Milestone 은 한 달에 속한다 / Sprint 는 어느 달 Milestone 에나 연결 / 카드는 그 Milestone 에 연결된 이번 주 Sprint 의 시간. R18 은 정산·주간 합계용으로 유지</span></li>
+        </ul>
+        <span class="sec-label">결정</span>
+        <p class="decision"><b>단순화.</b> 이월 예외와 안내 문구가 사라진다. AI 는 처음 이 안을 "월 경계가 사라진다"며 비추천했다가, 집계가 Milestone 기준이라 경계가 섞이지 않는다는 점을 정정하고 추천을 바꿨다.</p>
+        <div class="why"><q>좀더 쉽게 설명해볼래? 지금 이해가안감</q></div>
+        <div class="why"><q>흠 규칙이 너무 복잡하다 규칙이 어떻게 되는지 확인해볼래?</q></div>
+        <div class="why"><q>흠 규칙에 대해서 수정하게되면 어떻게 되는지 html 아티펙트로 만들어볼래?</q></div>
+        <div class="why"><q>음 규칙 바꾸는게 더 낫겠다 좀더 쉽게 가는게 맞음</q></div>
+        <div class="dep">→ Q6 · ADR-035</div>
+      </div>
+    </div>
+
+    <div class="node">
+      <div class="rail"><div class="dot sys"></div><div class="cont"></div></div>
+      <div class="card sys">
+        <span class="qid">검증 <span class="chip sys">검증</span></span>
+        <p class="qtitle">규칙 변경 가능성 · 예상 버그 — 서브에이전트 2개</p>
+        <p class="problem"><b>기존 버그 재현.</b> 8월 Milestone 에 연결된 Sprint 를 9/7 주로 이월하고 9/8 에 25분 집중 →
+        저장소는 1500초를 세지만 <em>8월 카드도 9월 카드도 숫자를 표시하지 않는다.</em> A13 이 지켜지지 않고 있었다
+        (<code>milestones.ts:89</code>). 새 규칙 3이 곧 해결책이다.</p>
+        <ol class="list">
+          <li>구현 가능 — 저장소 <code>rollup</code> 은 이미 어떤 주든 받는다. 서비스 게이트 2곳 + 후보 쿼리 + 무효화 + 드로어 + 문서</li>
+          <li>새 규칙의 예상 버그 3건 — 자정 달 전환 시 낡은 후보, 한 달만 새로고침, 드로어에 달 표시 없음</li>
+          <li>기존 버그 추가 — 보내주기·계획 확정이 월 카드를 안 털고, 연결 실패가 조용함</li>
+        </ol>
+      </div>
+    </div>
+
+    <div class="node">
+      <div class="rail"><div class="dot"></div><div class="cont"></div></div>
+      <div class="card">
+        <span class="qid">Q6</span>
+        <p class="qtitle">지난 달 Milestone 에 새로 연결하는 것을 막나</p>
+        <span class="sec-label">문제</span>
+        <p class="problem">막으면 10/2 에 9/28 주 Sprint 를 9월 Milestone 에 못 걸고, <em>자정에 달이 바뀌는 순간</em> 드로어 후보가 낡는 버그도 따로 막아야 한다.</p>
+        <span class="sec-label">선택지</span>
+        <ul class="options">
+          <li><b>(가) 막는다</b> — <span class="tr">"지난 달은 읽기 전용"에 문자 그대로 맞음. 규칙과 버그가 하나씩 늘어남</span></li>
+          <li class="chosen"><b>(나) 막지 않는다 (AI 추천)</b> — <span class="tr">연결은 Milestone 자체를 고치는 게 아니라 읽기 전용과 부딪히지 않음. 달 전환 버그가 사라짐</span></li>
+        </ul>
+        <span class="sec-label">결정</span>
+        <p class="decision"><b>(나).</b> 규칙 2 = "Sprint 는 어느 Milestone 에나 연결할 수 있다". 드로어 후보는 이번 달 → 다음 달 → 그 뒤 → 지난 달, 달별로 묶는다.</p>
+        <div class="why"><q>1번 나로해야함</q></div>
+        <div class="dep">← Q5</div>
+      </div>
+    </div>
+  </div>
+</div>
+</body>
+</html>
