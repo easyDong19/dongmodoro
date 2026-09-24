@@ -104,7 +104,8 @@ export function keysToInvalidate(e: InvalidationEvent): readonly (readonly strin
       // 확정 주가 오늘 주가 아니어도 오늘을 무효화한다 — 판정 비용이 재조회 비용보다 크다.
       return [keys.week(e.payload.week), keys.today(e.currentDayKey)]
     case 'item-changed':
-      // 완료·완료 해제·폐기·pull 이 모두 이 갈래다 — 바뀌는 캐시 집합이 같다.
+      // 완료·완료 해제·폐기·마일스톤 연결·task 추가가 이 갈래다 — 바뀌는 캐시 집합이 같다.
+      // **pull 은 여기가 아니다** — 캘린더 점을 바꾸므로 `pull-changed` 로 간다.
       return [keys.week(e.payload.itemWeek), keys.today(e.currentDayKey)]
     case 'settled':
       /**

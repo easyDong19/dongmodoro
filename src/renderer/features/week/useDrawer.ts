@@ -11,9 +11,12 @@ import type { PullInput } from './ItemDrawer'
  * `weekItemId` 가 null 이면 쿼리를 끈다 (`enabled`) — 닫혀 있을 때 서버를 부르지 않는다.
  * 훅은 조건부로 호출할 수 없으므로(React 규칙) 스위치를 여기에 둔다.
  *
- * **무효화를 직접 하지 않는다.** 드로어 키가 `keys.week(weekKey)` 의 하위라서, pull 이
- * `item-changed` 로 그 주를 털면 드로어도 함께 갱신된다 — 초크포인트 하나로 끝난다
- * (ADR-025 §5).
+ * **무효화를 직접 하지 않는다.** 드로어 키가 `keys.week(weekKey)` 의 하위라서, 그 주를
+ * 털면 드로어도 함께 갱신된다 — 초크포인트 하나로 끝난다 (ADR-025 §5).
+ *
+ * pull 은 `pull-changed` 다 — 오늘 목록의 직접 추가·제거와 같은 사건이다. pull 행이
+ * 캘린더 `기록 있음` 의 두 번째 항이라 오늘 칸의 점이 생긴다 (calendar-records R5).
+ * `item-changed` 는 캘린더를 털지 않아서, 가져온 뒤에도 점이 뜨지 않았다.
  */
 export function useDrawer(weekKey: string, weekItemId: string | null) {
   const { dayKey } = useClock()
@@ -30,15 +33,15 @@ export function useDrawer(weekKey: string, weekItemId: string | null) {
       api.week.pullFromDrawer({ weekItemId: weekItemId as string, ...input }),
     onSuccess: (r) =>
       dispatchInvalidation(qc, {
-        type: 'item-changed',
+        type: 'pull-changed',
         payload: { itemWeek: r.itemWeek },
         currentDayKey: dayKey
       })
   })
 
   /**
-   * `새 조각 추가` — 조각 생성만 한다 (쪼개기·가져오기 분리). 무효화는 pull 과 같은
-   * 초크포인트다: item-changed 가 그 주를 털면 열려 있는 드로어도 함께 갱신되어
+   * `새 조각 추가` — 조각 생성만 한다 (쪼개기·가져오기 분리). pull 이 아니므로
+   * `item-changed` 다: 그 주를 털면 열려 있는 드로어도 함께 갱신되어
    * 방금 만든 조각이 목록에 나타난다.
    */
   const addTask = useMutation({

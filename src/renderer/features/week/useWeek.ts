@@ -9,7 +9,7 @@ import { monthOfWeek } from '@shared/time'
  * 주간 카드 조회 + 항목 mutation 4종. 무효화는 전부 dispatchInvalidation 초크포인트로만
  * 한다 (ADR-025 §5, eslint no-restricted-syntax 가 강제).
  *
- * 네 mutation 이 같은 `invalidateItem` 을 쓰는 이유: 완료·완료 해제·폐기·pull 이 더럽히는
+ * 네 mutation 이 같은 `invalidateItem` 을 쓰는 이유: 완료·완료 해제·폐기·연결이 더럽히는
  * 캐시 집합이 같다. 무효화할 주는 응답의 `itemWeek` 에서 온다 — 보고 있는 주와 다를 수
  * 있으므로(폐기·이월 항목) renderer 가 현재 주로 넘겨짚지 않는다.
  */
