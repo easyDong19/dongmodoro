@@ -258,11 +258,16 @@ main {
   justify-content: center;
 }
 
-/* 56 / 220 = 25.45% — 하한에서 정확히 --text-display 다 (ADR-012 §3). 숫자에 독립적인
-   clamp 를 또 두지 않는 이유가 이것이다: 곡선이 둘이면 어긋나는 구간이 생긴다. */
+/* 한 변의 22% (design-system ADR-013 §2). 숫자에 독립적인 clamp 를 또 두지 않는 이유는
+   ADR-012 §3 그대로다: 곡선이 둘이면 어긋나는 구간이 생긴다. 비율만 25.45% 에서 내렸고,
+   그 대가로 하한에서 숫자가 --text-display(56px) 가 아니라 ≈49px 이 된다.
+
+   굵기를 --weight-light 로 두는 것이 크기를 줄인 것보다 체감이 크다 — 이 화면에서 가장
+   큰 글자가 가장 굵기까지 하면 다른 카드를 전부 누른다 (ADR-013 Context). */
 .timer-digits {
   font-family: var(--font-mono);
-  font-size: 25.45cqmin;
+  font-size: 22cqmin;
+  font-weight: var(--weight-light);
   font-variant-numeric: tabular-nums;
   line-height: 1;
   color: var(--ink);
