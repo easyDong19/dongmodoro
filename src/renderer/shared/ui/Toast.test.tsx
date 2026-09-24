@@ -19,6 +19,17 @@ describe('Toast', () => {
     expect(el).not.toHaveAttribute('aria-live', 'assertive')
   })
 
+  /**
+   * 호출부는 유리 카드 안이다. `.card` 의 `backdrop-filter` 가 `position: fixed` 의 기준
+   * 상자를 카드로 바꾸므로, 카드 DOM 안에 그려지면 창이 아니라 카드 모서리에 붙는다.
+   */
+  it('호출부가 아니라 body 에 그려진다 — 카드가 fixed 의 기준이 되지 않게', () => {
+    const { container } = render(<Toast message="가져왔어요" onDismiss={vi.fn()} />)
+    const el = screen.getByRole('status')
+    expect(container).not.toContainElement(el)
+    expect(el.parentElement).toBe(document.body)
+  })
+
   it('--layer-toast 레이어에 놓인다', () => {
     render(<Toast message="가져왔어요" onDismiss={vi.fn()} />)
     expect(screen.getByRole('status').style.zIndex).toBe('var(--layer-toast)')

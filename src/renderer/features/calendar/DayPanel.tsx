@@ -55,7 +55,7 @@ export function DayPanel({ data, todayKey }: { data: DayResponse; todayKey: stri
                 >
                   {t.title}
                 </span>
-                <span className="shrink-0 text-[10px] text-ink-faint">{sourceLabel(t)}</span>
+                <span className="shrink-0 text-xs text-ink-faint">{sourceLabel(t)}</span>
               </li>
             ))}
           </ul>

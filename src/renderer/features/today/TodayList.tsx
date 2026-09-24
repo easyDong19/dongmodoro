@@ -146,6 +146,16 @@ export function TodayList() {
     </form>
   )
 
+  // 머리글은 세 컬럼이 같은 문법이다 — eyebrow 가 그 컬럼이 어느 레이어인지 알리는 유일한
+  // 표지이고(app-shell ux-spec §1), 제목은 그 카드가 담는 것의 캐노니컬 이름이다
+  // (WEEK·Sprint / MONTH·Milestone / TODAY·할 일). 빈 상태 카피는 머리글이 아니라 본문이다.
+  const header = (
+    <header className="shrink-0">
+      <p className="eyebrow">TODAY</p>
+      <h2 className="card-title text-ink">할 일</h2>
+    </header>
+  )
+
   if (isLoading) {
     // 아직 조회 중 — 빈 상태 카피도, 행도 그리지 않는다 (있을지 없을지 모르므로).
     return <div className="flex flex-col gap-4 rounded-lg p-4" aria-busy="true" />
@@ -154,6 +164,7 @@ export function TodayList() {
   if (rows.length === 0) {
     return (
       <div className="flex flex-col gap-4 rounded-lg p-4">
+        {header}
         <p className="text-sm text-ink-dim">오늘 몫이 비어 있어요</p>
         {directInput}
       </div>
@@ -165,6 +176,7 @@ export function TodayList() {
     // 스크롤은 목록 래퍼에만 있고 **직접 입력 폼은 그 밖의 하단 고정**이다 — 항목이
     // 몇 개든 추가 진입점이 스크롤에 밀려 사라지면 안 된다.
     <div className="flex h-full min-h-0 flex-col gap-4 rounded-lg p-4">
+      {header}
       <div className="scroll-area flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto">
         {/* 두 목록 다 **비면 아예 그리지 않는다.** 부모가 `gap-4` 라 빈 `ul` 도 앞뒤로
             간격을 차지한다 — 마지막 미완료 항목을 체크하는 순간 그 항목이 완료 목록으로

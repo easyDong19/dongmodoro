@@ -40,7 +40,7 @@ export function MonthGrid({
     <div>
       <div className="grid grid-cols-7 gap-1 px-1 pb-1">
         {WEEKDAYS.map((label) => (
-          <div key={label} className="text-center text-[10px] text-ink-faint">
+          <div key={label} className="text-center text-xs text-ink-faint">
             {label}
           </div>
         ))}
@@ -70,7 +70,6 @@ export function MonthGrid({
               aria-label={`${dayNum}일${day.hasRecord ? ` · 집중 ${day.focusCount}회` : ''}`}
               className={[
                 'flex min-h-[var(--target-min)] flex-col items-center justify-center gap-0.5 rounded-md py-1',
-                'focus-visible:outline focus-visible:outline-2 focus-visible:outline-teal',
                 // 선택은 **배경 채널 단독**이다 — 숫자 색을 바꾸지 않는다.
                 isSelected
                   ? 'border border-glass-border bg-glass-strong'

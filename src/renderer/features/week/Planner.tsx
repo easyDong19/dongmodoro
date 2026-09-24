@@ -2,6 +2,7 @@ import { useRef, useState } from 'react'
 import type { Api } from '@shared/ipc/api'
 import { weekRangeLabel } from '@shared/time'
 import { Button } from '@renderer/shared/ui/button'
+import { Segmented, segmentClass, type SegmentOption } from '@renderer/shared/ui/Segmented'
 
 type Draft = Awaited<ReturnType<Api['week']['planDraft']>>
 type DraftItem = Draft['items'][number]
@@ -17,8 +18,6 @@ const DAY_NAMES = ['월', '화', '수', '목', '금', '토', '일'] as const
  * - `existing` — 이미 저장된 항목. 확정 시 폐기되므로 **행을 지우지 않고** 예정 표시로 바꾼다
  */
 type Row = DraftItem & { key: string; origin: 'new' | 'existing'; pendingDrop: boolean }
-
-const TARGET_MIN = 'min-h-[var(--target-min)] min-w-[var(--target-min)]'
 
 function DayChips({
   selected,
@@ -40,9 +39,10 @@ function DayChips({
             // onMouseDown 을 막아 제목 입력이 포커스를 잃지 않게 한다 (§5.3).
             onMouseDown={(e) => e.preventDefault()}
             onClick={() => onToggle(i)}
-            className={`${TARGET_MIN} rounded-md px-2 text-xs ${
-              on ? 'bg-glass-strong text-teal' : 'text-ink-dim'
-            }`}
+            className={segmentClass(on, {
+              selectedText: 'text-teal',
+              offBorder: 'border-glass-border-soft'
+            })}
           >
             {name}
           </button>
@@ -56,42 +56,11 @@ function DayChips({
 export type PlanTarget = 'current' | 'next'
 
 const TARGET_LABEL: Record<PlanTarget, string> = { current: '이번 주', next: '다음 주' }
-
-/**
- * 편집 대상 주 세그먼트 (§5.0). **선택 상태에 보더가 필수다** — `--glass-strong` 배경은
- * 고대비 모드에서 사라지므로 배경만으로 선택을 표현하면 무엇이 선택됐는지 알 수 없다
- * (design-system ADR-006 §3). `aria-pressed` 는 스크린리더용이고 시각 신호를 대체하지 않는다.
- */
-function TargetToggle({
-  target,
-  onPick
-}: {
-  target: PlanTarget
-  onPick: (next: PlanTarget) => void
-}) {
-  return (
-    <div className="flex items-center gap-1">
-      {(['current', 'next'] as const).map((value) => {
-        const on = value === target
-        return (
-          <button
-            key={value}
-            type="button"
-            aria-pressed={on}
-            onClick={() => onPick(value)}
-            className={`${TARGET_MIN} rounded-md border px-2 text-xs ${
-              on
-                ? 'border-control-border bg-glass-strong text-teal'
-                : 'border-transparent text-ink-dim'
-            }`}
-          >
-            {TARGET_LABEL[value]}
-          </button>
-        )
-      })}
-    </div>
-  )
-}
+const TARGET_OPTIONS: SegmentOption<PlanTarget>[] = (['current', 'next'] as const).map((value) => ({
+  value,
+  label: TARGET_LABEL[value],
+  selectedText: 'text-teal'
+}))
 
 /**
  * 플래너 모드 (ux-spec §5). 3단계를 한 화면에 위에서 아래로 쌓는다 — 마법사도, 단계
@@ -186,7 +155,14 @@ export function Planner({
       <header className="flex shrink-0 flex-col gap-1 px-4 pt-4">
         <p className="eyebrow">WEEK</p>
         <h2 className="card-title text-ink">{`${TARGET_LABEL[target]} 계획`}</h2>
-        <TargetToggle target={target} onPick={pickTarget} />
+        {/* 편집 대상 주 (§5.0). 선택 표현은 `Segmented` 가 소유한다 — 보더가 필수인 이유도
+            거기 있다 (design-system ADR-006 §3). */}
+        <Segmented
+          label="편집 대상 주"
+          options={TARGET_OPTIONS}
+          value={target}
+          onChange={pickTarget}
+        />
         <p className="font-mono text-xs tabular-nums text-ink-dim">{weekRangeLabel(week)}</p>
         {confirmingSwitch !== null ? (
           <div className="flex flex-col gap-1 rounded-md border border-glass-border-soft px-2 py-2">

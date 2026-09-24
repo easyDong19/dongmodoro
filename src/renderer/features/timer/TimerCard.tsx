@@ -2,14 +2,15 @@ import type { TimerSnapshotWire } from '@shared/ipc/contracts'
 import type { TimerMode } from '@shared/timer/snapshot'
 import { api } from '@renderer/shared/api'
 import { Button } from '@renderer/shared/ui/button'
+import { Segmented, type SegmentOption } from '@renderer/shared/ui/Segmented'
 import { useTimer } from './useTimer'
 import { CaptureBar } from './CaptureBar'
 import { StudyDaysLine } from '@renderer/features/calendar/StudyDaysLine'
 
-const MODE_TABS: { mode: TimerMode; label: string }[] = [
-  { mode: 'focus', label: '집중' },
-  { mode: 'short', label: '짧은 휴식' },
-  { mode: 'long', label: '긴 휴식' }
+const MODE_TABS: SegmentOption<TimerMode>[] = [
+  { value: 'focus', label: '집중' },
+  { value: 'short', label: '짧은 휴식' },
+  { value: 'long', label: '긴 휴식' }
 ]
 
 const ADJUST_CHIPS = [-10, -5, -1, 1, 5, 10]
@@ -62,20 +63,15 @@ export function TimerCard() {
     /* `h-full` 이 있어야 `.timer-dial-area` 의 `flex: 1` 이 확정 높이를 받는다 — 높이가
        내용에서 나오면 사이즈 컨테이너의 `100cqh` 가 성립하지 않는다. */
     <div className="flex h-full flex-col gap-4 rounded-lg p-4">
-      <div className="flex gap-2" aria-label="타이머 모드">
-        {MODE_TABS.map(({ mode, label }) => (
-          <button
-            key={mode}
-            type="button"
-            aria-pressed={snapshot.mode === mode}
-            onClick={() => void api.timer.setMode(mode)}
-            className="rounded-md px-3 py-1.5 text-sm text-ink"
-            style={{ background: snapshot.mode === mode ? 'var(--glass-strong)' : 'transparent' }}
-          >
-            {label}
-          </button>
-        ))}
-      </div>
+      {/* 모드 전환은 앱의 다른 배타 토글과 같은 `Segmented` 다 — 따로 그리던 시절에는
+          선택을 배경만으로 표현해 고대비 모드에서 어느 모드인지 사라졌다 (ADR-006 §3). */}
+      <Segmented
+        label="타이머 모드"
+        size="sm"
+        options={MODE_TABS}
+        value={snapshot.mode}
+        onChange={(mode) => void api.timer.setMode(mode)}
+      />
 
       {/* 크기의 기준은 글자가 아니라 **다이얼 한 변** 이다 (design-system ADR-012). 한 변이
           `min(가로 여유, 세로 여유)` 를 하한·상한 사이에서 따르고 링·숫자가 거기서 파생된다.

@@ -1,4 +1,5 @@
 import { useEffect } from 'react'
+import { createPortal } from 'react-dom'
 
 /** 화면에 머무는 시간. 한 줄 알림이라 읽고 사라지기에 충분한 길이다. */
 const DISMISS_MS = 4000
@@ -22,20 +23,27 @@ export function Toast({ message, onDismiss }: { message: string; onDismiss: () =
     // 매 렌더 새 함수가 되어 타이머가 영원히 다시 시작되고 토스트가 사라지지 않는다.
   }, [message])
 
-  return (
+  // **`body` 로 포털한다.** 호출부는 유리 카드 안이고, `.card` 의 `backdrop-filter` 가
+  // `position: fixed` 의 기준 상자를 카드로 바꾼다 — 포털 없이는 "창 우하단"이 "카드
+  // 우하단"이 되어, 주간 카드의 `기타` 행 위에 떠서 그 행의 측정 시간을 가렸다.
+  return createPortal(
     // 표면이 **불투명(bg-deep)** 인 것이 핵심이다 — 유리(glass-strong)로 띄우면 다크에서
     // 아래 콘텐츠가 비쳐서, 드로어처럼 텍스트 밀도가 높은 곳 위에 뜰 때 두 겹의 글자가
     // 겹쳐 보인다. 그림자가 깊이를 만들어 "위에 뜬 레이어"로 읽히게 한다.
     //
     // 우하단인 이유: pull 의 도착지인 오늘 목록 카드가 오른쪽 컬럼이라 방향이 맞고,
     // 하단 중앙은 타이머 컨트롤·드로어와 겹치는 자리였다.
+    //
+    // `pointer-events-none` — 그 자리는 오늘 목록 카드의 직접 입력 행 위다. 읽기만 하는
+    // 알림(버튼이 없다)이 4초 동안 `추가` 버튼의 클릭을 먹지 않게 한다.
     <div
       role="status"
       aria-live="polite"
       style={{ zIndex: 'var(--layer-toast)', boxShadow: 'var(--glass-shadow)' }}
-      className="fixed bottom-6 right-6 rounded-md border border-glass-border bg-bg-deep px-4 py-2 text-sm text-ink"
+      className="pointer-events-none fixed bottom-6 right-6 rounded-md border border-glass-border bg-bg-deep px-4 py-2 text-sm text-ink"
     >
       {message}
-    </div>
+    </div>,
+    document.body
   )
 }
