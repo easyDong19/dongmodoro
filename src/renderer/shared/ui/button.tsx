@@ -42,7 +42,11 @@ const buttonVariants = cva(
         sm: 'h-8 gap-1.5 rounded-md px-3 has-[>svg]:px-2.5',
         lg: 'h-10 rounded-md px-6 has-[>svg]:px-4',
         icon: 'size-9',
-        'icon-xs': "size-6 rounded-md [&_svg:not([class*='size-'])]:size-3",
+        // 아이콘 버튼의 모서리는 **한 변에 비례**해야 모양이 같다. `--radius-md`(13px)를
+        // 24px 에 걸면 반지름이 절반을 넘겨 원이 되고, 32·36px 에서는 둥근 사각이라 크기마다
+        // 다른 모양의 버튼이 섞였다. 24px 만 `--radius-sm`(9px)으로 내려 네 크기가 모두
+        // 한 변의 32~41% 에 든다.
+        'icon-xs': "size-6 rounded-sm [&_svg:not([class*='size-'])]:size-3",
         'icon-sm': 'size-8',
         'icon-lg': 'size-10'
       }

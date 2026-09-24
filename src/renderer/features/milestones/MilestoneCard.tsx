@@ -48,9 +48,14 @@ export function MilestoneCard() {
    */
   return (
     <div className="flex min-h-0 flex-col gap-2" data-mode={data.mode} data-testid="milestone-card">
-      <h2 className={`card-title ${data.mode.startsWith('past') ? 'text-ink-dim' : 'text-ink'}`}>
-        Milestone
-      </h2>
+      {/* MONTH 컬럼의 eyebrow 는 이 카드가 진다 — 컬럼의 맨 위 카드다 (app-shell ux-spec §1).
+          캘린더 카드는 같은 컬럼이라 다시 달지 않는다. */}
+      <header>
+        <p className="eyebrow">MONTH</p>
+        <h2 className={`card-title ${data.mode.startsWith('past') ? 'text-ink-dim' : 'text-ink'}`}>
+          Milestone
+        </h2>
+      </header>
 
       {/* 지난달 배지 (R21 · R23). M === 0 이면 서버가 null 을 주므로 여기서 그리지 않는다. */}
       {data.badge !== null ? (

@@ -77,6 +77,18 @@ describe('TimerCard — 렌더 계약 (Task 10)', () => {
     expect(screen.getByRole('button', { name: '긴 휴식' })).toBeInTheDocument()
   })
 
+  /**
+   * 선택을 **배경만으로** 표현하면 고대비 모드에서 어느 모드인지 사라진다 (design-system
+   * ADR-006 §3). 모드 탭이 공용 `Segmented` 를 지나 보더를 함께 받는지 본다.
+   */
+  it('활성 모드 탭은 배경과 함께 보더로도 구분된다', async () => {
+    setup(baseSnapshot)
+    const active = await screen.findByRole('button', { name: '집중' })
+    expect(active).toHaveAttribute('aria-pressed', 'true')
+    expect(active).toHaveClass('border-control-border')
+    expect(screen.getByRole('button', { name: '짧은 휴식' })).toHaveClass('border-transparent')
+  })
+
   it('모드 탭 클릭이 setMode 를 호출한다', async () => {
     const mockApi = setup(baseSnapshot)
     const tab = await screen.findByRole('button', { name: '짧은 휴식' })

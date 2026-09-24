@@ -50,7 +50,7 @@ export function MilestoneRow({
   return (
     <li data-testid="milestone-row" data-milestone-id={item.id} className="flex flex-col gap-1">
       <div className="flex items-center gap-2">
-        <span className="shrink-0 font-mono text-[10px] tabular-nums text-ink-faint">
+        <span className="shrink-0 font-mono text-xs tabular-nums text-ink-faint">
           {`M${index + 1}`}
         </span>
 
@@ -121,9 +121,9 @@ export function MilestoneRow({
         사실이라, 전자는 이 줄 자체를 그리지 않고 후자는 `0분` 을 적는다 (R17·R18).
       */}
       {item.rollup !== null && rollupWeek !== null ? (
-        <p data-testid="milestone-rollup" className="pl-6 text-[10px] text-ink-dim">
+        <p data-testid="milestone-rollup" className="pl-6 text-xs text-ink-dim">
           {'이번 주 '}
-          <MeasuredTime sec={item.rollup.measuredSec} className="text-[10px] text-ink-dim" />
+          <MeasuredTime sec={item.rollup.measuredSec} className="text-xs text-ink-dim" />
         </p>
       ) : null}
 
@@ -133,7 +133,7 @@ export function MilestoneRow({
             확인 문구는 **잃는 것을 사실로** 말한다 (R8 · A8) — 제목이 사라지고 연결이
             끊기지만 소진 기록은 남는다. 되돌리는 UI 는 없다.
           */}
-          <p className="text-[10px] text-ink-dim">
+          <p className="text-xs text-ink-dim">
             지우면 되돌릴 수 없어요. 연결된 할당은 기타로 남고 집중 기록은 그대로예요.
           </p>
           <div className="flex gap-1 pt-1">
