@@ -133,7 +133,7 @@ export function MilestoneRow({
             끊기지만 소진 기록은 남는다. 되돌리는 UI 는 없다.
           */}
           <p className="text-xs text-ink-dim">
-            지우면 되돌릴 수 없어요. 연결된 할당은 기타로 남고 집중 기록은 그대로예요.
+            지우면 되돌릴 수 없어요. 연결된 Sprint는 기타로 남고 집중 기록은 그대로예요.
           </p>
           <div className="flex gap-1 pt-1">
             <Button
