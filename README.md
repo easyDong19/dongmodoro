@@ -2,7 +2,7 @@
 
 [![release](https://img.shields.io/github/v/release/easyDong19/dongmodoro)](https://github.com/easyDong19/dongmodoro/releases/latest)
 
-주 → 오늘 계획과 뽀모도로 타이머를 한 화면에 둔 macOS 데스크톱 앱입니다. 로컬 전용이고
+주 → 오늘 계획과 뽀모 타이머를 한 화면에 둔 macOS 데스크톱 앱입니다. 로컬 전용이고
 로그인도 동기화도 없습니다.
 
 ![dongmodoro 메인 화면 — Milestone·캘린더, 타이머, Sprint·오늘 목록의 3컬럼 레이아웃](docs/assets/readme/hero-dark.png)
@@ -23,7 +23,7 @@ AI 에게 일을 시키면서 탭을 여러 개 띄워두고 여러 작업을 �
   시점에 숫자를 입력하는 자리가 없습니다.
 - **오늘 목록** — 지금 뭐부터 할지만 답합니다. Sprint 를 task 로 쪼개 드로어에서
   가져오는 것이 기본이고, 급한 일은 바로 추가할 수도 있습니다.
-- **뽀모도로 타이머** — 오늘 목록에서 골라 바로 돌립니다. 기록한 세션은 Sprint 카드의
+- **뽀모 타이머** — 오늘 목록에서 골라 바로 돌립니다. 기록한 세션은 Sprint 카드의
   측정 시간으로 되돌아옵니다.
 - **뽀모 길이 조절** — 타이머 카드의 `±` 칩으로 대기 중에 바꿉니다. 조절한 길이가 곧
   기준이 되고, 다음 세션부터 적용됩니다.
@@ -37,6 +37,8 @@ AI 에게 일을 시키면서 탭을 여러 개 띄워두고 여러 작업을 �
   물려받습니다. 접힌 카드는 타이틀바의 `MONTH` 버튼으로 열어 봅니다.
 - **다크·라이트 전환** — 테마 주인이 OS 가 아니라 앱입니다. 첫 페인트부터 고른 테마로
   뜹니다.
+- **데이터 초기화** — 앱 메뉴 `데이터 > 모든 데이터 초기화…` 로 처음 상태로 돌아갑니다.
+  확인을 한 번 거치고, 지우기 직전 DB 는 백업으로 남깁니다.
 
 트레이 상주는 아직 없습니다 — 창을 닫으면 앱이 종료됩니다. 창은 720px 아래로 줄어들지
 않습니다(그보다 좁은 1컬럼 화면은 아직 없습니다). 범위는 [PRODUCT.md](PRODUCT.md) 가
@@ -95,13 +97,16 @@ xattr -dr com.apple.quarantine /Applications/dongmodoro.app
 
 Node 22 LTS 이상, 패키지 매니저는 pnpm 만 씁니다
 ([ADR-004](docs/architecture/decisions/adr-004-packaging-deploy.md)) — npm·yarn 으로
-설치하면 네이티브 모듈 빌드 허용 설정이 적용되지 않습니다.
+설치하면 네이티브 모듈 빌드 허용 설정이 적용되지 않습니다. `better-sqlite3` 는 설치 때
+네이티브로 빌드되므로 macOS 에서는 Xcode Command Line Tools 가 있어야 하고, Xcode 라이선스에
+동의하지 않은 상태면 빌드가 실패합니다(`sudo xcodebuild -license`).
 
 ```bash
 pnpm install
 pnpm dev          # 개발 실행 (창이 뜹니다)
 pnpm test         # Vitest
-pnpm typecheck    # main·renderer 두 tsconfig 를 각각 검사
+pnpm test:e2e     # Playwright + Electron (빌드된 out/ 을 띄웁니다)
+pnpm typecheck    # main·renderer·e2e 세 tsconfig 를 각각 검사
 pnpm lint         # ESLint — 아키텍처 경계 규칙 포함
 pnpm build        # 프로덕션 빌드 (out/)
 ```
@@ -122,20 +127,32 @@ import 하거나, `src/main/db/` 밖에서 Drizzle 을 부르거나, 시간 모�
 
 1. [PRODUCT.md](PRODUCT.md) — 무엇을, 누구를 위해, 왜
 2. [CONTEXT.md](CONTEXT.md) — 용어. 건너뛰면 `정산` 과 `리뷰` 를 섞어 쓰게 됩니다
-3. [docs/features/README.md](docs/features/README.md) — 기능별 확정 기획
+3. [docs/features/README.md](docs/features/README.md) — 기능별 확정 기획과 각 기능의 상태
 4. [docs/architecture/overview.md](docs/architecture/overview.md) — 스택·프로세스 구조
 5. [docs/CLAUDE.md](docs/CLAUDE.md) — 문서 폴더별 책임 경계
 
 문서끼리 충돌하면 순서가 정해져 있습니다. `docs/origin/` 의 초안은 항상 지고
 `docs/features/` 의 확정 기획이 이깁니다. 시각 판단은
 [design-system/principles.md](docs/design-system/principles.md) 가 기능 문서를 이깁니다.
-`docs/plans/` 는 결정을 만들지 않고 참조만 하며, 구현이 끝난 계획은 지워서 진행 중인
-계획만 남깁니다. 결정이 뒤집히면 기존 ADR 을 고치지
-않고 superseded 표기 후 새 ADR 을 쌓습니다.
+결정이 뒤집히면 기존 ADR 을 고치지 않고 superseded 표기 후 새 ADR 을 쌓습니다.
+
+기능 문서마다 상태가 있습니다 — `Draft`(구현 전), `In Review`(구현됐지만 스펙과 코드의
+대조가 끝나지 않음), `Published`(대조까지 끝남). 문서를 코드의 설명으로 믿어도 되는 것은
+`Published` 뿐입니다 ([상태의 뜻](docs/CLAUDE.md#기능-상태의-뜻)).
+
+나머지 폴더의 역할:
+
+- [docs/decision-log/](docs/decision-log/) — 결정에 이른 과정. 기각된 선택지와 이유가
+  남습니다 (결론은 ADR 에)
+- [docs/tmp/](docs/tmp/) — 정식 기획 전의 백로그 메모. 만들면 지우므로 **아직 안 만든 것**만
+  남습니다
+- `docs/plans/` — 진행 중인 구현 계획서. 결정을 만들지 않고 참조만 하며, 구현 PR 이 끝나면
+  지웁니다
+- [docs/release-notes/](docs/release-notes/) — 버전별 릴리스 본문 원본
 
 코드부터 보는 편이 빠르면 `src/shared/ipc/contracts.ts` (프로세스 사이를 오가는 것의
 정의) → `src/main/ipc/handle.ts` (모든 IPC 가 지나는 한 지점) →
-`src/main/db/schema.ts` (테이블 6개, CHECK 34개) → `src/main/index.ts` (부팅 순서와
+`src/main/db/schema.ts` (테이블 6개, CHECK 33개) → `src/main/index.ts` (부팅 순서와
 실패 처리) 순이 짧습니다.
 
 기여 규칙은 [CONTRIBUTING.md](CONTRIBUTING.md), 에이전트 작업 규칙은
