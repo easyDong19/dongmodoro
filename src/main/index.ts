@@ -169,7 +169,7 @@ function confirmAndResetAllData(deps: {
     title: '모든 데이터를 지울까요?',
     message: '모든 데이터를 지울까요?',
     detail:
-      '주간 할당, 할 일, 집중 기록, 마일스톤, 설정이 모두 사라지고 앱이 처음 상태로 다시 시작해요.\n' +
+      'Sprint, 할 일, 집중 기록, Milestone, 설정이 모두 사라지고 앱이 처음 상태로 다시 시작해요.\n' +
       (sessionRunning ? '진행 중인 이 세션도 기록되지 않아요.\n' : '') +
       `지우기 직전 상태는 백업으로 남겨 둬요: ${userData}`,
     buttons: ['취소', '초기화'],

@@ -138,6 +138,7 @@ export function TodayList() {
         value={draft}
         onChange={(e) => setDraft(e.target.value)}
         placeholder="할 일을 바로 추가"
+        aria-label="할 일을 바로 추가"
         className="flex-1 rounded-md border border-control-border bg-glass px-3 py-1.5 text-sm text-ink"
       />
       <Button type="submit" variant="secondary" size="icon-sm" aria-label="추가">
