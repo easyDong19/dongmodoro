@@ -27,3 +27,4 @@
 | [planner-declarative-confirm-race.md](planner-declarative-confirm-race.md) | 플래너 선언형 확정의 동시성 약점 — 새 Sprint 생성 경로가 생길 때 |
 | [core-loop-e2e.md](core-loop-e2e.md) | 코어 루프 E2E 백필 — 막는 조건은 풀림 |
 | [timer-host-stop-pending-timeout.md](timer-host-stop-pending-timeout.md) | (버그) timer-host `stop()` 이 만료 타이머를 남김 — 지금은 우회 중 |
+| [spec-behavior-mismatches.md](spec-behavior-mismatches.md) | 스펙과 코드의 동작 어긋남 목록 — 항목마다 어느 쪽을 맞출지 정해야 Published 로 간다 |
