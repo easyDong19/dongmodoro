@@ -8,14 +8,17 @@
 
 | 기능 | 상태 | 진입점 | 보유 문서 | 한 줄 설명 |
 |---|---|---|---|---|
-| timer | Draft | [overview](./timer/overview.md) | prd, ux-spec | 집중·휴식 사이클과 세션 기록. 이 앱의 코어 루프 |
-| today-tasks | Draft | [overview](./today-tasks/overview.md) | prd | 오늘 목록 — 주간 조각을 가져와 지금 할 일을 고른다 |
-| week-plan | Draft | [overview](./week-plan/overview.md) | prd, ux-spec | 주간 할당 — 이번 주에 뭘 할지를 제목으로 잡고 요일에 배치한다 |
+| timer | In Review | [overview](./timer/overview.md) | prd, ux-spec | 집중·휴식 사이클과 세션 기록. 이 앱의 코어 루프 |
+| today-tasks | In Review | [overview](./today-tasks/overview.md) | prd | 오늘 목록 — 주간 조각을 가져와 지금 할 일을 고른다 |
+| week-plan | In Review | [overview](./week-plan/overview.md) | prd, ux-spec | 주간 할당 — 이번 주에 뭘 할지를 제목으로 잡고 요일에 배치한다 |
 | milestones | In Review | [overview](./milestones/overview.md) | prd | 월간 결과물. 수치 없이 상태로 기술 |
 | calendar-records | In Review | [overview](./calendar-records/overview.md) | prd | 월 캘린더 점과 날짜별 기록 열람 |
-| weekly-review | Draft | [overview](./weekly-review/overview.md) | prd, ux-spec, technical-spec | 주간 정산 — 판정·병합·처분 2택 |
-| pomo-baseline | Draft | [overview](./pomo-baseline/overview.md) | prd | 뽀모 길이 3종의 소유자 |
-| app-shell | Draft | [overview](./app-shell/overview.md) | prd, ux-spec | 창·레이아웃·반응형·트레이·수명주기 |
+| weekly-review | In Review | [overview](./weekly-review/overview.md) | prd, ux-spec, technical-spec | 주간 정산 — 판정·병합·처분 2택 |
+| pomo-baseline | In Review | [overview](./pomo-baseline/overview.md) | prd | 뽀모 길이 3종의 소유자 |
+| app-shell | In Review | [overview](./app-shell/overview.md) | prd, ux-spec | 창·레이아웃·반응형·트레이·수명주기 |
+
+상태 값의 뜻과 올라가는 조건은 [docs/CLAUDE.md](../CLAUDE.md#기능-상태의-뜻) 가 정한다.
+이 표·각 overview·meta.yaml 의 상태는 같은 값이어야 한다.
 
 `renderer/features/` 코드 슬라이스는 이 폴더 구조와 1:1 로 대응한다
 ([architecture/overview.md](../architecture/overview.md) 디렉토리 구조 참조).
