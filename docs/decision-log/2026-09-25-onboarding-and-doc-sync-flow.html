@@ -1,0 +1,186 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>의사결정 플로우 — 2026-09-25 온보딩 폐기와 문서·코드 동기화</title>
+<style>
+  :root {
+    --bg: #ffffff; --surface: #f7f8f8; --line: #d8dcda; --line-strong: #9aa3a0;
+    --text: #14201c; --muted: #6b7873;
+    --teal: #0f8a6d; --teal-soft: rgba(15,138,109,0.10);
+    --amber: #a76a12; --amber-soft: rgba(167,106,18,0.12);
+    --violet: #7c4fc4; --violet-soft: rgba(124,79,196,0.10);
+    --danger: #b3543f;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0c1a16; --surface: rgba(255,255,255,0.045); --line: rgba(255,255,255,0.14);
+      --line-strong: rgba(255,255,255,0.4); --text: #e8f0ec; --muted: #8fa39b;
+      --teal: #6fd4b8; --teal-soft: rgba(111,212,184,0.12);
+      --amber: #f0b671; --amber-soft: rgba(240,182,113,0.14);
+      --violet: #b795e8; --violet-soft: rgba(183,149,232,0.12);
+      --danger: #e8907e;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { background: var(--bg); color: var(--text); margin: 0;
+         padding: 32px 20px 64px;
+         font-family: ui-sans-serif, -apple-system, "Segoe UI", Roboto, sans-serif;
+         line-height: 1.6; }
+  .wrap { max-width: 800px; margin: 0 auto; }
+  h1 { font-size: 22px; margin: 0 0 6px; letter-spacing: -0.01em; }
+  .sub { color: var(--muted); font-size: 13px; margin: 0 0 8px; }
+  .sub a { color: var(--teal); }
+  .intro { font-size: 14px; background: var(--surface); border: 1px solid var(--line);
+           border-radius: 12px; padding: 14px 18px; margin: 18px 0 0; }
+  .intro b { color: var(--teal); }
+
+  .legend { display: flex; gap: 14px; flex-wrap: wrap; font-size: 12px; color: var(--muted);
+            margin: 14px 0 0; padding: 12px 0; border-bottom: 1px solid var(--line); }
+  .chip { display: inline-block; padding: 1px 8px; border-radius: 999px; font-size: 11px;
+          font-weight: 600; letter-spacing: 0.02em; vertical-align: 1px; }
+  .chip.rev { background: var(--amber-soft); color: var(--amber); }
+  .chip.exp { background: var(--violet-soft); color: var(--violet); }
+  .chip.sys { background: var(--teal-soft); color: var(--teal); }
+
+  .phase { margin-top: 40px; }
+  .phase-title { font-size: 12px; font-weight: 700; letter-spacing: 0.1em;
+                 color: var(--muted); text-transform: uppercase; margin: 0 0 4px 46px; }
+  .phase-desc { font-size: 13px; color: var(--muted); margin: 0 0 8px 46px; }
+
+  .node { display: flex; gap: 16px; }
+  .rail { width: 30px; flex-shrink: 0; display: flex; flex-direction: column; align-items: center; }
+  .dot { width: 12px; height: 12px; border-radius: 50%; background: var(--teal);
+         border: 2px solid var(--bg); box-shadow: 0 0 0 1.5px var(--teal); margin-top: 22px;
+         flex-shrink: 0; }
+  .dot.sys { background: var(--bg); box-shadow: 0 0 0 1.5px var(--line-strong); }
+  .dot.rev { background: var(--amber); box-shadow: 0 0 0 1.5px var(--amber); }
+  .rail .cont { width: 2px; flex: 1; background: var(--line); margin-top: 4px; }
+  .node:last-child .rail .cont { background: linear-gradient(var(--line), transparent); }
+
+  .card { flex: 1; background: var(--surface); border: 1px solid var(--line);
+          border-radius: 12px; padding: 16px 20px; margin: 8px 0; min-width: 0; }
+  .card.sys { background: transparent; border-style: dashed; }
+  .qid { font: 700 11px ui-monospace, Menlo, monospace; color: var(--muted);
+         letter-spacing: 0.06em; }
+  .qtitle { font-size: 15px; font-weight: 650; margin: 2px 0 10px; }
+
+  .sec-label { display: block; font-size: 11px; font-weight: 700; letter-spacing: 0.08em;
+               color: var(--muted); text-transform: uppercase; margin: 12px 0 3px; }
+  .problem { font-size: 13.5px; margin: 0; }
+  .problem em { font-style: normal; color: var(--danger); }
+
+  ul.options { list-style: none; padding: 0; margin: 4px 0 0; }
+  ul.options li { font-size: 13px; padding: 7px 10px 7px 30px; position: relative;
+                  border-radius: 8px; margin: 3px 0; color: var(--muted); }
+  ul.options li::before { content: "○"; position: absolute; left: 10px; color: var(--line-strong); }
+  ul.options li.chosen { background: var(--teal-soft); color: var(--text); }
+  ul.options li.chosen::before { content: "●"; color: var(--teal); }
+  ul.options li b { font-weight: 650; }
+  ul.options li .tr { color: var(--muted); }
+
+  .decision { font-size: 13.5px; margin: 4px 0 0; }
+  .decision b { color: var(--teal); }
+  .why { font-size: 13px; margin: 4px 0 0; padding: 8px 12px; border-left: 3px solid var(--amber);
+         background: var(--amber-soft); border-radius: 0 8px 8px 0; }
+  .why q { font-style: normal; }
+  .dep { font-size: 12.5px; color: var(--muted); margin-top: 12px; padding-top: 10px;
+         border-top: 1px dashed var(--line); }
+  .dep code, .problem code, .decision code {
+    font-family: ui-monospace, Menlo, monospace; font-size: 12px;
+    background: none; color: var(--teal); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>의사결정 플로우</h1>
+  <p class="sub">2026-09-25 온보딩 폐기와 문서·코드 동기화 · 시간순 · 결정 원문 기록: <a href="./2026-09-25-onboarding-and-doc-sync.md">2026-09-25-onboarding-and-doc-sync.md</a></p>
+
+  <div class="intro">
+    <b>이 문서가 다루는 것:</b> 끝난 계획서를 정리한 직후, 스펙이 코드와 어긋난 곳을 점검하면서
+    내린 결정들이다. 핵심은 <b>한 번도 구현된 적 없는 첫 실행 온보딩 화면을 폐기한 것</b>이다.
+    각 카드는 <b>문제 → 고민한 선택지 → 결정(왜)</b> 순서로 읽으면 된다. ● 표시가 최종 선택이다.
+  </div>
+
+  <div class="legend">
+    <span><span class="chip rev">반전</span> AI 추천을 기각했거나 선택을 번복한 지점</span>
+    <span><span class="chip exp">재설명</span> 결정 전에 상세 설명·분석을 요구한 지점</span>
+    <span><span class="chip sys">검증</span> 코드·git 이력 대조로 사실을 확인한 지점</span>
+    <span>점선 카드 = 질문이 아닌 이벤트</span>
+  </div>
+
+  <div class="phase">
+    <p class="phase-title">1 · 결정 — 문서끼리 어긋난 온보딩</p>
+    <p class="phase-desc">남은 문서 작업을 4단계로 정리해 보고했고, 사용자가 그중 "결정이 필요한" 항목의 상세 설명을 요구했다.</p>
+
+    <div class="node">
+      <div class="rail"><div class="dot"></div><div class="cont"></div></div>
+      <div class="card">
+        <span class="qid">Q1 <span class="chip exp">재설명</span></span>
+        <p class="qtitle">첫 실행 온보딩 화면을 어떻게 하나</p>
+        <span class="sec-label">문제</span>
+        <p class="problem">길이 규칙의 소유자(pomo-baseline PRD R11, ADR-033 §3)는 "편집 경로는 대기 중인
+        타이머 하나, 기본값은 시딩"으로 이미 정리돼 있었다. 그런데 app-shell R31·A23·ux-spec §7.1 과
+        PRODUCT.md 는 여전히 <em>"온보딩이 편집 경로 중 하나"</em>라고 적었다. 스펙대로 구현하면
+        편집 경로가 다시 둘이 된다.</p>
+        <span class="sec-label">선택지</span>
+        <ul class="options">
+          <li class="chosen"><b>온보딩 폐기 (AI 추천)</b> — <span class="tr">소유자 쪽에 나머지를 맞춘다.
+            대신 "길이를 바꿀 수 있다"는 안내는 ± 칩의 가시성에 기댄다</span></li>
+          <li><b>유지 + ADR-033 부분 개정</b> — <span class="tr">처음부터 자기 리듬으로 시작. 대신 온보딩 값과
+            ± 칩의 관계, ADR-018 을 다시 정해야 한다</span></li>
+          <li><b>보류</b> — <span class="tr">결정을 미룬다. 불일치는 남는다</span></li>
+        </ul>
+        <span class="sec-label">결정</span>
+        <p class="decision"><b>폐기.</b> R31·A23 은 번호를 남긴 채 폐기 표기, ux-spec §7.1 은 폐기 노트로.
+        새 ADR 은 만들지 않는다 — 결론은 ADR-033 §3 이 이미 갖고 있다.</p>
+        <div class="why"><q>1번 온보딩 폐기하자</q></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="phase">
+    <p class="phase-title">2 · 실행 — 같은 PR 의 범위를 좁힌 두 판단</p>
+    <p class="phase-desc">사실 정정을 함께 하면서, AI 가 정할 수 없는 것과 분량이 큰 것을 뺐다.</p>
+
+    <div class="node">
+      <div class="rail"><div class="dot"></div><div class="cont"></div></div>
+      <div class="card">
+        <span class="qid">Q2 <span class="chip sys">검증</span></span>
+        <p class="qtitle">옛 UI 용어(#86) 동기화를 이번에 함께 하나</p>
+        <span class="sec-label">문제</span>
+        <p class="problem">#85 가 없앤 <code>+ 오늘로</code> 버튼(동작 차이)과 #86 이 바꾼 문구(<code>조각</code> 만
+        143곳)가 섞여 있었다. PR 설명을 읽고 코드와 대조해 확인했다.</p>
+        <span class="sec-label">결정</span>
+        <p class="decision"><b><code>+ 오늘로</code> 만 이번에, 용어 동기화는 별도 PR.</b> 동작이 다른 쪽이 AI 가
+        없앤 기능을 되살릴 위험이 크다. today-tasks R20 카피는 지어내지 않고 "다시 써야 한다" 경고만 달았다.</p>
+      </div>
+    </div>
+
+    <div class="node">
+      <div class="rail"><div class="dot"></div><div class="cont"></div></div>
+      <div class="card">
+        <span class="qid">Q3</span>
+        <p class="qtitle">기능 상태(Draft·In Review·Published)를 이번에 맞추나</p>
+        <span class="sec-label">문제</span>
+        <p class="problem">docs/CLAUDE.md 는 상태 값 3개를 나열만 하고 <em>뜻을 정의하지 않는다.</em>
+        값을 고르는 순간 정의를 새로 만드는 셈이다.</p>
+        <span class="sec-label">결정</span>
+        <p class="decision"><b>빼고 사용자에게 묻는다.</b></p>
+      </div>
+    </div>
+
+    <div class="node">
+      <div class="rail"><div class="dot rev"></div><div class="cont"></div></div>
+      <div class="card sys">
+        <span class="qid">정정 <span class="chip rev">반전</span></span>
+        <p class="qtitle">기타 행의 "캐럿 없음" — 잘못 고쳤다가 되돌림</p>
+        <p class="problem">week-plan ux-spec §3.4 의 "pull 버튼 없음"을 "캐럿 없음"으로 바꿨으나, §3.4 는
+        드릴다운용 캐럿을 정의하고 있어 <em>스펙과 충돌했다.</em> 커밋 전에 되돌렸다.</p>
+      </div>
+    </div>
+  </div>
+</div>
+</body>
+</html>
